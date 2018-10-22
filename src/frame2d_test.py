@@ -188,7 +188,7 @@ def test5():
     
     
 def test6():
-    frame = Frame2D(num_elements=3)
+    frame = Frame2D(num_elements=6)
     coord1 = [[0,0],[0,1]]
     coord2 = [[0,1], [1,1]]
     coord3 = [[1,0],[1,1]]
@@ -210,7 +210,7 @@ def test6():
     frame.add(FixedSupport(supp_coord2))
     frame.generate()
     frame.calculate()
-    frame.plot()
+    #frame.plot()
     """
     frame = Frame2D(simple=[1,1,1,1], supports='fixed', num_elements=3)
     for member in frame.members.values():
@@ -221,9 +221,10 @@ def test6():
     frame.generate()
     frame.calculate()
     """
-    for node in frame.nodal_displacements.keys():
-        print(node, "  ", frame.nodal_displacements[node])
-    #print(frame.nodal_displacements)
+
+    print(frame.members[2].nodal_forces)
+    frame.bmd(25)
+
     
 
 if __name__ == '__main__':

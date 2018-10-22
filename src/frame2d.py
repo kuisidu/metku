@@ -1554,27 +1554,48 @@ class FrameMember(SteelMember):
         X = []
         Y = []
         self.calc_nodal_forces()
-        X.append(self.nodal_coordinates[0][0])
-        Y.append(self.nodal_coordinates[0][1])
+
+        moment_values = [x[2] for x in self.nodal_forces.values()]
         node_ids = list(self.nodes.keys())
+        x = self.nodal_coordinates[0][0]
+        y = self.nodal_coordinates[0][1]
+        X.append(x)
+        Y.append(y)
         for i in range(len(self.nodes)):
             node = node_ids[i]
             if self.mtype == "beam":
                 x0 = self.nodal_coordinates[i][0]
                 y0 = self.nodal_coordinates[i][1]
-                y1 = self.nodal_forces[node][2] / (1000 / scale)
+                bending_moment = self.nodal_forces[node][2]
+                y1 = bending_moment / (1000 / scale)
                 x = x0
                 y = y0 - y1
                 X.append(x)
                 Y.append(y)
+                if i == 0 or i == len(self.nodes)-1 or bending_moment == max(moment_values) or\
+                                bending_moment == min(moment_values):
+                    if bending_moment > 0:
+                        vert = 'top'
+                    else:
+                        vert = 'bottom'
+                    plt.text(x, y, f'{bending_moment:.2f} kNm', verticalalignment=vert)
+
             elif self.mtype == "column":
                 x0 = self.nodal_coordinates[i][0]
                 y0 = self.nodal_coordinates[i][1]
-                x1 = self.nodal_forces[node][2] / (1000 / scale)
+                bending_moment = self.nodal_forces[node][2]
+                x1 = bending_moment / (1000 / scale)
                 x = x0 + x1
                 y = y0
                 X.append(x)
                 Y.append(y)
+                if i == 0 or i == len(self.nodes)-1 or bending_moment == max(moment_values) or\
+                                bending_moment == min(moment_values):
+                    if bending_moment > 0:
+                        horz = 'left'
+                    else:
+                        horz = 'right'
+                    plt.text(x, y, f'{bending_moment:.2f} kNm', horizontalalignment=horz)
         X.append(self.nodal_coordinates[i][0])
         Y.append(self.nodal_coordinates[i][1])
         plt.plot(X, Y, color='gray')
