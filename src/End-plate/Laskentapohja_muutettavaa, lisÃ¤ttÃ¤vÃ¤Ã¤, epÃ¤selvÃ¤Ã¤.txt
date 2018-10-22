@@ -1,0 +1,27 @@
+Ep‰selv‰‰:
+-------------------------------------------------------------------------------------------
+ - Saako alfa menn‰ yli 8?
+    - Oman k‰sityksen mukaan saa
+
+
+Muutettavaa:
+-------------------------------------------------------------------------------------------
+ - Cost data: K‰yd‰ arvot l‰pi
+ - optimointiin rajoitusehdoiksi mukaan leikkauksen k‰yttˆaste
+ - Laipan hitsin m‰‰ritys tasalujana palkin kapasiteetin mukaan
+
+Lis‰tt‰v‰‰:
+-------------------------------------------------------------------------------------------
+ - Leikkauspala!
+ - Maininta esikiristyksest‰!
+
+
+Ei kiireellisi‰ asioita:
+-------------------------------------------------------------------------------------------
+ - (Kuvan piirt‰minen niin, ett‰ molemmat puolet on huomioituna (ei vaikuta muuten laskentapohjan toimintaan, ei kiirrullinen))
+ - (Beam() luokka cross_section() luokan alle (voi muuttaa myˆhemmin, ei t‰ss‰ vaiheessa t‰rke‰‰))
+ - (Geometria check (tarvittaessa, menee varmaan ilmankin))
+ - (Drilling cost class (j‰tet‰‰n luultavimmin pois, ruuvien reikien teko otettu huomioon p‰‰tylevyn reikien teossa, eli oletuksena
+			ett‰ rei‰t tehd‰‰n plasmalla leikkaamalla (reikien leikkauspituus kerrottu kahdella)))
+ - (Add update for column and beam, ei tarvita jos pilari- ja palkkikoko pysyv‰t vakioina liitosmitoituksessa (optimoinnissa))
+ - (Add check for duplicate rows, ei tarvita jos optimointi suoritetaan erikseen eri ruuvikoko-m‰‰r‰ kombinaatioille)
