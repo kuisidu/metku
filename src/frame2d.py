@@ -1163,7 +1163,6 @@ class FrameMember(SteelMember):
         if coord not in self.nodal_coordinates and\
         self.coordinates[0][0] <= coord[0] <= self.coordinates[1][0] and\
         self.coordinates[0][1] <= coord[1] <= self.coordinates[1][1]:
-            print(self.mem_id, "  ", coord)
             self.nodal_coordinates.append(coord)
             self.nodal_coordinates = sorted(self.nodal_coordinates)
             x, y = coord
@@ -1798,9 +1797,6 @@ class LineLoad(Load):
             fem_model.add_load(load)
 
             v0 = v1
-        for i, elem_id in enumerate(self.member.elements.keys()):
-            print("v0 i v1", v0, v1)
-
 
 # --------------------------- SUPPORT CLASSES ----------------------------
 class Support:
