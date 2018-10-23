@@ -70,7 +70,7 @@ def test2():
 
 def test3():
     # SIMPLE = [storeys, bays, storey height, bay length]
-    frame = Frame2D(simple=[2,1,2,2], supports='fixed', num_elements=5)
+    frame = Frame2D(simple=[2,1,2,2], supports='fixed', num_elements=4)
     for member in frame.members.values():
         if member.mtype == 'beam':
             frame.add(LineLoad(member, [-50, -50], 'y'))
@@ -83,7 +83,7 @@ def test3():
     for member in frame.members.values():
         member.plot_results()
     frame.plot()
-    frame.bmd(200)
+    frame.bmd(20)
 
 def test4():
     
@@ -228,7 +228,7 @@ def test6():
     
 
 if __name__ == '__main__':
-    test6()
+    test3()
     """
     frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():
