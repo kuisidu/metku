@@ -5,15 +5,14 @@ import math
 import numpy as np
 
 import eurocode3
-from eurocodes.steel import en1993_1_1
 from sections.steel.steel_section import SteelSection
-
+from eurocodes.en1993 import en1993_1_1
+from eurocodes.en1993 import constants
 
 class SteelMember:
     """ Steel members accroding to EN 1993
         
-        
-        
+              
         Methods implemented in separate m files       
         % Computes the cost
         c = MemberCost(self)
@@ -92,7 +91,8 @@ class SteelMember:
     def LT_slenderness(self,Mcr):
         """ Non-dimensional slenderness for lateral-torsional buckling.
         """
-        MRd = self.profile.bending_resistance()
+        MRd = self.profile.bending_resistance()[0]
+        #print("MRd: {}, Mcr: {}".format(MRd, Mcr))
         lambdaLT = math.sqrt(MRd/Mcr)
         return lambdaLT
     
@@ -102,6 +102,8 @@ class SteelMember:
         slend = self.slenderness()
         NbRd = []
         NRd = self.profile.A*self.fy()
+        #self.profile.imp_factor()
+        #print(slend)
         #p = 0.5*(1+np.array(self.profile.imp_factor)*(slend-0.2)+slend**2)
         #r = 1/(p+np.sqrt(p**2-slend**2))
         
@@ -115,11 +117,14 @@ class SteelMember:
     
     def LT_buckling_strength(self,Mcr):
         """ Member lateral-torsional bending strength """
-        lambdaLT = self.LTSlenderness(Mcr)
-        alpha = self.profile.ImperfectionLT
-        p = 0.5*(1+alpha*(lambdaLT-0.2)+lambdaLT**2)
+        lambdaLT = self.LT_slenderness(Mcr)
+        #self.profile.define_imp_factor_LT()
+        #alpha = self.profile.ImperfectionLT
+        alpha = self.profile.imp_factor
+        # alpha[0] is the imperfection factor about y-axis
+        p = 0.5*(1+alpha[0]*(lambdaLT-0.2)+lambdaLT**2)
         chiLT = min(1./(p+math.sqrt(p**2-lambdaLT**2)),1.0)
-        MbRd = chiLT*self.profile.BendingResistance
+        MbRd = chiLT*self.profile.bending_resistance()[0]
         return MbRd
         
     def weight_per_length(self):
@@ -127,14 +132,13 @@ class SteelMember:
             
             Default units: kg/mm
         """
-        w = self.profile.A*eurocode3.density
+        w = self.profile.A*constants.density
         return w
         
     def weight(self):
         """ Weight of the member (kg) """
         w = self.weight_per_length*self.length
         return w
-
 
     def mcrit(self,C=[1.12,0.45],za=0,k=[1,1]):
         """ Critical moment for lateral-torsional buckling
@@ -158,7 +162,8 @@ class SteelMember:
         G = eurocode3.G;
         L = self.length;
             
-        Mcr = C[0]*math.pi**2*E*Iz/((kz*L)**2)*(math.sqrt((kz/kw)**2*Iw/Iz + (kz*L)**2*G*It/(math.pi**2*E*Iz) + (C[1]*zg)**2)-C[1]*zg)
+        Mcr = C[0]*math.pi**2*E*Iz/((kz*L)**2)*(math.sqrt((kz/kw)**2*Iw/Iz +
+               (kz*L)**2*G*It/(math.pi**2*E*Iz) + (C[1]*zg)**2)-C[1]*zg)
 
         return Mcr
 
@@ -187,7 +192,9 @@ class SteelMember:
         r = []
         for n in range(self.nsect()):
             r.append(self.check_section(n,class1or2))
-                
+        return r
+        
+            
     def check_buckling(self):
         """ Verify buckling resistance
             output: r .. utilization ratio for buckling        
@@ -207,11 +214,27 @@ class SteelMember:
             r = abs(NEd)/NbRd
         
         return r
+    
+    def check_LT_buckling(self):
+        """ Verify lateral torsional buckling resistance
+            output: r .. utilization ratio for buckling        
+        """
+      
         
+        MEd1 = np.max(np.array(self.myed))
+        MEd2 = abs(np.min(np.array(self.myed)))
+        MEd = max(MEd1, MEd2)
+        MbRd = self.LT_buckling_strength(self.mcrit())            
+        r = abs(MEd)/MbRd
+        
+        return r
+        
+
+    
     def check_beamcolumn(self,Cmy=0.9,class1or2=False):
         """ Verify stability for combined axial force and bending moment
         """
-        
+"""        
 # For testing
 if __name__ == "__main__":
     import sys
@@ -232,3 +255,4 @@ if __name__ == "__main__":
     
     #m.check_sections()
     m.check_buckling()
+    """

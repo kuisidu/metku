@@ -1,3 +1,6 @@
+import sys
+sys.path.append(".\src")
+
 from frame2d import Frame2D, SteelBeam, SteelColumn, PointLoad,\
      FixedSupport, XHingedSupport, LineLoad, YHingedSupport, Hinge
 
@@ -228,7 +231,7 @@ def test6():
     
 
 if __name__ == '__main__':
-    test3()
+    test5()
     """
     frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():

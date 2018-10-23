@@ -6,7 +6,8 @@ Created on Fri Jan 19 10:39:56 2018
 import sys
 
 # path needs to be added to use tables_and_tuples and I_sections
-sys.path.append('.\End-plate')
+sys.path.append('../End-plate')
+sys.path.append("../")
 
 import numpy as np
 import math
@@ -20,7 +21,7 @@ from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM
 from sections.steel.RHS import RHS, SHS
 from sections.steel.CHS import CHS
 
-from steel_member import SteelMember
+from structures.steel.steel_member import SteelMember
 
 import pandas as pd
 from tkinter import Tk
@@ -1387,7 +1388,6 @@ class FrameMember(SteelMember):
             Gives boolean value for self.is_strong_enough
             Saves list of stress ratios to self.r
         """
-        self.r = []
         
         if not self.steel_member.nsect():
             for i, node in enumerate(self.nodal_forces.keys()):
