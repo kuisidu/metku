@@ -297,10 +297,13 @@ class FrameFEM:
             and return stiffness matrix
         """
         u,K = self.linear_statics(lcase)
-        KG = self.global_geometric_stiffness_matrix()        
-        w,v = sp.eigsh(K,k=k,M=-KG,sigma=0.0,which='LA',mode='normal')
+        KG = self.global_geometric_stiffness_matrix()
+        # v0 -- initial guess is set to np.ones -matrix,
+        # this makes sure that w and v values doesn't change
+        # after consecutive runs, default v0 is matrix with random values
+        w,v = sp.eigsh(K, k=k, M=-KG, sigma=0.0, which='LA', mode='normal', v0=np.ones(self.dofs))
         #w,v = sp.eigvals(K,b=-KG)
-        
+
         """ Distribute buckling displacements to nodes """
         for node in self.nodes:
             # Get nodal dofs

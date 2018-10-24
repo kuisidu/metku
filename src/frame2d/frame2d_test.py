@@ -258,6 +258,19 @@ def test8():
     frame.calculate()
     frame.plot_buckling(50, 2)
 
+def test9():
+    frame = Frame2D(simple=[1,1,4,4], supports='fixed', num_elements=2)
+    for member in frame.members.values():
+        member.profile = 'ipe 80'
+    frame.add(PointLoad([4,2], [70, 0, 0]))
+    frame.add(PointLoad([2,5.5], [0, -80, 0]))
+    #frame.members[2].Sj2 = 1e-6
+    frame.generate()
+    frame.members[0].coordinates = [[0, 0], [0,7]]
+    frame.calculate()
+    #frame.f.draw()
+
+    frame.plot_buckling(20,2)
 if __name__ == '__main__':
     test8()
     """

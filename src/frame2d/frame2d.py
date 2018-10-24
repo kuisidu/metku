@@ -674,6 +674,7 @@ class Frame2D:
                 plt.plot(X, Y, color='m')
             plt.title(f'Buckling shape {j+1},  ' r"$\alpha_{cr}$" f' = {w[j]*1000:.2f}')
             plt.show()
+
     def bmd(self, scale=1):
         """ Draws bending moment diagram
             
@@ -891,11 +892,6 @@ class FrameMember(SteelMember):
         # Create SteelMember object
         self.steel_member = SteelMember(self.cross_section, self.length,
                                    Lcr=[1.0, 1.0], mtype=self.mtype)
-
-
-    def delete(self):
-        del self.loads
-        del self
 
 
     @property
