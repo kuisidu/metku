@@ -46,15 +46,10 @@ frame.add(FixedSupport(supp_coord2, supp_id=2))
 frame.generate()
 
 #col1.profile = 'HE 200 A'
-frame.plot()
 
 # Calculate result
 frame.calculate()
 #print(frame.nodal_forces[2])
-
-#frame.f.draw()
-frame.bmd(20)
-#frame.plot_deflection()
 
 
 
