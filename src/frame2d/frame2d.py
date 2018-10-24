@@ -302,6 +302,10 @@ class Frame2D:
             member.design_member()
 
         self.check_members_strength()
+
+    def delete_member(self, id):
+        member = self.members[id]
+        member.delete()
                 
     def generate_nodes(self):
         """ Generates nodes to coordinates in self.nodal_coordinates
@@ -388,13 +392,26 @@ class Frame2D:
         self.generate_beams()
 
     def generate_supports(self, supp_type):
-        if supp_type == 'fixed':
+        supp_type = supp_type.upper()
+        if supp_type == 'FIXED':
             for coord in self.nodal_coordinates:
                 if coord[1] == 0:
                     self.add(FixedSupport(coord))
 
-        elif supp_type == 'hingedY':
-            pass
+        elif supp_type == 'YHINGED':
+            for coord in self.nodal_coordinates:
+                if coord[1] == 0:
+                    self.add(YHingedSupport(coord))
+
+        elif supp_type == 'XHINGED':
+            for coord in self.nodal_coordinates:
+                if coord[1] == 0:
+                    self.add(XHingedSupport(coord))
+
+        elif supp_type == 'XYHINGED':
+            for coord in self.nodal_coordinates:
+                if coord[1] == 0:
+                    self.add(XYHingedSupport(coord))
 
     def generate(self):
         """ Generates the frame
@@ -655,7 +672,7 @@ class Frame2D:
                     Y.append(y)
                     
                 plt.plot(X, Y, color='m')
-            plt.title(f'Buckling shape {j+1}')
+            plt.title(f'Buckling shape {j+1},  ' r"$\alpha_{cr}$" f' = {w[j]*1000:.2f}')
             plt.show()
     def bmd(self, scale=1):
         """ Draws bending moment diagram
@@ -862,6 +879,7 @@ class FrameMember(SteelMember):
         self.ved = 0
         self.med = 0
         self.has_load = False
+        self.loads = []
         self.is_designed = False
         self.is_strong_enough = False
         self.r = 1
@@ -873,6 +891,11 @@ class FrameMember(SteelMember):
         # Create SteelMember object
         self.steel_member = SteelMember(self.cross_section, self.length,
                                    Lcr=[1.0, 1.0], mtype=self.mtype)
+
+
+    def delete(self):
+        del self.loads
+        del self
 
 
     @property
@@ -1768,6 +1791,7 @@ class LineLoad(Load):
             self.member.q0 = values[0]
             self.member.q1 = values[1]
             coordinates = self.member.coordinates
+            self.member.loads.append(self)
         else:
             self.mem_id = None
             self.member = None

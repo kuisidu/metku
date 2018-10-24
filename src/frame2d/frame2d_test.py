@@ -4,7 +4,6 @@ sys.path.append(".\src")
 from frame2d import Frame2D, SteelBeam, SteelColumn, PointLoad,\
      FixedSupport, XHingedSupport, LineLoad, YHingedSupport, Hinge
 
-#from anna_optimization_frame2d import optimization
 import random
 import time
 import matplotlib.pyplot as plt
@@ -56,7 +55,7 @@ def test1():
     #print(frame.nodal_forces[2])
 
     #frame.f.draw()
-    frame.bmd(20)
+    frame.bmd(10)
     #frame.plot_deflection()
 """
 def test2():
@@ -228,10 +227,39 @@ def test6():
     print(frame.members[2].nodal_forces)
     frame.bmd(25)
 
-    
+def test7():
+    frame = Frame2D(simple=[1,1,1,1], supports='fixed', num_elements=4)
+    frame.add(LineLoad(frame.members[2], [-50, -50], 'y'))
+    print(frame.members[2].loads)
+    print(frame.line_loads)
+    frame.generate()
+    frame.plot()
+    frame.delete_member(2)
+    frame.plot()
+    frame.add(SteelBeam([[0,1],[1,2]]))
+    frame.add(SteelColumn([[1,1], [1,2]]))
+    frame.add(PointLoad([1,2], [-50, 0, 0]))
+
+def test8():
+    frame = Frame2D(simple=[1, 2, 10, 14], supports='xyhinged', num_elements=10)
+    for member in frame.members.values():
+        if member.mtype == 'beam':
+            member.profile = 'he 550 a'
+            frame.add(LineLoad(member, [-33, -33], 'y'))
+        elif member.mtype == 'column':
+            member.profile = 'he 300 b'
+            if member.mem_id == 0:
+                frame.add(LineLoad(member, [4, 4], 'x'))
+            elif member.mem_id == 2:
+                frame.add(LineLoad(member, [2, 2], 'x'))
+
+    #frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
+    frame.generate()
+    frame.calculate()
+    frame.plot_buckling(50, 2)
 
 if __name__ == '__main__':
-    test1()
+    test8()
     """
     frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():
