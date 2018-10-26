@@ -2,14 +2,19 @@ import sys
 sys.path.append(".\src")
 
 from frame2d import Frame2D, SteelBeam, SteelColumn, PointLoad,\
-     FixedSupport, XHingedSupport, LineLoad, YHingedSupport, Hinge
+     FixedSupport, XHingedSupport, LineLoad, YHingedSupport, XYHingedSupport
 
 import random
+from decimal import Decimal
+import numpy as np
 import time
 import matplotlib.pyplot as plt
+import copy
 
 def test1():
-
+    """
+    Test for creating frame
+    """
     # Coordinates of members, loads and supports
     coord1 = [[0,1], [1,1]]
     coord2 = [[1,0], [1,1]]
@@ -259,6 +264,9 @@ def test8():
     frame.plot_buckling(50, 2)
 
 def test9():
+    """
+    Test for buckling shape plotting
+    """
     frame = Frame2D(simple=[1,1,4,4], supports='fixed', num_elements=2)
     for member in frame.members.values():
         member.profile = 'ipe 80'
@@ -271,8 +279,56 @@ def test9():
     #frame.f.draw()
 
     frame.plot_buckling(20,2)
+    
+    
+def test10():
+    frame = Frame2D(num_elements=2)
+    
+    coord1 = [[0,1], [5,2]]
+    coord2 = [[0,0], [5,0]]
+    
+    top_chord = SteelBeam(coord1)
+    bottom_chord = SteelBeam(coord2)
+    
+    members = 7
+    
+
+    dx = coord1[1][0]/(members-1)
+    y = lambda x: x*(coord1[1][1]- coord1[0][1]) / (coord1[1][0]- coord1[0][0])+coord1[0][1]
+    c1 = copy.copy(coord1[0])
+    c2 = copy.copy(coord2[0])
+    for i in range(members):       
+        if i%2 == 0:
+            if i!= 0:               
+                c1[0] += float(Decimal(2*dx))
+                c1[1] = y(c1[0])
+        else:
+            c2[0] += float(Decimal(2*dx))
+        if c1[0] > coord1[1][0] or c1[1] > coord1[1][1]:
+            c1 = copy.copy(coord1[1])
+        if c2[0] > coord2[1][0] or c2[1] > coord2[1][1]:
+            c2 = copy.copy(coord2[1])
+            
+
+        member = SteelBeam([c1, c2])
+        frame.add(member)
+        
+    
+    
+    frame.add(top_chord)
+    frame.add(bottom_chord)
+    frame.add(LineLoad(top_chord, [-50, -50], 'y'))
+    frame.add(XYHingedSupport(coord2[0]))
+    frame.add(YHingedSupport(coord2[1]))
+    frame.generate()
+    frame.hinge_joints()
+    frame.plot()
+    frame.calculate()
+    frame.bmd()
+    frame.f.draw()
+
 if __name__ == '__main__':
-    test8()
+    test10()
     """
     frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():

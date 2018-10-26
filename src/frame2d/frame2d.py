@@ -13,6 +13,8 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
+from decimal import Decimal
+
 import fem.frame.frame_fem as fem
 from fem.frame.elements.ebbeam import EBBeam
 from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
@@ -192,9 +194,10 @@ class Frame2D:
                 if isinstance(coord, list):
                     this.add_node_coord(coord)
                     member.add_node_coord(coord)
-
-            self.nodal_coordinates.extend(this.nodal_coordinates)
-            self.nodal_coordinates.sort()
+                    
+            if this.nodal_coordinates not in self.nodal_coordinates:
+                self.nodal_coordinates.extend(this.nodal_coordinates)           
+                self.nodal_coordinates.sort()
 
         # POINTLOADS
         elif isinstance(this, PointLoad):
@@ -862,7 +865,7 @@ class FrameMember(SteelMember):
         self.cross_section = None
         self.__profile = profile
         self.profile = profile
-        self.profile_idx = PROFILES.index(self.profile)
+        #self.profile_idx = PROFILES.index(self.profile)
         self.length = self.calc_length()
         self.mem_id = mem_id
         self.mtype = ""
@@ -1208,8 +1211,8 @@ class FrameMember(SteelMember):
                 self.nodes[idx] = fem_model.nodes[idx]
             if not self.n1:
                 self.n1 = fem_model.nodes[idx]
-        if not self.n2:
-            self.n2 = fem_model.nodes[idx]
+            if not self.n2:
+                self.n2 = fem_model.nodes[idx]
 
     def generate_elements(self, fem_model):
         """ Generates elements between nodes
@@ -1462,13 +1465,13 @@ class FrameMember(SteelMember):
         Calculates coordinate where two members intersect
         :param coordinates: array of two arrays of two float values, [[x1,y1],[x2,y2]]
         :return [px, py]: array of two float values, coordinates for intersection
+        source: https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
         """
-        # source: https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
         x1, y1 = self.coordinates[0]
         x2, y2 = self.coordinates[1]
         x3, y3 = coordinates[0]
         x4, y4 = coordinates[1]
-
+        
         if ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)) == 0:
             return None
         else:
@@ -1477,17 +1480,14 @@ class FrameMember(SteelMember):
             py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / (
                 (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
 
-            #if  self.coordinates[0][0] < px < self.coordinates[1][0] and \
-             #   self.coordinates[0][1] < py < self.coordinates[1][1]:
+            return [float(px), float(py)]
 
-            return [px, py]
-            #else:
-            #    return None
 
     def point_intersection(self, coordinate):
-        
-        #Calculates point where member and point load intersect
-        #:param coordinate: array of two float values
+        """
+        Calculates point where member and point load intersect
+        :param coordinate: array of two float values
+        """
         
         x1, y1 = self.coordinates[0]
         x2, y2 = self.coordinates[1]
