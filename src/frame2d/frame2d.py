@@ -899,7 +899,7 @@ class FrameMember(SteelMember):
 
     @property
     def coordinates(self):
-        if self.n1:
+        if self.n1 and self.n2:
             if self.__coordinates != [list(self.n1.x), list(self.n2.x)]:
                 self.__coordinates = [list(self.n1.x), list(self.n2.x)]
                 self.calc_nodal_coordinates(self.num_elements)
@@ -915,8 +915,10 @@ class FrameMember(SteelMember):
             x2, y2 = val[1]
             self.n1.x = np.array([x1, y1])
             self.n2.x = np.array([x2, y2])
-            self.calc_nodal_coordinates(self.num_elements)
-            
+            for mem in self.n1.parents:
+                mem.calc_nodal_coordinates(self.num_elements)
+            for mem in self.n2.parents:
+                mem.calc_nodal_coordinates(self.num_elements)
             
     @property
     def MRd(self):
@@ -1148,18 +1150,16 @@ class FrameMember(SteelMember):
         if not self.num_elements:
             self.num_elements = num_elements
         self.nodal_coordinates = []
-        start_node = self.coordinates[0]
-        end_node = self.coordinates[1]
+        start_node, end_node = self.coordinates
 
-        x0 = start_node[0]
-        y0 = start_node[1]
+        x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
         Ly = end_node[1] - start_node[1]
         dx = Lx / num_elements
         dy = Ly / num_elements
         for i in range(num_elements):
-            x = (i) * dx + x0
-            y = (i) * dy + y0
+            x = i * dx + x0
+            y = i * dy + y0
             loc = i / num_elements
             node = [x, y]
             if node not in self.nodal_coordinates:
@@ -1170,10 +1170,10 @@ class FrameMember(SteelMember):
             self.nodal_coordinates.append([end_node[0], end_node[1]])
         if 1 not in self.loc:
             self.loc.append(1)
-            
+
         if self.is_generated:
-            for i, node in enumerate(self.nodes.values()):
-                node.x = np.array(self.nodal_coordinates[i])
+            for j, node in enumerate(self.nodes.values()):
+                node.x = np.array(self.nodal_coordinates[j])
                 
 
     def add_node_coord(self, coord):
@@ -1205,14 +1205,17 @@ class FrameMember(SteelMember):
             if coordinate in fem_model.nodal_coords:
                 idx = fem_model.nodal_coords.index(coordinate)
                 self.nodes[idx] = fem_model.nodes[idx]
+                self.nodes[idx].parents.append(self)
             else:
                 idx = fem_model.nnodes()
                 fem_model.add_node(x, y)              
                 self.nodes[idx] = fem_model.nodes[idx]
+                self.nodes[idx].parents.append(self)
             if not self.n1:
                 self.n1 = fem_model.nodes[idx]
-            if not self.n2:
-                self.n2 = fem_model.nodes[idx]
+        # Add last node
+        if not self.n2:
+            self.n2 = fem_model.nodes[idx]
 
     def generate_elements(self, fem_model):
         """ Generates elements between nodes

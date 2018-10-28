@@ -337,6 +337,8 @@ class FrameFEM:
             Xmid = X[0,:]+0.5*(X[1,:]-X[0,:])
             plt.text(Xmid[0],Xmid[1],str(i))
 
+        plt.show()
+
     def print_displacements(self):
         node_cnt = 0
         for node in self.nodes:
@@ -548,6 +550,10 @@ class FEMNode:
         """
         self.u = np.array([])
         self.v = [0,0,0]
+        # List of FrameMember-type objects that are connected to this node
+        self.parents = []
+
+
 
 class Element:
     """ 1D finite elements: bars and beams

@@ -274,10 +274,10 @@ def test9():
     frame.add(PointLoad([2,5.5], [0, -80, 0]))
     #frame.members[2].Sj2 = 1e-6
     frame.generate()
-    frame.members[0].coordinates = [[0, 0], [0,7]]
+    frame.members[0].coordinates = [[0, 0], [0, 7]]
     frame.calculate()
-    #frame.f.draw()
-
+    frame.f.draw()
+    print(frame.members[2].nodal_coordinates)
     frame.plot_buckling(20,2)
     
     
