@@ -13,32 +13,52 @@ import matplotlib.pyplot as plt
 
 class Truss2D(Frame2D):
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, num_elements=5):
+        super().__init__(num_elements=num_elements)
         self.top_chord = None
         self.bottom_chord = None
         self.webs = {}
-        self.f = FrameFEM()
+
    
     def add(self, this):
         
         if isinstance(this, TopChord):
             self.top_chord = this
             self.members[len(self.members)] = this
+            this.calc_nodal_coordinates(self.num_elements)
         elif isinstance(this, BottomChord):
             self.bottom_chord = this   
             self.members[len(self.members)] = this
+
+            this.calc_nodal_coordinates(self.num_elements)
         elif isinstance(this, TrussWeb):
             this.mem_id = len(self.webs)
             self.webs[this.mem_id] = this
             self.members[len(self.members)] = this
+
+            this.calc_nodal_coordinates(self.num_elements)
             
             
             
 class TrussMember(FrameMember):
     def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
                  profile="SHS 50x5", material="S355"):
-        super().__init__(coordinates, mem_id, profile, material)        
+        super().__init__(coordinates, mem_id, profile, material)
+
+
+
+
+    def local(self, value):
+        start_node, end_node = self.coordinates
+
+        x0, y0 = start_node
+        Lx = end_node[0] - start_node[0]
+        Ly = end_node[1] - start_node[1]
+        try:
+            k = Ly/Lx
+        except ZeroDivisionError:
+            k=0
+        return [Lx*value, k*value*Lx + y0]
     
     @property
     def angle(self):
@@ -49,41 +69,7 @@ class TrussMember(FrameMember):
         x1, y1 = self.coordinates[1]
         angle = math.atan((y1-y0)/(x1-x0))
         return angle
-    
-    def calc_nodal_coordinates(self, num_nodes):
-        """
-            Calculates node locations along member
-            Coordinates used are global coordinates
-            Adds locations to a list where they can be accessed later
-            :param num_elements: int, number of elements to be created
-        """
-        self.nodal_coordinates = []
-        start_node = self.coordinates[0]
-        end_node = self.coordinates[1]
 
-        x0 = start_node[0]
-        y0 = start_node[1]
-        Lx = end_node[0] - start_node[0]
-        Ly = end_node[1] - start_node[1]
-        dx = Lx / num_nodes
-        dy = Ly / num_nodes
-        for i in range(num_nodes):
-            x = (i) * dx + x0
-            y = (i) * dy + y0
-            loc = i / num_nodes
-            node = [x, y]
-            if node not in self.nodal_coordinates:
-                self.nodal_coordinates.append(node)
-            if loc not in self.loc:
-                self.loc.append(loc)
-        if [end_node[0], end_node[1]] not in self.nodal_coordinates:
-            self.nodal_coordinates.append([end_node[0], end_node[1]])
-        if 1 not in self.loc:
-            self.loc.append(1)
-            
-        if self.is_generated:
-            for i, node in enumerate(self.nodes.values()):
-                node.x = np.array(self.nodal_coordinates[i])
     
     def plot(self, print_text, c):
 
@@ -108,7 +94,8 @@ class TrussMember(FrameMember):
             else:
                 rot = math.degrees(math.atan(delta_y / delta_x))
             
-            x = (X[0][0] + X[1][0]) / 2
+            x = (
+                    X[0][0] + X[1][0]) / 2
             y = (X[1][1] + X[0][1]) / 2
             horzalign = 'center'
             vertalign = 'bottom'
@@ -127,15 +114,19 @@ class TopChord(TrussMember):
 
 
 class BottomChord(TrussMember):
-    def __init__(self, coordinates,  mem_id="",
+    def __init__(self, coordinates, mem_id="",
                  profile="SHS 50x5", material="S355"):
         super().__init__(coordinates, mem_id, profile, material)
-
         self.mtype = 'bottom_chord'
 
 class TrussWeb(TrussMember):
-    def __init__(self, coordinates, alpha1=0, alpha2=0, mem_id="",
+    def __init__(self, top_loc, bot_loc, alpha1=0, alpha2=0, mem_id="",
                  profile="SHS 50x5", material="S355"):
+
+        self.top_chord = top_loc[0]
+        self.bottom_chord = bot_loc[0]
+        coordinates = [self.top_chord.local(top_loc[1]),
+                            self.bottom_chord.local(bot_loc[1])]
         super().__init__(coordinates, mem_id, profile, material)
         self.mtype = 'web'
         self.alpha1 = alpha1

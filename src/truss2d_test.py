@@ -16,34 +16,11 @@ def test1():
     
     top_chord = TopChord(coord1)
     bottom_chord = BottomChord(coord2)
-    
-    members = 3
-    
-    
-    dx = coord1[1][0]/(members-1)
-    y = lambda x: x*(coord1[1][1]- coord1[0][1]) / (coord1[1][0]- coord1[0][0])+coord1[0][1]
-    c1 = copy.copy(coord1[0])
-    c2 = copy.copy(coord2[0])
-    for i in range(members):       
-        if i%2 == 0:
-            if i!= 0:               
-                c1[0] += float(Decimal(2*dx))
-                c1[1] = y(c1[0])
-        else:
-            c2[0] += float(Decimal(2*dx))
-        if c1[0] > coord1[1][0] or c1[1] > coord1[1][1]:
-            c1 = copy.copy(coord1[1])
-        if c2[0] > coord2[1][0] or c2[1] > coord2[1][1]:
-            c2 = copy.copy(coord2[1])
-            
+    web1 = TrussWeb([top_chord, 0.9], [bottom_chord, 0.5])
 
-        member = TopChord([c1, c2])
-        truss.add(member)
-    
-    
-    
     truss.add(top_chord)
     truss.add(bottom_chord)
+    truss.add(web1)
     truss.plot()
     truss.generate()
     truss.f.draw()
