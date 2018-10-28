@@ -1,3 +1,0 @@
-test:
-  script:
-  - python src/CI_test.py test
