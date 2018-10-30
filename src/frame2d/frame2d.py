@@ -8,7 +8,6 @@ import sys
 # path needs to be added to use tables_and_tuples and I_sections
 sys.path.append('../End-plate')
 sys.path.append("../")
-
 import numpy as np
 import math
 import matplotlib.pyplot as plt
@@ -24,6 +23,7 @@ from sections.steel.RHS import RHS, SHS
 from sections.steel.CHS import CHS
 
 from structures.steel.steel_member import SteelMember
+
 
 import pandas as pd
 from tkinter import Tk
@@ -156,6 +156,7 @@ class Frame2D:
         self.self_weight = False
         self.optimize_joints = True
         self.load_robot = False
+        self.truss = None
         
         #I added this
         self.simple=simple
@@ -176,7 +177,7 @@ class Frame2D:
             self.generate_supports(supports)
 
     def add(self, this):
- 
+        from truss2d import Truss2D
         # MEMBERS
         if isinstance(this, FrameMember):
             # Give member an unique id
@@ -229,6 +230,10 @@ class Frame2D:
                 coord = member.point_intersection(this.coordinate)
                 if coord:
                     member.add_node_coord(this.coordinate)
+
+        # TRUSS
+        elif isinstance(this, Truss2D):
+            self.truss = this
 
         else:
             print(type(this), " is not supported.")
@@ -576,6 +581,9 @@ class Frame2D:
             plt.scatter(node_coord[0], node_coord[1], s=50, c='k', marker=marker)
         if loads:
             self.plot_loads()
+
+        if self.truss:
+            self.truss.plot(show=False)
         plt.axis('equal')
         if show:
             plt.show()
