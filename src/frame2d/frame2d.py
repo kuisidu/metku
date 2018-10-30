@@ -133,9 +133,9 @@ class Frame2D:
     
     """
 
-    def __init__(self, simple=None, num_elements=5, supports=None):
+    def __init__(self, simple=None, num_elements=5, supports=None, fem=fem.FrameFEM()):
 
-        self.f = fem.FrameFEM()
+        self.f = fem
         self.members = {}
         self.num_members = 0
         self.support_nodes = []
@@ -787,7 +787,7 @@ class SimpleFrame:
 
 """
 # -----------------------------------------------------------------------------
-class FrameMember(SteelMember):
+class FrameMember:
     """ Class for frame member
     
         Written by Jaakko Huusko
@@ -1200,6 +1200,7 @@ class FrameMember(SteelMember):
     def add_nodes(self, fem_model):
         """ Creates nodes to previously calculated locations
         """
+        idx = None
         for coordinate in self.nodal_coordinates:
             x, y = coordinate
             if coordinate in fem_model.nodal_coords:
@@ -1214,7 +1215,7 @@ class FrameMember(SteelMember):
             if not self.n1:
                 self.n1 = fem_model.nodes[idx]
         # Add last node
-        if not self.n2:
+        if not self.n2 and idx:
             self.n2 = fem_model.nodes[idx]
 
     def generate_elements(self, fem_model):

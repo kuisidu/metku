@@ -7,6 +7,7 @@ Created on Fri Oct 26 10:11:35 2018
 from src.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from fem.frame.elements.ebbeam import EBBeam
 from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
+from fem.frame.frame_fem import FrameFEM
 
 import math
 import numpy as np
@@ -14,8 +15,8 @@ import matplotlib.pyplot as plt
 
 
 class Truss2D(Frame2D):
-    def __init__(self, simple=None, num_elements=2):
-        super().__init__(num_elements=num_elements)
+    def __init__(self, simple=None, num_elements=2, fem=FrameFEM()):
+        super().__init__(num_elements=num_elements, fem=fem)
         self.top_chord = None
         self.bottom_chord = None
         self.webs = {}

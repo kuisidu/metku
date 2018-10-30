@@ -328,7 +328,7 @@ def test10():
     frame.f.draw()
 
 if __name__ == '__main__':
-    test10()
+    test6()
     """
     frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():
