@@ -4,7 +4,7 @@ Created on Fri Oct 26 10:11:35 2018
 
 @author: huuskoj
 """
-from frame2d.frame2d import Frame2D, FrameMember
+from src.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from fem.frame.elements.ebbeam import EBBeam
 from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 
@@ -28,7 +28,6 @@ class Truss2D(Frame2D):
 
 
     def add(self, this):
-
         if isinstance(this, TopChord):
             self.top_chord = this
             this.mem_id = len(self.members)
@@ -50,10 +49,49 @@ class Truss2D(Frame2D):
             self.webs[this.mem_id] = this
             self.members["W" + str(this.mem_id)] = this
             this.calc_nodal_coordinates(self.num_elements)
+            # Make web's joints hinged
+            this.Sj1 = 0
+            this.Sj2 = 0
 
         elif isinstance(this, TrussJoint):
             this.mem_id = len(self.joints)
             self.joints[this.mem_id] = this
+
+
+        # POINTLOADS
+        elif isinstance(this, PointLoad):
+
+            if this.name in self.point_loads.keys():
+                this.name += str(len(self.point_loads))
+            self.point_loads[this.name] = this
+
+            for member in self.members.values():
+                coord = member.point_intersection(this.coordinate)
+                if coord:
+                    member.add_node_coord(this.coordinate)
+
+
+        # LINELOADS
+        elif isinstance(this, LineLoad):
+
+            if this.name in self.line_loads.keys():
+                this.name += str(len(self.line_loads))
+            self.line_loads[this.name] = this
+
+        # SUPPORTS
+        elif isinstance(this, Support):
+            this.supp_id = len(self.supports)
+            self.supports[this.supp_id] = this
+            self.support_nodes.append(this.coordinate)
+
+            for member in self.members.values():
+                coord = member.point_intersection(this.coordinate)
+                if coord:
+                    member.add_node_coord(this.coordinate)
+
+        else:
+            print(type(this), " is not supported.")
+            raise TypeError
 
 
 
@@ -183,6 +221,61 @@ class TrussMember(FrameMember):
             plt.text(x, y, str(self.mem_id) + ": " + self.profile,
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
+
+
+    def bmd(self, scale):
+        """
+        Plots bending moment diagram
+        :param scale: float, scaling factor
+        """
+        X = []
+        Y = []
+        self.calc_nodal_forces()
+
+        moment_values = [x[2] for x in self.nodal_forces.values()]
+        node_ids = list(self.nodes.keys())
+        x = self.nodal_coordinates[0][0]
+        y = self.nodal_coordinates[0][1]
+        X.append(x)
+        Y.append(y)
+        for i in range(len(self.nodes)):
+            node = node_ids[i]
+            if self.mtype == "top_chord" or self.mtype == "bottom_chord":
+                x0 = self.nodal_coordinates[i][0]
+                y0 = self.nodal_coordinates[i][1]
+                bending_moment = self.nodal_forces[node][2]
+                y1 = bending_moment / (1000 / scale)
+                x = x0
+                y = y0 - y1
+                X.append(x)
+                Y.append(y)
+                if i == 0 or i == len(self.nodes)-1 or bending_moment == max(moment_values) or\
+                                bending_moment == min(moment_values):
+                    if bending_moment > 0:
+                        vert = 'top'
+                    else:
+                        vert = 'bottom'
+                    plt.text(x, y, f'{bending_moment:.2f} kNm', verticalalignment=vert)
+
+            elif self.mtype == "web":
+                x0 = self.nodal_coordinates[i][0]
+                y0 = self.nodal_coordinates[i][1]
+                bending_moment = self.nodal_forces[node][2]
+                x1 = bending_moment / (1000 / scale)
+                x = x0 + x1
+                y = y0
+                X.append(x)
+                Y.append(y)
+                if i == 0 or i == len(self.nodes)-1 or bending_moment == max(moment_values) or\
+                                bending_moment == min(moment_values):
+                    if bending_moment > 0:
+                        horz = 'left'
+                    else:
+                        horz = 'right'
+                    plt.text(x, y, f'{bending_moment:.2f} kNm', horizontalalignment=horz)
+        X.append(self.nodal_coordinates[i][0])
+        Y.append(self.nodal_coordinates[i][1])
+        plt.plot(X, Y, color='gray')
 
 
 class TopChord(TrussMember):
