@@ -5,48 +5,62 @@ Created on Fri Oct 26 10:11:35 2018
 @author: huuskoj
 """
 from frame2d.frame2d import Frame2D, FrameMember
-from fem.frame.frame_fem import FrameFEM
+from fem.frame.elements.ebbeam import EBBeam
+from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 
 import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class Truss2D(Frame2D):
-    
-    def __init__(self, num_elements=5):
+    def __init__(self, simple=None, num_elements=2):
         super().__init__(num_elements=num_elements)
         self.top_chord = None
         self.bottom_chord = None
         self.webs = {}
+        self.joints = {}
 
-   
+        if simple:
+            coords1, coords2, num = simple
+            self.top_chord = TopChord(coords1)
+            self.bottom_chord = BottomChord(coords2)
+
+
     def add(self, this):
-        
+
         if isinstance(this, TopChord):
             self.top_chord = this
-            self.members[len(self.members)] = this
+            this.mem_id = len(self.members)
+            self.members["T" + str(this.mem_id)] = this
             this.calc_nodal_coordinates(self.num_elements)
         elif isinstance(this, BottomChord):
-            self.bottom_chord = this   
-            self.members[len(self.members)] = this
-
+            self.bottom_chord = this
+            this.mem_id = len(self.members)
+            self.members["B" + str(this.mem_id)] = this
             this.calc_nodal_coordinates(self.num_elements)
+
         elif isinstance(this, TrussWeb):
-            this.mem_id = len(self.webs)
+            c1 = self.bottom_chord.local(this.bot_loc)
+            self.bottom_chord.add_node_coord(c1)
+            c2 = self.top_chord.local(this.top_loc)
+            self.top_chord.add_node_coord(c2)
+            this.initialize([c1, c2])
+            this.mem_id = len(self.members)
             self.webs[this.mem_id] = this
-            self.members[len(self.members)] = this
-
+            self.members["W" + str(this.mem_id)] = this
             this.calc_nodal_coordinates(self.num_elements)
-            
-            
-            
+
+        elif isinstance(this, TrussJoint):
+            this.mem_id = len(self.joints)
+            self.joints[this.mem_id] = this
+
+
+
 class TrussMember(FrameMember):
-    def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
+    def __init__(self, coordinates, mem_id="",
                  profile="SHS 50x5", material="S355"):
         super().__init__(coordinates, mem_id, profile, material)
-
-
-
 
     def local(self, value):
         start_node, end_node = self.coordinates
@@ -55,11 +69,11 @@ class TrussMember(FrameMember):
         Lx = end_node[0] - start_node[0]
         Ly = end_node[1] - start_node[1]
         try:
-            k = Ly/Lx
+            k = Ly / Lx
         except ZeroDivisionError:
-            k=0
-        return [Lx*value, k*value*Lx + y0]
-    
+            k = 0
+        return [Lx * value + x0, k * value * Lx + y0]
+
     @property
     def angle(self):
         """
@@ -67,10 +81,76 @@ class TrussMember(FrameMember):
         """
         x0, y0 = self.coordinates[0]
         x1, y1 = self.coordinates[1]
-        angle = math.atan((y1-y0)/(x1-x0))
+        angle = math.atan((y1 - y0) / (x1 - x0))
         return angle
 
-    
+    def generate_elements(self, fem_model):
+        """ Generates elements between nodes
+            For beam member's first and last element, creates semi-rigid end
+            elements. Elements are added to a list
+            :param fem_model: FrameFEM -object
+        """
+        index = fem_model.nels()
+        node_ids = list(self.nodes.keys())
+        # EBBeam -elements
+        if self.mtype == "top_chord" or self.mtype == 'bottom_chord':
+            key = self.mtype[0].upper()
+
+            for i in range(len(self.nodes) - 1):
+                n1 = node_ids[i]
+                n2 = node_ids[i + 1]
+
+                self.elements[index] = \
+                    EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                           fem_model.sections[self.mem_id], \
+                           fem_model.materials[self.mem_id])
+
+                fem_model.add_element(self.elements[index])
+                self.element_ids.append(index)
+                index += 1
+
+        if self.mtype == "web":
+            if len(self.nodes) == 2:
+                n1 = node_ids[0]
+                n2 = node_ids[1]
+
+                self.elements[index] = \
+                    EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                    fem_model.sections[self.mem_id], \
+                                    fem_model.materials[self.mem_id], \
+                                    rot_stiff=[self.Sj1, self.Sj2])
+                fem_model.add_element(self.elements[index])
+                self.element_ids.append(index)
+            else:
+                for i in range(len(self.nodes) - 1):
+                    n1 = node_ids[i]
+                    n2 = node_ids[i + 1]
+
+                    # EBSemiRigid -element, first element
+                    if i == 0:
+                        self.elements[index] = \
+                            EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                            fem_model.sections[self.mem_id], \
+                                            fem_model.materials[self.mem_id], \
+                                            rot_stiff=[self.Sj1, np.inf])
+                    # EBSemiRigid -element, last element
+                    elif i == (len(self.nodes) - 2):
+                        self.elements[index] = \
+                            EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                            fem_model.sections[self.mem_id], \
+                                            fem_model.materials[self.mem_id], \
+                                            rot_stiff=[np.inf, self.Sj2])
+                    # EBBeam -elements
+                    else:
+                        self.elements[index] = \
+                            EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                   fem_model.sections[self.mem_id], \
+                                   fem_model.materials[self.mem_id])
+
+                    fem_model.add_element(self.elements[index])
+                    self.element_ids.append(index)
+                    index += 1
+
     def plot(self, print_text, c):
 
         X = self.coordinates
@@ -93,18 +173,18 @@ class TrussMember(FrameMember):
                 rot = 0
             else:
                 rot = math.degrees(math.atan(delta_y / delta_x))
-            
+
             x = (
                     X[0][0] + X[1][0]) / 2
             y = (X[1][1] + X[0][1]) / 2
             horzalign = 'center'
             vertalign = 'bottom'
-         
+
             plt.text(x, y, str(self.mem_id) + ": " + self.profile,
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
-        
-            
+
+
 class TopChord(TrussMember):
     def __init__(self, coordinates, mem_id="",
                  profile="SHS 50x5", material="S355"):
@@ -119,28 +199,35 @@ class BottomChord(TrussMember):
         super().__init__(coordinates, mem_id, profile, material)
         self.mtype = 'bottom_chord'
 
-class TrussWeb(TrussMember):
-    def __init__(self, top_loc, bot_loc, alpha1=0, alpha2=0, mem_id="",
-                 profile="SHS 50x5", material="S355"):
 
-        self.top_chord = top_loc[0]
-        self.bottom_chord = bot_loc[0]
-        coordinates = [self.top_chord.local(top_loc[1]),
-                            self.bottom_chord.local(bot_loc[1])]
-        super().__init__(coordinates, mem_id, profile, material)
+class TrussWeb(TrussMember):
+    def __init__(self, bot_loc, top_loc, mem_id="",
+                 profile="SHS 50x5", material="S355", Sj1=0, Sj2=0):
+        self.bot_loc = bot_loc
+        self.top_loc = top_loc
+        self.__Sj1 = Sj1
+        self.__Sj2 = Sj2
+
+    def initialize(self, coordinates):
+        super().__init__(coordinates)
         self.mtype = 'web'
-        self.alpha1 = alpha1
-        self.alpha2 = alpha2
-        
-        
+
+
 class TrussJoint():
-    def __init__(self, chord, coordinate, joint_type="N", g1=0.1, g2=0.1):
-        
+    def __init__(self, chord, loc, joint_type="N", g1=0.1, g2=0.1):
+
         self.chord = chord
-        self.coordinate = coordinate
+        self.__coordinate = chord.local(loc)
         self.joint_type = joint_type
         self.g1 = g1
         self.g2 = g2
-        self.chord = None
         self.webs = {}
-    
+
+    @property
+    def coordinate(self):
+        return self.__coordinate
+
+    @coordinate.setter
+    def coordinate(self, val):
+        self.__coordinate = self.chord.local(val)
+
