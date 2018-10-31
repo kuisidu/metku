@@ -4,7 +4,7 @@ Created on Fri Oct 26 10:11:35 2018
 
 @author: huuskoj
 """
-from src.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
+from frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from fem.frame.elements.ebbeam import EBBeam
 from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 from fem.frame.frame_fem import FrameFEM
@@ -41,15 +41,45 @@ class Truss2D(Frame2D):
             this.calc_nodal_coordinates(self.num_elements)
 
         elif isinstance(this, TrussWeb):
-            c1 = self.bottom_chord.local(this.bot_loc)
+            c01 = self.bottom_chord.local(this.bot_loc)
+            c02 = self.top_chord.local(this.top_loc)
+            this.coordinates = [c01, c02]
+            # Set joints to chord
+            j1 = TrussJoint(self.bottom_chord, this.bot_loc)
+            j1.jid = len(self.joints)
+            j2 = TrussJoint(self.top_chord, this.top_loc)
+            j2.jid = len(self.joints)
+            # Check if there's already a joint at given location
+            for joint in self.joints.values():
+                if joint.coordinate == c01:
+                    j1 = joint
+                elif joint.coordinate == c02:
+                    j2 = joint              
+            # Assign member id
+            this.mem_id = len(self.webs)
+            # Assign joint id's     
+            self.joints[j1.jid] = j1
+            self.joints[j2.jid] = j2
+            j1.webs[this.mem_id] = this
+            j2.webs[this.mem_id] = this
+            # Calculate web's coordinates
+            c1 = j1.calc_coord(this.mem_id)
+            c2 = j2.calc_coord(this.mem_id)
+            # Add calculates coordinates to chords
             self.bottom_chord.add_node_coord(c1)
-            c2 = self.top_chord.local(this.top_loc)
             self.top_chord.add_node_coord(c2)
-            this.initialize([c1, c2])
-            this.mem_id = len(self.members)
+            # Initialize web as FrameMember
+            this.coordinates = [c1, c2]
+            #this.initialize([c1,c2])
+            
+            
+            
+            
+            #this.mem_id = len(self.members)
             self.webs[this.mem_id] = this
             self.members["W" + str(this.mem_id)] = this
             this.calc_nodal_coordinates(self.num_elements)
+            
             # Make web's joints hinged
             this.Sj1 = 0
             this.Sj2 = 0
@@ -133,8 +163,6 @@ class TrussMember(FrameMember):
         node_ids = list(self.nodes.keys())
         # EBBeam -elements
         if self.mtype == "top_chord" or self.mtype == 'bottom_chord':
-            key = self.mtype[0].upper()
-
             for i in range(len(self.nodes) - 1):
                 n1 = node_ids[i]
                 n2 = node_ids[i + 1]
@@ -297,6 +325,7 @@ class BottomChord(TrussMember):
 class TrussWeb(TrussMember):
     def __init__(self, bot_loc, top_loc, mem_id="",
                  profile="SHS 50x5", material="S355", Sj1=0, Sj2=0):
+        super().__init__([[0,0],[1,1]])
         self.bot_loc = bot_loc
         self.top_loc = top_loc
         self.__Sj1 = Sj1
@@ -311,6 +340,7 @@ class TrussJoint():
     def __init__(self, chord, loc, joint_type="N", g1=0.1, g2=0.1):
 
         self.chord = chord
+        self.jid = None
         self.__coordinate = chord.local(loc)
         self.joint_type = joint_type
         self.g1 = g1
@@ -324,4 +354,31 @@ class TrussJoint():
     @coordinate.setter
     def coordinate(self, val):
         self.__coordinate = self.chord.local(val)
+        
+    def calc_coord(self, web_id):
+
+        print(len(self.webs))
+        
+        web = self.webs[web_id]
+        if self.chord.mtype == 'top_chord':
+            y = 0.5 * self.chord.h/1000
+        else:
+            y = -0.5 * self.chord.h/1000
+        gamma = web.angle - self.chord.angle
+        if len(self.webs) == 1:
+            x = 0
+        elif len(self.webs) == 2:
+            if self.chord.mtype == 'top_chord':
+                x = 0.5 * web.h/1000 * math.sin(gamma) + self.g1
+            else:
+                x = 0.5 * web.h/1000 * math.sin(gamma) + self.g1
+            
+        elif len(self.webs) == 3:
+            if self.chord.mtype == 'top_chord':
+                x = 0.5 * web.h/1000 * math.sin(gamma) + self.g2
+            else:
+                x = -1*(0.5 * web.h/1000 * math.sin(gamma) + self.g2)
+        x0, y0 = self.coordinate
+        print(x, y)
+        return [x0-x, y0-y] 
 

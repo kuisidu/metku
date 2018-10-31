@@ -7,20 +7,20 @@ Created on Fri Oct 26 12:23:00 2018
 import copy
 from decimal import Decimal
 from truss2d import Truss2D, TopChord, BottomChord, TrussWeb, TrussJoint
-from src.frame2d.frame2d import LineLoad, XYHingedSupport, Frame2D, SteelColumn, FixedSupport
+from frame2d.frame2d import LineLoad, XYHingedSupport, Frame2D, SteelColumn, FixedSupport
 
 def test1():
     truss = Truss2D(num_elements=1)
     
-    coord1 = [[0,10], [8,4]]
-    coord2 = [[-2,-2], [8,0]]
+    coord1 = [[-0.5,1], [1.5,1]]
+    coord2 = [[0,-0], [1,0]]
     
     top_chord = TopChord(coord1)
     bottom_chord = BottomChord(coord2)
     truss.add(top_chord)
     truss.add(bottom_chord)
 
-    members = 5
+    members = 2
 
     c1 = 0
     c2 = 0
@@ -39,8 +39,10 @@ def test1():
     truss.add(XYHingedSupport(bottom_chord.local(0)))
     truss.add(XYHingedSupport(bottom_chord.local(1)))
     truss.generate()
-    truss.calculate()
+    truss.f.draw()
+    #truss.calculate()
     truss.plot()
+
 
 def test2():
     frame = Frame2D()
@@ -56,15 +58,15 @@ def test2():
     frame.generate()
 
     truss = Truss2D(fem=frame.f)
-    coord1 = [[-2, 6], [4, 4]]
-    coord2 = [[0, 2], [4, 2]]
+    coord1 = [[0, 2], [4, 2]]
+    coord2 = [[0.2, 1.5], [3.8, 1.5]]
 
     top_chord = TopChord(coord1)
     bottom_chord = BottomChord(coord2)
     truss.add(top_chord)
     truss.add(bottom_chord)
 
-    members = 7
+    members = 8
 
     c1 = 0
     c2 = 0
@@ -86,4 +88,4 @@ def test2():
 
 
 if __name__ == '__main__':
-    test2()
+    test1()
