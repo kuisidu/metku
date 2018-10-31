@@ -29,17 +29,19 @@ class Truss2D(Frame2D):
 
 
     def add(self, this):
+        # Top chord
         if isinstance(this, TopChord):
             self.top_chord = this
             this.mem_id = len(self.members)
             self.members["T" + str(this.mem_id)] = this
             this.calc_nodal_coordinates(self.num_elements)
+        # Bottom chord    
         elif isinstance(this, BottomChord):
             self.bottom_chord = this
             this.mem_id = len(self.members)
             self.members["B" + str(this.mem_id)] = this
             this.calc_nodal_coordinates(self.num_elements)
-
+        # Web and truss joint
         elif isinstance(this, TrussWeb):
             c01 = self.bottom_chord.local(this.bot_loc)
             c02 = self.top_chord.local(this.top_loc)
@@ -65,15 +67,11 @@ class Truss2D(Frame2D):
             # Calculate web's coordinates
             c1 = j1.calc_coord(this.mem_id)
             c2 = j2.calc_coord(this.mem_id)
-            # Add calculates coordinates to chords
+            # Add calculated coordinates to chords
             self.bottom_chord.add_node_coord(c1)
             self.top_chord.add_node_coord(c2)
-            # Initialize web as FrameMember
-            this.coordinates = [c1, c2]
-            #this.initialize([c1,c2])
-            
-            
-            
+            # Change web's coordinates
+            this.coordinates = [c1, c2]     
             
             #this.mem_id = len(self.members)
             self.webs[this.mem_id] = this
@@ -83,11 +81,6 @@ class Truss2D(Frame2D):
             # Make web's joints hinged
             this.Sj1 = 0
             this.Sj2 = 0
-
-        elif isinstance(this, TrussJoint):
-            this.mem_id = len(self.joints)
-            self.joints[this.mem_id] = this
-
 
         # POINTLOADS
         elif isinstance(this, PointLoad):
@@ -162,6 +155,7 @@ class TrussMember(FrameMember):
         index = fem_model.nels()
         node_ids = list(self.nodes.keys())
         # EBBeam -elements
+        print(self.mtype)
         if self.mtype == "top_chord" or self.mtype == 'bottom_chord':
             for i in range(len(self.nodes) - 1):
                 n1 = node_ids[i]
@@ -325,16 +319,13 @@ class BottomChord(TrussMember):
 class TrussWeb(TrussMember):
     def __init__(self, bot_loc, top_loc, mem_id="",
                  profile="SHS 50x5", material="S355", Sj1=0, Sj2=0):
-        super().__init__([[0,0],[1,1]])
+        super().__init__([[0,0],[1,1]]) # Member's coordinates are changed in add-function
         self.bot_loc = bot_loc
         self.top_loc = top_loc
         self.__Sj1 = Sj1
         self.__Sj2 = Sj2
-
-    def initialize(self, coordinates):
-        super().__init__(coordinates)
         self.mtype = 'web'
-
+    
 
 class TrussJoint():
     def __init__(self, chord, loc, joint_type="N", g1=0.1, g2=0.1):
@@ -356,15 +347,28 @@ class TrussJoint():
         self.__coordinate = self.chord.local(val)
         
     def calc_coord(self, web_id):
-
-        print(len(self.webs))
+        webs = self.webs.values()
+        x0, y0 = self.coordinate
+        for web in webs:
+            if len(self.webs) == 1:
+                x = 0
+            
+            gamma = web.angle - self.chord.angle
+            coords1, coords2 = web.coordinates
+            if self.chord.mtype == 'top_chord':
+                coords = min(coords1, coords2)
+                y = 0.5 * self.chord.h/1000 # mm to m
+            else:
+                coords = max(coords1, coords2)
+                y = -0.5 * self.chord.h/1000 # mm to m
+                """
+                if coords >= self.coordinate:
+                    x = -1*(0.5 * web.h/1000 * math.sin(gamma) + self.g1/2)
+                else:    
+                    x = 0.5 * web.h/1000 * math.sin(gamma) + self.g1/2
+                """
         
-        web = self.webs[web_id]
-        if self.chord.mtype == 'top_chord':
-            y = 0.5 * self.chord.h/1000
-        else:
-            y = -0.5 * self.chord.h/1000
-        gamma = web.angle - self.chord.angle
+        
         if len(self.webs) == 1:
             x = 0
         elif len(self.webs) == 2:
@@ -378,7 +382,8 @@ class TrussJoint():
                 x = 0.5 * web.h/1000 * math.sin(gamma) + self.g2
             else:
                 x = -1*(0.5 * web.h/1000 * math.sin(gamma) + self.g2)
-        x0, y0 = self.coordinate
-        print(x, y)
-        return [x0-x, y0-y] 
+        
+        
+        
+        return [x0-x, y0] 
 

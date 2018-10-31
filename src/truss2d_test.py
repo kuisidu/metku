@@ -10,7 +10,7 @@ from truss2d import Truss2D, TopChord, BottomChord, TrussWeb, TrussJoint
 from frame2d.frame2d import LineLoad, XYHingedSupport, Frame2D, SteelColumn, FixedSupport
 
 def test1():
-    truss = Truss2D(num_elements=1)
+    truss = Truss2D(num_elements=2)
     
     coord1 = [[-0.5,1], [1.5,1]]
     coord2 = [[0,-0], [1,0]]
