@@ -1,6 +1,3 @@
-import sys
-sys.path.append(".\src")
-
 from frame2d import Frame2D, SteelBeam, SteelColumn, PointLoad,\
      FixedSupport, XHingedSupport, LineLoad, YHingedSupport, XYHingedSupport
 

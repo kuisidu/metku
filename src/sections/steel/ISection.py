@@ -7,7 +7,7 @@ Rectangular hollow sections
 @author: kmela
 """
 import sys
-sys.path.append("..\src\End-plate")
+sys.path.append("..\\src\\End-plate")
 import math
 from eurocodes.en1993 import en1993_1_1, constants
 from sections.steel.steel_section import SteelSection

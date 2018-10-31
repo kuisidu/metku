@@ -29,6 +29,7 @@ import pandas as pd
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 
+
 import tables_and_tuples
 
 # profiles from lightest to heaviest
@@ -177,7 +178,6 @@ class Frame2D:
             self.generate_supports(supports)
 
     def add(self, this):
-        from truss2d import Truss2D
         # MEMBERS
         if isinstance(this, FrameMember):
             # Give member an unique id
@@ -232,7 +232,7 @@ class Frame2D:
                     member.add_node_coord(this.coordinate)
 
         # TRUSS
-        elif isinstance(this, Truss2D):
+        elif isinstance(this, Frame2D):
             self.truss = this
 
         else:
@@ -968,7 +968,7 @@ class FrameMember:
         """
         Property, returns member's cross-section's height
         """
-        return self.__h
+        return self.cross_section.h
 
     @h.setter
     def h(self, val):
@@ -976,7 +976,6 @@ class FrameMember:
         Sets cross-section's height to givel value.
         Changes profile and sets new cross-sectional properties to member's elements
         """
-        self.__h = val
         splitted = self.profile.split()
         if len(splitted) == 2:
             profile_type = self.profile.split()[0]

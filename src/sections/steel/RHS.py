@@ -37,10 +37,10 @@ class RHS(SteelSection):
         Wpl[1] = RHS_plastic_modulus(B,H,R,T)
         
         SteelSection.__init__(self,fy,A,I,Au,Wpl,Wel,Ashear)
-        self.H = H
-        self.B = B
-        self.T = T
-        self.R = R
+        self.h = H
+        self.b = B
+        self.t = T
+        self.r = R
         
         self.imp_factor = [en1993_1_1.buckling_curve["c"],en1993_1_1.buckling_curve["c"]]
 
