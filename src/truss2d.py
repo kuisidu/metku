@@ -43,8 +43,10 @@ class Truss2D(Frame2D):
             this.calc_nodal_coordinates(self.num_elements)
         # Web and truss joint
         elif isinstance(this, TrussWeb):
+            # Calculate web's coordinates
             c01 = self.bottom_chord.local(this.bot_loc)
             c02 = self.top_chord.local(this.top_loc)
+            # Change web's coordinates to global coordinates
             this.coordinates = [c01, c02]
             # Set joints to chord
             j1 = TrussJoint(self.bottom_chord, this.bot_loc)
@@ -143,7 +145,10 @@ class TrussMember(FrameMember):
         """
         x0, y0 = self.coordinates[0]
         x1, y1 = self.coordinates[1]
-        angle = math.atan((y1 - y0) / (x1 - x0))
+        if (x1-x0) == 0:
+            angle = math.degrees(90)
+        else:
+            angle = math.atan((y1 - y0) / (x1 - x0))
         return angle
 
     def generate_elements(self, fem_model):
@@ -155,7 +160,6 @@ class TrussMember(FrameMember):
         index = fem_model.nels()
         node_ids = list(self.nodes.keys())
         # EBBeam -elements
-        print(self.mtype)
         if self.mtype == "top_chord" or self.mtype == 'bottom_chord':
             for i in range(len(self.nodes) - 1):
                 n1 = node_ids[i]
@@ -319,7 +323,7 @@ class BottomChord(TrussMember):
 class TrussWeb(TrussMember):
     def __init__(self, bot_loc, top_loc, mem_id="",
                  profile="SHS 50x5", material="S355", Sj1=0, Sj2=0):
-        super().__init__([[0,0],[1,1]]) # Member's coordinates are changed in add-function
+        super().__init__([[0,0],[2,2]]) # Member's coordinates are changed in add-function
         self.bot_loc = bot_loc
         self.top_loc = top_loc
         self.__Sj1 = Sj1
@@ -384,6 +388,6 @@ class TrussJoint():
                 x = -1*(0.5 * web.h/1000 * math.sin(gamma) + self.g2)
         
         
-        
-        return [x0-x, y0] 
+        return [x0, y0]
+        #return [x0-x, y0] 
 
