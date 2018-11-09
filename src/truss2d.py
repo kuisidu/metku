@@ -396,6 +396,7 @@ class TrussJoint():
         self.chord = chord
         self.jid = None
         self.__coordinate = chord.local(loc)
+        self.cnode = None # central node
         self.joint_type = joint_type
         self.g1 = g1
         self.g2 = g2
@@ -404,6 +405,7 @@ class TrussJoint():
         self.elements = {}
         self.webs = {}
         self.is_generated = False
+        self.num_elements = None
 
         
     def add_node_coord(self, coord):
@@ -421,6 +423,8 @@ class TrussJoint():
     @coordinate.setter
     def coordinate(self, val):
         self.__coordinate = self.chord.local(val)
+        if self.num_elements:
+            self.calc_nodal_coordinates(self.num_elements)
         
     def calc_coord(self, web_id):
         webs = self.webs.values()
@@ -473,6 +477,7 @@ class TrussJoint():
         return [x0-x, y0] 
     
     def calc_nodal_coordinates(self, num_elements):
+        self.num_elements = num_elements
         # Initialize nodal coordinates as an empty array
         self.nodal_coordinates = []
         x0, y0 = self.coordinate
@@ -502,17 +507,16 @@ class TrussJoint():
                         
                     else:
                         x, y = x0 + ecc_x, y0 - ecc_y
-                    """
+                    
                     # Coordinates need to be rotated to align with the chord
-                    dx = x * (1 - math.cos(web.angle))
-                    dy = x * math.sin(web.angle)
+                    dx = ecc_x * (1 - math.cos(self.chord.angle))
+                    dy = ecc_x * math.sin(self.chord.angle)
                     if web.angle < 0:
                         dx = -dx
                     else:
                         dy = -dy
-                    """
-                    
-                    web.top_coord = [x, y]
+                        
+                    web.top_coord = [x+dx, y+dy]
                     
                 else:
                     if web.angle == math.radians(90):
@@ -521,12 +525,23 @@ class TrussJoint():
                         x, y = x0 - ecc_x, y0 + ecc_y
                     else:
                         x, y = x0 + ecc_x, y0 + ecc_y
-                    web.bot_coord = [x, y]
+                    dx = ecc_x * (1 - math.cos(self.chord.angle))
+                    dy = ecc_x * math.sin(self.chord.angle)
+                    if web.angle < 0:
+                        dx = -dx
+                    else:
+                        dy = -dy
+                    web.bot_coord = [x+dx, y+dy]
                     
                 web.calc_nodal_coordinates(num_elements)               
-                self.add_node_coord([x, y])
-                self.add_node_coord([x, y0])
-                self.chord.add_node_coord([x, y0])
+                self.add_node_coord([x+dx, y+dy])
+                self.add_node_coord([x+dx, y0+dy])
+                self.chord.add_node_coord([x+dx, y0+dy])
+        
+        if self.nodes:
+            for i, node in enumerate(self.nodes.values()):
+                if i%2 == 0:
+                    node.x = self.nodal_coordinates[i]
                 
     
     def generate(self, fem_model):
@@ -536,6 +551,8 @@ class TrussJoint():
                 try:
                     idx = fem_model.nodal_coords.index(coord)
                     self.nodes[idx] = fem_model.nodes[idx]
+                    if coord == self.coordinate:
+                        self.cnode = fem_model.nodes[idx]
                 except IndexError:
                     pass
     
