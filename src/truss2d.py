@@ -64,10 +64,10 @@ class Truss2D(Frame2D):
             # Assign member id
             this.mem_id = len(self.webs)
             # Assign joint id's   
-            if not j1.jid:
+            if j1.jid == None:
                 j1.jid = len(self.joints)
                 self.joints[j1.jid] = j1
-            if not j2.jid:
+            if j2.jid == None:
                 j2.jid = len(self.joints)
                 self.joints[j2.jid] = j2
 
@@ -117,6 +117,29 @@ class Truss2D(Frame2D):
             print(type(this), " is not supported.")
             raise TypeError
 
+    def generate(self):
+        """ Generates the truss
+        """
+        for member in self.members.values():
+            member.generate(self.f)
+            for coord in member.nodal_coordinates:
+                if coord not in self.nodal_coordinates:
+                    self.nodal_coordinates.append(coord)
+            self.nodes.extend(list(member.nodes.values()))
+        # Remove duplicate nodes
+        self.nodes = list(set(self.nodes))
+        for joint in self.joints.values():
+            joint.generate(self.f)
+        for support in self.supports.values():
+            support.add_support(self.f)
+
+        for pointLoad in self.point_loads.values():
+            pointLoad.add_load(self.f)
+
+        for lineLoad in self.line_loads.values():
+            member = lineLoad.member
+            lineLoad.element_ids = member.lineload_elements(lineLoad.coordinates)
+            lineLoad.add_load(self.f)
 
 
 class TrussMember(FrameMember):
@@ -341,6 +364,7 @@ class TrussWeb(TrussMember):
         self.__Sj1 = Sj1
         self.__Sj2 = Sj2
         self.mtype = 'web'
+        
      
     @property
     def bot_coord(self):
@@ -379,6 +403,8 @@ class TrussJoint():
         self.nodes = {}
         self.elements = {}
         self.webs = {}
+        self.is_generated = False
+
         
     def add_node_coord(self, coord):
         if coord not in self.nodal_coordinates:
@@ -466,7 +492,6 @@ class TrussJoint():
         elif len(self.webs) == 2:
             for web in self.webs.values():
                 gamma = web.angle - self.chord.angle
-                print("GAMMA: ",web.mem_id,  math.degrees(gamma))
                 ecc_x = self.g1/2 + web.h/2000 * math.cos(gamma)
                 if self.chord.mtype == 'top_chord':
                     if web.angle == math.radians(90):
@@ -502,3 +527,15 @@ class TrussJoint():
                 self.add_node_coord([x, y])
                 self.add_node_coord([x, y0])
                 self.chord.add_node_coord([x, y0])
+                
+    
+    def generate(self, fem_model):
+        if not self.is_generated:
+            self.is_generated = True
+            for coord in self.nodal_coordinates:
+                try:
+                    idx = fem_model.nodal_coords.index(coord)
+                    self.nodes[idx] = fem_model.nodes[idx]
+                except IndexError:
+                    pass
+    
