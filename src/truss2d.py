@@ -120,6 +120,7 @@ class Truss2D(Frame2D):
     def generate(self):
         """ Generates the truss
         """
+        # Generate members' nodes and elements
         for member in self.members.values():
             member.generate(self.f)
             for coord in member.nodal_coordinates:
@@ -128,6 +129,7 @@ class Truss2D(Frame2D):
             self.nodes.extend(list(member.nodes.values()))
         # Remove duplicate nodes
         self.nodes = list(set(self.nodes))
+        # Generate joints' nodes and elements
         for joint in self.joints.values():
             joint.generate(self.f)
         for support in self.supports.values():
@@ -453,13 +455,15 @@ class TrussJoint():
                 web.bot_coord = [x0, y0 + ecc_y]
             web.calc_nodal_coordinates(num_elements)
         
-        elif len(self.webs) == 2:
+        elif len(self.webs) >= 2:
             for web in self.webs.values():
-                gamma = web.angle - self.chord.angle
+                theta = web.angle - self.chord.angle
                 # Eccentricity along x-axis
-                ecc_x = self.g1/2 + web.h/2000 * math.cos(gamma)
+                ecc_x = self.g1/2 + web.h/2000 * math.cos(theta)
+                    
                 if self.chord.mtype == 'top_chord':
                     if web.angle == math.radians(90):
+
                         x, y = x0, y0 - ecc_y                    
                     elif web.angle > 0:
                         x, y = x0 - ecc_x, y0 - ecc_y                               
@@ -476,9 +480,11 @@ class TrussJoint():
                     web.top_coord = [x+dx, y+dy]
                     
                 else:
-                    if web.angle == math.radians(90):
+                    if web.angle == math.radians(90)\
+                    or web.bot_loc == 0 and web.top_loc == 0 or\
+                    web.bot_loc == 1 and web.top_loc == 1:
                         x, y = x0, y0 + ecc_y
-                    elif math.degrees(gamma) < 0:
+                    elif math.degrees(theta) < 0:
                         x, y = x0 - ecc_x, y0 + ecc_y
                     else:
                         x, y = x0 + ecc_x, y0 + ecc_y
@@ -499,6 +505,10 @@ class TrussJoint():
                 self.add_node_coord([x+dx, y+dy])
                 self.add_node_coord([x+dx, y0+dy])
                 self.chord.add_node_coord([x+dx, y0+dy])
+                
+                
+                
+             
         # Move existing nodes, nodes in order [centre, web, chord, web, chord]
         if self.nodes:
             for i, node in enumerate(self.nodes.values()):
@@ -506,6 +516,7 @@ class TrussJoint():
                 # webs nodes are moved earlier
                 if i%2 == 0:
                     node.x = self.nodal_coordinates[i]
+        
         # Set joint type
         if len(self.nodal_coordinates) == 0:
             pass
@@ -518,7 +529,6 @@ class TrussJoint():
         elif len(self.nodal_coordinates) == 6:
             self.joint_type = 'KT'
         else:
-            print(len(self.nodes))
             raise ValueError('Too many nodes for one joint')
                 
     def generate(self, fem_model):
@@ -554,8 +564,9 @@ class TrussJoint():
         
         
         self.idx = len(fem_model.materials)
+        self.idx = self.chord.mem_id
         # Material(E, nu, rho)
-        fem_model.add_material(1e20, 1e-20, 1e-20)
+        fem_model.add_material(210e3, 0.3, 7850e-9)
         # BeamSection(A, Iy)
         sect = BeamSection(1e20, 1e20)
         fem_model.add_section(sect)
