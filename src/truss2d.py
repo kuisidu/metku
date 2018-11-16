@@ -7,7 +7,7 @@ Created on Fri Oct 26 10:11:35 2018
 from frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from fem.frame.elements.ebbeam import EBBeam
 from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
-from fem.frame.frame_fem import FrameFEM
+from fem.frame.frame_fem import FrameFEM, Material, BeamSection
 
 import math
 import numpy as np
@@ -171,8 +171,9 @@ class TrussMember(FrameMember):
         """
         Returns member's angle in radians
         """
-        x0, y0 = self.coordinates[0]
-        x1, y1 = self.coordinates[1]
+        start_node, end_node = self.coordinates
+        x0, y0 = start_node
+        x1, y1 = end_node
         if (x1-x0) == 0:
             angle = math.radians(90)
         else:
@@ -400,12 +401,16 @@ class TrussJoint():
         self.joint_type = joint_type
         self.g1 = g1
         self.g2 = g2
+        # nodes in order [center, web, chord, web, chord]
         self.nodal_coordinates = []
         self.nodes = {}
         self.elements = {}
+        self.element_ids = []
         self.webs = {}
         self.is_generated = False
         self.num_elements = None
+        # Index for eccentricity elements material and section
+        self.idx = None
 
         
     def add_node_coord(self, coord):
@@ -425,56 +430,7 @@ class TrussJoint():
         self.__coordinate = self.chord.local(val)
         if self.num_elements:
             self.calc_nodal_coordinates(self.num_elements)
-        
-    def calc_coord(self, web_id):
-        webs = self.webs.values()
-        x0, y0 = self.coordinate
-        x = 0
-        for web in webs:
-            if len(self.webs) == 1:
-                x = 0
             
-            gamma = web.angle - self.chord.angle
-            coords1, coords2 = web.coordinates
-            if len(self.webs) > 1:
-                if self.chord.mtype == 'top_chord':
-                    coords = min(coords1, coords2)
-                    y = 0.5 * self.chord.h/1000 # mm to m
-                    if math.degrees(gamma) < 0:
-                        x = -(0.5 * web.h/1000 * math.sin(gamma) + self.g1/2)
-                    else:
-                        x = 0.5 * web.h/1000 * math.sin(gamma) + self.g1/2
-                else:
-                    coords = max(coords1, coords2)
-                    y = -0.5 * self.chord.h/1000 # mm to m
-                    
-                    if math.degrees(gamma) < 0:
-                        x = 0.5 * web.h/1000 * math.sin(gamma) + self.g1/2
-                    else:    
-                        x = -1*(0.5 * web.h/1000 * math.sin(gamma) + self.g1/2)
-                
-        
-        """
-        if len(self.webs) == 1:
-            x = 0
-        elif len(self.webs) == 2:
-            if self.chord.mtype == 'top_chord':
-                x = 0.5 * web.h/1000 * math.sin(gamma) + self.g1
-            else:
-                x = 0.5 * web.h/1000 * math.sin(gamma) + self.g1
-            
-        elif len(self.webs) == 3:
-            if self.chord.mtype == 'top_chord':
-                x = 0.5 * web.h/1000 * math.sin(gamma) + self.g2
-            else:
-                x = -1*(0.5 * web.h/1000 * math.sin(gamma) + self.g2)
-        """
-        
-        #return [x0, y0]
-        if x0-x > self.chord.coordinates[1][0] or x0-x < self.chord.coordinates[0][0]:
-            return [x0,y0]
-    
-        return [x0-x, y0] 
     
     def calc_nodal_coordinates(self, num_elements):
         self.num_elements = num_elements
@@ -550,8 +506,34 @@ class TrussJoint():
                 # webs nodes are moved earlier
                 if i%2 == 0:
                     node.x = self.nodal_coordinates[i]
+        # Set joint type
+        if len(self.nodal_coordinates) == 0:
+            pass
+        elif len(self.nodal_coordinates) == 2:
+            self.joint_type = 'T'
+        elif len(self.nodal_coordinates) == 4:
+            self.joint_type = 'N'
+        elif len(self.nodal_coordinates) == 5:
+            self.joint_type = 'K'
+        elif len(self.nodal_coordinates) == 6:
+            self.joint_type = 'KT'
+        else:
+            print(len(self.nodes))
+            raise ValueError('Too many nodes for one joint')
                 
     def generate(self, fem_model):
+        """
+        """
+        self.generate_nodes(fem_model)
+        self.add_section_and_material(fem_model)
+        self.generate_eccentricity_elements(fem_model)
+        
+                
+    def generate_nodes(self, fem_model):
+        """
+        Generates eccentricity nodes to chord
+        :param fem_model: FrameFEM -instance, model where nodes are added
+        """
         if not self.is_generated:
             self.is_generated = True
             for coord in self.nodal_coordinates:
@@ -562,4 +544,111 @@ class TrussJoint():
                         self.cnode = fem_model.nodes[idx]
                 except ValueError:
                     pass
+    
+    def add_section_and_material(self, fem_model):
+        """
+        Add's eccentricity elements section and material properties
+        to the fem model.
+        Eccentricity elements are modelled as infinitely rigid elements
+        """
+        
+        
+        self.idx = len(fem_model.materials)
+        # Material(E, nu, rho)
+        fem_model.add_material(1e20, 1e-20, 1e-20)
+        # BeamSection(A, Iy)
+        sect = BeamSection(1e20, 1e20)
+        fem_model.add_section(sect)
+        
+    
+    
+    def generate_eccentricity_elements(self, fem_model):
+        # Create a list of node instances sorted by nodes' x-coordinate
+        nodes = [x for _,x in sorted(zip(self.nodal_coordinates,
+                                         list(self.nodes.values())))]
+        index = fem_model.nels()
+        if self.joint_type == 'T':
+            cn, wn = nodes
+            self.elements[index] = \
+                EBBeam(cn,
+                        wn,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index])
+            self.element_ids.append(index)
+            
+        elif self.joint_type == 'N':
+            cn1, wn1, cn2, wn2 = nodes
+            self.elements[index] = \
+                EBBeam(cn1,
+                        wn1,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index])
+            self.element_ids.append(index)
+            # Chrod and web
+            self.elements[index+1] = \
+                EBBeam(cn2,
+                        wn2,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index+1])
+            self.element_ids.append(index+1)
+            
+            
+        elif self.joint_type == 'K':
+            cn1, wn1, cn2, wn2, cn3 = nodes
+            # Chrod and web
+            self.elements[index] = \
+                EBBeam(cn1,
+                        wn1,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index])
+            self.element_ids.append(index)
+            # Chrod and web
+            self.elements[index+1] = \
+                EBBeam(cn3,
+                        wn2,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index+1])
+            self.element_ids.append(index+1)
+            
+        elif self.joint_type == 'KT':
+            cn1, wn1, cn2, wn2, cn3, wn3 = nodes
+            # Chrod and web
+            self.elements[index] = \
+                EBBeam(cn1,
+                        wn1,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index])
+            self.element_ids.append(index)
+            # Central and web
+            self.elements[index+1] = \
+                EBBeam(cn2,
+                        wn2,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index+1])
+            self.element_ids.append(index+1)
+            # Chrod and web
+            self.elements[index+2] = \
+                EBBeam(cn3,
+                        wn3,
+                        fem_model.sections[self.idx], 
+                        fem_model.materials[self.idx])
+            # Add it to fem model
+            fem_model.add_element(self.elements[index+2])
+            self.element_ids.append(index+2)
+            
+        
     
