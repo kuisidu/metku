@@ -417,15 +417,16 @@ class TrussJoint():
         self.joint_type = joint_type
         self.g1 = g1
         self.g2 = g2
-        # nodes in order [center, web, chord, web, chord]
         self.nodal_coordinates = []
         self.nodes = {}
+        self.node_coord_pairs = []
+        self.node_pairs = []
         self.elements = {}
         self.element_ids = []
         self.webs = {}
         self.is_generated = False
         self.num_elements = None
-        # Index for eccentricity elements material and section
+        # Index for eccentricity elements' material and section
         self.idx = None
 
         
@@ -498,6 +499,7 @@ class TrussJoint():
                 self.add_node_coord(coord)
                 web.bot_coord = coord
             web.calc_nodal_coordinates(num_elements)
+            self.node_coord_pairs.append((list(central_coord), coord))
             
         # If joint type is K or KT
         elif len(self.webs) >= 2:
@@ -519,8 +521,7 @@ class TrussJoint():
                     else:
                         ecc_x = 0
                 # TOP CHORD
-                if self.chord.mtype == 'top_chord':                   
-                    #if 0 <= web.angle <= math.radians(90):
+                if self.chord.mtype == 'top_chord':
                     if web.bot_coord[0] == min([x.bot_coord[0] for x in self.webs.values()]):
                         ecc_x = -ecc_x                    
                     # Web's eccentricity node on chord's center line
@@ -533,7 +534,7 @@ class TrussJoint():
                     coord2 = coord1 - ecc_y*u
                     if web.top_loc == 0 and web.bot_loc == 0:
                         coord2 = central_coord - [0, ecc_y]
-                        coord1 = 0
+                        coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
                     web.top_coord = list(coord2)
                 # BOTTOM CHORD
@@ -550,30 +551,26 @@ class TrussJoint():
                     coord2 = coord1 + ecc_y*u
                     if web.top_loc == 0 and web.bot_loc == 0:
                         coord2 = central_coord + [0, ecc_y]
-                        coord1 = 0
+                        coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
                     web.bot_coord = list(coord2)                    
                 # Calculate web's new nodal locations 
                 web.calc_nodal_coordinates(num_elements)
                 # Add eccentricity nodes' coordinates to joint and chord
                 # Node on the chord's center line needs to be exactly on the
-                # center line -> calculate coordinates y-coord with
+                # center line, so we need to calculate the y-coord with
                 # chord's shape function
-                if not isinstance(coord1, int):
-                    coord1 = list([coord1[0], self.chord.shape(coord1[0])])
-                    # Node coordinate on chord's center line
-                    self.add_node_coord(coord1)
-                    self.chord.add_node_coord(coord1)
+                coord1 = list([coord1[0], self.chord.shape(coord1[0])])
+                # Node coordinate on chord's center line
+                self.add_node_coord(coord1)
+                self.chord.add_node_coord(coord1)
                 # Node coordinate on web's end
                 self.add_node_coord(list(coord2))
-                      
-        # Move existing nodes, nodes in order [centre, web, chord, web, chord]
+                self.node_coord_pairs.append((coord1, coord2))
+        # Move existing nodes
         if self.nodes:
             for i, node in enumerate(self.nodes.values()):
-                # Move only central and chrod's nodes
-                # webs nodes are moved earlier
-                if i%2 == 0:
-                    node.x = self.nodal_coordinates[i]
+                node.x = self.nodal_coordinates[i]
         
         # Set joint type
         if len(self.nodal_coordinates) == 0:
@@ -606,14 +603,15 @@ class TrussJoint():
         """
         if not self.is_generated:
             self.is_generated = True
+           
             for coord in self.nodal_coordinates:
-                try:
-                    idx = fem_model.nodal_coords.index(coord)
-                    self.nodes[idx] = fem_model.nodes[idx]
-                    if coord == self.coordinate:
-                        self.cnode = fem_model.nodes[idx]
-                except ValueError:
-                    pass
+                idx = fem_model.nodal_coords.index(coord)
+                self.nodes[idx] = fem_model.nodes[idx]
+                if coord == self.coordinate:
+                    self.cnode = fem_model.nodes[idx]
+                    
+                        
+                    
     
     def add_section_and_material(self, fem_model):
         """
@@ -621,8 +619,7 @@ class TrussJoint():
         to the fem model.
         Eccentricity elements are modelled as infinitely rigid elements
         """
-        
-        
+
         self.idx = len(fem_model.materials)
         self.idx = self.chord.mem_id
         # Material(E, nu, rho)
@@ -630,19 +627,33 @@ class TrussJoint():
         # BeamSection(A, Iy)
         sect = BeamSection(1e20, 1e20)
         fem_model.add_section(sect)
-        
-    
+  
     
     def generate_eccentricity_elements(self, fem_model):
+        """
+        Generates eccentricity elements
+        """
         # Create a list of node instances sorted by nodes' x-coordinate
         nodes = [x for _,x in sorted(zip(self.nodal_coordinates,
                                          list(self.nodes.values())))]
+        chord_nodes = []
+        web_nodes = []
+        for node in nodes:
+            if node in self.chord.nodes.values():
+                chord_nodes.append(node)
+            else:
+                web_nodes.append(node)
+                
+        web_nodes = sorted(web_nodes, key=lambda node: node.x[0])
+        chord_nodes = sorted(chord_nodes, key=lambda node: node.x[0])
+
+
         index = fem_model.nels()
         if self.joint_type == 'Y':
-            cn, wn = nodes
+            n1, n2 = nodes
             self.elements[index] = \
-                EBBeam(cn,
-                        wn,
+                EBBeam(n1,
+                        n2,
                         fem_model.sections[self.idx], 
                         fem_model.materials[self.idx])
             # Add it to fem model
@@ -650,7 +661,8 @@ class TrussJoint():
             self.element_ids.append(index)
             
         elif self.joint_type == 'N':
-            cn1, wn1, cn2, wn2 = nodes
+            wn1, wn2 = web_nodes
+            cn1, cn2 = chord_nodes
             self.elements[index] = \
                 EBBeam(cn1,
                         wn1,
@@ -671,8 +683,8 @@ class TrussJoint():
             
             
         elif self.joint_type == 'K':
-            print(self.nodal_coordinates)
-            cn1, wn1, cn2, wn2, cn3 = nodes
+            cn1, cn2, cn3 = chord_nodes
+            wn1, wn2 = web_nodes
             # Chrod and web
             self.elements[index] = \
                 EBBeam(cn1,
@@ -693,7 +705,8 @@ class TrussJoint():
             self.element_ids.append(index+1)
             
         elif self.joint_type == 'KT':
-            cn1, wn1, cn2, wn2, cn3, wn3 = nodes
+            cn1, cn2, cn3 = chord_nodes
+            wn1, wn2, wn3 = web_nodes
             # Chrod and web
             self.elements[index] = \
                 EBBeam(cn1,
