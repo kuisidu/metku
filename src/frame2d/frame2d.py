@@ -447,10 +447,13 @@ class Frame2D:
             lineLoad.element_ids = member.lineload_elements(lineLoad.coordinates)
             lineLoad.add_load(self.f)
             
-    """
-    TODO
-    DOESN'T WORK YET
+    
+    
     def load_robot_csv(self):
+        pass
+    """
+        #TODO
+        #DOESN'T WORK YET
         self.load_robot = True
         tk = Tk()
         tk.withdraw()
@@ -697,6 +700,8 @@ class Frame2D:
         self.plot(print_text=False, show=False)
         for member in self.members.values():
             member.bmd(scale)
+        if self.truss:
+            self.truss.bmd(scale)
         plt.show()
 
     def smd(self, scale=1):
@@ -711,7 +716,12 @@ class Frame2D:
         for member in self.members.values():
             member.smd(scale)
         plt.show()
-
+        
+    def plot_normal_force(self, show=True):
+        for member in self.members.values():
+            member.plot_normal_force()
+        if show:
+            plt.show()
 
 
     @property
@@ -1114,8 +1124,9 @@ class FrameMember:
         self.__Sj2 = val
 
     def calc_length(self):
-        x0, y0 = self.coordinates[0]
-        x1, y1 = self.coordinates[1]
+        start_node, end_node = self.coordinates
+        x0, y0 = start_node
+        x1, y1 = end_node
         x = (x1 - x0) ** 2
         y = (y1 - y0) ** 2
         L = np.sqrt(x + y)
@@ -1131,7 +1142,7 @@ class FrameMember:
     def Sj_to_alpha(self):
         """ Change Sj value to alpha
         """
-        # SFS-EN 1993-1-8 alpha
+        # SFS-EN 1993-1-8 page 60, hinge 0.5 < alpha < 25 rigid
         self.alpha1 = self.Sj1 * self.length / (self.E * self.I_y * 1e-12)
         self.alpha2 = self.Sj2 * self.length / (self.E * self.I_y * 1e-12)
 
@@ -1147,6 +1158,7 @@ class FrameMember:
             self.generate_elements(fem_model)
             self.is_generated = True
 
+
     def calc_nodal_coordinates(self, num_elements):
         """
             Calculates node locations along member
@@ -1158,7 +1170,6 @@ class FrameMember:
             self.num_elements = num_elements
         self.nodal_coordinates = []
         start_node, end_node = self.coordinates
-
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
         Ly = end_node[1] - start_node[1]
@@ -1180,6 +1191,7 @@ class FrameMember:
 
         if self.is_generated:
             for j, node in enumerate(self.nodes.values()):
+                print(j, len(self.nodal_coordinates))
                 node.x = np.array(self.nodal_coordinates[j])
                 
 
@@ -1190,13 +1202,28 @@ class FrameMember:
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
+        # If member's angle is negative, y-coordinates must be multiplied by -1
+        start_node, end_node = self.coordinates
+        x0, y0 = start_node
+        Lx = end_node[0] - start_node[0]
+        Ly = end_node[1] - start_node[1]
+        try:
+            k = Ly / Lx
+        except ZeroDivisionError:
+            k = 0
+        s = 1
+        if k < 0:
+            s = -1
+        """
         if coord not in self.nodal_coordinates and\
-        self.coordinates[0][0] <= coord[0] <= self.coordinates[1][0] and\
-        self.coordinates[0][1] <= coord[1] <= self.coordinates[1][1]:
+        start_node[0] <= coord[0] <= end_node[0] and\
+        s*start_node[1] <= s*coord[1] <= s*end_node[1]:
+        """
+        if coord not in self.nodal_coordinates and self.point_intersection(coord):
             self.nodal_coordinates.append(coord)
             self.nodal_coordinates = sorted(self.nodal_coordinates)
             x, y = coord
-            x1, y1 = self.coordinates[0]
+            x1, y1 = start_node
             dx = x - x1
             dy = y - y1
             dz = math.sqrt((dx ** 2 + dy ** 2))
@@ -1478,8 +1505,9 @@ class FrameMember:
         :return [px, py]: array of two float values, coordinates for intersection
         source: https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
         """
-        x1, y1 = self.coordinates[0]
-        x2, y2 = self.coordinates[1]
+        start_node, end_node = self.coordinates
+        x1, y1 = start_node
+        x2, y2 = end_node
         x3, y3 = coordinates[0]
         x4, y4 = coordinates[1]
         
@@ -1496,13 +1524,21 @@ class FrameMember:
 
     def point_intersection(self, coordinate):
         """
-        Calculates point where member and point load intersect
+        Calculates point where member and point intersect
         :param coordinate: array of two float values
         """
         
-        x1, y1 = self.coordinates[0]
-        x2, y2 = self.coordinates[1]
+        start_node, end_node = self.coordinates
+        x1, y1 = start_node
+        x2, y2 = end_node
         x, y = coordinate
+        if x2 - x1 == 0:
+            return x == x1 and y1 <= y <= y2 
+        else:
+            k = (y2 - y1) / (x2 - x1)
+            b = y1 - k * x1
+            return y == k * x + b
+        """
         try:
             k = (y2 - y1) / (x2 - x1)
             b = y1 - k * x1
@@ -1510,6 +1546,7 @@ class FrameMember:
 
         except ZeroDivisionError:
             return x == x1 and y1 <= y <= y2
+        """
 
     def plot(self, print_text, c):
 
@@ -1694,6 +1731,40 @@ class FrameMember:
         Y.append(self.nodal_coordinates[i][1])
         plt.plot(X, Y, color='gray')
 
+
+    def plot_normal_force(self):
+        X = self.coordinates
+        if self.ned < 0:
+            color = 'r'
+        else:
+            color = 'b'
+        # Plot members
+        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
+        # Plot text
+        # Calculate text location
+        delta_y = X[1][1] - X[0][1]
+        delta_x = X[1][0] - X[0][0]
+        if delta_x == 0:
+            rot = 90
+        elif delta_y == 0:
+            rot = 0
+        else:
+            rot = math.degrees(math.atan(delta_y / delta_x))
+        if self.mtype == 'beam':
+            x = (X[0][0] + X[1][0]) / 2
+            y = (X[1][1] + X[0][1]) / 2
+            horzalign = 'center'
+            vertalign = 'bottom'
+        elif self.mtype == 'column':
+            x = (X[0][0] + X[1][0]) / 2
+            y = (X[1][1] + X[0][1]) / 2
+            horzalign = 'right'
+            vertalign = 'center'
+            
+            plt.text(x, y, str(self.ned) + " kN",
+                     rotation=rot, horizontalalignment=horzalign,
+                     verticalalignment=vertalign)
+
     def lineload_elements(self, coords):
     
     #Returns the elements that are under line load
@@ -1717,8 +1788,9 @@ class SteelBeam(FrameMember):
         self.check_mtype()
 
     def check_mtype(self):
-        x1, y1 = self.coordinates[0]
-        x2, y2 = self.coordinates[1]
+        start_node, end_node = self.coordinates
+        x1, y1 = start_node
+        x2, y2 = end_node
 
         try:
             angle = abs(y2 - y1) / abs(x2 - x1)
@@ -1737,8 +1809,9 @@ class SteelColumn(FrameMember):
         self.check_mtype()
 
     def check_mtype(self):
-        x1, y1 = self.coordinates[0]
-        x2, y2 = self.coordinates[1]
+        start_node, end_node = self.coordinates
+        x1, y1 = start_node
+        x2, y2 = end_node
 
         try:
             angle = abs(y2 - y1) / abs(x2 - x1)
@@ -1812,7 +1885,7 @@ class LineLoad(Load):
         v1, v2 = self.values
         k = (v2 - v1) / len(self.member.elements)
         return k
-
+    
     def add_load(self, fem_model):
         k = self.calc_k()
         v0, v1 = self.values

@@ -284,8 +284,7 @@ class TrussMember(FrameMember):
             else:
                 rot = math.degrees(math.atan(delta_y / delta_x))
 
-            x = (
-                    X[0][0] + X[1][0]) / 2
+            x = (X[0][0] + X[1][0]) / 2
             y = (X[1][1] + X[0][1]) / 2
             horzalign = 'center'
             vertalign = 'bottom'
@@ -348,6 +347,41 @@ class TrussMember(FrameMember):
         X.append(self.nodal_coordinates[i][0])
         Y.append(self.nodal_coordinates[i][1])
         plt.plot(X, Y, color='gray')
+        
+    def plot_normal_force(self):
+        X = self.coordinates
+        if self.ned < 0:
+            
+            r = min(1, max(self.steel_member.check_buckling()))
+            alpha = max(0.1, r)
+            color = (1,0.5-r/2,0, alpha)
+        else:
+            r = min(1, self.steel_member.check_section())
+            alpha = max(0.1, r)
+            color = (0,0.5-r/2,1, alpha)
+        # Plot members
+        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color=color, linewidth=2)
+        # Plot text
+        # Calculate text location
+        delta_y = X[1][1] - X[0][1]
+        delta_x = X[1][0] - X[0][0]
+        # Calculate text location
+        delta_y = X[1][1] - X[0][1]
+        delta_x = X[1][0] - X[0][0]
+        if delta_x == 0:
+            rot = 90
+        elif delta_y == 0:
+            rot = 0
+        else:
+            rot = math.degrees(math.atan(delta_y / delta_x))
+
+        x = (X[0][0] + X[1][0]) / 2
+        y = (X[1][1] + X[0][1]) / 2
+        horzalign = 'center'
+        vertalign = 'bottom'         
+        plt.text(x, y, f'{self.ned:.3f}  kN,\nr: {r*100:.2f} %',
+                 rotation=rot, horizontalalignment=horzalign,
+                 verticalalignment=vertalign)
 
 
 class TopChord(TrussMember):
