@@ -167,6 +167,20 @@ class TrussMember(FrameMember):
         except ZeroDivisionError:
             k = 0
         return [Lx * value + x0, k * value * Lx + y0]
+    
+    def shape(self, x):
+        start_node, end_node = self.coordinates
+        x0, y0 = start_node
+        Lx = end_node[0] - start_node[0]
+        Ly = end_node[1] - start_node[1]
+        try:
+            k = Ly / Lx
+        except ZeroDivisionError:
+            k = 0
+        return k*x + y0
+        
+        
+        
 
     @property
     def angle(self):
@@ -353,8 +367,8 @@ class BottomChord(TrussMember):
 
 class TrussWeb(TrussMember):
     def __init__(self, bot_loc, top_loc, mem_id="",
-                 profile="SHS 100x5", material="S355", Sj1=0, Sj2=0):
-        super().__init__([[0,0],[2,2]]) # Member's coordinates are changed in add-function
+                 profile="SHS 50x5", material="S355", Sj1=0, Sj2=0):
+        super().__init__([[0,0],[2,2]], profile=profile) # Member's coordinates are changed in add-function
         # Chord's local coordinates
         self.bot_loc = bot_loc
         self.top_loc = top_loc
@@ -435,80 +449,93 @@ class TrussJoint():
             
     
     def calc_nodal_coordinates(self, num_elements):
+        
+        
+        v = np.array([math.cos(self.chord.angle), math.sin(self.chord.angle)])
+        u = np.array([-math.sin(self.chord.angle), math.cos(self.chord.angle)])
+        
         self.num_elements = num_elements
         # Initialize nodal coordinates as an empty array
         self.nodal_coordinates = []
-        x0, y0 = self.coordinate
+        central_coord = np.asarray(self.coordinate)
         # Eccentricity along y-axis
-        ecc_y = self.chord.h / 2000 # div by 2 and 1000 mm to m
-        # Add joint's central coordinate x0,y0
-        self.add_node_coord([x0, y0])
-        self.chord.add_node_coord([x0, y0])
-        
+        ecc_y = self.chord.h / 2000 # div by 2 and 1000 (mm to m)
+        # Add joint's central coordinate x0,y0 to joint and chord
+        self.add_node_coord(list(central_coord))
+        self.chord.add_node_coord(list(central_coord))
+        # If joint type is Y
         if len(self.webs) == 1:
             web = list(self.webs.values())[0]
             if self.chord.mtype == 'top_chord':
-                self.add_node_coord([x0, y0 - ecc_y])
-                web.top_coord = [x0, y0 - ecc_y]
+                coord = list(central_coord - [0,ecc_y])
+                
+                self.add_node_coord(coord)
+                web.top_coord = coord
             else:
-                self.add_node_coord([x0, y0 + ecc_y])
-                web.bot_coord = [x0, y0 + ecc_y]
+                coord = list(central_coord + [0,ecc_y])
+                self.add_node_coord(coord)
+                web.bot_coord = coord
             web.calc_nodal_coordinates(num_elements)
-        
+            
+        # If joint type is K or KT
         elif len(self.webs) >= 2:
+            # Iterate trhough every web member in the joint
             for web in self.webs.values():
-                theta = web.angle - self.chord.angle
+                # angle between chord and web
+                theta = abs(self.chord.angle - web.angle)
                 # Eccentricity along x-axis
-                ecc_x = self.g1/2 + web.h/2000 * math.cos(theta)
-                    
-                if self.chord.mtype == 'top_chord':
+                ecc_x = self.g1/2 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta)             
+                if len(self.webs) >=3:
+                    if 0 < web.angle < math.radians(90):
+                        ecc_x = self.g1/2 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta)
+                    elif -math.radians(90) < web.angle < 0:
+                        ecc_x = self.g2/2 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta)
+                    else:
+                        ecc_x = 0
+                # TOP CHORD
+                if self.chord.mtype == 'top_chord':                   
+                    if 0 < web.angle < math.radians(90):
+                        ecc_x = -ecc_x                    
+                    # Web's eccentricity node on chord's center line
+                    coord1 = central_coord + ecc_x*v
+                    if list(coord1)[0] < self.chord.coordinates[0][0] or\
+                        list(coord1)[0] > self.chord.coordinates[1][0]:
+                        coord1 = central_coord
+                    # Web's eccentricity node on chord's edge
+                    coord2 = coord1 - ecc_y*u
                     if web.angle == math.radians(90):
-
-                        x, y = x0, y0 - ecc_y                    
-                    elif web.angle > 0:
-                        x, y = x0 - ecc_x, y0 - ecc_y                               
-                    else:
-                        x, y = x0 + ecc_x, y0 - ecc_y                    
-                    # Coordinates need to be rotated to align with the chord
-                    dx = ecc_x * (1 - math.cos(self.chord.angle))
-                    dy = ecc_x * math.sin(self.chord.angle)
-                    if web.angle < 0:
-                        dx = -dx
-                    else:
-                        dy = -dy
-                    # Set new top coordinate
-                    web.top_coord = [x+dx, y+dy]
-                    
-                else:
-                    if web.angle == math.radians(90)\
-                    or web.bot_loc == 0 and web.top_loc == 0 or\
-                    web.bot_loc == 1 and web.top_loc == 1:
-                        x, y = x0, y0 + ecc_y
-                    elif math.degrees(theta) < 0:
-                        x, y = x0 - ecc_x, y0 + ecc_y
-                    else:
-                        x, y = x0 + ecc_x, y0 + ecc_y
-                    dx = ecc_x * (1 - math.cos(self.chord.angle))
-                    dy = ecc_x * math.sin(self.chord.angle)
+                        coord2 = central_coord - [0, ecc_y]
+                    # Move chord's coordinate to newly calculated location
+                    web.top_coord = list(coord2)
+                # BOTTOM CHORD
+                else:                   
+                    if -math.radians(90) < web.angle < 0 or web.bot_loc == 0 and web.top_loc == 0:
+                        ecc_x = -ecc_x
+                    # Web's eccentricity node on chord's center line
+                    coord1 = central_coord + ecc_x*v
+                    if list(coord1)[0] < self.chord.coordinates[0][0] or\
+                        list(coord1)[0] > self.chord.coordinates[1][0]:
+                        coord1 = central_coord
+                    # Web's eccentricity node on chord's edge
+                    coord2 = coord1 + ecc_y*u
                     if web.angle == math.radians(90):
-                        dx = 0
-                    
-                    elif web.angle < 0:
-                        dy = -dy
-                    else:
-                        dx = dx
-                    # Set new bottom coordinate
-                    web.bot_coord = [x-dx, y+dy]
+                        coord2 = central_coord + [0, ecc_y]
+                    # Move chord's coordinate to newly calculated location
+                    web.bot_coord = list(coord2)
+                                       
                 # Calculate web's new nodal locations 
                 web.calc_nodal_coordinates(num_elements)
                 # Add eccentricity nodes' coordinates to joint and chord
-                self.add_node_coord([x+dx, y+dy])
-                self.add_node_coord([x+dx, y0+dy])
-                self.chord.add_node_coord([x+dx, y0+dy])
-                
-                
-                
-             
+                # Node on the chord's center line needs to be exactly on the
+                # center line -> calculate coordinates y-coord with
+                # chord's shape function
+                coord1 = list([coord1[0], self.chord.shape(coord1[0])])
+                # Node coordinate on chord's center line
+                self.add_node_coord(coord1)
+                self.chord.add_node_coord(coord1)
+                # Node coordinate on web's end
+                self.add_node_coord(list(coord2))                
+                      
         # Move existing nodes, nodes in order [centre, web, chord, web, chord]
         if self.nodes:
             for i, node in enumerate(self.nodes.values()):
@@ -521,7 +548,7 @@ class TrussJoint():
         if len(self.nodal_coordinates) == 0:
             pass
         elif len(self.nodal_coordinates) == 2:
-            self.joint_type = 'T'
+            self.joint_type = 'Y'
         elif len(self.nodal_coordinates) == 4:
             self.joint_type = 'N'
         elif len(self.nodal_coordinates) == 5:
@@ -530,6 +557,8 @@ class TrussJoint():
             self.joint_type = 'KT'
         else:
             raise ValueError('Too many nodes for one joint')
+            
+            
                 
     def generate(self, fem_model):
         """
@@ -578,7 +607,7 @@ class TrussJoint():
         nodes = [x for _,x in sorted(zip(self.nodal_coordinates,
                                          list(self.nodes.values())))]
         index = fem_model.nels()
-        if self.joint_type == 'T':
+        if self.joint_type == 'Y':
             cn, wn = nodes
             self.elements[index] = \
                 EBBeam(cn,
@@ -611,6 +640,7 @@ class TrussJoint():
             
             
         elif self.joint_type == 'K':
+            print(self.nodal_coordinates)
             cn1, wn1, cn2, wn2, cn3 = nodes
             # Chrod and web
             self.elements[index] = \
