@@ -43,7 +43,7 @@ class Truss2D(Frame2D):
             this.calc_nodal_coordinates(self.num_elements)
         # Web and truss joint
         elif isinstance(this, TrussWeb):
-            # Calculate web's coordinates
+            # Calculate web's global coordinates
             c01 = self.bottom_chord.local(this.bot_loc)
             c02 = self.top_chord.local(this.top_loc)
             # Change web's coordinates to global coordinates
@@ -59,8 +59,10 @@ class Truss2D(Frame2D):
             # Set joints to chord
             if not j1:
                 j1 = TrussJoint(self.bottom_chord, this.bot_loc)
+                self.bottom_chord.joints.append(j1)
             if not j2:
                 j2 = TrussJoint(self.top_chord, this.top_loc)
+                self.top_chord.joints.append(j2)
             # Assign member id
             this.mem_id = len(self.webs)
             # Assign joint id's   
@@ -113,6 +115,11 @@ class Truss2D(Frame2D):
                 if coord:
                     member.add_node_coord(this.coordinate)
 
+        # TRUSS
+        elif isinstance(this, Truss2D):
+            self.truss = this
+
+
         else:
             print(type(this), " is not supported.")
             raise TypeError
@@ -143,12 +150,84 @@ class Truss2D(Frame2D):
             lineLoad.element_ids = member.lineload_elements(lineLoad.coordinates)
             lineLoad.add_load(self.f)
 
+    def mirror(self):
+        top_coords = self.top_chord.coordinates
+        top_coords = [[top_coords[0][0], top_coords[1][1]],
+                      [top_coords[1][0], top_coords[0][1]]]
+        
+        self.top_chord.coordinates = top_coords
+        bottom_coords = self.bottom_chord.coordinates
+        bottom_coords = [[bottom_coords[0][0], bottom_coords[1][1]],
+                      [bottom_coords[1][0], bottom_coords[0][1]]]
+        self.bottom_chord.coordinates = bottom_coords
 
 class TrussMember(FrameMember):
     def __init__(self, coordinates, mem_id="",
                  profile="SHS 100x5", material="S355",num_elements=None):
         super().__init__(coordinates, mem_id, profile, material, num_elements)
+        self.joints = []
 
+    
+    def add_node_coord(self, coord):
+        """
+        Adds coordinate to memeber's coordinates and
+        calculates new coordinates local location
+        If coordinate is not between member's coordinates, reject it
+        :param coord: array of two float values, node's coordinates
+        """
+        
+        if self.shape(coord[0]) == coord[1]:
+            
+            if coord not in self.nodal_coordinates and self.point_intersection(coord):
+                self.nodal_coordinates.append(coord)
+                self.nodal_coordinates = sorted(self.nodal_coordinates)
+                x, y = coord
+                x1, y1 = self.coordinates[0]
+                dx = x - x1
+                dy = y - y1
+                dz = math.sqrt((dx ** 2 + dy ** 2))
+                z = dz / self.length
+                self.loc.append(z)
+                self.loc.sort()
+    
+    def calc_nodal_coordinates(self, num_elements=1):
+        """
+            Calculates node locations along member
+            Coordinates used are global coordinates
+            Adds locations to a list where they can be accessed later
+            :param num_elements: int, number of elements to be created
+        """
+        if not self.num_elements:
+            self.num_elements = num_elements
+        
+        self.nodal_coordinates = []
+        start_node, end_node = self.coordinates
+        x0, y0 = start_node
+        Lx = end_node[0] - start_node[0]
+        Ly = end_node[1] - start_node[1]
+        dx = Lx / self.num_elements
+        dy = Ly / self.num_elements
+        for i in range(self.num_elements):
+            x = i * dx + x0
+            y = i * dy + y0
+            loc = i / self.num_elements
+            node = [x, y]
+            if node not in self.nodal_coordinates:
+                self.nodal_coordinates.append(node)
+            if loc not in self.loc:
+                self.loc.append(loc)
+        if [end_node[0], end_node[1]] not in self.nodal_coordinates:
+            self.nodal_coordinates.append([end_node[0], end_node[1]])
+        if 1 not in self.loc:
+            self.loc.append(1)
+        
+        if self.is_generated:
+            for joint in self.joints:
+                 joint.coordinate = joint.loc
+            for j, node in enumerate(self.nodes.values()):
+                node.x = np.array(self.nodal_coordinates[j])
+            
+        
     def local(self, value):
         """
         Returns chord's local coordinate in global coordinates
@@ -177,7 +256,9 @@ class TrussMember(FrameMember):
             k = Ly / Lx
         except ZeroDivisionError:
             k = 0
+
         return k*x + y0
+
         
         
         
@@ -292,6 +373,7 @@ class TrussMember(FrameMember):
             plt.text(x, y, str(self.mem_id) + ": " + self.profile,
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
+        
 
 
     def bmd(self, scale):
@@ -446,6 +528,7 @@ class TrussJoint():
 
         self.chord = chord
         self.jid = None
+        self.loc = loc
         self.__coordinate = chord.local(loc)
         self.cnode = None # central node
         self.chord_nodes = []
@@ -480,6 +563,7 @@ class TrussJoint():
 
     @coordinate.setter
     def coordinate(self, val):
+        self.loc = val
         self.__coordinate = self.chord.local(val)
         if self.num_elements:
             self.calc_nodal_coordinates(self.num_elements)
@@ -508,7 +592,8 @@ class TrussJoint():
         ecc_y = self.chord.h / 2000 # div by 2 and 1000 (mm to m)
         # Add joint's central coordinate to joint's and chord's list
         self.add_node_coord(list(central_coord))
-        self.chord.add_node_coord(list(central_coord))       
+        self.chord.add_node_coord(list(central_coord))    
+        print(f'CALC {list(central_coord)}')
         # If joint type is Y or T
         if len(self.webs) == 1:
             web = list(self.webs.values())[0]
@@ -615,6 +700,9 @@ class TrussJoint():
                 # Node coordinate on web's end
                 self.add_node_coord(list(coord2))
                 self.node_coord_pairs.append((coord1, coord2))
+                
+                print(f'CALC {web.mem_id}  {coord1}  {coord2}')
+                
         # Move existing nodes
         if self.nodes:
             for i, node in enumerate(self.nodes.values()):
@@ -649,7 +737,7 @@ class TrussJoint():
         """
         if not self.is_generated:
             self.is_generated = True
-           
+            print(self.chord.nodal_coordinates)
             for coord in self.nodal_coordinates:
                 idx = fem_model.nodal_coords.index(coord)
                 self.nodes[idx] = fem_model.nodes[idx]

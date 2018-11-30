@@ -787,7 +787,7 @@ class Frame2D:
                 member.Sj1 = MIN_VAL
                 member.Sj2 = MIN_VAL
 
-
+    
 # -----------------------------------------------------------------------------
 """
 TODO
@@ -934,9 +934,9 @@ class FrameMember:
             self.n1.x = np.array([x1, y1])
             self.n2.x = np.array([x2, y2])
             for mem in self.n1.parents:
-                mem.calc_nodal_coordinates(self.num_elements)
+                mem.calc_nodal_coordinates()
             for mem in self.n2.parents:
-                mem.calc_nodal_coordinates(self.num_elements)
+                mem.calc_nodal_coordinates()
             
     @property
     def MRd(self):
@@ -978,7 +978,10 @@ class FrameMember:
         """
         Property, returns member's cross-section's height
         """
-        return self.cross_section.h
+        try:
+            return self.cross_section.h
+        except AttributeError:
+            return self.cross_section.H
 
     @h.setter
     def h(self, val):
@@ -1159,7 +1162,7 @@ class FrameMember:
             self.is_generated = True
 
 
-    def calc_nodal_coordinates(self, num_elements):
+    def calc_nodal_coordinates(self, num_elements=1):
         """
             Calculates node locations along member
             Coordinates used are global coordinates
@@ -1168,6 +1171,7 @@ class FrameMember:
         """
         if not self.num_elements:
             self.num_elements = num_elements
+        
         self.nodal_coordinates = []
         start_node, end_node = self.coordinates
         x0, y0 = start_node
@@ -1191,6 +1195,7 @@ class FrameMember:
 
         if self.is_generated:
             for j, node in enumerate(self.nodes.values()):
+                print(self.nodal_coordinates)
                 print(j, len(self.nodal_coordinates))
                 node.x = np.array(self.nodal_coordinates[j])
                 
@@ -1202,11 +1207,13 @@ class FrameMember:
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
+        
         # If member's angle is negative, y-coordinates must be multiplied by -1
         start_node, end_node = self.coordinates
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
         Ly = end_node[1] - start_node[1]
+        
         try:
             k = Ly / Lx
         except ZeroDivisionError:
@@ -1218,7 +1225,7 @@ class FrameMember:
         if coord not in self.nodal_coordinates and\
         start_node[0] <= coord[0] <= end_node[0] and\
         s*start_node[1] <= s*coord[1] <= s*end_node[1]:
-        
+            
             if coord not in self.nodal_coordinates and self.point_intersection(coord):
                 self.nodal_coordinates.append(coord)
                 self.nodal_coordinates = sorted(self.nodal_coordinates)
@@ -1776,6 +1783,7 @@ class FrameMember:
         end_idx = self.nodal_coordinates.index(end)
         element_ids = self.element_ids[start_idx:end_idx]
         return element_ids
+
 
 
 class SteelBeam(FrameMember):
