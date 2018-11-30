@@ -146,8 +146,8 @@ class Truss2D(Frame2D):
 
 class TrussMember(FrameMember):
     def __init__(self, coordinates, mem_id="",
-                 profile="SHS 100x5", material="S355"):
-        super().__init__(coordinates, mem_id, profile, material)
+                 profile="SHS 100x5", material="S355",num_elements=None):
+        super().__init__(coordinates, mem_id, profile, material, num_elements)
 
     def local(self, value):
         """
@@ -386,16 +386,16 @@ class TrussMember(FrameMember):
 
 class TopChord(TrussMember):
     def __init__(self, coordinates, mem_id="",
-                 profile="SHS 100x5", material="S355"):
-        super().__init__(coordinates, mem_id, profile, material)
+                 profile="SHS 100x5", material="S355",num_elements = None):
+        super().__init__(coordinates, mem_id, profile, material,num_elements)
 
         self.mtype = 'top_chord'
 
 
 class BottomChord(TrussMember):
     def __init__(self, coordinates, mem_id="",
-                 profile="SHS 100x5", material="S355"):
-        super().__init__(coordinates, mem_id, profile, material)
+                 profile="SHS 100x5", material="S355",num_elements = None):
+        super().__init__(coordinates, mem_id, profile, material, num_elements)
         self.mtype = 'bottom_chord'
 
 
@@ -448,6 +448,7 @@ class TrussJoint():
         self.jid = None
         self.__coordinate = chord.local(loc)
         self.cnode = None # central node
+        self.chord_nodes = []
         self.joint_type = joint_type
         self.g1 = g1
         self.g2 = g2
@@ -462,6 +463,7 @@ class TrussJoint():
         self.num_elements = None
         # Index for eccentricity elements' material and section
         self.idx = None
+        
 
         
     def add_node_coord(self, coord):
@@ -488,6 +490,7 @@ class TrussJoint():
         Calculates eccentricity nodes coordinates and adds them to chord's
         node-dict, changes webs end coordinates and saves all calculated
         nodal coordinates to own nodal_coordinates -list
+        :param num_elements: number of elements, int
         """
         # Chord's position vector
         v = np.array([math.cos(self.chord.angle), math.sin(self.chord.angle)])
@@ -505,8 +508,7 @@ class TrussJoint():
         ecc_y = self.chord.h / 2000 # div by 2 and 1000 (mm to m)
         # Add joint's central coordinate to joint's and chord's list
         self.add_node_coord(list(central_coord))
-        self.chord.add_node_coord(list(central_coord))
-        
+        self.chord.add_node_coord(list(central_coord))       
         # If joint type is Y or T
         if len(self.webs) == 1:
             web = list(self.webs.values())[0]
@@ -533,8 +535,7 @@ class TrussJoint():
                 self.add_node_coord(coord)
                 web.bot_coord = coord
             web.calc_nodal_coordinates(num_elements)
-            self.node_coord_pairs.append((list(central_coord), coord))
-            
+            self.node_coord_pairs.append((list(central_coord), coord))           
         # If joint type is K or KT
         elif len(self.webs) >= 2:
             # Iterate trhough every web member in the joint
@@ -545,17 +546,25 @@ class TrussJoint():
                 ecc_x = abs(self.g1/2 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta))      
                 # If joint type is KT, there's two gap values g1 and g2
                 if len(self.webs) == 3:
+                    # Find the leftmost, rightmost and middle web with x-values
+                    # leftmost is the one with smallest x (miv_val)
+                    # rightmost is the one with highest x (max_val)
+                    # middle is the one in the middle of those two
                     min_val = min([x.bot_coord[0] for x in self.webs.values()])
                     max_val = max ([x.bot_coord[0] for x in self.webs.values()])
                     middle_web = [x for x in self.webs.values() if x.bot_coord[0] != min_val and x.bot_coord[0] != max_val][0]
+                    # eccentricity for the leftmost web
                     if web.bot_coord[0] == min_val:
                         ecc_x = self.g1 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta) + middle_web.h/2000
+                    # eccentricity for the rightmost web
                     elif web.bot_coord[0] == max_val:
                         ecc_x = self.g2 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta) + middle_web.h/2000
+                    # eccentricity for the middle web
                     else:
                         ecc_x = 0
                 # TOP CHORD
                 if self.chord.mtype == 'top_chord':
+                    # if the web is the leftmost web
                     if web.bot_coord[0] == min([x.bot_coord[0] for x in self.webs.values()]):
                         ecc_x = -ecc_x                    
                     # Web's eccentricity node on chord's center line
@@ -566,13 +575,16 @@ class TrussJoint():
                         coord1 = central_coord
                     # Web's eccentricity node on chord's edge
                     coord2 = coord1 - ecc_y*u
-                    if web.top_loc == 0 and web.bot_loc == 0:
+                    # if web is connected to the ends of the chords
+                    if web.top_loc == 0 and web.bot_loc == 0 or\
+                        web.top_loc == 1 and web.bot_loc == 1:
                         coord2 = central_coord - [0, ecc_y]
                         coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
                     web.top_coord = list(coord2)
                 # BOTTOM CHORD
-                else:                   
+                else: 
+                    # if the web is the leftmost web
                     if web.top_coord[0] == min([x.top_coord[0] for x in self.webs.values()]):
                         ecc_x = -ecc_x
                     # Web's eccentricity node on chord's center line
@@ -583,7 +595,9 @@ class TrussJoint():
                         coord1 = central_coord
                     # Web's eccentricity node on chord's edge
                     coord2 = coord1 + ecc_y*u
-                    if web.top_loc == 0 and web.bot_loc == 0:
+                    # if web is connected to the ends of the chords
+                    if web.top_loc == 0 and web.bot_loc == 0 or\
+                        web.top_loc == 1 and web.bot_loc == 1:
                         coord2 = central_coord + [0, ecc_y]
                         coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
@@ -604,8 +618,7 @@ class TrussJoint():
         # Move existing nodes
         if self.nodes:
             for i, node in enumerate(self.nodes.values()):
-                node.x = self.nodal_coordinates[i]
-        
+                node.x = self.nodal_coordinates[i]        
         # Set joint type
         if len(self.nodal_coordinates) == 0:
             pass
@@ -620,8 +633,7 @@ class TrussJoint():
         else:
             raise ValueError('Too many nodes for one joint')
             
-            
-                
+                           
     def generate(self, fem_model):
         """
         """
@@ -643,8 +655,10 @@ class TrussJoint():
                 self.nodes[idx] = fem_model.nodes[idx]
                 if coord == self.coordinate:
                     self.cnode = fem_model.nodes[idx]
-                    
-                        
+                if coord in self.chord.nodal_coordinates:
+                    self.chord_nodes.append(fem_model.nodes[idx])
+        # sort chord nodes from leftmost to rightmost         
+        self.chord_nodes = sorted(self.chord_nodes, key= lambda node: node.x[0])
                     
     
     def add_section_and_material(self, fem_model):

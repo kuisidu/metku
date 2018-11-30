@@ -863,8 +863,8 @@ class FrameMember:
             
     """
 
-    def __init__(self, coordinates, mem_id="",
-                 profile="IPE 100", material="S355",
+    def __init__(self, coordinates, mem_id="", profile="IPE 100",
+                 material="S355",num_elements=None,
                  Sj1=np.inf, Sj2=np.inf):
 
         self.element_ids = []
@@ -889,7 +889,7 @@ class FrameMember:
         self.mtype = ""
         self.nodal_forces = {}
         self.nodal_displacements = {}
-        self.num_elements = None
+        self.num_elements = num_elements
         self.loads = {}
         self.alpha1 = 25
         self.alpha2 = 25
@@ -1173,12 +1173,12 @@ class FrameMember:
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
         Ly = end_node[1] - start_node[1]
-        dx = Lx / num_elements
-        dy = Ly / num_elements
-        for i in range(num_elements):
+        dx = Lx / self.num_elements
+        dy = Ly / self.num_elements
+        for i in range(self.num_elements):
             x = i * dx + x0
             y = i * dy + y0
-            loc = i / num_elements
+            loc = i / self.num_elements
             node = [x, y]
             if node not in self.nodal_coordinates:
                 self.nodal_coordinates.append(node)
@@ -1214,22 +1214,22 @@ class FrameMember:
         s = 1
         if k < 0:
             s = -1
-        """
+        
         if coord not in self.nodal_coordinates and\
         start_node[0] <= coord[0] <= end_node[0] and\
         s*start_node[1] <= s*coord[1] <= s*end_node[1]:
-        """
-        if coord not in self.nodal_coordinates and self.point_intersection(coord):
-            self.nodal_coordinates.append(coord)
-            self.nodal_coordinates = sorted(self.nodal_coordinates)
-            x, y = coord
-            x1, y1 = start_node
-            dx = x - x1
-            dy = y - y1
-            dz = math.sqrt((dx ** 2 + dy ** 2))
-            z = dz / self.length
-            self.loc.append(z)
-            self.loc.sort()
+        
+            if coord not in self.nodal_coordinates and self.point_intersection(coord):
+                self.nodal_coordinates.append(coord)
+                self.nodal_coordinates = sorted(self.nodal_coordinates)
+                x, y = coord
+                x1, y1 = start_node
+                dx = x - x1
+                dy = y - y1
+                dz = math.sqrt((dx ** 2 + dy ** 2))
+                z = dz / self.length
+                self.loc.append(z)
+                self.loc.sort()
 
     def add_nodes(self, fem_model):
         """ Creates nodes to previously calculated locations
@@ -1779,8 +1779,9 @@ class FrameMember:
 
 
 class SteelBeam(FrameMember):
-    def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="", profile="IPE 100", material="S355"):
-        super().__init__(coordinates, mem_id, profile, material)
+    def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
+                 profile="IPE 100", material="S355",num_elements=None):
+        super().__init__(coordinates, mem_id, profile, material, num_elements)
 
         self.mtype = 'beam'
         self.alpha1 = alpha1
@@ -1802,8 +1803,9 @@ class SteelBeam(FrameMember):
 
 
 class SteelColumn(FrameMember):
-    def __init__(self, coordinates, mem_id="", profile="IPE 100", material="S355"):
-        super().__init__(coordinates, mem_id, profile, material)
+    def __init__(self, coordinates, mem_id="", profile="IPE 100",
+                 material="S355", num_elements=None):
+        super().__init__(coordinates, mem_id, profile, material,num_elements)
 
         self.mtype = 'column'
         self.check_mtype()
