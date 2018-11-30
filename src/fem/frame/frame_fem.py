@@ -552,6 +552,11 @@ class FEMNode:
         self.v = [0,0,0]
         # List of FrameMember-type objects that are connected to this node
         self.parents = []
+        
+        # Forces
+        self.Fx = 0
+        self.Fy = 0
+        self.Mz = 0
 
 
 
@@ -626,6 +631,49 @@ class Element:
         T = self.transformation_matrix()
         q = self.nodal_displacements()
         return T.dot(q)
+    
+    
+    def internal_forces(self):
+        """ Calculate internal forces 
+            NOTE: these internal forces do not take
+            loads along the element into account!
+            
+            Works only for a single load case!
+        """
+        
+        """ Get nodal displacements in local coordinates
+            and multiply them with local element stiffness matrix
+            to get internal forces in member's local coordinate system.
+        """
+        q = self.local_displacements()        
+        ke = self.local_stiffness_matrix()
+
+        if self.floc.size > 0:
+            R = ke.dot(q) - self.floc
+        else:
+            R = ke.dot(q)
+            
+
+        
+        
+        """ Any load on the element not acting on a node must be
+            taken into account here. This requires the following steps:
+            1. Identify loads acting on element
+            2. Compute their equivalent nodal loads
+            3. Modify internal forces
+            
+            Probably an easy solution is to include an
+            Attribute floc for equivalent nodal loads. The nodal loads are
+            saved there, when they are first calculated for analysis
+        """        
+        
+        self.axial_force[:2] = [-R[0],R[3]]
+        self.bending_moment[:2] = [-R[2],R[5]]        
+        self.shear_force[:2] = [R[1],-R[4]]
+        # Save force and moment values to nodes
+        self.nodes[0].Fx, self.nodes[1].Fx = self.axial_force
+        self.nodes[0].Fy, self.nodes[1].Fy = self.shear_force
+        self.nodes[0].Mz, self.nodes[1].Mz = self.bending_moment
 
 
 

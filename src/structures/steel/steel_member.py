@@ -164,7 +164,6 @@ class SteelMember:
             
         Mcr = C[0]*math.pi**2*E*Iz/((kz*L)**2)*(math.sqrt((kz/kw)**2*Iw/Iz +
                (kz*L)**2*G*It/(math.pi**2*E*Iz) + (C[1]*zg)**2)-C[1]*zg)
-
         return Mcr
 
     def add_section(self,ned=0.0,myed=0.0,mzed=0.0,vyed=0.0,vzed=0.0,ted=0.0,loc=0.0):

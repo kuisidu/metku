@@ -244,12 +244,16 @@ class EBSemiRigidBeam(Element):
         fglob = T.transpose().dot(floc)
         return fglob
 
+        """ THIS MIGHT BE UNECESSARY !
     def internal_forces(self):
-        """ Calculate internal forces 
-            NOTE: these internal forces do not take
-            loads along the element into account!
-            
-            Works only for a single load case!
+        """
+        """
+        Calculate internal forces 
+        NOTE: these internal forces do not take
+        loads along the element into account!
+        
+        Works only for a single load case!
+        """
         """
         q = self.local_displacements()        
         ke = self.local_stiffness_matrix()
@@ -268,3 +272,4 @@ class EBSemiRigidBeam(Element):
         self.axial_force[:2] = [-R[0],R[3]]
         self.bending_moment[:2] = [-R[2],R[5]]
         self.shear_force[:2] = [R[1],-R[4]]
+        """

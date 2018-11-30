@@ -1,5 +1,3 @@
-# Byte-compiled / optimized / DLL files
 __pycache__/
 .idea
-.cpython-36.pyc
-.cpython-37.pyc
+*.pyc

@@ -31,18 +31,45 @@ class RHS(SteelSection):
         Au = RHS_paint_area(H,B,R)
         Wel = [0.0,0.0]
         Wel[0] = RHS_elastic_modulus(H,I[0])
-        Wel[1] = RHS_elastic_modulus(H,I[1])
+        Wel[1] = RHS_elastic_modulus(B,I[1])
         Wpl = [0.0,0.0]
         Wpl[0] = RHS_plastic_modulus(H,B,R,T)
         Wpl[1] = RHS_plastic_modulus(B,H,R,T)
         
         SteelSection.__init__(self,fy,A,I,Au,Wpl,Wel,Ashear)
-        self.h = H
-        self.b = B
-        self.t = T
-        self.r = R
+        self.H = H
+        self.B = B
+        self.T = T
+        self.R = R
+        self.Iw = 0
+        self.It = self.torsional_constant()
+        
         
         self.imp_factor = [en1993_1_1.buckling_curve["c"],en1993_1_1.buckling_curve["c"]]
+
+
+    def torsional_constant(self):
+        """
+        Calculated according to EN 10219-2
+        
+        """
+        
+        # Rc .. corner radius at center line
+        Rc = self.R-0.5*self.T
+        h = 2*((self.B-self.T)+(self.H-self.T))-2*Rc*(4-math.pi)
+        Ah = (self.B-self.T)*(self.H-self.T)-Rc**2*(4-math.pi)
+        K = 2*Ah*self.T/h
+        It =(self.T**3*h/3 + 2*K*Ah)*1e-4
+        
+        return It
+        
+        """
+        Rc = 1.5*self.T
+        Ap = (self.H - self.T)*(self.B - self.T) - Rc**2*(4-math.pi)
+        p = 2*((self.H - self.T)+(self.B - self.T)) - 2*Rc**2*(4-math.pi)
+        
+        return 4*Ap**2*self.T / p
+        """
 
     def flange_class(self):
         """ Determine class of compressed flange """
@@ -54,7 +81,7 @@ class RHS(SteelSection):
 
     def web_class_comp(self):
         """ Determine class of compressed web """
-        cw = self.H-2*self.R
+        cw = self.h-2*self.R
         rw = cw/self.T
         cWeb = en1993_1_1.internal_part_in_compression(rw,self.eps)
         
@@ -62,11 +89,15 @@ class RHS(SteelSection):
         
     def web_class_bend(self):
         """ Determine class of web in bending """
-        cw = self.H-2*self.R
+        cw = self.h-2*self.R
         rw = cw/self.T
         cWeb = en1993_1_1.internal_part_in_bending(rw,self.eps)
 
         return cWeb
+    
+    def web_class_comp_bend(self, Ned):
+        
+        return 2
 	
     def moment_axial_force_interact(self,UN,MRd):        
         """ Interaction rule for section resistance for combined
@@ -104,7 +135,7 @@ def RHS_paint_area(H,B,R):
     return Au
         
 def RHS_shear_area(A,H,B):
-    Ashear = A*H/(H+B)
+    Ashear = A*B/(H+B)
     return Ashear
 
 def RHS_second_moment(H,B,T,R):

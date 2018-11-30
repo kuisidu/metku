@@ -23,7 +23,7 @@ def test1():
     # Loads and members
     col1 = SteelColumn(coord2)
     col2 = SteelColumn(coord3)
-    beam1 = SteelBeam(coord1)
+    beam1 = SteelBeam(coord1, num_elements=10)
     
     load1 = PointLoad(coord3[1], [50, 0,0])
     load2 = LineLoad(beam1, [-50, -50], 'y')
@@ -56,7 +56,7 @@ def test1():
     frame.calculate()
     #print(frame.nodal_forces[2])
 
-    #frame.f.draw()
+    frame.f.draw()
     frame.bmd(10)
     #frame.plot_deflection()
 """
@@ -255,9 +255,10 @@ def test8():
             elif member.mem_id == 2:
                 frame.add(LineLoad(member, [2, 2], 'x'))
 
-    #frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
+    frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
     frame.generate()
     frame.calculate()
+    frame.f.draw()
     frame.plot_buckling(50, 2)
 
 def test9():
@@ -325,7 +326,7 @@ def test10():
     frame.f.draw()
 
 if __name__ == '__main__':
-    test6()
+    test1()
     """
     frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():

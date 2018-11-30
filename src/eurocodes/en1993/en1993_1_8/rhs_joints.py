@@ -112,6 +112,9 @@ class RHSJoint:
         # s0Ed < 0 for compression
         s0Ed = -self.N0()*1e3/A0+self.M0()*1e6/Wpl0
         return s0Ed
+
+
+
     
 class RHSKGapJoint(RHSJoint):
     """ For K and N Gap joints between RHS members """
