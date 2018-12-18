@@ -169,8 +169,8 @@ def test3():
     
 def test4():
     truss = Truss2D(num_elements=3)
-    coord1 = [[0,2], [4,2]]
-    coord2 = [[0,0], [4,0]]  
+    coord1 = [[0,2], [2,3]]
+    coord2 = [[0,0], [2,0]]  
     
     top_chord = TopChord(coord1, profile="RHS 200X200X8")
     bottom_chord = BottomChord(coord2, profile="RHS 200X200X8")  
@@ -193,9 +193,9 @@ def test4():
             if c2 > 1:
                 c2 = 1
         if flip:
-            truss.add(TrussWeb(c1, c2, profile="RHS 150x150x6"))
+            truss.add(TrussWeb(c1, c2, profile="RHS 100x100x5"))
         else:
-            truss.add(TrussWeb(c2, c1, profile="RHS 150x150x6"))
+            truss.add(TrussWeb(c2, c1, profile="RHS 100x100x5"))
     
     #truss.add(TrussWeb(0,0))
     truss.add(LineLoad(top_chord, [-250, -250], 'y'))
@@ -208,17 +208,11 @@ def test4():
     truss.plot()
     truss.plot_normal_force()
     
-    for joint in truss.joints.values():
-        if joint.joint_type in ["K", "N"]:
-            print(joint.jid)
-            print(joint.calculate())
-    
-    
-    
-    
+    truss.joints[4].plot_joint(0.2)
+      
 if __name__ == '__main__':
 
-    test3()
+    test4()
 """
 truss = Truss2D(num_elements=1)
 

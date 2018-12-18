@@ -548,8 +548,6 @@ class TrussJoint():
         self.g2 = g2
         self.nodal_coordinates = []
         self.nodes = {}
-        self.node_coord_pairs = []
-        self.node_pairs = []
         self.elements = {}
         self.element_ids = []
         self.webs = {}
@@ -649,16 +647,16 @@ class TrussJoint():
                     coord = list(central_coord - w*ecc_y)
                 self.add_node_coord(coord)
                 web.bot_coord = coord
-            web.calc_nodal_coordinates(num_elements)
-            self.node_coord_pairs.append((list(central_coord), coord))           
+            web.calc_nodal_coordinates(num_elements)          
         # If joint type is K or KT
         elif len(self.webs) >= 2:
             # Iterate trhough every web member in the joint
             for web in self.webs.values():
                 # angle between chord and web
-                theta = self.chord.angle - web.angle
+                theta = abs(self.chord.angle - web.angle)
                 # Eccentricity along x-axis
-                ecc_x = abs(self.g1/2 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta))      
+                ecc_x = abs(self.g1/2 *math.cos(self.chord.angle) + web.h/2000 / math.sin(theta))      
+                print("ECC_X: ", ecc_x)
                 # If joint type is KT, there's two gap values g1 and g2
                 if len(self.webs) == 3:
                     # Find the leftmost, rightmost and middle web with x-values
@@ -670,10 +668,10 @@ class TrussJoint():
                     middle_web = [x for x in self.webs.values() if x.bot_coord[0] != min_val and x.bot_coord[0] != max_val][0]
                     # eccentricity for the leftmost web
                     if web.bot_coord[0] == min_val:
-                        ecc_x = self.g1 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta) + middle_web.h/2000
+                        ecc_x = self.g1 *math.cos(self.chord.angle) + web.h/2000 / math.sin(theta) + middle_web.h/2000
                     # eccentricity for the rightmost web
                     elif web.bot_coord[0] == max_val:
-                        ecc_x = self.g2 *math.cos(self.chord.angle) + web.h/2000 * math.cos(theta) + middle_web.h/2000
+                        ecc_x = self.g2 *math.cos(self.chord.angle) + web.h/2000 / math.sin(theta) + middle_web.h/2000
                     # eccentricity for the middle web
                     else:
                         ecc_x = 0
@@ -699,6 +697,7 @@ class TrussJoint():
                     web.top_coord = list(coord2)
                 # BOTTOM CHORD
                 else: 
+                    
                     # if the web is the leftmost web
                     if web.top_coord[0] == min([x.top_coord[0] for x in self.webs.values()]):
                         ecc_x = -ecc_x
@@ -729,7 +728,6 @@ class TrussJoint():
                 self.chord.add_node_coord(coord1)
                 # Node coordinate on web's end
                 self.add_node_coord(list(coord2))
-                self.node_coord_pairs.append((coord1, coord2))
                 
         # Move existing nodes
         if self.nodes:
@@ -916,3 +914,102 @@ class TrussJoint():
         plt.text(x, y, str(self.jid), horizontalalignment=horzalign,
                  verticalalignment=vertalign, fontsize=12)
         
+    def plot_joint(self, length=0.3):
+        
+        X, Y = self.coordinate        
+        # CHORD
+        if X-length*2 >= self.chord.local(0)[0]:
+            start = X - length*2
+        else:
+            start = X
+        
+        if X + length*2 <= self.chord.local(1)[0]:
+            end = X + length*2
+        else:
+            end = X           
+        X0 = [start, X, end]
+        Y0 = [Y-(X-start)*math.tan(self.chord.angle),
+              Y,
+              Y+(end-X)*math.tan(self.chord.angle)]
+        print(self.nodal_coordinates)
+        print(math.degrees(self.chord.angle))
+        X1 = [start, X, end]
+        Y1 = [Y-(X-start)*math.tan(self.chord.angle) - self.chord.h/2000,
+              Y-self.chord.h/2000,
+              Y+(end-X)*math.tan(self.chord.angle)-self.chord.h/2000]
+        X2 = [start, X,end]
+        Y2 = [Y-(X-start)*math.tan(self.chord.angle)+self.chord.h/2000,
+              Y+self.chord.h/2000,
+              Y+(end-X)*math.tan(self.chord.angle)+self.chord.h/2000]
+        
+        plt.plot(X0, Y0, 'k--')
+        plt.plot(X1, Y1, 'k')
+        plt.plot(X2, Y2, 'k')
+        if start == X or end == X:
+            plt.plot([X, X],[Y-self.chord.h/2000, Y+self.chord.h/2000],'k')
+        
+        # WEBS
+        for web in self.webs.values():
+            theta = abs(self.chord.angle - web.angle)
+            if self.chord.mtype == "top_chord":
+                coord = web.top_coord
+                k = -1
+            else:
+                coord = web.bot_coord
+                k = 1
+            if web.angle < 0:
+                X0 = [coord[0], coord[0] - k*length]
+                Y0 = [coord[1], coord[1] - (k*length)*math.cos(theta)]
+                X1 = [coord[0]+web.h/2000 / math.sin(theta) , coord[0]+web.h/2000 / math.sin(theta) - k*length]
+                Y1 = [coord[1], coord[1] - k*(math.tan(web.angle)*length)]
+                X2 = [coord[0]-web.h/2000 / math.sin(theta) , coord[0]-web.h/2000 / math.sin(theta) - k*length]
+                Y2 = [coord[1], coord[1] - k*(math.tan(web.angle)*length)]
+            
+            elif math.degrees(web.angle) == 90:
+                X0 = [coord[0], coord[0]]
+                Y0 = [coord[1], coord[1] + k*2*length]
+                X1 = [coord[0]+web.h/2000 , coord[0]+web.h/2000]
+                Y1 = [coord[1], coord[1] + k*2*length]
+                X2 = [coord[0]-web.h/2000 , coord[0]-web.h/2000]
+                Y2 = [coord[1], coord[1] + k*2*length]
+            else:
+                X0 = [coord[0], coord[0] + k*length]
+                Y0 = [coord[1], coord[1] + k*(math.tan(web.angle)*length)]
+                X1 = [coord[0] + web.h/2000 / math.sin(theta) , coord[0]+web.h/2000 / math.sin(theta) + k*length]
+                Y1 = [coord[1], coord[1] + k*(math.tan(web.angle)*length)]
+                X2 = [coord[0] - web.h/2000 / math.sin(theta) , coord[0]-web.h/2000 / math.sin(theta) + k*length]
+                Y2 = [coord[1], coord[1] + k*(math.tan(web.angle)*length)]
+            plt.plot(X0, Y0, 'k--')
+            plt.plot(X1, Y1, 'k')
+            plt.plot(X2, Y2, 'k')
+            
+        # NODES
+        for key in self.nodes.keys():
+            node = self.nodes[key]
+            x, y = node.x
+            print("NODE: ", x, y)
+            plt.scatter(x, y, s=100, c='pink')
+            plt.text(x, y, str(key), horizontalalignment='center',
+                     verticalalignment='center', fontsize=15)
+            if x < X:
+                x -= length
+            elif x > X:
+                x += length/1.5
+            if y < Y:
+                y -= length
+            elif y > Y:
+                y += length
+            
+            #plt.text(x, y+0.08, f'Fx {node.Fx:.0f} kN', fontsize=11)
+            #plt.text(x, y+0.05, f'Fy {node.Fy:.0f} kN', fontsize=11)
+            #plt.text(x, y+0.02, f'Mz {node.Mz:.0f} kNm', fontsize=11)
+            
+        # ECCENTRICITY ELEMENTS
+        for elem in self.elements.values():
+            n1, n2 = elem.nodes
+            x1, y1 = n1.x
+            x2, y2 = n2.x
+            plt.plot([x1,x2], [y1, y2], c='b')
+            
+        plt.axis('equal')
+        plt.show()
