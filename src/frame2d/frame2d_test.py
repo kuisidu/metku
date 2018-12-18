@@ -48,14 +48,9 @@ def test1():
 
     # Generate frame
     frame.generate()
-
-    #col1.profile = 'HE 200 A'
-    frame.plot()
-    
+    frame.plot()    
     # Calculate result
     frame.calculate()
-    #print(frame.nodal_forces[2])
-
     frame.f.draw()
     frame.bmd(10)
     #frame.plot_deflection()
@@ -90,40 +85,31 @@ def test3():
     frame.bmd(20)
 
 def test4():
-    
+   
     # Coordinates of members, loads and supports
     coord1 = [[0, 1], [1, 1]]
     coord2 = [[1, 0], [1, 1]]
     coord3 = [[0.0, 0], [0.0, 1.5]]
     supp_coord1 = [0.0, 0]
     supp_coord2 = [1, 0]
-
     # Loads and members
     beam1 = SteelBeam(coord1)
     col1 = SteelColumn(coord3)
     col2 = SteelColumn(coord2)
-
     load1 = PointLoad(coord3[1], [10, 0, 0])
     load2 = LineLoad(beam1, [-10, -10], 'y')
-
-
     # Create empty frame 'envelope'
     frame = Frame2D(num_elements=3)
-
     # Add members
-
     frame.add(col1)
     frame.add(col2)
     frame.add(beam1)
-
     # Add loads
     frame.add(load1)
     frame.add(load2)
-
     # Add supports
     frame.add(FixedSupport(supp_coord1))
     frame.add(FixedSupport(supp_coord2))
-
     # Generate frame
     frame.generate()
     frame.calculate()
@@ -324,6 +310,19 @@ def test10():
     frame.calculate()
     frame.bmd()
     frame.f.draw()
+
+
+def test_all():
+    test1()
+    #test2()
+    test3()
+    test4()
+    test5()
+    test6()
+    test7()
+    test8()
+    test9()
+    test10()
 
 if __name__ == '__main__':
     test1()

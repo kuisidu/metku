@@ -36,10 +36,10 @@ class RHSJoint:
         return self.chord.fy
     
     def N0(self):
-        return self.chord.NEd
+        return self.chord.Ned
     
     def M0(self):
-        return self.chord.MEd
+        return self.chord.Med
         
     def gamma(self):
         return 0.5*self.h0()/self.t0()
@@ -59,7 +59,7 @@ class RHSJoint:
         n = self.eval_N()
         b = self.beta()
         if n > 0.0: # compression                
-            kn = min(1.3-0.4*n/b,1.0)
+            kn = min(1.3-0.4*n/self.beta(),1.0)
         
         return kn
         
@@ -129,22 +129,22 @@ class RHSKGapJoint(RHSJoint):
         
     def h(self):
         """ Brace heights """
-        return [self.braces[0].H,self.braces[1].H]
+        return np.asarray([self.braces[0].H,self.braces[1].H])
     
     def b(self):
         """ Brace widths """
-        return [self.braces[0].B,self.braces[1].B]
+        return np.asarray([self.braces[0].B,self.braces[1].B])
     
     def t(self):
         """ Brace thickness """
-        return [self.braces[0].T,self.braces[1].T]
+        return np.asarray([self.braces[0].T,self.braces[1].T])
     
     def fy(self):
         """ Brace yield strength """
-        return [self.braces[0].fy,self.braces[1].fy]
+        return np.asarray([self.braces[0].fy,self.braces[1].fy])
     
     def beta(self):
-        return sum([self.b(),self.h()])/4/self.b0()
+        return (sum(self.b())+ sum(self.h())) / (4*self.b0())
     
     
     def eccentricity(self):
@@ -157,7 +157,7 @@ class RHSKGapJoint(RHSJoint):
     # Resistance formulas
     def chord_face_failure(self):
                         
-        b = self.Beta()
+        b = self.beta()
         g = self.gamma()                           
         kn = self.eval_KN()
         r = self.strength_reduction()
@@ -169,7 +169,7 @@ class RHSKGapJoint(RHSJoint):
             s = math.sin(math.radians(angle))            
             NRd.append(NRd0/s)
             
-        return NRd
+        return np.asarray(NRd)
         
     def chord_shear(self):
         Aeta = self.a_eta()
@@ -198,16 +198,18 @@ class RHSKGapJoint(RHSJoint):
         fy = np.array(self.fy())
         fy0 = self.fy0()
         t0 = self.t0() 
-        beff = min(b,10/(self.b0()/t0)*fy0*t0/(fy*t)*b)
+        beff = 10/(self.b0()/t0)*fy0*t0/(fy*t)*b
+        beff_arr = np.array([min(x,beff[i]) for i, x in enumerate(b)])
             
-        NiRd = r*self.fy*t*(2*h-4*t+b+beff)/gammaM5
+        NiRd = r*self.fy()*t*(2*h-4*t+b+beff_arr)/gammaM5
         return NiRd
         
     def punching_shear(self):
-        b = np.array(self.b())
+        b = self.b()
         fy0 = self.fy0()
         t0 = self.t0()
-        bep = min(b,10/(self.b0()/t0)*b)
+        bep = 10/(self.b0()/t0)*b
+        bep_arr = np.array([min(x, bep[i]) for i,x in enumerate(b)]) 
         r = self.strength_reduction()
         
         s = np.sin(np.radians(np.array(self.angles)))

@@ -137,6 +137,7 @@ class Frame2D:
     def __init__(self, simple=None, num_elements=5, supports=None, fem=fem.FrameFEM()):
 
         self.f = fem
+        self.alpha_cr = []
         self.members = {}
         self.num_members = 0
         self.support_nodes = []
@@ -148,6 +149,7 @@ class Frame2D:
         self.nodal_coordinates = []
         self.nodal_forces = {}
         self.nodal_displacements = {}
+        self.joints = {}
         self.r = []
         self.is_generated = False
         self.is_designed = False
@@ -212,7 +214,6 @@ class Frame2D:
                 if coord:
                     member.add_node_coord(this.coordinate)
 
-
         # LINELOADS
         elif isinstance(this, LineLoad):
 
@@ -234,6 +235,25 @@ class Frame2D:
         # TRUSS
         elif isinstance(this, Frame2D):
             self.truss = this
+            # Bottom chord coordinates
+            for bchord in this.bottom_chords:
+                c0, c1 = bchord.coordinates
+                for member in self.members.values():
+                    coord = member.line_intersection(bchord.coordinates)
+                    if isinstance(coord, list):
+                        member.add_node_coord(coord)
+            # Top chord coordinates
+            for tchord in this.bottom_chords:
+                c0, c1 = tchord.coordinates
+                for member in self.members.values():
+                    coord = member.line_intersection(tchord.coordinates)
+                    if isinstance(coord, list):
+                        member.add_node_coord(coord)
+                        
+            
+            for key in this.members.keys():
+                self.members[key] = this.members[key]
+                
 
         else:
             print(type(this), " is not supported.")
@@ -301,6 +321,7 @@ class Frame2D:
         self.calc_nodal_forces()
         self.calc_nodal_displacements()
         self.check_members_strength()
+        #self.alpha_cr, _ = self.f.linear_buckling(k=4)
 
     def design_members(self):
         """ Desgins frame's members
@@ -422,7 +443,7 @@ class Frame2D:
                     self.add(XYHingedSupport(coord))
 
     def generate(self):
-        """ Generates the frame
+        """ Generates the frame and truss
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
@@ -434,6 +455,9 @@ class Frame2D:
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
             self.nodes.extend(list(member.nodes.values()))
+        # Generate Truss
+        if self.truss:
+            self.truss.generate()
         # Remove duplicate nodes
         self.nodes = list(set(self.nodes))
         for support in self.supports.values():
@@ -553,7 +577,7 @@ class Frame2D:
     """
 
     def plot(self, print_text=True, show=True,
-             loads=True, color=True):
+             loads=True, color=False):
         """ Plots the frame
             
             Parameters
@@ -566,8 +590,17 @@ class Frame2D:
                 red -- member breaks under its loads
                 black -- member is added, but not designed
         """
+        if self.is_calculated and color:
+            color = True
+            
+        
+        # Plot members
         for member in self.members.values():
             member.plot(print_text, color)
+        
+        # Plot joints
+        for joint in self.joints.values():
+            joint.plot(color=color)
 
         # Plot supports
         for support in self.supports.values():
@@ -582,11 +615,12 @@ class Frame2D:
             else:
                 marker = '2'
             plt.scatter(node_coord[0], node_coord[1], s=50, c='k', marker=marker)
+       
+
+        #if self.truss:
+        #    self.truss.plot(show=False, print_text=print_text, color=color)
         if loads:
             self.plot_loads()
-
-        if self.truss:
-            self.truss.plot(show=False)
         plt.axis('equal')
         if show:
             plt.show()
@@ -598,11 +632,14 @@ class Frame2D:
             plt.scatter(x, y, c='b', marker='*')
 
         for lineload in self.line_loads.values():
-            x0, y0 = self.f.elements[lineload.element_ids[0]].nodes[0].x
-            x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
-            plt.plot([x0, x1], [y0, y1], c='b')
+            c0, c1 = lineload.coordinates
+            plt.plot([c0[0], c1[0]], [c0[1], c1[1]], c='b')
+            
+            #x0, y0 = self.f.elements[lineload.element_ids[0]].nodes[0].x
+            #x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
+            #plt.plot([x0, x1], [y0, y1], c='b')
 
-    def plot_deflection(self, scale=1, prec=4):
+    def plot_deflection(self, scale=1, prec=4, show=True):
         """ Draws deflected shape of the frame
             
             Parameters
@@ -612,6 +649,9 @@ class Frame2D:
             prec : int, optional
                 Precision for displacement value
         """
+        #if self.truss:
+        #    self.truss.plot_deflection(scale, show=False)
+        
         self.plot(print_text=False, show=False)
         self.calc_nodal_displacements()
         for member in self.members.values():
@@ -651,10 +691,11 @@ class Frame2D:
                 plt.text(loc_max_x, loc_max_y,
                          (str(max_x)[0:prec + 1] + " mm"))
 
-        plt.show()
+        if show:
+            plt.show()
         
         
-    def plot_buckling(self, scale=1, k=4):
+    def plot_buckling(self, scale=1, k=4, calc=True, show=True):
         """ Draws buckling shapes of the frame
             
             Parameters
@@ -664,10 +705,13 @@ class Frame2D:
             k : integer
                 number of different buckling shapes
         """
-        
-        w, v = self.f.linear_buckling(k=k)
+        if calc:
+            w, v = self.f.linear_buckling(k=k)
+            self.alpha_cr = w
+
         for j in range(v.shape[1]):
-            self.plot(print_text=False, show=False, loads=False, color=False)
+            if show:
+                self.plot(print_text=False, show=False, loads=False, color=False)
             for member in self.members.values():
                 X = []
                 Y = []
@@ -687,6 +731,9 @@ class Frame2D:
                     
                 plt.plot(X, Y, color='m')
             plt.title(f'Buckling shape {j+1},  ' r"$\alpha_{cr}$" f' = {w[j]*1000:.2f}')
+            #if self.truss:
+            #    self.truss.plot_buckling(show=False)
+            
             plt.show()
 
     def bmd(self, scale=1):
@@ -697,7 +744,7 @@ class Frame2D:
             scale : int, optional
                 Scaling factor
         """
-        self.plot(print_text=False, show=False)
+        self.plot(print_text=False, show=False, color=False)
         for member in self.members.values():
             member.bmd(scale)
         if self.truss:
@@ -720,6 +767,9 @@ class Frame2D:
     def plot_normal_force(self, show=True):
         for member in self.members.values():
             member.plot_normal_force()
+        #if self.truss:
+        #    for member in self.truss.members.values():
+        #        member.plot_normal_force()
         if show:
             plt.show()
 
@@ -920,7 +970,7 @@ class FrameMember:
         if self.n1 and self.n2:
             if self.__coordinates != [list(self.n1.x), list(self.n2.x)]:
                 self.__coordinates = [list(self.n1.x), list(self.n2.x)]
-                self.calc_nodal_coordinates(self.num_elements)
+                #self.calc_nodal_coordinates(self.num_elements)
         return self.__coordinates
     
     @coordinates.setter
@@ -1219,7 +1269,7 @@ class FrameMember:
         except ZeroDivisionError:
             k = 0
         s = 1
-        if k < 0:
+        if k <= 0:
             s = -1
         
         if coord not in self.nodal_coordinates and\
@@ -1526,25 +1576,28 @@ class FrameMember:
             py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / (
                 (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
 
-            return [float(px), float(py)]
+            return [round(px,5), round(py,5)]
 
 
     def point_intersection(self, coordinate):
         """
-        Calculates point where member and point intersect
+        Calculates if member and point intersect
         :param coordinate: array of two float values
+        :return bool: true if point and member intersect
         """
         
         start_node, end_node = self.coordinates
         x1, y1 = start_node
         x2, y2 = end_node
         x, y = coordinate
-        if x2 - x1 == 0:
+
+        if x2 - x1 == 0:          
+            y1, y2 = sorted([y1, y2])
             return x == x1 and y1 <= y <= y2 
         else:
             k = (y2 - y1) / (x2 - x1)
             b = y1 - k * x1
-            return y == k * x + b
+            return math.isclose(y, k*x + b, rel_tol=1e-2) #y == k * x + b
         """
         try:
             k = (y2 - y1) / (x2 - x1)
@@ -1563,32 +1616,37 @@ class FrameMember:
                 color = 'green'
             else:
                 color = 'red'
-        color = 'k'
+        else:
+            color = 'k'
         # Plot members
         plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
         # Plot text
+        
+        # Calculate text location
+        delta_y = X[1][1] - X[0][1]
+        delta_x = X[1][0] - X[0][0]
+        if delta_x == 0:
+            rot = 90
+        elif delta_y == 0:
+            rot = 0
+        else:
+            rot = math.degrees(math.atan(delta_y / delta_x))
+        if self.mtype == 'beam':
+            x = (X[0][0] + X[1][0]) / 2
+            y = (X[1][1] + X[0][1]) / 2
+            horzalign = 'center'
+            vertalign = 'bottom'
+        elif self.mtype == 'column':
+            x = (X[0][0] + X[1][0]) / 2
+            y = (X[1][1] + X[0][1]) / 2
+            horzalign = 'right'
+            vertalign = 'center'
         if print_text:
-            # Calculate text location
-            delta_y = X[1][1] - X[0][1]
-            delta_x = X[1][0] - X[0][0]
-            if delta_x == 0:
-                rot = 90
-            elif delta_y == 0:
-                rot = 0
-            else:
-                rot = math.degrees(math.atan(delta_y / delta_x))
-            if self.mtype == 'beam':
-                x = (X[0][0] + X[1][0]) / 2
-                y = (X[1][1] + X[0][1]) / 2
-                horzalign = 'center'
-                vertalign = 'bottom'
-            elif self.mtype == 'column':
-                x = (X[0][0] + X[1][0]) / 2
-                y = (X[1][1] + X[0][1]) / 2
-                horzalign = 'right'
-                vertalign = 'center'
-            
             plt.text(x, y, str(self.mem_id) + ": " + self.profile,
+                     rotation=rot, horizontalalignment=horzalign,
+                     verticalalignment=vertalign)
+        else:
+            plt.text(x, y, str(self.mem_id),
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
 
@@ -1738,16 +1796,23 @@ class FrameMember:
         Y.append(self.nodal_coordinates[i][1])
         plt.plot(X, Y, color='gray')
 
-
+  
     def plot_normal_force(self):
         X = self.coordinates
-        if self.ned < 0:
-            color = 'r'
+        if self.ned < 0:          
+            r = min(1, max(self.steel_member.check_buckling()))
+            alpha = max(0.1, r)
+            color = (1,0.5-r/2,0, alpha)
         else:
-            color = 'b'
+            r = min(1, self.steel_member.check_section())
+            alpha = max(0.1, r)
+            color = (0,0.5-r/2,1, alpha)
         # Plot members
-        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
+        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color=color, linewidth=2)
         # Plot text
+        # Calculate text location
+        delta_y = X[1][1] - X[0][1]
+        delta_x = X[1][0] - X[0][0]
         # Calculate text location
         delta_y = X[1][1] - X[0][1]
         delta_x = X[1][0] - X[0][0]
@@ -1757,20 +1822,14 @@ class FrameMember:
             rot = 0
         else:
             rot = math.degrees(math.atan(delta_y / delta_x))
-        if self.mtype == 'beam':
-            x = (X[0][0] + X[1][0]) / 2
-            y = (X[1][1] + X[0][1]) / 2
-            horzalign = 'center'
-            vertalign = 'bottom'
-        elif self.mtype == 'column':
-            x = (X[0][0] + X[1][0]) / 2
-            y = (X[1][1] + X[0][1]) / 2
-            horzalign = 'right'
-            vertalign = 'center'
-            
-            plt.text(x, y, str(self.ned) + " kN",
-                     rotation=rot, horizontalalignment=horzalign,
-                     verticalalignment=vertalign)
+
+        x = (X[0][0] + X[1][0]) / 2
+        y = (X[1][1] + X[0][1]) / 2
+        horzalign = 'center'
+        vertalign = 'center'         
+        plt.text(x, y, f'{self.ned:.3f}  kN,\nr: {r*100:.2f} %',
+                 rotation=rot, horizontalalignment=horzalign,
+                 verticalalignment=vertalign)
 
     def lineload_elements(self, coords):
     

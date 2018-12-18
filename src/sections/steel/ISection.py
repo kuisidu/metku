@@ -148,7 +148,7 @@ class IPE(ISection):
     def __init__(self,height=100,fy=355,catalogue=False):
         name = 'IPE ' + str(height)
     # H,B,tf,tb,r,fy=355
-        if catalogue:
+        if catalogue or profile[name]['h'] == height:
             try:
                 H=profile[name]['h']
                 B=profile[name]['b']
@@ -358,9 +358,9 @@ def cross_section_properties(b,h,tf,tw,r):
 
     # Torsional constant [mm^4]
     It = 2.0/3.0*(b - 0.63*tf)*tf**3.0 + 1.0/3.0*(h - 2.0*tf)*tw**3.0
-    + 2.0*(tw/tf)*(0.145 + 0.1*r/tf)*(((r + tw/2.0)**2.0 + (r + tf)**2.0 - r**2.0)/(2.0*r + tf))
+    + 2.0*(tw/tf)*(0.145 + 0.1*r/tf)*(((r + tw/2.0)**2.0 + (r + tf)**2.0 - r**2.0)/(2.0*r + tf))**4
 
-    # Warping constant [mm^4]
+    # Warping constant [mm^6]
     Iw = (tf*b**3.0)/24.0*(h - tf)**2.0
 
     # Plastic section modulus [mm^3]
