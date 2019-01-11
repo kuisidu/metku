@@ -169,7 +169,7 @@ def test3():
     
 def test4():
     truss = Truss2D(num_elements=3)
-    coord1 = [[0,2], [2,3]]
+    coord1 = [[0,2], [2,4]]
     coord2 = [[0,0], [2,0]]  
     
     top_chord = TopChord(coord1, profile="RHS 200X200X8")
@@ -208,11 +208,56 @@ def test4():
     truss.plot()
     truss.plot_normal_force()
     
-    truss.joints[4].plot_joint(0.2)
-      
+    truss.joints[4].coordinate = [1.6,0]
+    truss.joints[4].plot_joint(0.05)
+    print(truss.joints[4].coordinate)
+    truss.plot()
+
+
+def portal_frame():
+    X = np.array([0,01.714,03.429, 05.143, 06.857, 08.571, 10.286, 12.,
+              13.714, 15.429, 17.143, 18.857, 20.571, 22.286, 24])
+    Y = np.array([-01.8, 00.086, -01.8, 00.257, -01.8, 00.429, -01.8, 00.6,
+              -01.8,00.428, -01.8, 00.257, -01.8, 00.086, -01.8])
+    
+    # INITIALIZE EMPTY FRAME
+    frame = Frame2D()
+    # COLUMNS
+    col1 = SteelColumn([[0,0],[0, -9.8]], profile="RHS 220x220x7.1")
+    col2 = SteelColumn([[24,0],[24, -9.8]], profile="RHS 220x220x7.1")
+    frame.add(col1)
+    frame.add(col2)
+    # SUPPORTS
+    frame.add(FixedSupport([0, -9.8]))
+    frame.add(FixedSupport([24, -9.8]))
+    
+    truss = Truss2D(num_elements=1, fem=frame.f)
+    bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6")
+    top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="RHS 120x120x6")
+    top_chord2 = TopChord([[12,0.6], [24,0]])
+    truss.add(bottom_chord)
+    truss.add(top_chord1)
+    truss.add(top_chord2)
+    for i in range(len(X)-1):
+        truss.add(TrussWeb([X[i], Y[i]], [X[i+1], Y[i+1]], 'global', profile="Rhs 90x90x4"))
+        
+    # ADD TRUSS TO FRAME
+    frame.add(truss)
+    print(bottom_chord.nodal_coordinates)
+    # LOADS
+    frame.add(LineLoad(bottom_chord, [-0.69, -0.69], 'y'))
+    frame.add(LineLoad(top_chord1, [-21.45, -21.45], 'y'))
+    frame.add(LineLoad(top_chord2, [-21.45, -21.45], 'y'))
+    frame.add(LineLoad(col1, [3.51, 3.51], 'x'))
+    frame.add(LineLoad(col2, [0.17, 0.17], 'x'))
+    # GENERATE
+    frame.generate()
+    frame.plot(loads=False)
+    frame.f.draw()
+  
 if __name__ == '__main__':
 
-    test4()
+    portal_frame()
 """
 truss = Truss2D(num_elements=1)
 

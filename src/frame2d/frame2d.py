@@ -242,19 +242,59 @@ class Frame2D:
                     coord = member.line_intersection(bchord.coordinates)
                     if isinstance(coord, list):
                         member.add_node_coord(coord)
+                        if member.mtype == "column":
+                            joint0 = [j for j in this.joints.values() if j.coordinate == c0]                          
+                            joint1 = [j for j in this.joints.values() if j.coordinate == c1]
+
+                            if coord == c0 and joint0:
+                                joint0 = joint0[0]
+                                web = list(joint0.webs.values())[0]
+                                theta = abs(joint0.chord.angle - web.angle)
+                                ecc_x = member.h / 2 + abs(joint0.g1*math.cos(joint0.chord.angle) +
+                                        web.h/2 * math.sin(theta))
+                                # m to mm
+                                ecc_x = ecc_x/1000
+                                x0, y0 = joint0.coordinate
+                                joint0.coordinate = [x0 + ecc_x, y0]
+                                c0 = [c0[0] + member.h/2000, c0[1]]
+                                
+                            if coord == c1 and joint1:
+                                joint1 = joint1[0]
+                                web = list(joint1.webs.values())[0]
+                                theta = abs(joint1.chord.angle - web.angle)
+                                ecc_x = member.h / 2 + abs(joint1.g1*math.cos(joint1.chord.angle) +
+                                        web.h/2 * math.sin(theta))
+                                # m to mm
+                                ecc_x = ecc_x/1000
+                                x1, y1 = joint1.coordinate
+                                joint1.coordinate = [x1 - ecc_x, y1]
+                                c1 = [c1[0] - member.h/2000, c1[1]]
+                
+                    bchord.coordinates = [c0, c1]
+                    bchord.calc_nodal_coordinates()
+                                
+
+                        
+                
+                #ecc_x = 0.5 * column.h + abs(joint.g1*math.cos(joint.chord.angle)+
+                #                             joint.web.h/2 * math.sin(theta))
+                        
+                        
+                        
+                        
+                        
+                        
             # Top chord coordinates
             for tchord in this.bottom_chords:
                 c0, c1 = tchord.coordinates
                 for member in self.members.values():
                     coord = member.line_intersection(tchord.coordinates)
                     if isinstance(coord, list):
-                        member.add_node_coord(coord)
-                        
-            
+                        member.add_node_coord(coord)                        
+            # Add truss's mebers to frame's members dict
             for key in this.members.keys():
                 self.members[key] = this.members[key]
-                
-
+        # WRONG TYPE
         else:
             print(type(this), " is not supported.")
             raise TypeError
@@ -925,6 +965,7 @@ class FrameMember:
         # end node, FEMNode object
         self.n2 = None
         self.nodes = {}
+        self.added_coordinates = []
         self.nodal_coordinates = []
         self.loc = []
         self.__coordinates = None
@@ -1222,7 +1263,7 @@ class FrameMember:
         if not self.num_elements:
             self.num_elements = num_elements
         
-        self.nodal_coordinates = []
+        self.nodal_coordinates = self.added_coordinates
         start_node, end_node = self.coordinates
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
@@ -1256,14 +1297,12 @@ class FrameMember:
         calculates new coordinates local location
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
-        """
-        
+        """      
         # If member's angle is negative, y-coordinates must be multiplied by -1
         start_node, end_node = self.coordinates
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
         Ly = end_node[1] - start_node[1]
-        
         try:
             k = Ly / Lx
         except ZeroDivisionError:
@@ -1271,12 +1310,12 @@ class FrameMember:
         s = 1
         if k <= 0:
             s = -1
-        
         if coord not in self.nodal_coordinates and\
         start_node[0] <= coord[0] <= end_node[0] and\
         s*start_node[1] <= s*coord[1] <= s*end_node[1]:
             
             if coord not in self.nodal_coordinates and self.point_intersection(coord):
+                self.added_coordinates.append(coord)
                 self.nodal_coordinates.append(coord)
                 self.nodal_coordinates = sorted(self.nodal_coordinates)
                 x, y = coord
@@ -1608,7 +1647,7 @@ class FrameMember:
             return x == x1 and y1 <= y <= y2
         """
 
-    def plot(self, print_text, c):
+    def plot(self, print_text=True, c='k'):
 
         X = self.coordinates
         if c:
