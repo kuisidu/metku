@@ -671,6 +671,8 @@ class Element:
         self.bending_moment[:2] = [-R[2],R[5]]        
         self.shear_force[:2] = [R[1],-R[4]]
         # Save force and moment values to nodes
+        # This may cause issues when the same node is connected to elements
+        # that are in different member
         self.nodes[0].Fx, self.nodes[1].Fx = self.axial_force
         self.nodes[0].Fy, self.nodes[1].Fy = self.shear_force
         self.nodes[0].Mz, self.nodes[1].Mz = self.bending_moment
