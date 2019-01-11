@@ -179,7 +179,7 @@ class RHSKGapJoint(RHSJoint):
         # braces
         NiRd = fy0*Aeta/math.sqrt(3)/s/gammaM5
         # chord                                         
-        N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0()*1e3/self.chord.VplRd)**2))/gammaM5
+        N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0*1e3/self.chord.shear_force_resistance())**2))/gammaM5
             
         r = self.strength_reduction()
         NiRd = r*NiRd
