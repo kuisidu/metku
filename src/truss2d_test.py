@@ -107,8 +107,8 @@ def test2():
     print("Av0: ", joint.a_eta() , " = ", AV0)
     print("Chord face failure: ", joint.chord_face_failure(), " = 807.4 kN")
     print("Punching shear: ", joint.punching_shear(), " = 1566 kN")
-    #print("Chord shear: ", joint.chord_shear())
-    print("Brace failure: ", joint.brace_failure())
+    #print("Chord shear: ", joint.chord_shear(), " = 1106 kN")
+    print("Brace failure: ", joint.brace_failure(), " = 1148 kN")
     
     
     
@@ -210,6 +210,7 @@ def test4():
     
     truss.joints[4].coordinate = [1.6,0]
     truss.joints[4].plot_joint(0.05)
+    truss.joints[4].cnode.Fy
     print(truss.joints[4].coordinate)
     truss.plot()
 
@@ -233,7 +234,7 @@ def portal_frame():
     
     truss = Truss2D(num_elements=1, fem=frame.f)
     bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6")
-    top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="RHS 120x120x6")
+    top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="rhs 120x120x6")
     top_chord2 = TopChord([[12,0.6], [24,0]])
     truss.add(bottom_chord)
     truss.add(top_chord1)
@@ -243,7 +244,6 @@ def portal_frame():
         
     # ADD TRUSS TO FRAME
     frame.add(truss)
-    print(bottom_chord.nodal_coordinates)
     # LOADS
     frame.add(LineLoad(bottom_chord, [-0.69, -0.69], 'y'))
     frame.add(LineLoad(top_chord1, [-21.45, -21.45], 'y'))
@@ -252,8 +252,13 @@ def portal_frame():
     frame.add(LineLoad(col2, [0.17, 0.17], 'x'))
     # GENERATE
     frame.generate()
-    frame.plot(loads=False)
+    frame.plot(print_text=False)
     frame.f.draw()
+    # Calculate
+    frame.calculate()
+    
+    for joint in truss.joints.values():
+        print(joint.brace_failure())
   
 if __name__ == '__main__':
 

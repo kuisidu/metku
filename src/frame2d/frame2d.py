@@ -18,7 +18,7 @@ import fem.frame.frame_fem as fem
 from fem.frame.elements.ebbeam import EBBeam
 from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 
-from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM
+from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISection
 from sections.steel.RHS import RHS, SHS
 from sections.steel.CHS import CHS
 
@@ -160,14 +160,7 @@ class Frame2D:
         self.optimize_joints = True
         self.load_robot = False
         self.truss = None
-        
-        #I added this
-        self.simple=simple
-   
-        
-
-        self.penalty_val = 1000
-
+        self.simple = simple
 
         if simple:
             self.storeys = simple[0]
@@ -242,10 +235,10 @@ class Frame2D:
                     coord = member.line_intersection(bchord.coordinates)
                     if isinstance(coord, list):
                         member.add_node_coord(coord)
+                        # Create eccentricity to connection
                         if member.mtype == "column":
                             joint0 = [j for j in this.joints.values() if j.coordinate == c0]                          
                             joint1 = [j for j in this.joints.values() if j.coordinate == c1]
-
                             if coord == c0 and joint0:
                                 joint0 = joint0[0]
                                 web = list(joint0.webs.values())[0]
@@ -257,11 +250,11 @@ class Frame2D:
                                 x0, y0 = joint0.coordinate
                                 # Change joint's coordinate
                                 joint0.coordinate = [x0 + ecc_x, y0]
+                            if coord == c0:
                                 # Calculate chord's new start coordinate
                                 c0 = [c0[0] + member.h/2000, c0[1]]
                                 # Add eccentricity elements coordinates to list
-                                member.ecc_coordinates.append([coord, c0])
-                                
+                                member.ecc_coordinates.append([coord, c0])     
                             if coord == c1 and joint1:
                                 joint1 = joint1[0]
                                 web = list(joint1.webs.values())[0]
@@ -272,30 +265,64 @@ class Frame2D:
                                 ecc_x = ecc_x/1000
                                 x1, y1 = joint1.coordinate
                                 joint1.coordinate = [x1 - ecc_x, y1]
+                            if coord == c1:
                                 c1 = [c1[0] - member.h/2000, c1[1]]
                                 member.ecc_coordinates.append([coord, c1])
-                    
+                    # Change chord's end coordinates
                     bchord.coordinates = [c0, c1]
                     bchord.calc_nodal_coordinates()
-                                
-
-                        
-                
-                #ecc_x = 0.5 * column.h + abs(joint.g1*math.cos(joint.chord.angle)+
-                #                             joint.web.h/2 * math.sin(theta))
-                        
-                        
-                        
-                        
-                        
-                        
+        
             # Top chord coordinates
-            for tchord in this.bottom_chords:
+            for tchord in this.top_chords:
                 c0, c1 = tchord.coordinates
                 for member in self.members.values():
                     coord = member.line_intersection(tchord.coordinates)
                     if isinstance(coord, list):
-                        member.add_node_coord(coord)                        
+                        member.add_node_coord(coord)
+                        # Create eccentricity to connection
+                        if member.mtype == "column":
+                            joint0 = [j for j in this.joints.values() if j.coordinate == c0]                          
+                            joint1 = [j for j in this.joints.values() if j.coordinate == c1]
+                            # Chord's position vector
+                            v = np.array([math.cos(tchord.angle),
+                                          math.sin(tchord.angle)])
+                            # Vector perpendicular to v
+                            u = np.array([-math.sin(tchord.angle),
+                                          math.cos(tchord.angle)])
+                            if coord == c0 and joint0:
+                                joint0 = joint0[0]
+                                web = list(joint0.webs.values())[0]
+                                theta = abs(joint0.chord.angle - web.angle)
+                                ecc_x = member.h / 2 + abs(joint0.g1*math.cos(joint0.chord.angle) +
+                                        web.h/2 * math.sin(theta))
+                                # m to mm
+                                ecc_x = ecc_x/1000
+                                coord0 = np.asarray(joint0.coordinate)
+                                # Change joint's coordinate
+                                joint0.coordinate = list(coord0 + ecc_x * v)
+                            if coord == c0:
+                                # Calculate chord's new start coordinate
+                                c0 = [c0[0] + member.h/2000, c0[1]]
+                                # Add eccentricity elements coordinates to list
+                                member.ecc_coordinates.append([coord, c0])     
+                            if coord == c1 and joint1:
+                                joint1 = joint1[0]
+                                web = list(joint1.webs.values())[0]
+                                theta = abs(joint1.chord.angle - web.angle)
+                                ecc_x = member.h / 2 + abs(joint1.g1*math.cos(joint1.chord.angle) +
+                                        web.h/2 * math.sin(theta))
+                                # m to mm
+                                ecc_x = ecc_x/1000
+                                coord1 = np.asarray(joint1.coordinate)
+                                joint1.coordinate = list(coord1 - ecc_x*v)
+                            if coord == c1:
+                                c1 = [c1[0] - member.h/2000, c1[1]]
+                                member.ecc_coordinates.append([coord, c1])
+                    # Change chord's end coordinates
+                    tchord.coordinates = [c0, c1]
+                    tchord.calc_nodal_coordinates()
+                    print(tchord.nodal_coordinates[:3])
+                        
             # Add truss's mebers to frame's members dict
             for key in this.members.keys():
                 self.members[key] = this.members[key]
@@ -987,7 +1014,7 @@ class FrameMember:
         self.__profile = profile
         self.profile = profile
         #self.profile_idx = PROFILES.index(self.profile)
-        self.length = self.calc_length()
+        #self.length = self.calc_length()
         self.mem_id = mem_id
         self.mtype = ""
         self.nodal_forces = {}
@@ -1135,59 +1162,71 @@ class FrameMember:
         
         :param val: string, profile name e.g. 'IPE 100'
         """
-        self.__profile = val.upper()
-        splitted_val = self.profile.split(" ")
-        profile_type = splitted_val[0]
-        if profile_type == 'IPE' or profile_type == 'HE':
-            try:
-                H = int(splitted_val[1])
-                catalogue = True
-            except ValueError:
-                H = float(splitted_val[1])
-                catalogue = False
-        else:
-            vals = splitted_val[1].split('X')
-            if len(vals) == 2:
-                H = float(vals[0])
-                T = float(vals[1])
-            elif len(vals) == 3:
-                H = float(vals[0])
-                B = float(vals[1])
-                T = float(vals[2])
+        if isinstance(val, list) and len(val) == 5:
+            h, b, tf, tw, r = val
+            if isinstance(self.cross_section, CustomISection):
+                self.cross_section.H = h
+                self.cross_section.B = b
+                self.cross_section.tf = tf
+                self.cross_section.tw = tw
+                self.cross_section.r = r
+                self.cross_section.cross_section_properties()
             else:
-                raise TypeError(f'{splitted_val[1]} is not valid profile')
-
-        if profile_type == 'IPE':
-            self.cross_section = IPE(H, self.fy)
-            
-        elif profile_type == 'HE':
-            if splitted_val[2] == 'A':
-                self.cross_section = HEA(H, self.fy)
-            elif splitted_val[2] == 'AA':
-                self.cross_section = HEAA(H, self.fy)
-            elif splitted_val[2] == 'B':
-                self.cross_section = HEB(H, self.fy)
-            elif splitted_val[2] == 'C':
-                self.cross_section = HEC(H, self.fy)
-            elif splitted_val[2] == 'M':
-                self.cross_section = HEM(H, self.fy)
-              
-        elif profile_type == 'CHS':
-            self.cross_section = CHS(H, T, self.fy)
-        
-        elif profile_type == 'RHS':
-            self.cross_section = RHS(H, B, T, self.fy)
-               
-        elif profile_type == 'SHS':
-            self.cross_section = SHS(H, T, self.fy)
-                  
+                self.cross_section = CustomISection(h, b, tf, tw, r)
         else:
-            raise ValueError('{} is not valid profile type!'.format(profile_type))
-        # Change member's elements' properties
-        if len(self.elements) > 0:
-            for element in self.elements.values():
-                element.section.A = self.cross_section.A * 1e-6
-                element.section.Iy = self.cross_section.I[0] * 1e-12
+            self.__profile = val.upper()
+            splitted_val = self.profile.split(" ")
+            profile_type = splitted_val[0]
+            if profile_type == 'IPE' or profile_type == 'HE':
+                try:
+                    H = int(splitted_val[1])
+                    catalogue = True
+                except ValueError:
+                    H = float(splitted_val[1])
+                    catalogue = False
+            else:
+                vals = splitted_val[1].split('X')
+                if len(vals) == 2:
+                    H = float(vals[0])
+                    T = float(vals[1])
+                elif len(vals) == 3:
+                    H = float(vals[0])
+                    B = float(vals[1])
+                    T = float(vals[2])
+                else:
+                    raise TypeError(f'{splitted_val[1]} is not valid profile')
+    
+            if profile_type == 'IPE':
+                self.cross_section = IPE(H, self.fy)
+                
+            elif profile_type == 'HE':
+                if splitted_val[2] == 'A':
+                    self.cross_section = HEA(H, self.fy)
+                elif splitted_val[2] == 'AA':
+                    self.cross_section = HEAA(H, self.fy)
+                elif splitted_val[2] == 'B':
+                    self.cross_section = HEB(H, self.fy)
+                elif splitted_val[2] == 'C':
+                    self.cross_section = HEC(H, self.fy)
+                elif splitted_val[2] == 'M':
+                    self.cross_section = HEM(H, self.fy)
+                  
+            elif profile_type == 'CHS':
+                self.cross_section = CHS(H, T, self.fy)
+            
+            elif profile_type == 'RHS':
+                self.cross_section = RHS(H, B, T, self.fy)
+                   
+            elif profile_type == 'SHS':
+                self.cross_section = SHS(H, T, self.fy)
+                      
+            else:
+                raise ValueError('{} is not valid profile type!'.format(profile_type))
+            # Change member's elements' properties
+            if len(self.elements) > 0:
+                for element in self.elements.values():
+                    element.section.A = self.cross_section.A * 1e-6
+                    element.section.Iy = self.cross_section.I[0] * 1e-12
         # Change steel_member objects properties
         if self.steel_member:
             self.steel_member.profile = self.cross_section
@@ -1229,7 +1268,8 @@ class FrameMember:
 
         self.__Sj2 = val
 
-    def calc_length(self):
+    @property
+    def length(self):
         start_node, end_node = self.coordinates
         x0, y0 = start_node
         x1, y1 = end_node
@@ -1436,7 +1476,7 @@ class FrameMember:
         fem_model.add_material(210e3, 0.3, 7850e-9)
         # Add section
         # BeamSection(A, Iy)
-        sect = fem.BeamSection(1e20, 1e20)
+        sect = fem.BeamSection(1e10, 1e10)
         fem_model.add_section(sect)
         for coordinates in self.ecc_coordinates:
             index = fem_model.nels()

@@ -210,7 +210,7 @@ class TrussMember(FrameMember):
         """
         
         if self.shape(coord[0]) == coord[1]:
-                    
+            
             if coord not in self.nodal_coordinates and self.point_intersection(coord):
                 self.added_coordinates.append(coord)
                 self.nodal_coordinates.append(coord)
@@ -262,7 +262,8 @@ class TrussMember(FrameMember):
                 node.x = np.array(self.nodal_coordinates[j])
         else:
             for joint in self.joints:
-                 joint.calc_nodal_coordinates(self.num_elements)
+                joint.coordinate = joint.loc
+                #joint.calc_nodal_coordinates(self.num_elements)
             
         
     def local(self, value):
@@ -294,6 +295,9 @@ class TrussMember(FrameMember):
         
     
     def shape(self, x):
+        """
+        Returns chord's y value corresponding to x
+        """
         start_node, end_node = self.coordinates
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
@@ -556,6 +560,7 @@ class TrussJoint():
     def __init__(self, chord, loc, joint_type="N", g1=0.1, g2=0.1):
 
         self.chord = chord
+        self.chord_elements = {}
         self.jid = None
         self.loc = loc
         self.__coordinate = chord.local(loc)
@@ -574,9 +579,7 @@ class TrussJoint():
         # Index for eccentricity elements' material and section
         self.idx = None
         self.rhs_joint = None
-        
-
-        
+                
     def add_node_coord(self, coord):
         if coord not in self.nodal_coordinates:
             self.nodal_coordinates.append(coord)
@@ -599,24 +602,52 @@ class TrussJoint():
             self.__coordinate = self.chord.local(val)
             if self.num_elements:
                 self.calc_nodal_coordinates(self.num_elements)
-            
-    
+               
     def calculate(self):
         """
         """
-        if self.joint_type in ["K", "N"]:
+        if self.joint_type == "K":
             self.rhs_joint = RHSKGapJoint(self.chord.cross_section,
                                          [w.cross_section for w in self.webs.values()],
                                          [math.degrees(w.angle) for w in self.webs.values()],
-                                         self.g1 * 100) # m to mm
-        # Chord face failure
-        r1 = self.rhs_joint.chord_face_failure() / 1000 # N to kN
-        # Punching shear
-        r2 = self.rhs_joint.punching_shear() / 1000 # N to kN
-        # Brace failure
-        r3 = self.rhs_joint.brace_failure() / 1000 # N to kN
+                                         self.g1 * 1000) # m to mm
+        elif self.joint_type == 'N':
+            pass
+        elif self.joint_type == 'Y':
+            pass
+        elif self.joint_type == 'KT':
+            pass
+        if self.rhs_joint:
+            self.rhs_joint.V0 = max([max(V.shear_force) for V in self.chord_elements.values()])
+            # Chord face failure
+            r1 = self.rhs_joint.chord_face_failure() / 1000 # N to kN
+            # Punching shear
+            r2 = self.rhs_joint.punching_shear() / 1000 # N to kN
+            # Brace failure
+            r3 = self.rhs_joint.brace_failure() / 1000 # N to kN
+            
+            return [r1, r2, r3]
+    
+    def chord_face_failure(self):
+        if self.rhs_joint:
+            results = self.rhs_joint.chord_face_failure() 
+            return results / 1000
+    
+    def punching_shear(self):
+        if self.rhs_joint:
+            results = self.rhs_joint.punching_shear() 
+            return results / 1000
         
-        return [r1, r2, r3]
+    def brace_failure(self):
+        if self.rhs_joint:           
+            results = self.rhs_joint.brace_failure()
+            return results / 1000 # N to kN
+    
+    def chord_shear(self):
+        if self.rhs_joint:
+            self.rhs_joint.V0 = max([max(V.shear_force) for V in self.chord_elements.values()])
+            results = self.rhs_joint.chord_shear()
+            return results 
     
     def calc_nodal_coordinates(self, num_elements):
         """
@@ -633,12 +664,12 @@ class TrussJoint():
         # Vector perpendicular to v
         u = np.array([-math.sin(self.chord.angle), math.cos(self.chord.angle)])
         self.num_elements = num_elements
-        """
+        
         # Remove previously calculated coordinates from chord
         for coord in self.nodal_coordinates:
-            if coord in self.chord.nodal_coordinates:
-                self.chord.nodal_coordinates.remove(coord)
-        """
+            if coord in self.chord.added_coordinates:
+                self.chord.added_coordinates.remove(coord)
+        
         # Initialize nodal coordinates as an empty array
         self.nodal_coordinates = []
         central_coord = np.asarray(self.coordinate)
@@ -646,7 +677,7 @@ class TrussJoint():
         ecc_y = self.chord.h / 2000 # div by 2 and 1000 (mm to m)
         # Add joint's central coordinate to joint's and chord's list
         self.add_node_coord(list(central_coord))
-        self.chord.add_node_coord(list(central_coord))
+        self.chord.add_node_coord(list([central_coord[0], self.chord.shape(central_coord[0])]))
         # If joint type is Y or T
         if len(self.webs) == 1:
             web = list(self.webs.values())[0]
@@ -767,10 +798,15 @@ class TrussJoint():
             self.joint_type = 'N'
         elif len(self.nodal_coordinates) == 5:
             self.joint_type = 'K'
+            self.rhs_joint = RHSKGapJoint(self.chord.cross_section,
+                                         [w.cross_section for w in self.webs.values()],
+                                         [math.degrees(w.angle) for w in self.webs.values()],
+                                         self.g1 * 1000) # m to mm
         elif len(self.nodal_coordinates) == 6:
             self.joint_type = 'KT'
         else:
             raise ValueError('Too many nodes for one joint')
+
             
                            
     def generate(self, fem_model):
@@ -779,6 +815,7 @@ class TrussJoint():
         self.generate_nodes(fem_model)
         self.add_section_and_material(fem_model)
         self.generate_eccentricity_elements(fem_model)
+        self.get_chord_elements()
         
                 
     def generate_nodes(self, fem_model):
@@ -789,7 +826,8 @@ class TrussJoint():
         if not self.is_generated:
             self.is_generated = True
             for coord in self.nodal_coordinates:
-                print(coord)
+                print(self.coordinate)
+                print(self.chord.local(self.loc))
                 idx = fem_model.nodal_coords.index(coord)
                 self.nodes[idx] = fem_model.nodes[idx]
                 if coord == self.coordinate:
@@ -799,7 +837,19 @@ class TrussJoint():
         # sort chord nodes from leftmost to rightmost         
         self.chord_nodes = sorted(self.chord_nodes, key= lambda node: node.x[0])
                     
-    
+    def get_chord_elements(self):
+        """
+        Gets the joint's elements which are on chord
+        """
+        if len(self.chord_nodes) > 2:
+            for i in range(2):
+                nodes = self.chord_nodes[i:i+2]
+                for key in self.chord.elements.keys():
+                    element = self.chord.elements[key]
+                    if nodes[0] in element.nodes and nodes[1] in element.nodes:
+                        self.chord_elements[key] = element
+        
+        
     def add_section_and_material(self, fem_model):
         """
         Add's eccentricity elements section and material properties
@@ -812,7 +862,7 @@ class TrussJoint():
         # Material(E, nu, rho)
         fem_model.add_material(210e3, 0.3, 7850e-9)
         # BeamSection(A, Iy)
-        sect = BeamSection(1e20, 1e20)
+        sect = BeamSection(1e10, 1e10)
         fem_model.add_section(sect)
   
     
@@ -957,8 +1007,6 @@ class TrussJoint():
         Y0 = [Y-(X-start)*math.tan(self.chord.angle),
               Y,
               Y+(end-X)*math.tan(self.chord.angle)]
-        print(self.nodal_coordinates)
-        print(math.degrees(self.chord.angle))
         X1 = [start, X, end]
         Y1 = [Y-(X-start)*math.tan(self.chord.angle) - self.chord.h/2000,
               Y-self.chord.h/2000,
