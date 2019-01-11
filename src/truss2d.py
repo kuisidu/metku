@@ -808,7 +808,7 @@ class TrussJoint():
         """
 
         self.idx = len(fem_model.materials)
-        self.idx = self.chord.mem_id
+        #self.idx = self.chord.mem_id
         # Material(E, nu, rho)
         fem_model.add_material(210e3, 0.3, 7850e-9)
         # BeamSection(A, Iy)

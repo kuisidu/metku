@@ -255,8 +255,12 @@ class Frame2D:
                                 # m to mm
                                 ecc_x = ecc_x/1000
                                 x0, y0 = joint0.coordinate
+                                # Change joint's coordinate
                                 joint0.coordinate = [x0 + ecc_x, y0]
+                                # Calculate chord's new start coordinate
                                 c0 = [c0[0] + member.h/2000, c0[1]]
+                                # Add eccentricity elements coordinates to list
+                                member.ecc_coordinates.append([coord, c0])
                                 
                             if coord == c1 and joint1:
                                 joint1 = joint1[0]
@@ -269,7 +273,8 @@ class Frame2D:
                                 x1, y1 = joint1.coordinate
                                 joint1.coordinate = [x1 - ecc_x, y1]
                                 c1 = [c1[0] - member.h/2000, c1[1]]
-                
+                                member.ecc_coordinates.append([coord, c1])
+                    
                     bchord.coordinates = [c0, c1]
                     bchord.calc_nodal_coordinates()
                                 
@@ -498,6 +503,10 @@ class Frame2D:
         # Generate Truss
         if self.truss:
             self.truss.generate()
+        # Generate eccentricity elements
+        for member in self.members.values():
+            member.generate_eccentricity_elements(self.f)
+        
         # Remove duplicate nodes
         self.nodes = list(set(self.nodes))
         for support in self.supports.values():
@@ -959,6 +968,9 @@ class FrameMember:
 
         self.element_ids = []
         self.elements = {}
+        self.ecc_elements = {}
+        self.ecc_coordinates = []
+        self.ecc_element_nodes = {}
         self.steel_member = None
         # strat node, FEMNode object
         self.n1 = None
@@ -1413,6 +1425,32 @@ class FrameMember:
                     fem_model.add_element(self.elements[index])
                     self.element_ids.append(index)
                     index += 1
+
+
+    def generate_eccentricity_elements(self, fem_model):
+        
+       
+        mat_id = len(fem_model.materials)
+        # Add material
+        # Material(E, nu, rho)
+        fem_model.add_material(210e3, 0.3, 7850e-9)
+        # Add section
+        # BeamSection(A, Iy)
+        sect = fem.BeamSection(1e20, 1e20)
+        fem_model.add_section(sect)
+        for coordinates in self.ecc_coordinates:
+            index = fem_model.nels()
+            # n1 is the node connected to the column
+            # n2 is hinged connection to chord
+            n1 = fem_model.nodes[fem_model.nodal_coords.index(coordinates[0])]
+            n2 = fem_model.nodes[fem_model.nodal_coords.index(coordinates[1])]
+            self.ecc_elements[index] = EBSemiRigidBeam(n1, n2, 
+                                     fem_model.sections[mat_id], 
+                                     fem_model.materials[mat_id], 
+                                     rot_stiff=[np.inf, 0])
+            fem_model.add_element(self.ecc_elements[index])
+        
+
 
     def calc_nodal_forces(self):
         """ Gets calculated nodal forces on member's elements and
@@ -1881,8 +1919,7 @@ class FrameMember:
         end_idx = self.nodal_coordinates.index(end)
         element_ids = self.element_ids[start_idx:end_idx]
         return element_ids
-
-
+    
 
 class SteelBeam(FrameMember):
     def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
