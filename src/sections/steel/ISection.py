@@ -148,7 +148,7 @@ class IPE(ISection):
     def __init__(self,height=100,fy=355,catalogue=False):
         name = 'IPE ' + str(height)
     # H,B,tf,tb,r,fy=355
-        if catalogue or profile[name]['h'] == height:
+        if catalogue or name in profile.keys():
             try:
                 H=profile[name]['h']
                 B=profile[name]['b']
@@ -334,6 +334,22 @@ class HEM(ISection):
         
         ISection.__init__(self,H,B,tf,tw,r,fy=fy) 
         
+
+
+class CustomISection(ISection):
+    def __init__(self,H,B,tf,tw,r,fy=355):
+        self.H = H
+        self.B = B
+        self.tf = tf
+        self.tw = tw
+        self.r = r     
+        
+        ISection.__init__(self,H,B,tf,tw,r,fy=fy) 
+        
+    def cross_section_properties(self):
+        args = cross_section_properties(self.B,self.H, self.tf, self.tw, self.r)
+        self.A, self.Au, self.Ashear, self.I, self.It, self.Iw, self.Wpl, self.Wel = args
+
 
 def cross_section_properties(b,h,tf,tw,r):
     """ Cross-section properties        
