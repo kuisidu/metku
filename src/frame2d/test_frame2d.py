@@ -81,9 +81,10 @@ class TestFrame2D(unittest.TestCase):
         with self.assertRaises(TypeError):
             beam1.profile = 'iipe 100'
     
-    def test_alphacr(self):
-        self.assertAlmostEqual(frame.alpha_cr[0]*1e3, ALPHA_CR[0], delta=DELTA)
+    #def test_alphacr(self):
+    #    self.assertAlmostEqual(frame.alpha_cr[0]*1e3, ALPHA_CR[0], delta=DELTA)
     
     
 if __name__ == '__main__':
     unittest.main()
+    frame.bmd(5)

@@ -47,8 +47,8 @@ class Truss2D(Frame2D):
             if this.coord_type == "local":
                 # Calculate web's global coordinates
                 bottom_chord = self.bottom_chords[0]
-                top_chord = self.top_chords[0]
                 c01 = self.bottom_chords[0].local(this.bot_loc)
+                top_chord = self.top_chords[0]
                 c02 = self.top_chords[0].local(this.top_loc)
                 # Change web's coordinates to global coordinates
                 this.bot_coord = c01
@@ -57,7 +57,7 @@ class Truss2D(Frame2D):
                 c01, c02 = sorted(this.coordinates, key=lambda x: x[1])
                 # Find corresponding bottom chord
                 for chord in self.bottom_chords:
-                    if chord.point_intersection(c01):
+                    if chord.point_intersection(c01) and c01 <= chord.coordinates[1]:
                         bottom_chord = chord
                         # Calculate local coordinate
                         x0, y0 = bottom_chord.coordinates[0]
@@ -557,7 +557,7 @@ class TrussWeb(TrussMember):
         
 
 class TrussJoint():
-    def __init__(self, chord, loc, joint_type="N", g1=0.1, g2=0.1):
+    def __init__(self, chord, loc, joint_type="N", g1=0.05, g2=0.05):
 
         self.chord = chord
         self.chord_elements = {}
@@ -826,8 +826,6 @@ class TrussJoint():
         if not self.is_generated:
             self.is_generated = True
             for coord in self.nodal_coordinates:
-                print(self.coordinate)
-                print(self.chord.local(self.loc))
                 idx = fem_model.nodal_coords.index(coord)
                 self.nodes[idx] = fem_model.nodes[idx]
                 if coord == self.coordinate:
@@ -1033,7 +1031,7 @@ class TrussJoint():
                 k = 1
             if web.angle < 0:
                 X0 = [coord[0], coord[0] - k*length]
-                Y0 = [coord[1], coord[1] - (k*length)*math.cos(theta)]
+                Y0 = [coord[1], coord[1] + (k*length)*abs(math.tan(theta))]
                 X1 = [coord[0]+web.h/2000 / math.sin(theta) , coord[0]+web.h/2000 / math.sin(theta) - k*length]
                 Y1 = [coord[1], coord[1] - k*(math.tan(web.angle)*length)]
                 X2 = [coord[0]-web.h/2000 / math.sin(theta) , coord[0]-web.h/2000 / math.sin(theta) - k*length]
@@ -1053,6 +1051,7 @@ class TrussJoint():
                 Y1 = [coord[1], coord[1] + k*(math.tan(web.angle)*length)]
                 X2 = [coord[0] - web.h/2000 / math.sin(theta) , coord[0]-web.h/2000 / math.sin(theta) + k*length]
                 Y2 = [coord[1], coord[1] + k*(math.tan(web.angle)*length)]
+
             plt.plot(X0, Y0, 'k--')
             plt.plot(X1, Y1, 'k')
             plt.plot(X2, Y2, 'k')

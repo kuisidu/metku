@@ -289,6 +289,7 @@ class Frame2D:
                             # Vector perpendicular to v
                             u = np.array([-math.sin(tchord.angle),
                                           math.cos(tchord.angle)])
+                            # Start coordinate
                             if coord == c0 and joint0:
                                 joint0 = joint0[0]
                                 web = list(joint0.webs.values())[0]
@@ -302,26 +303,29 @@ class Frame2D:
                                 joint0.coordinate = list(coord0 + ecc_x * v)
                             if coord == c0:
                                 # Calculate chord's new start coordinate
-                                c0 = [c0[0] + member.h/2000, c0[1]]
+                                c0 = [c0[0] + tchord.h / 2000 * u[0], c0[1] + tchord.h / 2000 * u[1]]
+                                #c0 = [c0[0] + member.h/2000, c0[1]]
                                 # Add eccentricity elements coordinates to list
                                 member.ecc_coordinates.append([coord, c0])     
+                            # End coordinate
                             if coord == c1 and joint1:
                                 joint1 = joint1[0]
                                 web = list(joint1.webs.values())[0]
                                 theta = abs(joint1.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(joint1.g1*math.cos(joint1.chord.angle) +
+                                ecc_x = member.h / 2 + abs(joint1.g1*1000*math.cos(joint1.chord.angle) +
                                         web.h/2 * math.sin(theta))
                                 # m to mm
                                 ecc_x = ecc_x/1000
                                 coord1 = np.asarray(joint1.coordinate)
                                 joint1.coordinate = list(coord1 - ecc_x*v)
                             if coord == c1:
-                                c1 = [c1[0] - member.h/2000, c1[1]]
+                                # Calculate chord's new end point
+                                c1 = [c1[0] + tchord.h/2000 * u[0], c1[1] + tchord.h/2000 * u[1]]
+                                #c1 = [c1[0] - member.h/2000, c1[1]]
                                 member.ecc_coordinates.append([coord, c1])
                     # Change chord's end coordinates
                     tchord.coordinates = [c0, c1]
                     tchord.calc_nodal_coordinates()
-                    print(tchord.nodal_coordinates[:3])
                         
             # Add truss's mebers to frame's members dict
             for key in this.members.keys():
@@ -522,7 +526,6 @@ class Frame2D:
 
         for member in self.members.values():
             member.generate(self.f)
-
             for coord in member.nodal_coordinates:
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
@@ -1338,8 +1341,8 @@ class FrameMember:
 
         if self.is_generated:
             for j, node in enumerate(self.nodes.values()):
-                print(self.nodal_coordinates)
-                print(j, len(self.nodal_coordinates))
+                #print(self.nodal_coordinates)
+                #print(j, len(self.nodal_coordinates))
                 node.x = np.array(self.nodal_coordinates[j])
                 
 
@@ -1360,11 +1363,12 @@ class FrameMember:
         except ZeroDivisionError:
             k = 0
         s = 1
-        if k <= 0:
+        if k < 0:
             s = -1
         if coord not in self.nodal_coordinates and\
         start_node[0] <= coord[0] <= end_node[0] and\
         s*start_node[1] <= s*coord[1] <= s*end_node[1]:
+            
             
             if coord not in self.nodal_coordinates and self.point_intersection(coord):
                 self.added_coordinates.append(coord)
@@ -1469,7 +1473,7 @@ class FrameMember:
 
     def generate_eccentricity_elements(self, fem_model):
         
-       
+        # Material id
         mat_id = len(fem_model.materials)
         # Add material
         # Material(E, nu, rho)
@@ -1865,8 +1869,7 @@ class FrameMember:
             func = lambda x: -(1/2 *k*x**2 + V1*x +M1) /1000
             dx = L/5
             for i in range(5):
-                if self.mtype == 'beam':                   
-                    print(func(x0))
+                if self.mtype == 'beam':
                     X.append(x0)
                     Y.append(func(x0))
                     x0 += dx

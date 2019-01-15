@@ -260,9 +260,64 @@ def portal_frame():
     for joint in truss.joints.values():
         print(joint.brace_failure())
   
+    
+    
+def portal_frame2():
+    # INITIALIZE EMPTY FRAME
+    frame = Frame2D()
+    # COLUMNS
+    col1 = SteelColumn([[0,0],[0, 5]], profile="RHS 200x200x7.1")
+    col2 = SteelColumn([[5,0],[5, 5]], profile="RHS 200x200x7.1")
+    frame.add(col1)
+    frame.add(col2)
+    # SUPPORTS
+    frame.add(FixedSupport([0, 0]))
+    frame.add(FixedSupport([5, 0]))
+    
+    truss = Truss2D(num_elements=1, fem=frame.f)
+    
+    coord1 = [[0,5], [5,5]]
+    coord2 = [[0,2], [5,2]]    
+    #coord3 = [[2.5,6], [5,5]]
+
+    top_chord = TopChord(coord1)
+    bottom_chord = BottomChord(coord2)
+    #top_chord2 = TopChord(coord3)
+    
+    truss.add(top_chord)
+    truss.add(bottom_chord)
+    #truss.add(top_chord2)
+    
+    members = 6
+    c1 = 0
+    c2 = 0
+    flip = False
+      
+    for i in range(1,members+1):
+        if i%2 == 0:
+            c1 = i /members
+            if c1 > 1:
+                c1 = 1
+        elif i!=0:
+            c2 = i /members
+            if c2 > 1:
+                c2 = 1
+        if flip:
+            truss.add(TrussWeb(c1, c2))
+        else:
+            truss.add(TrussWeb(c2, c1))
+    truss.plot()
+    frame.add(truss)
+    frame.generate()
+    
+    frame.plot()
+    frame.f.draw()
+    
+    #truss.joints[5].plot_joint()
+    
 if __name__ == '__main__':
 
-    portal_frame()
+    portal_frame2()
 """
 truss = Truss2D(num_elements=1)
 
