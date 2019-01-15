@@ -989,18 +989,24 @@ class TrussJoint():
                  verticalalignment=vertalign, fontsize=12)
         
     def plot_joint(self, length=0.3):
-        
-        X, Y = self.coordinate        
+        """
+        Plots joint
+        """
+        X, Y = self.coordinate  
+        end_line = None
         # CHORD
         if X-length*2 >= self.chord.local(0)[0]:
             start = X - length*2
         else:
-            start = X
+            start = self.chord.coordinates[0][0]
+            end_line = self.chord.coordinates[0][0]
         
         if X + length*2 <= self.chord.local(1)[0]:
             end = X + length*2
         else:
-            end = X           
+            end = self.chord.coordinates[1][0]  
+            end_line = self.chord.coordinates[1][0]
+            
         X0 = [start, X, end]
         Y0 = [Y-(X-start)*math.tan(self.chord.angle),
               Y,
@@ -1017,8 +1023,8 @@ class TrussJoint():
         plt.plot(X0, Y0, 'k--')
         plt.plot(X1, Y1, 'k')
         plt.plot(X2, Y2, 'k')
-        if start == X or end == X:
-            plt.plot([X, X],[Y-self.chord.h/2000, Y+self.chord.h/2000],'k')
+        if end_line:
+            plt.plot([end_line, end_line],[Y-self.chord.h/2000, Y+self.chord.h/2000],'k')
         
         # WEBS
         for web in self.webs.values():
@@ -1031,7 +1037,7 @@ class TrussJoint():
                 k = 1
             if web.angle < 0:
                 X0 = [coord[0], coord[0] - k*length]
-                Y0 = [coord[1], coord[1] + (k*length)*abs(math.tan(theta))]
+                Y0 = [coord[1], coord[1] - k*(math.tan(web.angle)*length)]
                 X1 = [coord[0]+web.h/2000 / math.sin(theta) , coord[0]+web.h/2000 / math.sin(theta) - k*length]
                 Y1 = [coord[1], coord[1] - k*(math.tan(web.angle)*length)]
                 X2 = [coord[0]-web.h/2000 / math.sin(theta) , coord[0]-web.h/2000 / math.sin(theta) - k*length]
