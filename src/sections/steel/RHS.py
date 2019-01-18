@@ -81,7 +81,7 @@ class RHS(SteelSection):
 
     def web_class_comp(self):
         """ Determine class of compressed web """
-        cw = self.h-2*self.R
+        cw = self.H-2*self.R
         rw = cw/self.T
         cWeb = en1993_1_1.internal_part_in_compression(rw,self.eps)
         
@@ -89,7 +89,7 @@ class RHS(SteelSection):
         
     def web_class_bend(self):
         """ Determine class of web in bending """
-        cw = self.h-2*self.R
+        cw = self.H-2*self.R
         rw = cw/self.T
         cWeb = en1993_1_1.internal_part_in_bending(rw,self.eps)
 

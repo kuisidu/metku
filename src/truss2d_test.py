@@ -5,7 +5,7 @@ Created on Fri Oct 26 12:23:00 2018
 @author: huuskoj
 """
 from truss2d import Truss2D, TopChord, BottomChord, TrussWeb, TrussJoint
-from frame2d.frame2d import LineLoad,PointLoad, XYHingedSupport, Frame2D, SteelColumn, FixedSupport, YHingedSupport
+from frame2d.frame2d import SteelBeam, LineLoad,PointLoad, XYHingedSupport, Frame2D, SteelColumn, FixedSupport, YHingedSupport
 from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint
 from sections.steel.RHS import RHS
 import matplotlib.pyplot as plt
@@ -222,7 +222,7 @@ def portal_frame():
               -01.8,00.428, -01.8, 00.257, -01.8, 00.086, -01.8])
     
     # INITIALIZE EMPTY FRAME
-    frame = Frame2D()
+    frame = Frame2D(num_elements=10)
     # COLUMNS
     col1 = SteelColumn([[0,0],[0, -9.8]], profile="RHS 220x220x7.1")
     col2 = SteelColumn([[24,0],[24, -9.8]], profile="RHS 220x220x7.1")
@@ -232,10 +232,10 @@ def portal_frame():
     frame.add(FixedSupport([0, -9.8]))
     frame.add(FixedSupport([24, -9.8]))
     
-    truss = Truss2D(num_elements=1, fem=frame.f)
-    bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6")
+    truss = Truss2D(num_elements=10, fem=frame.f)
+    bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6", num_elements=5)
     top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="rhs 120x120x6")
-    top_chord2 = TopChord([[12,0.6], [24,0]])
+    top_chord2 = TopChord([[12,0.6], [24,0]], material="S420", profile="rhs 120x120x6")
     truss.add(bottom_chord)
     truss.add(top_chord1)
     truss.add(top_chord2)
@@ -256,39 +256,37 @@ def portal_frame():
     frame.f.draw()
     # Calculate
     frame.calculate()
-    
-    for joint in truss.joints.values():
-        print(joint.brace_failure())
-  
+    frame.plot_normal_force()
+
     
     
 def portal_frame2():
     # INITIALIZE EMPTY FRAME
-    frame = Frame2D()
+    frame = Frame2D(num_elements=2)
     # COLUMNS
-    col1 = SteelColumn([[0,0],[0, 5]], profile="RHS 200x200x7.1")
-    col2 = SteelColumn([[5,0],[5, 5]], profile="RHS 200x200x7.1")
+    col1 = SteelColumn([[0,0],[0, 2]],profile="ipe 80")
+    col2 = SteelColumn([[5,0],[5, 2]],profile="ipe 80")
     frame.add(col1)
     frame.add(col2)
     # SUPPORTS
     frame.add(FixedSupport([0, 0]))
     frame.add(FixedSupport([5, 0]))
     
-    truss = Truss2D(num_elements=1, fem=frame.f)
+    truss = Truss2D(num_elements=2, fem=frame.f)
     
     coord1 = [[0,5], [5,5]]
     coord2 = [[0,2], [5,2]]    
     #coord3 = [[2.5,6], [5,5]]
 
     top_chord = TopChord(coord1)
-    bottom_chord = BottomChord(coord2)
+    bottom_chord = BottomChord(coord2, profile= "ipe 80", num_elements=10)
     #top_chord2 = TopChord(coord3)
     
-    truss.add(top_chord)
+    #truss.add(top_chord)
     truss.add(bottom_chord)
     #truss.add(top_chord2)
     
-    members = 6
+    members = 0
     c1 = 0
     c2 = 0
     flip = False
@@ -306,18 +304,17 @@ def portal_frame2():
             truss.add(TrussWeb(c1, c2))
         else:
             truss.add(TrussWeb(c2, c1))
-    truss.plot()
     frame.add(truss)
+    frame.add(LineLoad(bottom_chord, [-1, -1], 'y'))
     frame.generate()
-    
-    frame.plot()
     frame.f.draw()
-    
-    #truss.joints[5].plot_joint()
+    frame.calculate()
+    frame.plot_normal_force()
+    frame.bmd(100)
     
 if __name__ == '__main__':
+    portal_frame()
 
-    portal_frame2()
 """
 truss = Truss2D(num_elements=1)
 

@@ -134,7 +134,7 @@ class Frame2D:
     
     """
 
-    def __init__(self, simple=None, num_elements=5, supports=None, fem=fem.FrameFEM()):
+    def __init__(self, simple=None, num_elements=None, supports=None, fem=fem.FrameFEM()):
 
         self.f = fem
         self.alpha_cr = []
@@ -180,7 +180,10 @@ class Frame2D:
             this.mem_id = int(len(self.members))
 
             self.members[this.mem_id] = this
-            this.calc_nodal_coordinates(self.num_elements)
+            if self.num_elements:
+                this.calc_nodal_coordinates(self.num_elements)
+            else:
+                this.calc_nodal_coordinates()
 
             # Check if members intersect
             # If coordinate is outside of member's coordinates,
@@ -254,7 +257,8 @@ class Frame2D:
                                 # Calculate chord's new start coordinate
                                 c0 = [c0[0] + member.h/2000, c0[1]]
                                 # Add eccentricity elements coordinates to list
-                                member.ecc_coordinates.append([coord, c0])     
+                                member.ecc_coordinates.append([coord, c0])   
+                                bchord.columns[c0[0]] = member
                             if coord == c1 and joint1:
                                 joint1 = joint1[0]
                                 web = list(joint1.webs.values())[0]
@@ -268,6 +272,7 @@ class Frame2D:
                             if coord == c1:
                                 c1 = [c1[0] - member.h/2000, c1[1]]
                                 member.ecc_coordinates.append([coord, c1])
+                                bchord.columns[c1[0]] = member
                     # Change chord's end coordinates
                     bchord.coordinates = [c0, c1]
                     bchord.calc_nodal_coordinates()
@@ -306,7 +311,8 @@ class Frame2D:
                                 c0 = [c0[0] + tchord.h / 2000 * u[0], c0[1] + tchord.h / 2000 * u[1]]
                                 #c0 = [c0[0] + member.h/2000, c0[1]]
                                 # Add eccentricity elements coordinates to list
-                                member.ecc_coordinates.append([coord, c0])     
+                                member.ecc_coordinates.append([coord, c0]) 
+                                tchord.columns[c0[0]] = member
                             # End coordinate
                             if coord == c1 and joint1:
                                 joint1 = joint1[0]
@@ -323,6 +329,7 @@ class Frame2D:
                                 c1 = [c1[0] + tchord.h/2000 * u[0], c1[1] + tchord.h/2000 * u[1]]
                                 #c1 = [c1[0] - member.h/2000, c1[1]]
                                 member.ecc_coordinates.append([coord, c1])
+                                tchord.columns[c1[0]] = member
                     # Change chord's end coordinates
                     tchord.coordinates = [c0, c1]
                     tchord.calc_nodal_coordinates()
@@ -993,7 +1000,7 @@ class FrameMember:
     """
 
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
-                 material="S355",num_elements=None,
+                 material="S355",num_elements=5,
                  Sj1=np.inf, Sj2=np.inf):
 
         self.element_ids = []
@@ -1308,14 +1315,14 @@ class FrameMember:
             self.is_generated = True
 
 
-    def calc_nodal_coordinates(self, num_elements=1):
+    def calc_nodal_coordinates(self, num_elements=0):
         """
             Calculates node locations along member
             Coordinates used are global coordinates
             Adds locations to a list where they can be accessed later
             :param num_elements: int, number of elements to be created
         """
-        if not self.num_elements:
+        if num_elements != 0:
             self.num_elements = num_elements
         
         self.nodal_coordinates = self.added_coordinates
@@ -1363,8 +1370,11 @@ class FrameMember:
         except ZeroDivisionError:
             k = 0
         s = 1
-        if k < 0:
+        if k < 0 or end_node[1] < 0:
             s = -1
+        #print(start_node, "  ", end_node)
+        #print("Add node coord ", coord, coord not in self.nodal_coordinates,
+        #      start_node[0] <= coord[0] <= end_node[0],s*start_node[1] <= s*coord[1] <= s*end_node[1] )
         if coord not in self.nodal_coordinates and\
         start_node[0] <= coord[0] <= end_node[0] and\
         s*start_node[1] <= s*coord[1] <= s*end_node[1]:
@@ -1480,7 +1490,10 @@ class FrameMember:
         fem_model.add_material(210e3, 0.3, 7850e-9)
         # Add section
         # BeamSection(A, Iy)
-        sect = fem.BeamSection(1e10, 1e10)
+        # HE 1000 A
+        # A = 34680
+        # Iy = 5538000000
+        sect = fem.BeamSection(1, 1)
         fem_model.add_section(sect)
         for coordinates in self.ecc_coordinates:
             index = fem_model.nels()
@@ -1966,7 +1979,7 @@ class FrameMember:
 
 class SteelBeam(FrameMember):
     def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
-                 profile="IPE 100", material="S355",num_elements=None):
+                 profile="IPE 100", material="S355",num_elements=4):
         super().__init__(coordinates, mem_id, profile, material, num_elements)
 
         self.mtype = 'beam'
@@ -1990,7 +2003,7 @@ class SteelBeam(FrameMember):
 
 class SteelColumn(FrameMember):
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
-                 material="S355", num_elements=None):
+                 material="S355", num_elements=4):
         super().__init__(coordinates, mem_id, profile, material,num_elements)
 
         self.mtype = 'column'
@@ -2070,8 +2083,8 @@ class LineLoad(Load):
         self.element_ids = None
 
     def calc_k(self):
-        v1, v2 = self.values
-        k = (v2 - v1) / len(self.member.elements)
+        v0, v1 = self.values
+        k = (v1 - v0) / len(self.member.elements)
         return k
     
     def add_load(self, fem_model):
@@ -2084,10 +2097,7 @@ class LineLoad(Load):
                                 [0.0, 1.0],
                                 [v0, v1],
                                 self.direction)
-            
-            
             fem_model.add_load(load)
-
             v0 = v1
 
 # --------------------------- SUPPORT CLASSES ----------------------------

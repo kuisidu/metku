@@ -186,8 +186,8 @@ def test6():
     supp_coord1 = [0,0]
     supp_coord2 = [1,0]
 
-    col1 = SteelColumn(coord1)
-    col2 = SteelColumn(coord3)
+    col1 = SteelColumn(coord1, num_elements=2)
+    col2 = SteelColumn(coord3, num_elements=3)
     beam = SteelBeam(coord2)
 
     load2 = LineLoad(beam, [-50, -50], 'y')
