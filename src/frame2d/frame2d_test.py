@@ -229,7 +229,7 @@ def test7():
     frame.add(PointLoad([1,2], [-50, 0, 0]))
 
 def test8():
-    frame = Frame2D(simple=[1, 2, 10, 14], supports='xyhinged', num_elements=10)
+    frame = Frame2D(simple=[1, 2, 10, 14], supports='xyhinged', num_elements=4)
     for member in frame.members.values():
         if member.mtype == 'beam':
             member.profile = 'he 550 a'
@@ -243,6 +243,7 @@ def test8():
 
     frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
     frame.generate()
+    #frame.hinge_joints()
     frame.calculate()
     frame.f.draw()
     frame.plot_buckling(50, 2)
@@ -259,6 +260,7 @@ def test9():
     #frame.members[2].Sj2 = 1e-6
     frame.generate()
     frame.members[0].coordinates = [[0, 0], [0, 7]]
+    
     frame.calculate()
     frame.f.draw()
     print(frame.members[2].nodal_coordinates)
@@ -325,7 +327,7 @@ def test_all():
     test10()
 
 if __name__ == '__main__':
-    test1()
+    test8()
     """
     frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():

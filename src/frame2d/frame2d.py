@@ -207,7 +207,9 @@ class Frame2D:
 
             for member in self.members.values():
                 coord = member.point_intersection(this.coordinate)
+                
                 if coord:
+            
                     member.add_node_coord(this.coordinate)
 
         # LINELOADS
@@ -256,7 +258,7 @@ class Frame2D:
                             if coord == c0:
                                 # Calculate chord's new start coordinate
                                 c0 = [c0[0] + member.h/2000, c0[1]]
-                                # Add eccentricity elements coordinates to list
+                                # Add eccentricity element's coordinates to list
                                 member.ecc_coordinates.append([coord, c0])   
                                 bchord.columns[c0[0]] = member
                             if coord == c1 and joint1:
@@ -1018,7 +1020,7 @@ class FrameMember:
         self.nodal_coordinates = []
         self.loc = []
         self.__coordinates = None
-        self.coordinates = coordinates
+        self.coordinates = sorted(coordinates, key=lambda x: x[0])
         self.material = material
         self.cross_section = None
         self.__profile = profile
@@ -1256,7 +1258,8 @@ class FrameMember:
         if len(self.element_ids) > 0:
             idx = self.element_ids[0]
             ele = self.elements[idx]
-            ele.rot_stiff = [val, np.inf]
+            ele.rot_stiff[0] = val
+
 
         self.__Sj1 = val
 
@@ -1274,7 +1277,7 @@ class FrameMember:
         if len(self.element_ids) > 0:
             idx = self.element_ids[-1]
             ele = self.elements[idx]
-            ele.rot_stiff = [np.inf, val]
+            ele.rot_stiff[1] = val
 
         self.__Sj2 = val
 
@@ -1482,7 +1485,8 @@ class FrameMember:
 
 
     def generate_eccentricity_elements(self, fem_model):
-        
+        """ Generates eccentricity elements to connections
+        """
         # Material id
         mat_id = len(fem_model.materials)
         # Add material
@@ -1493,17 +1497,22 @@ class FrameMember:
         # HE 1000 A
         # A = 34680
         # Iy = 5538000000
-        sect = fem.BeamSection(1, 1)
+        sect_id = len(fem_model.sections)
+        sect = fem.BeamSection(34680, 5538000000)
         fem_model.add_section(sect)
+        
+        
+        
         for coordinates in self.ecc_coordinates:
             index = fem_model.nels()
             # n1 is the node connected to the column
             # n2 is hinged connection to chord
+            print(coordinates)
             n1 = fem_model.nodes[fem_model.nodal_coords.index(coordinates[0])]
             n2 = fem_model.nodes[fem_model.nodal_coords.index(coordinates[1])]
             self.ecc_elements[index] = EBSemiRigidBeam(n1, n2, 
-                                     fem_model.sections[mat_id], 
-                                     fem_model.materials[mat_id], 
+                                     fem_model.sections[self.mem_id], 
+                                     fem_model.materials[self.mem_id], 
                                      rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[index])
         
@@ -1946,15 +1955,14 @@ class FrameMember:
         # Calculate text location
         delta_y = X[1][1] - X[0][1]
         delta_x = X[1][0] - X[0][0]
-        # Calculate text location
-        delta_y = X[1][1] - X[0][1]
-        delta_x = X[1][0] - X[0][0]
+
         if delta_x == 0:
             rot = 90
         elif delta_y == 0:
             rot = 0
         else:
             rot = math.degrees(math.atan(delta_y / delta_x))
+            
 
         x = (X[0][0] + X[1][0]) / 2
         y = (X[1][1] + X[0][1]) / 2

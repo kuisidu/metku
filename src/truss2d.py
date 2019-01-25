@@ -223,9 +223,7 @@ class TrussMember(FrameMember):
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        
         if self.shape(coord[0]) == coord[1]:
-            
             if coord not in self.nodal_coordinates and self.point_intersection(coord):
                 self.added_coordinates.append(coord)
                 self.nodal_coordinates.append(coord)
@@ -239,37 +237,81 @@ class TrussMember(FrameMember):
                 self.loc.append(z)
                 self.loc.sort()
     
-    def calc_nodal_coordinates(self, num_elements=2):
+    def calc_nodal_coordinates(self, num_elements=0):
         """
             Calculates node locations along member
             Coordinates used are global coordinates
             Adds locations to a list where they can be accessed later
             :param num_elements: int, number of elements to be created
         """
-        if not self.num_elements:
+        if num_elements:
             self.num_elements = num_elements
         
         self.nodal_coordinates = []
-        start_node, end_node = self.coordinates
+        start_node, end_node = sorted(self.coordinates)
         x0, y0 = start_node
-        Lx = end_node[0] - start_node[0]
-        Ly = end_node[1] - start_node[1]
-        dx = Lx / self.num_elements
-        dy = Ly / self.num_elements
-        for i in range(self.num_elements):
-            x = i * dx + x0
-            y = i * dy + y0
-            loc = i / self.num_elements
-            node = [x, y]
-            if node not in self.nodal_coordinates:
-                self.nodal_coordinates.append(node)
-            if loc not in self.loc:
-                self.loc.append(loc)
-        if [end_node[0], end_node[1]] not in self.nodal_coordinates:
-            self.nodal_coordinates.append([end_node[0], end_node[1]])
-        if 1 not in self.loc:
-            self.loc.append(1)
+        v = np.array([math.cos(self.angle), math.sin(self.angle)])
         
+        for joint in self.joints:
+                joint.coordinate = joint.loc
+                joint.calc_nodal_coordinates()
+
+        joint_coords = [joint.coordinate for joint in self.joints]
+        joint_coords.sort()
+        #self.nodal_coordinates.extend(joint_coords)
+        if self.mtype != 'web' and len(self.joints) > 1:
+            
+            #print("ANGLE: ", math.degrees(self.angle))
+            #print("JOINT COORDS: ", joint_coords)
+            for coord in joint_coords:
+                x, y = coord
+                # Calculate distance between joints
+                L = np.sqrt((x - x0)**2 + (y - y0)**2)
+                for i in range(self.num_elements):
+                    node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
+                    node = [round(c, 3) for c in node]
+                    #print("CALC_NODE: ", node)
+                    
+                    loc = self.global_coord(node)
+                    if node not in self.nodal_coordinates:
+                        self.nodal_coordinates.append(node)
+                        if node not in self.nodal_coordinates:
+                            self.nodal_coordinates.append(node)
+                        if loc not in self.loc:
+                            self.loc.append(loc)
+                x0, y0 = x, y
+            x, y = end_node
+            L = np.sqrt((x - x0)**2 + (y - y0)**2)
+            for i in range(self.num_elements):
+                    node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
+                    node = list(node)
+                    loc = self.global_coord(node)
+                    if node not in self.nodal_coordinates:
+                        self.nodal_coordinates.append(node)
+                        if node not in self.nodal_coordinates:
+                            self.nodal_coordinates.append(node)
+                        if loc not in self.loc:
+                            self.loc.append(loc)
+                            
+            if [end_node[0], end_node[1]] not in self.nodal_coordinates:
+                self.nodal_coordinates.append([end_node[0], end_node[1]])
+            if 1 not in self.loc:
+                self.loc.append(1)
+                
+        else:
+            for i in range(self.num_elements):
+                x , y = np.asarray([x0, y0]) + (i*self.length) / self.num_elements * v
+                loc = i / self.num_elements
+                node = [x, y]
+                if node not in self.nodal_coordinates:
+                    self.nodal_coordinates.append(node)
+                if loc not in self.loc:
+                    self.loc.append(loc)
+            if [end_node[0], end_node[1]] not in self.nodal_coordinates:
+                self.nodal_coordinates.append([end_node[0], end_node[1]])
+            if 1 not in self.loc:
+                self.loc.append(1)
+            
         if self.is_generated:
             for joint in self.joints:
                  joint.coordinate = joint.loc
@@ -293,7 +335,7 @@ class TrussMember(FrameMember):
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
 
-        return [Lx * value + x0, self.shape(Lx * value + x0)]
+        return [round(Lx * value + x0, 4), self.shape(Lx * value + x0)]
     
     
     def global_coord(self, value):
@@ -322,7 +364,7 @@ class TrussMember(FrameMember):
         except ZeroDivisionError:
             k = 0
 
-        return k*(x-x0) + y0
+        return round(k*(x-x0) + y0, 4)
 
 
 
@@ -338,7 +380,7 @@ class TrussMember(FrameMember):
             angle = math.radians(90)
         else:
             angle = math.atan((y1 - y0) / (x1 - x0))
-        return angle
+        return round(angle,3)
 
     def generate_elements(self, fem_model):
         """ Generates elements between nodes
@@ -428,7 +470,7 @@ class TrussMember(FrameMember):
             rot = 0
         else:
             rot = math.degrees(math.atan(delta_y / delta_x))
-            rot = self.angle
+            #rot = self.angle
 
         x = (X[0][0] + X[1][0]) / 2
         y = (X[1][1] + X[0][1]) / 2
@@ -898,13 +940,13 @@ class TrussJoint():
         to the fem model.
         Eccentricity elements are modelled as infinitely rigid elements
         """
-
         self.idx = len(fem_model.materials)
+        self.idx = self.chord.mem_id
         #self.idx = self.chord.mem_id
         # Material(E, nu, rho)
         fem_model.add_material(210e3, 0.3, 7850e-9)
         # BeamSection(A, Iy)
-        sect = BeamSection(1, 1)
+        sect = BeamSection(1e10, 1e10)
         fem_model.add_section(sect)
   
     

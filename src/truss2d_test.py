@@ -10,6 +10,7 @@ from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint
 from sections.steel.RHS import RHS
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 def test1():
     truss = Truss2D(num_elements=1)
@@ -222,7 +223,7 @@ def portal_frame():
               -01.8,00.428, -01.8, 00.257, -01.8, 00.086, -01.8])
     
     # INITIALIZE EMPTY FRAME
-    frame = Frame2D(num_elements=10)
+    frame = Frame2D(num_elements=4)
     # COLUMNS
     col1 = SteelColumn([[0,0],[0, -9.8]], profile="RHS 220x220x7.1")
     col2 = SteelColumn([[24,0],[24, -9.8]], profile="RHS 220x220x7.1")
@@ -232,8 +233,8 @@ def portal_frame():
     frame.add(FixedSupport([0, -9.8]))
     frame.add(FixedSupport([24, -9.8]))
     
-    truss = Truss2D(num_elements=10, fem=frame.f)
-    bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6", num_elements=5)
+    truss = Truss2D(num_elements=2, fem=frame.f)
+    bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6", num_elements=4)
     top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="rhs 120x120x6")
     top_chord2 = TopChord([[12,0.6], [24,0]], material="S420", profile="rhs 120x120x6")
     truss.add(bottom_chord)
@@ -246,10 +247,10 @@ def portal_frame():
     frame.add(truss)
     # LOADS
     frame.add(LineLoad(bottom_chord, [-0.69, -0.69], 'y'))
-    frame.add(LineLoad(top_chord1, [-21.45, -21.45], 'y'))
-    frame.add(LineLoad(top_chord2, [-21.45, -21.45], 'y'))
-    frame.add(LineLoad(col1, [3.51, 3.51], 'x'))
-    frame.add(LineLoad(col2, [0.17, 0.17], 'x'))
+    #frame.add(LineLoad(top_chord1, [-21.45, -21.45], 'y'))
+    #frame.add(LineLoad(top_chord2, [-21.45, -21.45], 'y'))
+    #frame.add(LineLoad(col1, [3.51, 3.51], 'x'))
+    #frame.add(LineLoad(col2, [0.17, 0.17], 'x'))
     # GENERATE
     frame.generate()
     frame.plot(print_text=False)
@@ -262,31 +263,32 @@ def portal_frame():
     
 def portal_frame2():
     # INITIALIZE EMPTY FRAME
-    frame = Frame2D(num_elements=2)
+    frame = Frame2D()
     # COLUMNS
-    col1 = SteelColumn([[0,0],[0, 2]],profile="ipe 80")
-    col2 = SteelColumn([[5,0],[5, 2]],profile="ipe 80")
+    col1 = SteelColumn([[0,0],[0, 5]], profile="RHS 200x200x7.1")
+    col2 = SteelColumn([[5,0],[5, 5]], profile="RHS 200x200x7.1")
     frame.add(col1)
     frame.add(col2)
     # SUPPORTS
     frame.add(FixedSupport([0, 0]))
     frame.add(FixedSupport([5, 0]))
     
-    truss = Truss2D(num_elements=2, fem=frame.f)
+    truss = Truss2D(num_elements=1, fem=frame.f)
     
     coord1 = [[0,5], [5,5]]
     coord2 = [[0,2], [5,2]]    
-    #coord3 = [[2.5,6], [5,5]]
+    coord3 = [[2.5,6], [5,5]]
 
     top_chord = TopChord(coord1)
-    bottom_chord = BottomChord(coord2, profile= "ipe 80", num_elements=10)
+    bottom_chord = BottomChord(coord2)
     #top_chord2 = TopChord(coord3)
     
-    #truss.add(top_chord)
+    truss.add(top_chord)
+    
     truss.add(bottom_chord)
     #truss.add(top_chord2)
     
-    members = 0
+    members = 4
     c1 = 0
     c2 = 0
     flip = False
@@ -304,16 +306,64 @@ def portal_frame2():
             truss.add(TrussWeb(c1, c2))
         else:
             truss.add(TrussWeb(c2, c1))
+            
+
     frame.add(truss)
-    frame.add(LineLoad(bottom_chord, [-1, -1], 'y'))
+    #frame.add(PointLoad([2.5, 2], [0, -100, 0]))
+    frame.add(LineLoad(top_chord, [-10, -10], 'y'))
     frame.generate()
+    frame.calculate()
+    frame.plot()
+    frame.f.draw()
+    frame.bmd(100)
+    frame.plot_normal_force()
+    top_chord.coordinates = [[0,5], [5,6]]
+    frame.plot()
+    frame.f.draw()
+
+
+
+def frame_test():
+    
+    frame = Frame2D()
+    c1 = [[0,0], [0,2]]
+    c2 = [[5,0], [5,2]]
+    c3 = [[0,2], [0.1, 2]]
+    c4 = [[0.1, 2], [4.9, 2]]
+    c5 = [[4.9,2], [5,2]]
+    
+    col1 = SteelColumn(c1)
+    col2 = SteelColumn(c2)
+    
+    ecc_beam1 = SteelBeam(c3, profile="he 1000 A", num_elements=3)
+    #ecc_beam1.Sj2 = 0
+    ecc_beam2 = SteelBeam(c5, profile="he 1000 A", num_elements=3)
+    #ecc_beam2.Sj1 = 0
+    
+    beam = SteelBeam(c4)
+    beam.Sj1 = 0
+    beam.Sj2 = 0
+    
+    
+    frame.add(col1)
+    frame.add(col2)
+    frame.add(beam)
+    frame.add(ecc_beam1)
+    frame.add(ecc_beam2)
+    
+    frame.add(LineLoad(beam, [-10, -10], 'y'))
+    frame.generate()
+    frame.plot()
+    
     frame.f.draw()
     frame.calculate()
-    frame.plot_normal_force()
-    frame.bmd(100)
+    frame.bmd(10)
     
+    
+
 if __name__ == '__main__':
-    portal_frame()
+    portal_frame2()
+    #frame_test()
 
 """
 truss = Truss2D(num_elements=1)

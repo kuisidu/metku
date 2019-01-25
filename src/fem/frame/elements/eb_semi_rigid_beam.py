@@ -12,7 +12,7 @@ from fem.frame.frame_fem import Element
 
 # Constants
 kRigid = 1e20 # articifial large stiffness for rigid joints
-kHinge = 1e-4 # artificial small stiffness for hinges
+kHinge = 1e-20 # artificial small stiffness for hinges
 
 class EBSemiRigidBeam(Element):
     """ Euler-Bernoulli beam element with possibility to include
@@ -84,8 +84,14 @@ class EBSemiRigidBeam(Element):
         gamma = self.gamma()
             
         
-        S[1,0:4] = [-6*gamma[0]/L*(1+2*gamma[1]),-4*gamma[0]*(1+3*gamma[1]),6*gamma[0]/L*(1+2*gamma[1]),-2*gamma[0]]
-        S[3,0:4] = [-6*gamma[1]/L*(1+2*gamma[0]),-2*gamma[1],6*gamma[1]/L*(1+2*gamma[0]),-4*gamma[1]*(1+3*gamma[0])]
+        S[1,0:4] = [-6*gamma[0]/L*(1+2*gamma[1]),
+                  -4*gamma[0]*(1+3*gamma[1]),
+                  6*gamma[0]/L*(1+2*gamma[1]),
+                  -2*gamma[0]]
+        S[3,0:4] = [-6*gamma[1]/L*(1+2*gamma[0]),
+                  -2*gamma[1],
+                  6*gamma[1]/L*(1+2*gamma[0]),
+                  -4*gamma[1]*(1+3*gamma[0])]
                 
         return S
     

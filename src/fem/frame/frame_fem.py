@@ -332,11 +332,19 @@ class FrameFEM:
         """ draw members """
         for i in range(self.nels()):
             #X = self.member_coord(i)
+            try:
+                if self.elements[i].rot_stiff:
+                    for j, val in enumerate(self.elements[i].rot_stiff):
+                        if val < 0.1:
+                            x, y = list(self.elements[i].coord())[j]
+                            plt.plot(x, y, color='lightblue', marker='o')
+
+            except AttributeError:
+                pass
             X = self.elements[i].coord()
             plt.plot(X[:,0],X[:,1],'b')
             Xmid = X[0,:]+0.5*(X[1,:]-X[0,:])
             plt.text(Xmid[0],Xmid[1],str(i))
-
         plt.show()
 
     def print_displacements(self):
