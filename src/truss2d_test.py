@@ -317,7 +317,7 @@ def portal_frame2():
     
 if __name__ == '__main__':
 
-    portal_frame2()
+    portal_frame()
 """
 truss = Truss2D(num_elements=1)
 

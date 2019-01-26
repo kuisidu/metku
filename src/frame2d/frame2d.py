@@ -14,23 +14,23 @@ import matplotlib.pyplot as plt
 
 from decimal import Decimal
 
-import fem.frame.frame_fem as fem
-from fem.frame.elements.ebbeam import EBBeam
-from fem.frame.elements.eb_semi_rigid_beam import EBSemiRigidBeam
+import fem.frame_fem as fem
+from fem.elements.ebbeam import EBBeam
+from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 
 from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISection
 from sections.steel.RHS import RHS, SHS
 from sections.steel.CHS import CHS
+from sections.steel.catalogue import mat as MATERIALS
 
 from structures.steel.steel_member import SteelMember
+
 
 
 import pandas as pd
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 
-
-import tables_and_tuples
 
 # profiles from lightest to heaviest
 PROFILES = [
@@ -1143,11 +1143,11 @@ class FrameMember:
         from tables_and_tuples.mat -dict
         """
         self.__material = val
-        self.fy = tables_and_tuples.mat[self.material]['f_y']
-        self.E = tables_and_tuples.mat[self.material]['E']
-        self.fu = tables_and_tuples.mat[self.material]['f_u']
-        self.nu = tables_and_tuples.mat[self.material]['v']
-        self.rho = tables_and_tuples.mat[self.material]['rho']
+        self.fy = MATERIALS[self.material]['f_y']
+        self.E = MATERIALS[self.material]['E']
+        self.fu = MATERIALS[self.material]['f_u']
+        self.nu = MATERIALS[self.material]['v']
+        self.rho = MATERIALS[self.material]['rho']
 
     @property
     def profile(self):

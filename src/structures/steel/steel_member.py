@@ -4,7 +4,6 @@ import sys
 import math
 import numpy as np
 
-import eurocode3
 from sections.steel.steel_section import SteelSection
 from eurocodes.en1993 import en1993_1_1
 from eurocodes.en1993 import constants

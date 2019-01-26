@@ -12,7 +12,7 @@ sys.path.append('S:\\91202_METKU\\Kristo\\Python\\frame_2d_git\\src\\End-plate')
 import math
 from eurocodes.en1993 import en1993_1_1, constants
 from sections.steel.steel_section import SteelSection
-from tables_and_tuples import profile
+from .catalogue import profile
 
 
 class ISection(SteelSection):

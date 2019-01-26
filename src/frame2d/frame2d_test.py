@@ -325,9 +325,17 @@ def test_all():
     test10()
 
 if __name__ == '__main__':
-    test1()
+    #test1()
+
+    frame = Frame2D()
+    beam = SteelBeam([[0,0], [1,1]], num_elements=1)
+    frame.add(beam)
+    frame.add(LineLoad(beam, [-1,-1], 'y'))
+    frame.add(FixedSupport([0,0]))
+    frame.generate()
+    #frame.f.draw()
+    frame.calculate()
     """
-    frame = Frame2D(simple=[1,1,2,2], supports='fixed', num_elements=10)
     for member in frame.members.values():
             if member.mtype == 'beam':
                 frame.add(LineLoad(member, [-50, -50], 'y'))
@@ -336,6 +344,7 @@ if __name__ == '__main__':
     frame.generate()
     frame.calculate()
     """
+
 
 
 
