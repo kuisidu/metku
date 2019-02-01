@@ -232,9 +232,9 @@ def portal_frame():
     # SUPPORTS
     frame.add(FixedSupport([0, -9.8]))
     frame.add(FixedSupport([24, -9.8]))
-    
+
     truss = Truss2D(num_elements=2, fem=frame.f)
-    bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6", num_elements=4)
+    bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6")
     top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="rhs 120x120x6")
     top_chord2 = TopChord([[12,0.6], [24,0]], material="S420", profile="rhs 120x120x6")
     truss.add(bottom_chord)
@@ -244,9 +244,11 @@ def portal_frame():
         truss.add(TrussWeb([X[i], Y[i]], [X[i+1], Y[i+1]], 'global', profile="Rhs 90x90x4"))
         
     # ADD TRUSS TO FRAME
+    truss.plot()
     frame.add(truss)
     # LOADS
     frame.add(LineLoad(bottom_chord, [-0.69, -0.69], 'y'))
+    #frame.add(LineLoad(bottom_chord, [-69, -69], 'y'))
     #frame.add(LineLoad(top_chord1, [-21.45, -21.45], 'y'))
     #frame.add(LineLoad(top_chord2, [-21.45, -21.45], 'y'))
     #frame.add(LineLoad(col1, [3.51, 3.51], 'x'))
@@ -258,6 +260,7 @@ def portal_frame():
     # Calculate
     frame.calculate()
     frame.plot_normal_force()
+    frame.bmd(10)
 
     
     
@@ -266,22 +269,21 @@ def portal_frame2():
     frame = Frame2D()
     # COLUMNS
     col1 = SteelColumn([[0,0],[0, 5]], profile="RHS 200x200x7.1")
-    col2 = SteelColumn([[5,0],[5, 5]], profile="RHS 200x200x7.1")
+    col2 = SteelColumn([[10,0],[10, 5]], profile="RHS 200x200x7.1")
     frame.add(col1)
     frame.add(col2)
     # SUPPORTS
     frame.add(FixedSupport([0, 0]))
-    frame.add(FixedSupport([5, 0]))
+    frame.add(FixedSupport([10, 0]))
     
-    truss = Truss2D(num_elements=1, fem=frame.f)
+    truss = Truss2D(num_elements=2, fem=frame.f)
     
-    coord1 = [[0,5], [5,5]]
-    coord2 = [[0,2], [5,2]]    
-    coord3 = [[2.5,6], [5,5]]
+    coord1 = [[0,5], [10,5]]
+    coord2 = [[0,2], [10,2]]   
 
     top_chord = TopChord(coord1)
     bottom_chord = BottomChord(coord2)
-    #top_chord2 = TopChord(coord3)
+
     
     truss.add(top_chord)
     
@@ -307,22 +309,20 @@ def portal_frame2():
         else:
             truss.add(TrussWeb(c2, c1))
             
-
+    truss.plot()
+    plt.show()
     frame.add(truss)
     #frame.add(PointLoad([2.5, 2], [0, -100, 0]))
-    frame.add(LineLoad(top_chord, [-10, -10], 'y'))
+    frame.add(LineLoad(bottom_chord, [-10, -10], 'y'))
     frame.generate()
     frame.calculate()
     frame.plot()
     frame.f.draw()
     frame.bmd(100)
     frame.plot_normal_force()
-    top_chord.coordinates = [[0,5], [5,6]]
-    frame.plot()
-    frame.f.draw()
 
-
-
+    print(len(bottom_chord.nodal_coordinates))
+    
 def frame_test():
     
     frame = Frame2D()
@@ -362,7 +362,7 @@ def frame_test():
     
 
 if __name__ == '__main__':
-    portal_frame2()
+    portal_frame()
     #frame_test()
 
 """

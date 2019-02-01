@@ -124,7 +124,6 @@ class Truss2D(Frame2D):
             #this.mem_id = len(self.members)
             self.webs[this.mem_id] = this
             self.members["W" + str(this.mem_id)] = this
-            
             # Make web's joints hinged
             this.Sj1 = 0
             this.Sj2 = 0
@@ -227,7 +226,7 @@ class TrussMember(FrameMember):
             if coord not in self.nodal_coordinates and self.point_intersection(coord):
                 self.added_coordinates.append(coord)
                 self.nodal_coordinates.append(coord)
-                self.nodal_coordinates = sorted(self.nodal_coordinates)
+                self.nodal_coordinates.sort()
                 x, y = coord
                 x1, y1 = self.coordinates[0]
                 dx = x - x1
@@ -246,39 +245,34 @@ class TrussMember(FrameMember):
         """
         if num_elements:
             self.num_elements = num_elements
-        
+
         self.nodal_coordinates = []
         start_node, end_node = sorted(self.coordinates)
         x0, y0 = start_node
         v = np.array([math.cos(self.angle), math.sin(self.angle)])
         
         for joint in self.joints:
-                joint.coordinate = joint.loc
+                #joint.coordinate = joint.loc
                 joint.calc_nodal_coordinates()
-
+        
         joint_coords = [joint.coordinate for joint in self.joints]
         joint_coords.sort()
         #self.nodal_coordinates.extend(joint_coords)
-        if self.mtype != 'web' and len(self.joints) > 1:
-            
-            #print("ANGLE: ", math.degrees(self.angle))
-            #print("JOINT COORDS: ", joint_coords)
+        if self.mtype != 'web' and len(self.joints) >= 1:
             for coord in joint_coords:
                 x, y = coord
                 # Calculate distance between joints
                 L = np.sqrt((x - x0)**2 + (y - y0)**2)
+                # Calculate nodal coordinates between joints
                 for i in range(self.num_elements):
                     node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
-                    node = [round(c, 3) for c in node]
-                    #print("CALC_NODE: ", node)
-                    
+                    node = list(node)
+                    #node = [round(c, 3) for c in node]
                     loc = self.global_coord(node)
                     if node not in self.nodal_coordinates:
                         self.nodal_coordinates.append(node)
-                        if node not in self.nodal_coordinates:
-                            self.nodal_coordinates.append(node)
-                        if loc not in self.loc:
-                            self.loc.append(loc)
+                    if loc not in self.loc:
+                        self.loc.append(loc)
                 x0, y0 = x, y
             x, y = end_node
             L = np.sqrt((x - x0)**2 + (y - y0)**2)
@@ -288,10 +282,8 @@ class TrussMember(FrameMember):
                     loc = self.global_coord(node)
                     if node not in self.nodal_coordinates:
                         self.nodal_coordinates.append(node)
-                        if node not in self.nodal_coordinates:
-                            self.nodal_coordinates.append(node)
-                        if loc not in self.loc:
-                            self.loc.append(loc)
+                    if loc not in self.loc:
+                        self.loc.append(loc)
                             
             if [end_node[0], end_node[1]] not in self.nodal_coordinates:
                 self.nodal_coordinates.append([end_node[0], end_node[1]])
@@ -321,7 +313,7 @@ class TrussMember(FrameMember):
             for joint in self.joints:
                 joint.coordinate = joint.loc
                 joint.calc_nodal_coordinates()
-        
+        self.nodal_coordinates.sort()
         
     def local(self, value):
         """
@@ -335,7 +327,7 @@ class TrussMember(FrameMember):
         x0, y0 = start_node
         Lx = end_node[0] - start_node[0]
 
-        return [round(Lx * value + x0, 4), self.shape(Lx * value + x0)]
+        return [Lx * value + x0, self.shape(Lx * value + x0)]
     
     
     def global_coord(self, value):
@@ -364,7 +356,7 @@ class TrussMember(FrameMember):
         except ZeroDivisionError:
             k = 0
 
-        return round(k*(x-x0) + y0, 4)
+        return k*(x-x0) + y0
 
 
 
@@ -724,12 +716,12 @@ class TrussJoint():
         v = np.array([math.cos(self.chord.angle), math.sin(self.chord.angle)])
         # Vector perpendicular to v
         u = np.array([-math.sin(self.chord.angle), math.cos(self.chord.angle)])
-        
         # Remove previously calculated coordinates from chord
         for coord in self.nodal_coordinates:
             if coord in self.chord.added_coordinates:
                 self.chord.added_coordinates.remove(coord)
-        
+            if coord in self.chord.nodal_coordinates:
+                self.chord.nodal_coordinates.remove(coord)
         # Initialize nodal coordinates as an empty array
         self.nodal_coordinates = []
         central_coord = np.asarray(self.coordinate)
@@ -759,26 +751,17 @@ class TrussJoint():
                     coord1 = list(central_coord - v*ecc_x)
                     self.coordinate = coord1
                     coord2 = list(np.asarray(coord1) - u *ecc_y)
-
                 else:
                     coord1 = list(central_coord)
                     coord2 = list(np.asarray(coord1) - u *ecc_y)
-                    
-                """
-                # This is old method
-                if self.chord.angle == 0:
-                    coord = list(central_coord - [0, ecc_y])               
-                elif web.angle > 0:
-                    coord = list(central_coord - w*ecc_y)    
-                else:
-                    coord = list(central_coord + w*ecc_y)
-                """
+
                 self.add_node_coord(coord2)
                 self.chord.add_node_coord(coord1)
                 web.top_coord = coord2
                 
             # BOTTOM CHORD
             else:
+                """
                 if self.chord.angle == 0:
                     coord = list(central_coord + [0, ecc_y])                
                 elif web.angle > 0:
@@ -787,6 +770,22 @@ class TrussJoint():
                     coord = list(central_coord - w*ecc_y)
                 self.add_node_coord(coord)
                 web.bot_coord = coord
+                """
+                if self.loc == 0:
+                    coord1 = list(central_coord + v*ecc_x)
+                    self.coordinate = coord1
+                    coord2 = list(np.asarray(coord1) + u *ecc_y)
+                elif self.loc == 1:
+                    coord1 = list(central_coord + v*ecc_x)
+                    self.coordinate = coord1
+                    coord2 = list(np.asarray(coord1) + u *ecc_y)
+                else:
+                    coord1 = list(central_coord)
+                    coord2 = list(np.asarray(coord1) + u *ecc_y)
+
+                self.add_node_coord(coord2)
+                self.chord.add_node_coord(coord1)
+                web.bot_coord = coord2
             web.calc_nodal_coordinates()          
         # If joint type is K or KT
         elif len(self.webs) >= 2:
@@ -834,6 +833,7 @@ class TrussJoint():
                         coord2 = central_coord - [0, ecc_y]
                         coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
+                    #coord2 = [round(c, 3) for c in coord2]
                     web.top_coord = list(coord2)
                 # BOTTOM CHORD
                 else: 
@@ -855,6 +855,7 @@ class TrussJoint():
                         coord2 = central_coord + [0, ecc_y]
                         coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
+                    #coord2 = [round(c, 3) for c in coord2]
                     web.bot_coord = list(coord2)                    
                 # Calculate web's new nodal locations 
                 web.calc_nodal_coordinates()
@@ -863,6 +864,7 @@ class TrussJoint():
                 # center line, so we need to calculate the y-coord with
                 # chord's shape function
                 coord1 = list([coord1[0], self.chord.shape(coord1[0])])
+                #coord1 = [round(c,3) for c in coord1]
                 # Node coordinate on chord's center line
                 self.add_node_coord(coord1)
                 self.chord.add_node_coord(coord1)
@@ -892,9 +894,6 @@ class TrussJoint():
             self.joint_type = 'KT'
         else:
             raise ValueError('Too many nodes for one joint')
-
-            
-                           
     def generate(self, fem_model):
         """
         """
