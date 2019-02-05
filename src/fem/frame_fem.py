@@ -500,7 +500,6 @@ class FrameFEM:
             plt.plot(X[:, 0], X[:, 1], 'b')
             Xmid = X[0, :] + 0.5 * (X[1, :] - X[0, :])
             plt.text(Xmid[0], Xmid[1], str(i))
-
         plt.show()
 
     def print_displacements(self):

@@ -157,8 +157,8 @@ class SteelMember:
         Iz = self.profile.I[1];
         Iw = self.profile.Iw;
         It = self.profile.It;
-        E = eurocode3.young;
-        G = eurocode3.G;
+        E = constants.E;
+        G = constants.G;
         L = self.length;
             
         Mcr = C[0]*math.pi**2*E*Iz/((kz*L)**2)*(math.sqrt((kz/kw)**2*Iw/Iz +

@@ -57,7 +57,7 @@ class Truss2D(Frame2D):
                 c01, c02 = sorted(this.coordinates, key=lambda x: x[1])
                 # Find corresponding bottom chord
                 for chord in self.bottom_chords:
-                    if chord.point_intersection(c01) and c01 <= chord.coordinates[1]:
+                    if chord.point_intersection(c01):
                         bottom_chord = chord
                         # Calculate local coordinate
                         x0, y0 = bottom_chord.coordinates[0]
@@ -67,34 +67,47 @@ class Truss2D(Frame2D):
                         break 
                 if UnboundLocalError and not bottom_chord:
                     raise ValueError("Web's coordinates doesn't match bottom chord's coordinates")                     
-                # Find corresponding top chord    
+                # Find corresponding top chord
                 for chord in self.top_chords:
-                    if chord.point_intersection(c02):
-                        top_chord = chord   
+                    if chord.point_intersection(c02) and c01[0] <= chord.coordinates[1][0]:
+                        top_chord = chord
                         # Calculate local coordinate
                         x0, y0 = top_chord.coordinates[0]
                         x2, y2 = c02
                         L = np.sqrt((x2-x0)**2 + (y2-y0)**2)
+                        
                         this.top_loc = L / top_chord.length
                         break   
                 if UnboundLocalError and not top_chord:
                     raise ValueError("Web's coordinates doesn't match top chord's coordinates")
             # Check if there's already a joint at given location
-            j1, j2 = None, None
+            j1, j2 = None, None       
+            for joint in bottom_chord.joints:
+                if np.sqrt((joint.coordinate[0] - c01[0])**2 + (joint.coordinate[1] - c01[1])**2) <= 0.001:
+                    j1 = joint
+                    this.j1 = j1
+            for joint in top_chord.joints:
+                if np.sqrt((joint.coordinate[0] - c02[0])**2 + (joint.coordinate[1] - c02[1])**2) <= 0.001:
+                    j2 = joint
+                    this.j2 = j2
+            """
             for joint in self.joints.values():
                 #if joint.coordinate == c01:
                 if np.sqrt((joint.coordinate[0] - c01[0])**2 + (joint.coordinate[1] - c01[1])**2) <= 0.001:
                     j1 = joint
                 #elif joint.coordinate == c02:
                 elif np.sqrt((joint.coordinate[0] - c02[0])**2 + (joint.coordinate[1] - c02[1])**2) <= 0.001:
-                    j2 = joint    
+                    j2 = joint 
+            """
             # Set joints to chord
             if not j1:
                 j1 = TrussJoint(bottom_chord, this.bot_loc)
                 bottom_chord.joints.append(j1)
+                this.j1 = j1
             if not j2:
                 j2 = TrussJoint(top_chord, this.top_loc)
                 top_chord.joints.append(j2)
+                this.j2 = j2
             # Assign member id
             this.mem_id = len(self.webs)
             # Assign joint id's   
@@ -111,7 +124,6 @@ class Truss2D(Frame2D):
             #this.mem_id = len(self.members)
             self.webs[this.mem_id] = this
             self.members["W" + str(this.mem_id)] = this
-            
             # Make web's joints hinged
             this.Sj1 = 0
             this.Sj2 = 0
@@ -195,10 +207,12 @@ class Truss2D(Frame2D):
 
 class TrussMember(FrameMember):
     def __init__(self, coordinates, mem_id="",
-                 profile="SHS 100x5", material="S355",num_elements=None):
+                 profile="SHS 100x5", material="S355",num_elements=2):
         super().__init__(coordinates, mem_id, profile, material, num_elements,
                  Sj1=np.inf, Sj2=np.inf)
         self.joints = []
+        # FrameMember -objects that chord is connected to
+        self.columns = {}
 
     
     def add_node_coord(self, coord):
@@ -208,13 +222,11 @@ class TrussMember(FrameMember):
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        
         if self.shape(coord[0]) == coord[1]:
-            
             if coord not in self.nodal_coordinates and self.point_intersection(coord):
                 self.added_coordinates.append(coord)
                 self.nodal_coordinates.append(coord)
-                self.nodal_coordinates = sorted(self.nodal_coordinates)
+                self.nodal_coordinates.sort()
                 x, y = coord
                 x1, y1 = self.coordinates[0]
                 dx = x - x1
@@ -224,37 +236,74 @@ class TrussMember(FrameMember):
                 self.loc.append(z)
                 self.loc.sort()
     
-    def calc_nodal_coordinates(self, num_elements=1):
+    def calc_nodal_coordinates(self, num_elements=0):
         """
             Calculates node locations along member
             Coordinates used are global coordinates
             Adds locations to a list where they can be accessed later
             :param num_elements: int, number of elements to be created
         """
-        if not self.num_elements:
+        if num_elements:
             self.num_elements = num_elements
-        
+
         self.nodal_coordinates = []
-        start_node, end_node = self.coordinates
+        start_node, end_node = sorted(self.coordinates)
         x0, y0 = start_node
-        Lx = end_node[0] - start_node[0]
-        Ly = end_node[1] - start_node[1]
-        dx = Lx / self.num_elements
-        dy = Ly / self.num_elements
-        for i in range(self.num_elements):
-            x = i * dx + x0
-            y = i * dy + y0
-            loc = i / self.num_elements
-            node = [x, y]
-            if node not in self.nodal_coordinates:
-                self.nodal_coordinates.append(node)
-            if loc not in self.loc:
-                self.loc.append(loc)
-        if [end_node[0], end_node[1]] not in self.nodal_coordinates:
-            self.nodal_coordinates.append([end_node[0], end_node[1]])
-        if 1 not in self.loc:
-            self.loc.append(1)
+        v = np.array([math.cos(self.angle), math.sin(self.angle)])
         
+        for joint in self.joints:
+                #joint.coordinate = joint.loc
+                joint.calc_nodal_coordinates()
+        
+        joint_coords = [joint.coordinate for joint in self.joints]
+        joint_coords.sort()
+        #self.nodal_coordinates.extend(joint_coords)
+        if self.mtype != 'web' and len(self.joints) >= 1:
+            for coord in joint_coords:
+                x, y = coord
+                # Calculate distance between joints
+                L = np.sqrt((x - x0)**2 + (y - y0)**2)
+                # Calculate nodal coordinates between joints
+                for i in range(self.num_elements):
+                    node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
+                    node = list(node)
+                    #node = [round(c, 3) for c in node]
+                    loc = self.global_coord(node)
+                    if node not in self.nodal_coordinates:
+                        self.nodal_coordinates.append(node)
+                    if loc not in self.loc:
+                        self.loc.append(loc)
+                x0, y0 = x, y
+            x, y = end_node
+            L = np.sqrt((x - x0)**2 + (y - y0)**2)
+            for i in range(self.num_elements):
+                    node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
+                    node = list(node)
+                    loc = self.global_coord(node)
+                    if node not in self.nodal_coordinates:
+                        self.nodal_coordinates.append(node)
+                    if loc not in self.loc:
+                        self.loc.append(loc)
+                            
+            if [end_node[0], end_node[1]] not in self.nodal_coordinates:
+                self.nodal_coordinates.append([end_node[0], end_node[1]])
+            if 1 not in self.loc:
+                self.loc.append(1)
+                
+        else:
+            for i in range(self.num_elements):
+                x , y = np.asarray([x0, y0]) + (i*self.length) / self.num_elements * v
+                loc = i / self.num_elements
+                node = [x, y]
+                if node not in self.nodal_coordinates:
+                    self.nodal_coordinates.append(node)
+                if loc not in self.loc:
+                    self.loc.append(loc)
+            if [end_node[0], end_node[1]] not in self.nodal_coordinates:
+                self.nodal_coordinates.append([end_node[0], end_node[1]])
+            if 1 not in self.loc:
+                self.loc.append(1)
+            
         if self.is_generated:
             for joint in self.joints:
                  joint.coordinate = joint.loc
@@ -263,8 +312,8 @@ class TrussMember(FrameMember):
         else:
             for joint in self.joints:
                 joint.coordinate = joint.loc
-                #joint.calc_nodal_coordinates(self.num_elements)
-            
+                joint.calc_nodal_coordinates()
+        self.nodal_coordinates.sort()
         
     def local(self, value):
         """
@@ -323,7 +372,7 @@ class TrussMember(FrameMember):
             angle = math.radians(90)
         else:
             angle = math.atan((y1 - y0) / (x1 - x0))
-        return angle
+        return round(angle,3)
 
     def generate_elements(self, fem_model):
         """ Generates elements between nodes
@@ -413,6 +462,7 @@ class TrussMember(FrameMember):
             rot = 0
         else:
             rot = math.degrees(math.atan(delta_y / delta_x))
+            #rot = self.angle
 
         x = (X[0][0] + X[1][0]) / 2
         y = (X[1][1] + X[0][1]) / 2
@@ -485,7 +535,7 @@ class TrussMember(FrameMember):
 
 class TopChord(TrussMember):
     def __init__(self, coordinates, mem_id="",
-                 profile="SHS 100x5", material="S355",num_elements = None):
+                 profile="SHS 100x5", material="S355",num_elements=2):
         super().__init__(coordinates, mem_id, profile, material,num_elements)
 
         self.mtype = 'top_chord'
@@ -493,7 +543,7 @@ class TopChord(TrussMember):
 
 class BottomChord(TrussMember):
     def __init__(self, coordinates, mem_id="",
-                 profile="SHS 100x5", material="S355",num_elements = None):
+                 profile="SHS 100x5", material="S355",num_elements=2):
         super().__init__(coordinates, mem_id, profile, material, num_elements)
         self.mtype = 'bottom_chord'
 
@@ -526,6 +576,9 @@ class TrussWeb(TrussMember):
             
         self.top_coord = self.coordinates[1]
         self.bot_coord = self.coordinates[0]
+        
+        self.j1 = None
+        self.j2 = None
         
         self.__Sj1 = Sj1
         self.__Sj2 = Sj2
@@ -586,7 +639,7 @@ class TrussJoint():
     
     def add_web(self, web, num_elements):
         self.webs[web.mem_id] = web
-        self.calc_nodal_coordinates(num_elements)
+        self.calc_nodal_coordinates()
 
     @property
     def coordinate(self):
@@ -649,7 +702,7 @@ class TrussJoint():
             results = self.rhs_joint.chord_shear()
             return results 
     
-    def calc_nodal_coordinates(self, num_elements):
+    def calc_nodal_coordinates(self):
         """
         Calculates eccentricity nodes coordinates and adds them to chord's
         node-dict, changes webs end coordinates and saves all calculated
@@ -663,13 +716,12 @@ class TrussJoint():
         v = np.array([math.cos(self.chord.angle), math.sin(self.chord.angle)])
         # Vector perpendicular to v
         u = np.array([-math.sin(self.chord.angle), math.cos(self.chord.angle)])
-        self.num_elements = num_elements
-        
         # Remove previously calculated coordinates from chord
         for coord in self.nodal_coordinates:
             if coord in self.chord.added_coordinates:
                 self.chord.added_coordinates.remove(coord)
-        
+            if coord in self.chord.nodal_coordinates:
+                self.chord.nodal_coordinates.remove(coord)
         # Initialize nodal coordinates as an empty array
         self.nodal_coordinates = []
         central_coord = np.asarray(self.coordinate)
@@ -681,20 +733,35 @@ class TrussJoint():
         # If joint type is Y or T
         if len(self.webs) == 1:
             web = list(self.webs.values())[0]
+            # angle between chord and web
+            theta = abs(self.chord.angle - web.angle)
+            # Eccentricity along x-axis
+            ecc_x = abs(self.g1 * math.cos(self.chord.angle)
+                    + web.h/2000 / math.sin(theta)) 
             # web's position vector
             w = np.array([math.cos(web.angle), math.sin(web.angle)])
             # TOP CHORD
             if self.chord.mtype == 'top_chord':
-                if self.chord.angle == 0:
-                    coord = list(central_coord - [0, ecc_y])               
-                elif web.angle > 0:
-                    coord = list(central_coord - w*ecc_y)    
+                
+                if self.loc == 0:
+                    coord1 = list(central_coord + v*ecc_x)
+                    self.coordinate = coord1
+                    coord2 = list(np.asarray(coord1) - u *ecc_y)
+                elif self.loc == 1:
+                    coord1 = list(central_coord - v*ecc_x)
+                    self.coordinate = coord1
+                    coord2 = list(np.asarray(coord1) - u *ecc_y)
                 else:
-                    coord = list(central_coord + w*ecc_y)
-                self.add_node_coord(coord)
-                web.top_coord = coord
+                    coord1 = list(central_coord)
+                    coord2 = list(np.asarray(coord1) - u *ecc_y)
+
+                self.add_node_coord(coord2)
+                self.chord.add_node_coord(coord1)
+                web.top_coord = coord2
+                
             # BOTTOM CHORD
             else:
+                """
                 if self.chord.angle == 0:
                     coord = list(central_coord + [0, ecc_y])                
                 elif web.angle > 0:
@@ -703,7 +770,23 @@ class TrussJoint():
                     coord = list(central_coord - w*ecc_y)
                 self.add_node_coord(coord)
                 web.bot_coord = coord
-            web.calc_nodal_coordinates(num_elements)          
+                """
+                if self.loc == 0:
+                    coord1 = list(central_coord + v*ecc_x)
+                    self.coordinate = coord1
+                    coord2 = list(np.asarray(coord1) + u *ecc_y)
+                elif self.loc == 1:
+                    coord1 = list(central_coord + v*ecc_x)
+                    self.coordinate = coord1
+                    coord2 = list(np.asarray(coord1) + u *ecc_y)
+                else:
+                    coord1 = list(central_coord)
+                    coord2 = list(np.asarray(coord1) + u *ecc_y)
+
+                self.add_node_coord(coord2)
+                self.chord.add_node_coord(coord1)
+                web.bot_coord = coord2
+            web.calc_nodal_coordinates()          
         # If joint type is K or KT
         elif len(self.webs) >= 2:
             # Iterate trhough every web member in the joint
@@ -750,6 +833,7 @@ class TrussJoint():
                         coord2 = central_coord - [0, ecc_y]
                         coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
+                    #coord2 = [round(c, 3) for c in coord2]
                     web.top_coord = list(coord2)
                 # BOTTOM CHORD
                 else: 
@@ -771,14 +855,16 @@ class TrussJoint():
                         coord2 = central_coord + [0, ecc_y]
                         coord1 = list(central_coord)
                     # Move chord's coordinate to newly calculated location
+                    #coord2 = [round(c, 3) for c in coord2]
                     web.bot_coord = list(coord2)                    
                 # Calculate web's new nodal locations 
-                web.calc_nodal_coordinates(num_elements)
+                web.calc_nodal_coordinates()
                 # Add eccentricity nodes' coordinates to joint and chord
                 # Node on the chord's center line needs to be exactly on the
                 # center line, so we need to calculate the y-coord with
                 # chord's shape function
                 coord1 = list([coord1[0], self.chord.shape(coord1[0])])
+                #coord1 = [round(c,3) for c in coord1]
                 # Node coordinate on chord's center line
                 self.add_node_coord(coord1)
                 self.chord.add_node_coord(coord1)
@@ -794,6 +880,8 @@ class TrussJoint():
             pass
         elif len(self.nodal_coordinates) == 2:
             self.joint_type = 'Y'
+        elif len(self.nodal_coordinates) == 3:
+            self.joint_type = 'Y'
         elif len(self.nodal_coordinates) == 4:
             self.joint_type = 'N'
         elif len(self.nodal_coordinates) == 5:
@@ -806,9 +894,6 @@ class TrussJoint():
             self.joint_type = 'KT'
         else:
             raise ValueError('Too many nodes for one joint')
-
-            
-                           
     def generate(self, fem_model):
         """
         """
@@ -854,8 +939,8 @@ class TrussJoint():
         to the fem model.
         Eccentricity elements are modelled as infinitely rigid elements
         """
-
         self.idx = len(fem_model.materials)
+        self.idx = self.chord.mem_id
         #self.idx = self.chord.mem_id
         # Material(E, nu, rho)
         fem_model.add_material(210e3, 0.3, 7850e-9)
@@ -988,13 +1073,18 @@ class TrussJoint():
         plt.text(x, y, str(self.jid), horizontalalignment=horzalign,
                  verticalalignment=vertalign, fontsize=12)
         
-    def plot_joint(self, length=0.3):
+    def plot_joint(self, length=0.3, show=True):
         """
         Plots joint
         """
         X, Y = self.coordinate  
         end_line = None
+        col = None
         # CHORD
+        # Chord's position vector
+        v = np.array([math.cos(self.chord.angle), math.sin(self.chord.angle)])
+        # Vector perpendicular to v
+        u = np.array([-math.sin(self.chord.angle), math.cos(self.chord.angle)])
         if X-length*2 >= self.chord.local(0)[0]:
             start = X - length*2
         else:
@@ -1011,6 +1101,7 @@ class TrussJoint():
         Y0 = [Y-(X-start)*math.tan(self.chord.angle),
               Y,
               Y+(end-X)*math.tan(self.chord.angle)]
+        print("Y0: ", Y0)
         X1 = [start, X, end]
         Y1 = [Y-(X-start)*math.tan(self.chord.angle) - self.chord.h/2000,
               Y-self.chord.h/2000,
@@ -1025,6 +1116,38 @@ class TrussJoint():
         plt.plot(X2, Y2, 'k')
         if end_line:
             plt.plot([end_line, end_line],[Y-self.chord.h/2000, Y+self.chord.h/2000],'k')
+            
+        # COLUMN
+        if start in self.chord.columns.keys():
+            col = self.chord.columns[start]
+            end = start - col.h/1000
+            mid = start - col.h/2000
+            Y1 = Y- length
+            Y2 = Y + length
+            if Y2 >= col.coordinates[1][1]:
+                Y2 = col.coordinates[1][1]
+            # outer
+            plt.plot([end, end], [Y1, Y2], 'k')
+            # mid
+            plt.plot([mid, mid],[Y1, Y2], 'k--')
+            # inner
+            plt.plot([start, start], [Y1, Y2], 'k')
+            
+        elif end in self.chord.columns.keys():
+            col = self.chord.columns[end]
+            end = end - col.h/1000
+            mid = end - col.h/2000
+            Y1 = Y- length
+            Y2 = Y + length
+            if Y2 >= col.coordinates[1][1]:
+                Y2 = col.coordinates[1][1]
+            # outer
+            plt.plot([end, end], [Y1, Y2], 'k')
+            # mid
+            plt.plot([mid, mid],[Y1, Y2], 'k--')
+            # inner
+            plt.plot([start, start], [Y1, Y2], 'k')
+            
         
         # WEBS
         for web in self.webs.values():
@@ -1078,7 +1201,7 @@ class TrussJoint():
                 y -= length
             elif y > Y:
                 y += length
-            
+
             #plt.text(x, y+0.08, f'Fx {node.Fx:.0f} kN', fontsize=11)
             #plt.text(x, y+0.05, f'Fy {node.Fy:.0f} kN', fontsize=11)
             #plt.text(x, y+0.02, f'Mz {node.Mz:.0f} kNm', fontsize=11)
@@ -1092,4 +1215,5 @@ class TrussJoint():
             
         plt.axis('equal')
         plt.title("Joint " + str(self.jid))
-        plt.show()
+        if show:
+            plt.show()
