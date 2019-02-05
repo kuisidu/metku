@@ -178,6 +178,7 @@ class Truss2D(Frame2D):
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
             self.nodes.extend(list(member.nodes.values()))
+
         # Remove duplicate nodes
         self.nodes = list(set(self.nodes))
         # Generate joints' nodes and elements
@@ -257,7 +258,6 @@ class TrussMember(FrameMember):
         
         joint_coords = [joint.coordinate for joint in self.joints]
         joint_coords.sort()
-        #self.nodal_coordinates.extend(joint_coords)
         if self.mtype != 'web' and len(self.joints) >= 1:
             for coord in joint_coords:
                 x, y = coord
@@ -279,12 +279,12 @@ class TrussMember(FrameMember):
             for i in range(self.num_elements):
                     node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
                     node = list(node)
+
                     loc = self.global_coord(node)
                     if node not in self.nodal_coordinates:
                         self.nodal_coordinates.append(node)
                     if loc not in self.loc:
                         self.loc.append(loc)
-                            
             if [end_node[0], end_node[1]] not in self.nodal_coordinates:
                 self.nodal_coordinates.append([end_node[0], end_node[1]])
             if 1 not in self.loc:
@@ -550,7 +550,7 @@ class BottomChord(TrussMember):
 
 class TrussWeb(TrussMember):
     def __init__(self, bot_loc, top_loc, coord_type="local", mem_id="",
-                 profile="SHS 50x5", material="S355", Sj1=0, Sj2=0):
+                 profile="SHS 50x2", material="S355", Sj1=0, Sj2=0):
         if coord_type == "global" or coord_type == "g":
             super().__init__([bot_loc, top_loc], profile=profile,
                  material=material) 
@@ -761,22 +761,12 @@ class TrussJoint():
                 
             # BOTTOM CHORD
             else:
-                """
-                if self.chord.angle == 0:
-                    coord = list(central_coord + [0, ecc_y])                
-                elif web.angle > 0:
-                    coord = list(central_coord + w*ecc_y)    
-                else:
-                    coord = list(central_coord - w*ecc_y)
-                self.add_node_coord(coord)
-                web.bot_coord = coord
-                """
                 if self.loc == 0:
                     coord1 = list(central_coord + v*ecc_x)
                     self.coordinate = coord1
                     coord2 = list(np.asarray(coord1) + u *ecc_y)
                 elif self.loc == 1:
-                    coord1 = list(central_coord + v*ecc_x)
+                    coord1 = list(central_coord - v*ecc_x)
                     self.coordinate = coord1
                     coord2 = list(np.asarray(coord1) + u *ecc_y)
                 else:
