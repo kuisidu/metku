@@ -577,108 +577,94 @@ class Frame2D:
             
     
     
-    def load_robot_csv(self):
-        pass
-    """
-        #TODO
-        #DOESN'T WORK YET
-        self.load_robot = True
-        tk = Tk()
-        tk.withdraw()
-        # NODES AND SUPPORTS
-        f_nodes = askopenfilename(title="Select Autodesk Robot csv-file for nodes",
-                                  filetype=(("csv files", "*.csv"), ("All files", "*.*")))
-        df_nodes = pd.read_csv(f_nodes, delimiter=';', encoding='utf-16')
-        nodes = {}
-        for idx, row in df_nodes.iterrows():
-            try:
-                x = float(str(row['X (m)']).replace(',', '.'))
-                z = float(str(row['Z (m)']).replace(',', '.'))
-                node = [x, z]
-                idx = int(row['Node'])
-                nodes[idx] = node
+    def to_robot(self, filename):
 
-                if row[3] != 'N/A':
-                    dofs = []
-                    for i, value in enumerate(row[3:6]):
-                        if value == 'fixed':
-                            dofs.append(i)
-                    if dofs:
-                        self.supports[len(self.supports)] = Support(node,
-                                                                    dofs,
-                                                                    supp_id=idx)
-            except ValueError:
-                pass
+        nodes = []
+        elements = []
+        profiles = []
+        material = []
 
-        # MEMBERS
-        f_members = askopenfilename(title="Select Autodesk Robot csv-file for members",
-                                    filetype=(("csv files", "*.csv"), ("All files", "*.*")))
+        for member in self.members.values():
+            n1, n2 = member.coordinates
+            if n1 not in nodes:
+                nodes.append(n1)
+            if n2 not in nodes:
+                nodes.append(n2)
+            elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+            elements.append(elem)
+            splitted_val = member.profile.split(" ")
+            profile_type = splitted_val[0]
+            if profile_type == 'RHS':
+                profile = 'RRHS ' + splitted_val[1]
+            elif profile_type == 'HE':
+                profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
+            else:
+                profile = member.profile
 
-        df_members = pd.read_csv(f_members, delimiter=';', encoding='utf-16')
-        members = {}
-        for i, row in df_members.iterrows():
-            try:
-                n1 = int(row['Node 1'])
-                n2 = int(row['Node 2'])
-                coordinates = [nodes[n1], nodes[n2]]
-                profile = row['Section']
-                material = row['Material']
-                members[int(row['Bar'])] = [coordinates, profile, material, i]
-            except ValueError:
-                pass
+            profiles.append(profile)
+            material.append(member.material)
 
-        for mem_id in members.keys():
-            coordinates, profile, material, idx = members[mem_id]
-            member = SteelBeam(coordinates, profile=profile,
-                               material=material, mem_id=idx)
-            self.members[mem_id] = member
-            member.calc_nodal_coordinates(self.num_elements)
 
-        self.calc_nodal_coordinates()
-        f_loads = askopenfilename(title="Select Autodesk Robot csv-file for loads",
-                                  filetype=(("csv files", "*.csv"), ("All files", "*.*")))
-        df_loads = pd.read_csv(f_loads, delimiter=';', encoding='utf-16')
+        with  open(filename + '.str', 'w') as f:
+            f.write("ROBOT97 \n")
+            f.write("NUMbering DIScontinuous \n")
+            f.write(f'NODes {len(nodes)}  ELEments {len(elements)} \n')
+            f.write("UNIts \n")
+            f.write("LENgth=m	Force=kN \n")
+            f.write("NODes \n")
+            for i, node in enumerate(nodes):
+                f.write(f'{i+1}   {node[0]}    {node[1]} \n')
 
-        for idx, row in df_loads.iterrows():
-            try:
-                loads = row['Load values'].split('=')
-                direction = loads[0]
-                load_val, unit = loads[1].split('(')
-                load_val = float(load_val.replace(',', '.'))
-                unit = unit[:-1]
-                load_type = row['Load type']
-                if load_type == 'nodal force':
-                    nodes_list = row['List'].split(' ')
-                    for node in nodes_list:
-                        node = int(node)
-                        coord = nodes[node]
-                        if direction == 'FX':
-                            value = [load_val, 0, 0]
-                        elif direction == 'FZ':
-                            value = [0, load_val, 0]
-                        elif direction == 'CY':
-                            value = [0, 0, load_val]
+            f.write('ELEments \n')
+            for i, element in enumerate(elements):
+                f.write(f' {i+1}  {element[0]}    {element[1]} \n')
 
-                        load = PointLoad(coord, value)
-                        self.add(load)
-                elif load_type == 'uniform load' and load_val != 0:
-                    mem_ids = row['List'].split(' ')
-                    for mem_id in mem_ids:
-                        mem_id = int(mem_id)
-                        coordinates = self.members[mem_id].coordinates
-                        if direction == 'PZ':
-                            value = [load_val, load_val]
-                            load_dir = 'y'
+            f.write('PROperties \n')
+            for i in range(len(elements)):
+                f.write(f' "{material[i]}" \n')
+                f.write(f' {i+1}  ')
+                f.write(f' {profiles[i]}    \n')
 
-                        load = LineLoad(coordinates, value, load_dir)
-                        self.add(load)
+            f.write("SUPports \n")
+            for sup in self.supports.values():
+                idx = nodes.index(sup.coordinate) + 1
+                if sup.dofs == [0]:
+                    f.write(f'{idx}  UZ RY  \n')
+                elif sup.dofs == [0, 1]:
+                    f.write(f'{idx}  RY\n')
+                elif sup.dofs == [0, 1, 2]:
+                    f.write(f'{idx}  \n')
+                elif sup.dofs == [1]:
+                    f.write(f'{idx}  UX RY  \n')
+                elif sup.dofs == [1,2]:
+                    f.write(f'{idx}  UX  \n')
+                else:
+                    f.write(f'{idx}  UX UZ \n')
 
-            except AttributeError:
-                pass
+            f.write("LOAds \n")
+            f.write("CASe # 1 LC1 \n")
+            f.write("ELEments \n")
+            for lineload in self.line_loads.values():
+                n1, n2 = lineload.member.coordinates
+                n1_idx = nodes.index(n1) + 1
+                n2_idx = nodes.index(n2) + 1
+                idx = elements.index([n1_idx, n2_idx]) + 1
+                if lineload.direction == 'y':
+                    dir = 'PZ'
+                else:
+                    dir = 'PX'
+                q0, q1 = lineload.values
+                if q0 != q1:
+                    f.write(f' {idx} X=0.0 {dir}={q0} TILl  ')
+                    f.write(f'X=1.000  {dir}={q1}      RElative \n')
 
-        tk.destroy()
-        self.generate()
-    """
+                else:
+                    f.write(f' {idx} {dir}={q0} \n')
+
+
+            f.write("END")
+
+        print(filename, ".str  created.")
 
     def plot(self, print_text=True, show=True,
              loads=True, color=False):
@@ -812,7 +798,6 @@ class Frame2D:
         if calc:
             w, v = self.f.linear_buckling(k=k)
             self.alpha_cr = w
-
         for j in range(v.shape[1]):
             if show:
                 self.plot(print_text=False, show=False, loads=False, color=False)
@@ -1250,11 +1235,11 @@ class FrameMember:
                       
             else:
                 raise ValueError('{} is not valid profile type!'.format(profile_type))
-            # Change member's elements' properties
-            if len(self.elements) > 0:
-                for element in self.elements.values():
-                    element.section.A = self.cross_section.A * 1e-6
-                    element.section.Iy = self.cross_section.I[0] * 1e-12
+        # Change member's elements' properties
+        if len(self.elements) > 0:
+            for element in self.elements.values():
+                element.section.A = self.cross_section.A * 1e-6
+                element.section.Iy = self.cross_section.I[0] * 1e-12
         # Change steel_member objects properties
         if self.steel_member:
             self.steel_member.profile = self.cross_section
