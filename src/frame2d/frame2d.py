@@ -270,6 +270,7 @@ class Frame2D:
                                 # m to mm
                                 ecc_x = ecc_x/1000
                                 x1, y1 = joint1.coordinate
+                                print(x1, y1)
                                 joint1.coordinate = [x1 - ecc_x, y1]
                             if coord == c1:
                                 c1 = [c1[0] - member.h/2000, c1[1]]
@@ -557,7 +558,8 @@ class Frame2D:
             self.nodes.extend(list(member.nodes.values()))
         # Generate Truss
         if self.truss:
-            self.truss.generate()
+            for joint in self.truss.joints.values():
+                joint.generate(self.f)
         # Generate eccentricity elements
         for member in self.members.values():
             member.generate_eccentricity_elements(self.f)
@@ -598,12 +600,60 @@ class Frame2D:
                 profile = 'RRHS ' + splitted_val[1]
             elif profile_type == 'HE':
                 profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
+            elif profile_type == "SHS":
+                dims = splitted_val[1].split("X")
+                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
             else:
                 profile = member.profile
 
             profiles.append(profile)
             material.append(member.material)
 
+            if len(member.ecc_coordinates):
+                for coords in member.ecc_coordinates:
+                    n1, n2 = coords
+                    if n1 not in nodes:
+                        nodes.append(n1)
+                    if n2 not in nodes:
+                        nodes.append(n2)
+                    elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                    elements.append(elem)
+                    profiles.append("HEA 1000")
+                    material.append(member.material)
+
+        if self.truss:
+            for joint in self.truss.joints.values():
+                if len(joint.nodal_coordinates) == 2:
+                    n1, n2 = joint.nodal_coordinates
+                    if n1 not in nodes:
+                        nodes.append(n1)
+                    if n2 not in nodes:
+                        nodes.append(n2)
+                    elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                    elements.append(elem)
+                    profiles.append("HEA 1000")
+                    material.append("S355")
+                elif len(joint.nodal_coordinates) == 5:
+                    coords = sorted(joint.nodal_coordinates)
+                    n1, n2, n3, n4, n5 = coords
+                    if n1 not in nodes:
+                        nodes.append(n1)
+                    if n2 not in nodes:
+                        nodes.append(n2)
+                    if n4 not in nodes:
+                        nodes.append(n4)
+                    if n5 not in nodes:
+                        nodes.append(n5)
+                    elem1 = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                    elem2 = [nodes.index(n4) + 1, nodes.index(n5) + 1]
+                    elements.append(elem1)
+                    elements.append(elem2)
+                    profiles.append("HEA 1000")
+                    material.append("S355")
+                    profiles.append("HEA 1000")
+                    material.append("S355")
+                else:
+                    pass
 
         with  open(filename + '.str', 'w') as f:
             f.write("ROBOT97 \n")
