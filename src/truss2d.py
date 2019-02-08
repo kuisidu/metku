@@ -205,7 +205,7 @@ class Truss2D(Frame2D):
         bottom_coords = [[bottom_coords[0][0], bottom_coords[1][1]],
                       [bottom_coords[1][0], bottom_coords[0][1]]]
         self.bottom_chord.coordinates = bottom_coords
-
+        
 class TrussMember(FrameMember):
     def __init__(self, coordinates, mem_id="",
                  profile="SHS 100x5", material="S355",num_elements=2):
@@ -253,7 +253,7 @@ class TrussMember(FrameMember):
         v = np.array([math.cos(self.angle), math.sin(self.angle)])
         
         for joint in self.joints:
-                #joint.coordinate = joint.loc
+                joint.coordinate = joint.loc
                 joint.calc_nodal_coordinates()
         
         joint_coords = [joint.coordinate for joint in self.joints]
@@ -653,8 +653,7 @@ class TrussJoint():
         elif isinstance(val, float):
             self.loc = val
             self.__coordinate = self.chord.local(val)
-            if self.num_elements:
-                self.calc_nodal_coordinates(self.num_elements)
+            self.calc_nodal_coordinates()
                
     def calculate(self):
         """
@@ -707,7 +706,6 @@ class TrussJoint():
         Calculates eccentricity nodes coordinates and adds them to chord's
         node-dict, changes webs end coordinates and saves all calculated
         nodal coordinates to own nodal_coordinates -list
-        :param num_elements: number of elements, int
         
         coord1 : eccentricity coordinate on chord
         coord2 : web's new end coordinate
@@ -738,8 +736,6 @@ class TrussJoint():
             # Eccentricity along x-axis
             ecc_x = abs(self.g1 * math.cos(self.chord.angle)
                     + web.h/2000 / math.sin(theta)) 
-            # web's position vector
-            w = np.array([math.cos(web.angle), math.sin(web.angle)])
             # TOP CHORD
             if self.chord.mtype == 'top_chord':
                 
@@ -862,9 +858,10 @@ class TrussJoint():
                 self.add_node_coord(list(coord2))
                 
         # Move existing nodes
-        if self.nodes:
-            for i, node in enumerate(self.nodes.values()):
-                node.x = self.nodal_coordinates[i]        
+        if len(self.nodes):
+            for i, node in enumerate(self.nodes.values()):                
+                node.x = self.nodal_coordinates[i]
+          
         # Set joint type
         if len(self.nodal_coordinates) == 0:
             pass
@@ -930,13 +927,15 @@ class TrussJoint():
         Eccentricity elements are modelled as infinitely rigid elements
         """
         self.idx = len(fem_model.materials)
-        self.idx = self.chord.mem_id
-        #self.idx = self.chord.mem_id
+        
         # Material(E, nu, rho)
         fem_model.add_material(210e3, 0.3, 7850e-9)
         # BeamSection(A, Iy)
         sect = BeamSection(1e10, 1e10)
         fem_model.add_section(sect)
+        
+        # USE CHORD'S PROPERTIES
+        self.idx = self.chord.mem_id
   
     
     def generate_eccentricity_elements(self, fem_model):
@@ -1091,7 +1090,6 @@ class TrussJoint():
         Y0 = [Y-(X-start)*math.tan(self.chord.angle),
               Y,
               Y+(end-X)*math.tan(self.chord.angle)]
-        print("Y0: ", Y0)
         X1 = [start, X, end]
         Y1 = [Y-(X-start)*math.tan(self.chord.angle) - self.chord.h/2000,
               Y-self.chord.h/2000,
@@ -1110,8 +1108,8 @@ class TrussJoint():
         # COLUMN
         if start in self.chord.columns.keys():
             col = self.chord.columns[start]
-            end = start - col.h/1000
-            mid = start - col.h/2000
+            end = start - col.h/2000
+            inner = start + col.h/2000
             Y1 = Y- length
             Y2 = Y + length
             if Y2 >= col.coordinates[1][1]:
@@ -1119,24 +1117,24 @@ class TrussJoint():
             # outer
             plt.plot([end, end], [Y1, Y2], 'k')
             # mid
-            plt.plot([mid, mid],[Y1, Y2], 'k--')
+            plt.plot([start, start],[Y1, Y2], 'k--')
             # inner
-            plt.plot([start, start], [Y1, Y2], 'k')
+            plt.plot([inner, inner], [Y1, Y2], 'k')
             
         elif end in self.chord.columns.keys():
             col = self.chord.columns[end]
-            end = end - col.h/1000
-            mid = end - col.h/2000
+            out = end + col.h/2000
+            inner = end - col.h/2000
             Y1 = Y- length
             Y2 = Y + length
             if Y2 >= col.coordinates[1][1]:
                 Y2 = col.coordinates[1][1]
             # outer
-            plt.plot([end, end], [Y1, Y2], 'k')
+            plt.plot([out, out], [Y1, Y2], 'k')
             # mid
-            plt.plot([mid, mid],[Y1, Y2], 'k--')
+            plt.plot([end, end],[Y1, Y2], 'k--')
             # inner
-            plt.plot([start, start], [Y1, Y2], 'k')
+            plt.plot([inner, inner], [Y1, Y2], 'k')
             
         
         # WEBS
@@ -1179,7 +1177,6 @@ class TrussJoint():
         for key in self.nodes.keys():
             node = self.nodes[key]
             x, y = node.x
-            print("NODE: ", x, y)
             plt.scatter(x, y, s=100, c='pink')
             plt.text(x, y, str(key), horizontalalignment='center',
                      verticalalignment='center', fontsize=15)

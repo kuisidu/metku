@@ -3,18 +3,12 @@ Created on Fri Jan 19 10:39:56 2018
 
 @author: huuskoj
 """
-import sys
-
-# path needs to be added to use tables_and_tuples and I_sections
-sys.path.append('../End-plate')
-sys.path.append("../")
+import os
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-
-from decimal import Decimal
-
 import fem.frame_fem as fem
+
 from fem.elements.ebbeam import EBBeam
 from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 
@@ -24,13 +18,6 @@ from sections.steel.CHS import CHS
 from sections.steel.catalogue import mat as MATERIALS
 
 from structures.steel.steel_member import SteelMember
-
-
-
-import pandas as pd
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
-
 
 # profiles from lightest to heaviest
 PROFILES = [
@@ -270,7 +257,6 @@ class Frame2D:
                                 # m to mm
                                 ecc_x = ecc_x/1000
                                 x1, y1 = joint1.coordinate
-                                print(x1, y1)
                                 joint1.coordinate = [x1 - ecc_x, y1]
                             if coord == c1:
                                 c1 = [c1[0] - member.h/2000, c1[1]]
@@ -279,6 +265,7 @@ class Frame2D:
                 # Change chord's end coordinates
                 bchord.coordinates = [c0, c1]
                 bchord.calc_nodal_coordinates()
+
         
             # Top chord coordinates
             for tchord in this.top_chords:
@@ -289,8 +276,8 @@ class Frame2D:
                         member.add_node_coord(coord)
                         # Create eccentricity to connection
                         if member.mtype == "column":
-                            joint0 = [j for j in this.joints.values() if j.coordinate == c0]                          
-                            joint1 = [j for j in this.joints.values() if j.coordinate == c1]
+                            joint0 = [j for j in this.joints.values() if j.coordinate == c0 or j.loc * tchord.length <= member.h/2000]                      
+                            joint1 = [j for j in this.joints.values() if j.coordinate == c1 or (1-j.loc) * tchord.length <= member.h/2000]
                             # Chord's position vector
                             v = np.array([math.cos(tchord.angle),
                                           math.sin(tchord.angle)])
@@ -302,8 +289,9 @@ class Frame2D:
                                 joint0 = joint0[0]
                                 web = list(joint0.webs.values())[0]
                                 theta = abs(joint0.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(joint0.g1*math.cos(joint0.chord.angle) +
-                                        web.h/2 * math.sin(theta))
+                                #ecc_x = member.h / 2 + abs(joint0.g1*math.cos(joint0.chord.angle) +
+                                #        web.h/2 * math.sin(theta))
+                                ecc_x = member.h / 2 + joint0.g1
                                 # m to mm
                                 ecc_x = ecc_x/1000
                                 coord0 = np.asarray(joint0.coordinate)
@@ -327,8 +315,9 @@ class Frame2D:
                                 joint1 = joint1[0]
                                 web = list(joint1.webs.values())[0]
                                 theta = abs(joint1.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(joint1.g1*1000*math.cos(joint1.chord.angle) +
-                                        web.h/2 * math.sin(theta))
+                                #ecc_x = member.h / 2 + abs(joint1.g1*1000*math.cos(joint1.chord.angle) +
+                                #        web.h/2 * math.sin(theta))  
+                                ecc_x = member.h / 2 + joint1.g1
                                 # m to mm
                                 ecc_x = ecc_x/1000
                                 coord1 = np.asarray(joint1.coordinate)
@@ -579,12 +568,13 @@ class Frame2D:
             
     
     
-    def to_robot(self, filename):
+    def to_robot(self, filename, PATH=""):
 
         nodes = []
         elements = []
         profiles = []
         material = []
+        releases = {}
 
         for member in self.members.values():
             n1, n2 = member.coordinates
@@ -608,7 +598,8 @@ class Frame2D:
 
             profiles.append(profile)
             material.append(member.material)
-
+            
+            # Eccentricity elements
             if len(member.ecc_coordinates):
                 for coords in member.ecc_coordinates:
                     n1, n2 = coords
@@ -619,20 +610,29 @@ class Frame2D:
                     elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
                     elements.append(elem)
                     profiles.append("HEA 1000")
-                    material.append(member.material)
+                    material.append("S355")
+                    if n1 < n2:
+                        releases[elements.index(elem) +1] = 'END RY'
+                    else:
+                        releases[elements.index(elem) +1] = 'ORIgin RY'
+                    
 
         if self.truss:
             for joint in self.truss.joints.values():
+                # Y joint
                 if len(joint.nodal_coordinates) == 2:
-                    n1, n2 = joint.nodal_coordinates
+                    n1, n2 = sorted(joint.nodal_coordinates)
                     if n1 not in nodes:
                         nodes.append(n1)
                     if n2 not in nodes:
                         nodes.append(n2)
+                    # Eccentricity element
                     elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
                     elements.append(elem)
                     profiles.append("HEA 1000")
                     material.append("S355")
+                    releases[elements.index(elem)+1] = "END RY"
+                # K joint
                 elif len(joint.nodal_coordinates) == 5:
                     coords = sorted(joint.nodal_coordinates)
                     n1, n2, n3, n4, n5 = coords
@@ -644,6 +644,7 @@ class Frame2D:
                         nodes.append(n4)
                     if n5 not in nodes:
                         nodes.append(n5)
+                    # Eccentricity elements
                     elem1 = [nodes.index(n1) + 1, nodes.index(n2) + 1]
                     elem2 = [nodes.index(n4) + 1, nodes.index(n5) + 1]
                     elements.append(elem1)
@@ -652,10 +653,12 @@ class Frame2D:
                     material.append("S355")
                     profiles.append("HEA 1000")
                     material.append("S355")
+                    releases[elements.index(elem1)+1] = "END RY"
+                    releases[elements.index(elem2)+1] = "END RY"
                 else:
                     pass
 
-        with  open(filename + '.str', 'w') as f:
+        with  open(PATH + filename + '.str', 'w') as f:
             f.write("ROBOT97 \n")
             f.write("NUMbering DIScontinuous \n")
             f.write(f'NODes {len(nodes)}  ELEments {len(elements)} \n')
@@ -690,7 +693,11 @@ class Frame2D:
                     f.write(f'{idx}  UX  \n')
                 else:
                     f.write(f'{idx}  UX UZ \n')
-
+            
+            f.write("RELeases \n")
+            for elem in releases.keys():
+                f.write(f'ELEments{elem} {releases[elem]} \n')
+            
             f.write("LOAds \n")
             f.write("CASe # 1 LC1 \n")
             f.write("ELEments \n")
@@ -713,9 +720,10 @@ class Frame2D:
 
 
             f.write("END")
-
-        print(filename, ".str  created.")
-
+        if PATH != "":
+            print(f'{filename}.str created to: \n{PATH}')
+        else:
+            print(f'{filename}.str created to: \n{os.getcwd()}')
     def plot(self, print_text=True, show=True,
              loads=True, color=False):
         """ Plots the frame
@@ -1560,7 +1568,7 @@ class FrameMember:
             n1 = fem_model.nodes[fem_model.nodal_coords.index(coordinates[0])]
             n2 = fem_model.nodes[fem_model.nodal_coords.index(coordinates[1])]
             self.ecc_elements[index] = EBSemiRigidBeam(n1, n2, 
-                                     fem_model.sections[sect_id], 
+                                     fem_model.sections[self.mem_id], 
                                      fem_model.materials[mat_id], 
                                      rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[index])
