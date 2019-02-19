@@ -229,7 +229,7 @@ def test7():
     frame.add(PointLoad([1,2], [-50, 0, 0]))
 
 def test8():
-    frame = Frame2D(simple=[1, 2, 10, 14], supports='xyhinged', num_elements=4)
+    frame = Frame2D(simple=[1, 1, 10, 14], supports='xyhinged', num_elements=4)
     for member in frame.members.values():
         if member.mtype == 'beam':
             member.profile = 'he 550 a'
@@ -238,15 +238,22 @@ def test8():
             member.profile = 'he 300 b'
             if member.mem_id == 0:
                 frame.add(LineLoad(member, [4, 4], 'x'))
-            elif member.mem_id == 2:
+            elif member.mem_id == 1:
                 frame.add(LineLoad(member, [2, 2], 'x'))
 
-    frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
+    #frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
+    frame.hinge_joints()
     frame.generate()
-    #frame.hinge_joints()
+    
     frame.calculate()
+    for elem in frame.members[0].elements.values():
+        print(elem.bending_moment[0])
+    print(elem.bending_moment[1])
     frame.f.draw()
-    frame.plot_buckling(50, 2)
+    frame.bmd(10)
+    #frame.plot_buckling(50, 2)
+    
+    frame.to_robot('test_robot')
 
 def test9():
     """

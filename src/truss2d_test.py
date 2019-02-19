@@ -11,6 +11,7 @@ from sections.steel.RHS import RHS
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import random
 
 def test1():
     truss = Truss2D(num_elements=1)
@@ -238,35 +239,35 @@ def portal_frame():
     top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="rhs 120x120x6")
     top_chord2 = TopChord([[12,0.6], [24,0]], material="S420", profile="rhs 120x120x6")
     truss.add(bottom_chord)
+
     truss.add(top_chord1)
     truss.add(top_chord2)
     for i in range(len(X)-1):
         truss.add(TrussWeb([X[i], Y[i]], [X[i+1], Y[i+1]], 'global', profile="Rhs 90x90x4"))
-        
+
     # ADD TRUSS TO FRAME
-    truss.plot()
     frame.add(truss)
     # LOADS
     frame.add(LineLoad(bottom_chord, [-0.69, -0.69], 'y'))
-    #frame.add(LineLoad(bottom_chord, [-69, -69], 'y'))
-    #frame.add(LineLoad(top_chord1, [-21.45, -21.45], 'y'))
-    #frame.add(LineLoad(top_chord2, [-21.45, -21.45], 'y'))
+    frame.add(LineLoad(top_chord1, [-21.45, -21.45], 'y'))
+    frame.add(LineLoad(top_chord2, [-21.45, -21.45], 'y'))
     #frame.add(LineLoad(col1, [3.51, 3.51], 'x'))
     #frame.add(LineLoad(col2, [0.17, 0.17], 'x'))
+    #truss.symmetry()
     # GENERATE
     frame.generate()
-    frame.plot(print_text=False)
+    #frame.plot(print_text=False)
     frame.f.draw()
     # Calculate
     frame.calculate()
     frame.plot_normal_force()
-    frame.bmd(10)
+    #frame.bmd(10)
 
-    
+    #frame.to_robot('portal_frame')
     
 def portal_frame2():
     # INITIALIZE EMPTY FRAME
-    frame = Frame2D()
+    frame = Frame2D(num_elements=1)
     # COLUMNS
     col1 = SteelColumn([[0,0],[0, 5]], profile="RHS 200x200x7.1")
     col2 = SteelColumn([[10,0],[10, 5]], profile="RHS 200x200x7.1")
@@ -283,45 +284,80 @@ def portal_frame2():
 
     top_chord = TopChord(coord1)
     bottom_chord = BottomChord(coord2)
-
+ 
     
     truss.add(top_chord)
     
     truss.add(bottom_chord)
     #truss.add(top_chord2)
     
-    members = 4
-    c1 = 0
-    c2 = 0
+    members = 2
+    c1 = 0.0
+    c2 = 0.0
     flip = False
-      
+    
+    
     for i in range(1,members+1):
         if i%2 == 0:
-            c1 = i /members
+            c1 = round(i/2 /members, 4)
             if c1 > 1:
                 c1 = 1
         elif i!=0:
-            c2 = i /members
+            c2 = round(i/2 /members, 4)
             if c2 > 1:
                 c2 = 1
         if flip:
             truss.add(TrussWeb(c1, c2))
         else:
             truss.add(TrussWeb(c2, c1))
-            
-    truss.plot()
-    plt.show()
+            truss.add(TrussWeb(1-c2, 1-c1))
+    
+    
+    lista = [[0.25, 0],
+             [0.25, 0.5],
+             [0.75, 0.5],
+             [0.75, 1]]
+    
+    
+    """
+    lista = [[0.2, 0.1],
+            [0.8, 0.9],
+            [0.2, 0.3],
+            [0.5, 0.3],
+            [0.5, 0.7],
+            [0.8, 0.7]]
+    """
+    
+    random.shuffle(lista)
+    
+    """
+    for val in lista:
+        a, b = val
+        truss.add(TrussWeb(a, b))
+    """
     frame.add(truss)
-    #frame.add(PointLoad([2.5, 2], [0, -100, 0]))
+    #frame.add(PointLoad([5, 2], [0, -100, 0]))
     frame.add(LineLoad(bottom_chord, [-10, -10], 'y'))
     frame.generate()
     frame.calculate()
     frame.plot()
-    frame.f.draw()
-    frame.bmd(100)
+    #frame.f.draw()
     frame.plot_normal_force()
-
-    print(len(bottom_chord.nodal_coordinates))
+    
+    K, u = frame.f.linear_statics()
+    #print(K)
+    
+    frame.bmd(100)
+    frame.to_robot('portal_test')
+    """
+    print("JOINTS")
+    for joint in truss.joints.values():
+        print(joint.jid, "  ", joint.coordinate, "  ", joint.loc)
+    
+    print(" \n ELEMENTS \n")
+    for i, elem in enumerate(frame.f.elements):
+        print(i, " ", elem.bending_moment)
+    """
     
 def frame_test():
     
@@ -362,7 +398,7 @@ def frame_test():
     
 
 if __name__ == '__main__':
-    portal_frame()
+    portal_frame2()
     #frame_test()
 
 """

@@ -710,6 +710,7 @@ class TrussJoint():
         coord1 : eccentricity coordinate on chord
         coord2 : web's new end coordinate
         """
+        
         # Chord's position vector
         v = np.array([math.cos(self.chord.angle), math.sin(self.chord.angle)])
         # Vector perpendicular to v
@@ -926,12 +927,12 @@ class TrussJoint():
         to the fem model.
         Eccentricity elements are modelled as infinitely rigid elements
         """
-        self.idx = len(fem_model.materials)
+        self.idx = len(fem_model.sections)
         
         # Material(E, nu, rho)
         fem_model.add_material(210e3, 0.3, 7850e-9)
         # BeamSection(A, Iy)
-        sect = BeamSection(1e10, 1e10)
+        sect = BeamSection(34680, 5538000000)
         fem_model.add_section(sect)
         
         # USE CHORD'S PROPERTIES

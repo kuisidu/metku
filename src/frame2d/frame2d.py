@@ -575,6 +575,7 @@ class Frame2D:
         profiles = []
         material = []
         releases = {}
+        pointloads = []
 
         for member in self.members.values():
             n1, n2 = member.coordinates
@@ -595,6 +596,13 @@ class Frame2D:
                 profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
             else:
                 profile = member.profile
+            # Webs
+            if member.mtype == "web" or member.mtype == "beam":
+                Sj1 = min(1e10, member.Sj1)
+                Sj2 = min(1e10, member.Sj2)
+                releases[elements.index(elem) +1] = f'ORIgin RY Hy={Sj1}  END RY Hy={Sj2}'
+
+                
 
             profiles.append(profile)
             material.append(member.material)
@@ -631,7 +639,6 @@ class Frame2D:
                     elements.append(elem)
                     profiles.append("HEA 1000")
                     material.append("S355")
-                    releases[elements.index(elem)+1] = "END RY"
                 # K joint
                 elif len(joint.nodal_coordinates) == 5:
                     coords = sorted(joint.nodal_coordinates)
@@ -653,10 +660,34 @@ class Frame2D:
                     material.append("S355")
                     profiles.append("HEA 1000")
                     material.append("S355")
-                    releases[elements.index(elem1)+1] = "END RY"
-                    releases[elements.index(elem2)+1] = "END RY"
+                    #releases[elements.index(elem1)+1] = "END RY"
+                    #releases[elements.index(elem2)+1] = "END RY"
                 else:
                     pass
+                
+        for pointload in self.point_loads.values():
+            try:
+                idx = nodes.index(pointload.coordinate)
+            except ValueError:
+                nodes.append(pointload.coordinate)
+                idx = nodes.index(pointload.coordinate) +1
+            FX, FZ, MY = pointload.v
+            if FX:
+                pointloads.append(f'    {idx} FX={FX}')
+            elif FX and FZ:
+                pointloads.append(f'    {idx} FX={FX}  FZ={FZ}')
+            elif FX and MY:
+                pointloads.append(f'    {idx} FX={FX}  MY={MY}')
+            elif FZ:
+                pointloads.append(f'    {idx} FZ={FZ}')
+            elif FZ and MY:
+                pointloads.append(f'    {idx} FZ={FZ}  MY={MY}')
+            elif MY:
+                pointloads.append(f'    {idx} MY={MY}')
+            elif FX and FZ and MY:
+                pointloads.append(f'    {idx} FX={FX}  FZ={FZ}  MY={MY}')
+                
+            
 
         with  open(PATH + filename + '.str', 'w') as f:
             f.write("ROBOT97 \n")
@@ -700,23 +731,31 @@ class Frame2D:
             
             f.write("LOAds \n")
             f.write("CASe # 1 LC1 \n")
-            f.write("ELEments \n")
-            for lineload in self.line_loads.values():
-                n1, n2 = lineload.member.coordinates
-                n1_idx = nodes.index(n1) + 1
-                n2_idx = nodes.index(n2) + 1
-                idx = elements.index([n1_idx, n2_idx]) + 1
-                if lineload.direction == 'y':
-                    dir = 'PZ'
-                else:
-                    dir = 'PX'
-                q0, q1 = lineload.values
-                if q0 != q1:
-                    f.write(f' {idx} X=0.0 {dir}={q0} TILl  ')
-                    f.write(f'X=1.000  {dir}={q1}      RElative \n')
+            if len(self.line_loads):
+                f.write("ELEments \n")
+                for lineload in self.line_loads.values():
+                    n1, n2 = lineload.member.coordinates
+                    n1_idx = nodes.index(n1) + 1
+                    n2_idx = nodes.index(n2) + 1
+                    idx = elements.index([n1_idx, n2_idx]) + 1
+                    if lineload.direction == 'y':
+                        dir = 'PZ'
+                    else:
+                        dir = 'PX'
+                    q0, q1 = lineload.values
+                    if q0 != q1:
+                        f.write(f' {idx} X=0.0 {dir}={q0} TILl  ')
+                        f.write(f'X=1.000  {dir}={q1}      RElative \n')
+    
+                    else:
+                        f.write(f' {idx} {dir}={q0} \n')
+            if len(pointloads):
+                f.write("NODes \n")
+                for val in pointloads:
+                    f.write(val + "\n")
+                    
 
-                else:
-                    f.write(f' {idx} {dir}={q0} \n')
+                
 
 
             f.write("END")
@@ -976,7 +1015,7 @@ class Frame2D:
     def hinge_joints(self):
         """ Set all beam-column joints to hinges
         """
-        MIN_VAL = 1e-20
+        MIN_VAL = 0
         for member in self.members.values():
             if member.mtype == "beam":
                 member.alpha1 = MIN_VAL
@@ -1558,10 +1597,9 @@ class FrameMember:
         sect_id = len(fem_model.sections)
         sect = fem.BeamSection(34680, 5538000000)
         fem_model.add_section(sect)
-        
-        
-        
+               
         for coordinates in self.ecc_coordinates:
+
             index = fem_model.nels()
             # n1 is the node connected to the column
             # n2 is hinged connection to chord
@@ -1569,7 +1607,7 @@ class FrameMember:
             n2 = fem_model.nodes[fem_model.nodal_coords.index(coordinates[1])]
             self.ecc_elements[index] = EBSemiRigidBeam(n1, n2, 
                                      fem_model.sections[self.mem_id], 
-                                     fem_model.materials[mat_id], 
+                                     fem_model.materials[self.mem_id], 
                                      rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[index])
         
@@ -1898,6 +1936,7 @@ class FrameMember:
                 y0 = self.nodal_coordinates[i][1]
                 bending_moment = self.nodal_forces[node][2]
                 y1 = bending_moment / (1000 / scale)
+
                 x = x0
                 y = y0 - y1
                 X.append(x)
