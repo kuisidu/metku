@@ -267,7 +267,7 @@ def portal_frame():
     
 def portal_frame2():
     # INITIALIZE EMPTY FRAME
-    frame = Frame2D(num_elements=1)
+    frame = Frame2D(num_elements=4)
     # COLUMNS
     col1 = SteelColumn([[0,0],[0, 5]], profile="RHS 200x200x7.1")
     col2 = SteelColumn([[10,0],[10, 5]], profile="RHS 200x200x7.1")
@@ -284,16 +284,14 @@ def portal_frame2():
 
     top_chord = TopChord(coord1)
     bottom_chord = BottomChord(coord2)
- 
-    
+     
     truss.add(top_chord)
-    
     truss.add(bottom_chord)
-    #truss.add(top_chord2)
+
     
-    members = 2
+    members = 1
     c1 = 0.0
-    c2 = 0.0
+    c2 = 0.
     flip = False
     
     
@@ -309,8 +307,8 @@ def portal_frame2():
         if flip:
             truss.add(TrussWeb(c1, c2))
         else:
-            truss.add(TrussWeb(c2, c1))
-            truss.add(TrussWeb(1-c2, 1-c1))
+            truss.add(TrussWeb(c2, c1, Sj1=np.inf, Sj2=np.inf))
+            truss.add(TrussWeb(1-c2, 1-c1, Sj1=np.inf, Sj2=np.inf))
     
     
     lista = [[0.25, 0],
@@ -337,17 +335,16 @@ def portal_frame2():
     """
     frame.add(truss)
     #frame.add(PointLoad([5, 2], [0, -100, 0]))
-    frame.add(LineLoad(bottom_chord, [-10, -10], 'y'))
+    frame.add(LineLoad(top_chord, [-10, -10], 'y'))
+    frame.plot()
     frame.generate()
     frame.calculate()
-    frame.plot()
-    #frame.f.draw()
+    frame.f.draw()
     frame.plot_normal_force()
     
-    K, u = frame.f.linear_statics()
     #print(K)
     
-    frame.bmd(100)
+    frame.bmd(50)
     frame.to_robot('portal_test')
     """
     print("JOINTS")
@@ -356,6 +353,7 @@ def portal_frame2():
     
     print(" \n ELEMENTS \n")
     for i, elem in enumerate(frame.f.elements):
+        print(type(elem))
         print(i, " ", elem.bending_moment)
     """
     
@@ -396,9 +394,141 @@ def frame_test():
     frame.bmd(10)
     
     
+def truss_test():
+
+    truss = Truss2D(num_elements=2)
+    
+    coord1 = [[2,5], [8,5]]
+    coord2 = [[0,2], [10,2]]   
+
+    top_chord = TopChord(coord1)
+    bottom_chord = BottomChord(coord2)
+ 
+    
+    truss.add(top_chord)
+    
+    truss.add(bottom_chord)
+    #truss.add(top_chord2)
+    
+    members = 4
+    c1 = 0.0
+    c2 = 0.0
+    flip = False
+    
+    #truss.add(TrussWeb(0, 0, Sj1=np.inf, Sj2=np.inf))
+    #truss.add(TrussWeb(1, 1, Sj1=np.inf, Sj2=np.inf))
+
+    for i in range(1,members+1):
+        if i%2 == 0:
+            c1 = round(i/2 /members, 4)
+            if c1 > 1:
+                c1 = 1
+        elif i!=0:
+            c2 = round(i/2 /members, 4)
+            if c2 > 1:
+                c2 = 1
+        if flip:
+            truss.add(TrussWeb(c1, c2))
+        else:
+            truss.add(TrussWeb(c2, c1, Sj1=np.inf, Sj2=np.inf))
+            truss.add(TrussWeb(1-c2, 1-c1, Sj1=np.inf, Sj2=np.inf))
+            
+    
+    truss.add(XYHingedSupport([0,2]))
+    truss.add(XYHingedSupport([10,2]))
+    truss.add(LineLoad(top_chord, [-10, -10], 'y'))
+
+    frame = Frame2D(fem=truss.f)
+    frame.add(truss)
+    frame.generate()
+    
+    for joint in truss.joints.values():
+        print(joint.loc)
+    truss.calculate()
+    truss.f.draw()
+    truss.bmd(10)
+    truss.to_robot('truss_test')
+
+def frame_truss():
+    
+    frame = Frame2D(num_elements=10)
+    
+    top_coord = [[0,5], [10,5]]
+    bot_coord = [[0.1, 2], [9.9, 2]]
+    
+    col1_coord = [[0,0], [0, 4.95]]
+    col2_coord = [[10, 0], [10, 4.95]]
+    
+    ecc1_coord = [[0,4.95], [0, 5]]
+    ecc2_coord = [[0, 2], [0.1, 2]]
+    ecc3_coord = [[10, 4.95], [10, 5]]
+    ecc4_coord = [[9.9, 2], [10, 2]]
+    
+    web1_coord = [[0.05, 4.95], [4.95, 2.05]]
+    web2_coord = [[5.05, 2.05], [9.95, 4.95]]
+    
+    ecc5_coord = [[0.05, 5], [0.05, 4.95]]
+    ecc6_coord = [[4.95, 2], [4.95, 2.05]]
+    ecc7_coord = [[5.05, 2], [5.05, 2.05]]
+    ecc8_coord = [[9.95, 4.95], [9.95, 5]]
+    
+
+    
+    col1 = SteelColumn(col1_coord, profile="RHS 200x200x7.1")
+    col2 = SteelColumn(col2_coord, profile="RHS 200x200x7.1")
+    
+    top_chord = SteelBeam(top_coord, profile="RHS 100x100x5")
+    bottom_chord = SteelBeam(bot_coord, profile="RHS 100x100x5")
+    
+    web1 = SteelBeam(web1_coord, profile="RHS 50x50x2")
+    web2 = SteelBeam(web2_coord, profile="RHS 50x50x2")
+    
+    ecc1 = SteelColumn(ecc1_coord, profile="he 1000 a")
+    ecc2 = SteelColumn(ecc2_coord, profile="he 1000 a")
+    ecc3 = SteelColumn(ecc3_coord, profile="he 1000 a")
+    ecc4 = SteelColumn(ecc4_coord, profile="he 1000 a")
+    ecc5 = SteelColumn(ecc5_coord, profile="he 1000 a")
+    ecc6 = SteelColumn(ecc6_coord, profile="he 1000 a")
+    ecc7 = SteelColumn(ecc7_coord, profile="he 1000 a")
+    ecc8 = SteelColumn(ecc8_coord, profile="he 1000 a")
+    
+    
+    #web3 = SteelBeam([[1, 2], [1.5, 1]], profile="RHS 50x50x2")
+    #web4 = SteelBeam([[1.5, 1], [2, 2]], profile="RHS 50x50x2")
+    
+    frame.add(col1)
+    frame.add(col2)
+    frame.add(top_chord)
+    frame.add(bottom_chord)
+    frame.add(web1)
+    frame.add(web2)
+    #frame.add(web3)
+    #frame.add(web4)
+    frame.add(ecc1)
+    frame.add(ecc2)
+    frame.add(ecc3)
+    frame.add(ecc4)
+    frame.add(ecc5)
+    frame.add(ecc6)
+    frame.add(ecc7)
+    frame.add(ecc8)
+
+    frame.add(LineLoad(top_chord, [-10, -10], 'y'))
+    
+    frame.add(FixedSupport([0,0]))
+    frame.add(FixedSupport([10, 0]))
+    
+    frame.generate()
+    frame.calculate()
+    frame.plot()
+    frame.bmd(50)
+    frame.plot_normal_force()
+
+    frame.to_robot("testi")
 
 if __name__ == '__main__':
-    portal_frame2()
+    frame_truss()
+    #portal_frame2()
     #frame_test()
 
 """
