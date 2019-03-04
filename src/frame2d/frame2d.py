@@ -19,7 +19,7 @@ from sections.steel.catalogue import mat as MATERIALS
 
 from structures.steel.steel_member import SteelMember
 
-PREC = 5
+PREC = 3
 
 # profiles from lightest to heaviest
 PROFILES = [
@@ -572,15 +572,14 @@ class Frame2D:
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
-
+        
         for member in self.members.values():
-            member.round_coordinates()
+            member.round_coordinates()           
             member.generate(self.f)
             for coord in member.nodal_coordinates:
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
             self.nodes.extend(list(member.nodes.values()))
-
         # Generate TrussJoints
         if self.truss:
             for joint in self.truss.joints.values():
@@ -2121,7 +2120,7 @@ class FrameMember:
         y = (X[1][1] + X[0][1]) / 2
         horzalign = 'center'
         vertalign = 'center'         
-        plt.text(x, y, f'{self.ned:.3f}  kN,\nr: {r*100:.2f} %',
+        plt.text(x, y, f'{self.ned:.2f}  kN,\nr: {r*100:.2f} %',
                  rotation=rot, horizontalalignment=horzalign,
                  verticalalignment=vertalign)
 
@@ -2131,7 +2130,10 @@ class FrameMember:
     #:param coords: 2D-array of float, line load's start and end coordinates
     #:return element_ids: array of int, elements id's
 
+
         start, end = coords
+        start = [round(c, PREC) for c in start]
+        end = [round(c, PREC) for c in end]
         start_idx = self.nodal_coordinates.index(start)
         end_idx = self.nodal_coordinates.index(end)
         element_ids = self.element_ids[start_idx:end_idx]

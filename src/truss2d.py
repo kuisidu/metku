@@ -14,61 +14,104 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-PREC = 5
+PREC = 3
 
 class Truss2D(Frame2D):
-    def __init__(self, simple=None, num_elements=2, fem=FrameFEM()):
+    def __init__(self, simple=None, flip=False, num_elements=2, fem=FrameFEM()):
         super().__init__(num_elements=num_elements, fem=fem)
         self.top_chords = []
         self.bottom_chords = []
         self.webs = {}
         self.joints = {}
+        self.flip = flip
 
-        if simple:
-            H0, H, L, n = simple
+        if len(simple) == 4:
+            H0, H1, L1, n = simple
             self.H0 = H0
-            self.H = H
-            self.L = L
+            self.H1 = H1
+            self.H2 = 0
+            self.H3 = H1
+            self.L1 = L1/2
+            self.L2 = 0
+            self.n = n
+            self.generate_chords()
+            self.generate_webs()
+        elif len(simple) == 5:
+            H0, H1, H2, L1, n = simple
+            self.H0 = H0
+            self.H1 = H1
+            self.H2 = H2
+            self.H3 = H1
+            self.L1 = L1 / 2
+            self.L2 = L1 / 2
+            self.n = n
+            self.generate_chords()
+            self.generate_webs()
+        elif len(simple) == 6:
+            H0, H1, H2, L1, L2, n = simple
+            self.H0 = H0
+            self.H1 = H1
+            self.H2 = H2
+            self.H3 = H1
+            self.L1 = L1
+            self.L2 = L2
+            self.n = n
+            self.generate_chords()
+            self.generate_webs()
+        elif len(simple) == 7:  
+            H0, H1, H2, H3, L1, L2, n = simple
+            self.H0 = H0
+            self.H1 = H1
+            self.H2 = H2
+            self.H3 = H3
+            self.L1 = L1
+            self.L2 = L2
             self.n = n
             self.generate_chords()
             self.generate_webs()
             
     def generate_chords(self):
-        self.add(TopChord([[0,self.H0 + self.H],[self.L,self.H0 + self.H]]))
-        self.add(BottomChord([[0,self.H0],[self.L,self.H0]]))
+        #self.add(TopChord([[0,self.H0 + self.H1],[self.L,self.H0 + self.H1]]))
+        #self.add(BottomChord([[0,self.H0],[self.L,self.H0]]))
         
+        if self.H2:
+            self.add(TopChord([[0,self.H0 + self.H1],
+                               [self.L1,self.H0 + self.H2]]))
+            self.add(TopChord([[self.L1,self.H0 + self.H2],
+                               [self.L1 + self.L2, self.H0 + self.H3]]))
+    
+        else:
+            self.add(TopChord([[0,self.H0 + self.H1],
+                               [self.L1*2,self.H0 + self.H1]]))
+
+        self.add(BottomChord([[0, self.H0],
+                              [self.L1 + self.L2, self.H0]]))
+
+                 
     def generate_webs(self):
-        top_nodes = self.n // 2 + 1
-        bottom_nodes = top_nodes - 1
-        
-        dL1 = 1 / bottom_nodes
-        dL2 = 1 / bottom_nodes
-        """
-        x1 = 0
-        x2 = dL2/2
-        
-        for i in range(self.n):
-            self.add(TrussWeb(x2, x1))
-            if i%2 == 0:            
-                x1 += dL1
-            else:
-                x2 += dL2
-        """  
+
         c1 = 0.0
         c2 = 0.0
-
         for i in range(1,int(self.n/2)+1):
             if i%2 == 0:
                 c1 = round(i/self.n, 4)
                 if c1 > 1:
                     c1 = 1
+                if self.H2 and not self.flip:
+                    c1 = min(0.99, c1*2)
             elif i!=0:
                 c2 = round(i/self.n, 4)
                 if c2 > 1:
                     c2 = 1
-
-            self.add(TrussWeb(c2, c1))
-            self.add(TrussWeb(1-c2, 1-c1))
+                if self.flip:
+                    c2 = min(0.99, c2*2)
+            
+            if self.flip:
+                self.add(TrussWeb(c1, c2))
+                self.add(TrussWeb(1-c1, 1-c2))
+            else:
+                self.add(TrussWeb(c2, c1))
+                self.add(TrussWeb(1-c2, 1-c1))
         
 
     def add(self, this):
@@ -92,32 +135,33 @@ class Truss2D(Frame2D):
                 # Calculate web's global coordinates
                 bottom_chord = self.bottom_chords[0]
                 c01 = self.bottom_chords[0].local(this.bot_loc)
-                top_chord = self.top_chords[0]
-                c02 = self.top_chords[0].local(this.top_loc)
+                for top_chord in self.top_chords:
+                    if c01[0] <= top_chord.coordinates[1][0]:
+                        c02 = top_chord.local(this.top_loc)
+                        break
                 # Change web's coordinates to global coordinates
                 this.bot_coord = c01
                 this.top_coord =  c02
             else:
+                # Sort by y-coordinate
                 c01, c02 = sorted(this.coordinates, key=lambda x: x[1])
                 # Find corresponding bottom chord
                 for chord in self.bottom_chords:
                     if chord.point_intersection(c01):
                         bottom_chord = chord
-                        # Calculate local coordinate
-                        x0, y0 = bottom_chord.coordinates[0]
-                        x1, y1 = c01
-                        L = np.sqrt((x1-x0)**2 + (y1-y0)**2)
-                        this.bot_loc = L / bottom_chord.length
+                        this.bot_loc = bottom_chord.global_coord(c01)
                         break 
-                if UnboundLocalError and not bottom_chord:
+                else:
+                #if UnboundLocalError and not bottom_chord:
                     raise ValueError("Web's coordinates doesn't match bottom chord's coordinates")                     
                 # Find corresponding top chord
-                for chord in self.top_chords:                 
+                for chord in self.top_chords:   
                     if chord.global_coord(c02) <= 1 and c01[0] <= chord.coordinates[1][0]:
                         top_chord = chord
                         this.top_loc = top_chord.global_coord(c02)
                         break   
-                if UnboundLocalError and not top_chord:
+                else:
+                #if UnboundLocalError and not top_chord:
                     raise ValueError("Web's coordinates doesn't match top chord's coordinates")
             # Check if there's already a joint at given location
             # if not, create a new joint
@@ -268,21 +312,20 @@ class TrussMember(FrameMember):
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        coord = [round(c, PREC) for c in coord]
-        if self.shape(coord[0]) == coord[1]:
-            
-            if coord not in self.nodal_coordinates and self.point_intersection(coord):
-                self.added_coordinates.append(coord)
-                self.nodal_coordinates.append(coord)
-                self.nodal_coordinates.sort()
-                x, y = coord
-                x1, y1 = self.coordinates[0]
-                dx = x - x1
-                dy = y - y1
-                dz = math.sqrt((dx ** 2 + dy ** 2))
-                z = dz / self.length
-                self.loc.append(z)
-                self.loc.sort()
+        
+        #if self.shape(coord[0]) == coord[1]:
+        if coord not in self.added_coordinates and self.point_intersection(coord):
+            self.added_coordinates.append(coord)
+            self.nodal_coordinates.append(coord)
+            self.nodal_coordinates.sort()
+            x, y = coord
+            x1, y1 = self.coordinates[0]
+            dx = x - x1
+            dy = y - y1
+            dz = math.sqrt((dx ** 2 + dy ** 2))
+            z = dz / self.length
+            self.loc.append(z)
+            self.loc.sort()
     
     def calc_nodal_coordinates(self, num_elements=0):
         """
@@ -378,11 +421,12 @@ class TrussMember(FrameMember):
         if 0 >= value >= 1:
             raise ValueError('Value must be between 0 and 1')
         start_node, end_node = self.coordinates
-
+        
+        v = np.array([math.cos(self.angle), math.sin(self.angle)])
+        
         x0, y0 = start_node
-        Lx = end_node[0] - start_node[0]
-
-        return [Lx * value + x0, self.shape(Lx * value + x0)]
+        Lx = self.length * value
+        return list(np.asarray(start_node) + Lx * v)
     
     
     def global_coord(self, value):
@@ -808,6 +852,7 @@ class TrussJoint():
         6: Save coordinates 
         
         """
+        
         # Chord's position vector
         v = np.array([math.cos(self.chord.angle), math.sin(self.chord.angle)])
         # Vector perpendicular to v
@@ -816,9 +861,9 @@ class TrussJoint():
         for coord in self.nodal_coordinates:
             if coord in self.chord.added_coordinates:
                 self.chord.added_coordinates.remove(coord)
-            if coord in self.chord.nodal_coordinates and \
-                coord not in self.chord.coordinates:
-                self.chord.nodal_coordinates.remove(coord)
+            #if coord in self.chord.nodal_coordinates and \
+            #    coord not in self.chord.coordinates:
+            #    self.chord.nodal_coordinates.remove(coord)
         # Initialize nodal coordinates as an empty array
         self.nodal_coordinates = []
         central_coord = np.asarray(self.coordinate)
@@ -827,7 +872,6 @@ class TrussJoint():
 
         # Add joint's central coordinate to joint's and chord's list
         self.add_node_coord(list(central_coord))
-        
         # If joint type is Y or T
         if len(self.webs) == 1:
             web = list(self.webs.values())[0]
@@ -853,7 +897,6 @@ class TrussJoint():
                 """
                 coord1 = list(central_coord)
                 coord2 = list(np.asarray(coord1) - u *ecc_y)
-
                 self.add_node_coord(coord2)
                 self.chord.add_node_coord(coord1)
                 web.top_coord = coord2
@@ -956,7 +999,7 @@ class TrussJoint():
                         self.chord.add_node_coord(coord1)
                         # Node coordinate on web's end
                         self.add_node_coord(list(coord2))
-                
+                        
         # Move existing nodes
         if len(self.nodes):
             for i, node in enumerate(self.nodes.values()):                
