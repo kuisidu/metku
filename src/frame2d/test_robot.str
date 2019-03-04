@@ -1,0 +1,33 @@
+ROBOT97 
+NUMbering DIScontinuous 
+NODes 4  ELEments 3 
+UNIts 
+LENgth=m	Force=kN 
+NODes 
+1   0    0 
+2   0    10 
+3   14    0 
+4   14    10 
+ELEments 
+ 1  1    2 
+ 2  3    4 
+ 3  2    4 
+PROperties 
+ "S355" 
+ 1   HEB300    
+ "S355" 
+ 2   HEB300    
+ "S355" 
+ 3   HEA550    
+SUPports 
+1  RY 
+3  RY 
+RELeases 
+ELEments3 ORIgin RY Hy=0.0001  END RY Hy=0.0001 
+LOAds 
+CASe # 1 LC1 
+ELEments 
+ 1 PX=4 
+ 2 PX=2 
+ 3 PZ=-33 
+END

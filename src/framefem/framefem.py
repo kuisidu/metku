@@ -118,6 +118,7 @@ class FrameFEM:
         :type x: float
         :type y: float
         """
+
         newNode = FEMNode(x, y)
         self.nodal_coords.append([x, y])
 
@@ -942,8 +943,10 @@ class Element(metaclass=ABCMeta):
 
         """
         X = self.coord()
-        L = np.linalg.norm(X[1, :] - X[0, :])
-        return L
+        L = np.linalg.norm(X[1] - X[0])
+        
+        
+        return round(L, 3)
 
     @abstractclassmethod
     def local_stiffness_matrix(self):

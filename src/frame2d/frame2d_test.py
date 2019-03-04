@@ -1,5 +1,6 @@
 from frame2d import Frame2D, SteelBeam, SteelColumn, PointLoad,\
-     FixedSupport, XHingedSupport, LineLoad, YHingedSupport, XYHingedSupport
+     FixedSupport, XHingedSupport, LineLoad, YHingedSupport, XYHingedSupport,\
+     Hinge
 
 import random
 from decimal import Decimal
@@ -244,16 +245,15 @@ def test8():
     #frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
     frame.hinge_joints()
     frame.generate()
-    
     frame.calculate()
-    for elem in frame.members[0].elements.values():
-        print(elem.bending_moment[0])
-    print(elem.bending_moment[1])
+    #for elem in frame.members[0].elements.values():
+    #    print(elem.bending_moment[0])
+    #print(elem.bending_moment[1])
     frame.f.draw()
     frame.bmd(10)
     #frame.plot_buckling(50, 2)
-    
     frame.to_robot('test_robot')
+    
 
 def test9():
     """
@@ -277,7 +277,7 @@ def test9():
 def test10():
     frame = Frame2D(num_elements=2)
     
-    coord1 = [[0,1], [5,2]]
+    coord1 = [[0,1], [5,1]]
     coord2 = [[0,0], [5,0]]
     
     top_chord = SteelBeam(coord1)
@@ -287,7 +287,7 @@ def test10():
     
 
     dx = coord1[1][0]/(members-1)
-    y = lambda x: x*(coord1[1][1]- coord1[0][1]) / (coord1[1][0]- coord1[0][0])+coord1[0][1]
+    y = lambda x: 1
     c1 = copy.copy(coord1[0])
     c2 = copy.copy(coord2[0])
     for i in range(members):       
@@ -311,15 +311,16 @@ def test10():
     frame.add(top_chord)
     frame.add(bottom_chord)
     frame.add(LineLoad(top_chord, [-50, -50], 'y'))
-    frame.add(XYHingedSupport(coord2[0]))
-    frame.add(YHingedSupport(coord2[1]))
+    frame.add(FixedSupport(coord2[0]))
+    frame.add(FixedSupport(coord2[1]))
     frame.generate()
-    frame.hinge_joints()
+    #frame.hinge_joints()
     frame.plot()
     frame.calculate()
-    frame.bmd()
+    frame.bmd(5)
     frame.f.draw()
 
+    frame.to_robot("frame-truss-test")
 
 def test_all():
     test1()
@@ -334,7 +335,6 @@ def test_all():
     test10()
 
 if __name__ == '__main__':
-
     test8()
 
     """

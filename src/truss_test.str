@@ -1,0 +1,85 @@
+ROBOT97 
+NUMbering DIScontinuous 
+NODes 20  ELEments 14 
+UNIts 
+LENgth=m	Force=kN 
+NODes 
+1   0    5 
+2   10    5 
+3   0    2 
+4   10    2 
+5   0.08    2.05 
+6   2.443    4.95 
+7   7.557    4.95 
+8   9.92    2.05 
+9   2.557    4.95 
+10   4.943    2.05 
+11   5.057    2.05 
+12   7.443    4.95 
+13   0.08    2.0 
+14   2.443    5.0 
+15   2.557    5.0 
+16   9.92    2.0 
+17   7.443    5.0 
+18   7.557    5.0 
+19   4.943    2.0 
+20   5.057    2.0 
+ELEments 
+ 1  1    2 
+ 2  3    4 
+ 3  5    6 
+ 4  7    8 
+ 5  9    10 
+ 6  11    12 
+ 7  13    5 
+ 8  6    14 
+ 9  9    15 
+ 10  16    8 
+ 11  12    17 
+ 12  7    18 
+ 13  19    10 
+ 14  20    11 
+PROperties 
+ "S355" 
+ 1   RRHS 100X100X5    
+ "S355" 
+ 2   RRHS 100X100X5    
+ "S355" 
+ 3   RRHS 50X50X2    
+ "S355" 
+ 4   RRHS 50X50X2    
+ "S355" 
+ 5   RRHS 50X50X2    
+ "S355" 
+ 6   RRHS 50X50X2    
+ "S355" 
+ 7   HEA 1000    
+ "S355" 
+ 8   HEA 1000    
+ "S355" 
+ 9   HEA 1000    
+ "S355" 
+ 10   HEA 1000    
+ "S355" 
+ 11   HEA 1000    
+ "S355" 
+ 12   HEA 1000    
+ "S355" 
+ 13   HEA 1000    
+ "S355" 
+ 14   HEA 1000    
+SUPports 
+3  
+4  
+RELeases 
+ELEments1 ORIgin RY Hy=10000000000.0  END RY Hy=10000000000.0 
+ELEments2 ORIgin RY Hy=10000000000.0  END RY Hy=10000000000.0 
+ELEments3 ORIgin RY Hy=10000000000.0  END RY Hy=10000000000.0 
+ELEments4 ORIgin RY Hy=10000000000.0  END RY Hy=10000000000.0 
+ELEments5 ORIgin RY Hy=10000000000.0  END RY Hy=10000000000.0 
+ELEments6 ORIgin RY Hy=10000000000.0  END RY Hy=10000000000.0 
+LOAds 
+CASe # 1 LC1 
+ELEments 
+ 1 PZ=-10 
+END

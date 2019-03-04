@@ -243,10 +243,10 @@ class HEB(ISection):
     """ European wide flange sections
         Subclass of ISection        
     """
-    def __init__(self,height=100,fy=355,catalogue=False):
+    def __init__(self,height=100,fy=355,catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'B'
         # H,B,tf,tb,r,fy=355
-        if catalogue:
+        if name in profile.keys():
             H=profile[name]['h']
             B=profile[name]['b']
             tf = profile[name]['t_f']
