@@ -865,6 +865,7 @@ class Frame2D:
             self.plot_loads()
         plt.axis('equal')
         if show:
+            plt.axis('equal')
             plt.show()
 
     def plot_loads(self):
@@ -1199,7 +1200,7 @@ class FrameMember:
         self.loads = []
         self.is_designed = False
         self.is_strong_enough = False
-        self.r = 1
+        self.r = np.ones(7)
         self.self_weight = False
         self.is_generated = False
         # Lineload values
@@ -1238,24 +1239,21 @@ class FrameMember:
         """ Returns bending resistance
             Units: Nmm
         """
-        MRd, C = self.cross_section.bending_resistance()
-        return MRd
+        return self.cross_section.MRd
     
     @property
     def NRd(self):
         """ Returns axial force resistance
             Units: N
         """
-        NRd = self.cross_section.axial_force_resistance()
-        return NRd
+        return self.cross_section.NRd
     
     @property
     def VRd(self):
         """ Returns shear force resistance
             Units: N
         """
-        VRd = self.cross_section.shear_force_resistance()
-        return VRd
+        return self.cross_section.VRd
     
     
     @property
@@ -1819,13 +1817,13 @@ class FrameMember:
                 self.steel_member.myed[i] = forces[2] * 1e6  # kNm to Nmm
         
         # Cross-sectional stress ratios in member's nodes' locations
-        self.r = self.steel_member.check_sections()
+        self.r[:4] = self.steel_member.check_sections()
         # Buckling about y - and z - axis 
         buckling_r = self.steel_member.check_buckling()
-        self.r.append(buckling_r[0])
-        self.r.append(buckling_r[1])
+        self.r[4] = buckling_r[0]
+        self.r[5] = buckling_r[1]
         # Lateral-Torsional buckling
-        self.r.append(self.steel_member.check_LT_buckling())
+        self.r[6] = self.steel_member.check_LT_buckling()
         # Set cross-section's maximum forces for getting results later       
         self.cross_section.Ned = self.ned * 1e3  # kN to N
         self.cross_section.Ved = self.ved * 1e3  # kN to N
@@ -1989,8 +1987,8 @@ class FrameMember:
         for i in range(len(self.nodes)):
             node = node_ids[i]
             if self.mtype == "beam":
-                x0 = self.nodal_coordinates[i][0]
-                y0 = self.nodal_coordinates[i][1]
+                x0 = self.nodal_coordinates[i+1][0]
+                y0 = self.nodal_coordinates[i+1][1]
                 bending_moment = self.nodal_forces[node][2]
                 y1 = bending_moment / (1000 / scale)
 
@@ -2007,8 +2005,8 @@ class FrameMember:
                     plt.text(x, y, f'{bending_moment:.2f} kNm', verticalalignment=vert)
 
             elif self.mtype == "column":
-                x0 = self.nodal_coordinates[i][0]
-                y0 = self.nodal_coordinates[i][1]
+                x0 = self.nodal_coordinates[i+1][0]
+                y0 = self.nodal_coordinates[i+1][1]
                 bending_moment = self.nodal_forces[node][2]
                 x1 = bending_moment / (1000 / scale)
                 x = x0 + x1
@@ -2094,11 +2092,11 @@ class FrameMember:
     def plot_normal_force(self):
         X = self.coordinates
         if self.ned < 0:          
-            r = min(1, max(self.steel_member.check_buckling()))
+            r = min(1, max(self.r[4:5]))
             alpha = max(0.1, r)
             color = (1,0.5-r/2,0, alpha)
         else:
-            r = min(1, self.steel_member.check_section())
+            r = min(1, self.r[0])
             alpha = max(0.1, r)
             color = (0,0.5-r/2,1, alpha)
         # Plot members

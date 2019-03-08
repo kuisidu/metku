@@ -8,7 +8,7 @@ from frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from framefem.elements import EBBeam, EBSemiRigidBeam
 #from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 from framefem import FrameFEM, BeamSection
-from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint
+from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
 
 import math
 import numpy as np
@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 PREC = 3
 
 class Truss2D(Frame2D):
-    def __init__(self, simple=None, flip=False, num_elements=2, fem=FrameFEM()):
+    def __init__(self, simple=[], flip=False, num_elements=2, fem=FrameFEM()):
         super().__init__(num_elements=num_elements, fem=fem)
         self.top_chords = []
         self.bottom_chords = []
@@ -735,6 +735,7 @@ class TrussJoint():
         # Index for eccentricity elements' material and section
         self.idx = None
         self.rhs_joint = None
+        self.r = []
                 
     def add_node_coord(self, coord):
         coord = [round(c, PREC) for c in coord]
@@ -766,8 +767,9 @@ class TrussJoint():
             self.coordinate = local
         # local coordinate
         elif isinstance(val, float):
-            self.loc = val
-            self.calc_nodal_coordinates()
+            if 0 <= val <= 1:
+                self.loc = val
+                self.calc_nodal_coordinates()
                         
     @property
     def g1(self):
@@ -786,39 +788,63 @@ class TrussJoint():
     def g2(self, val):
         self.__g2 = val
         self.calc_nodal_coordinates()
-               
+        
     def calculate(self):
         """
         """
-        if self.joint_type == "K":
-            self.rhs_joint = RHSKGapJoint(self.chord.cross_section,
-                                         [w.cross_section for w in self.webs.values()],
-                                         [math.degrees(w.angle) for w in self.webs.values()],
-                                         self.g1 * 1000) # m to mm
-        elif self.joint_type == 'N':
-            pass
+        NEd0 = [elem.axial_force for elem in self.chord.elements.values() if
+                self.cnode in elem.nodes]
+        # item for sublist in list for item in sublist
+        NEd0 = [N for forces in NEd0 for N in forces]
+        maxN = max(NEd0)
+        minN = min(NEd0)
+        if abs(minN) > maxN:
+            NEd0 = minN
+        else:
+            NEd0 = maxN
+        
+        if self.joint_type == "K" or self.joint_type == 'N':
+            NEd1, NEd2 = [w.ned for w in self.webs.values()]
+            wNEd = np.array([NEd1, NEd2])
+            # Resistances
+            r1 = self.chord_face_failure()
+            r2 = self.punching_shear()
+            r3 = self.brace_failure()
+            r4 = self.chord_shear()
+            # Stress ratios
+            r1 = abs(wNEd / r1)
+            r2 = abs(wNEd / r2)
+            r3 = abs(wNEd / r3)
+            r5 = abs(NEd0 / r4[1]) # chord
+            r4 = abs(wNEd / r4[0])
+            
+            maxR_for_webs = np.max((r1, r2, r3, r4), axis=0)
+            maxR = np.append(maxR_for_webs, r5)
+            return maxR
+
         elif self.joint_type == 'Y':
-            pass
+            NEd1 = [w.ned for w in self.webs.values()][0]
+            
+            r1 = self.chord_face_failure()
+            r2 = self.chord_web_buckling()
+            r3 = self.brace_failure()
+            
+            r1 = abs(NEd0 / r1)
+            r2 = abs(NEd0 / r2)
+            r3 = abs(NEd1 / r3)
+            
+            maxR = [r3, max(r1, r2)]
+            return maxR
         elif self.joint_type == 'KT':
             pass
-        if self.rhs_joint:
-            self.rhs_joint.V0 = max([max(V.shear_force) for V in self.chord_elements.values()])
-            # Chord face failure
-            r1 = self.rhs_joint.chord_face_failure() / 1000 # N to kN
-            # Punching shear
-            r2 = self.rhs_joint.punching_shear() / 1000 # N to kN
-            # Brace failure
-            r3 = self.rhs_joint.brace_failure() / 1000 # N to kN
-            
-            return [r1, r2, r3]
-    
+        
     def chord_face_failure(self):
         if self.rhs_joint:
             results = self.rhs_joint.chord_face_failure() 
             return results / 1000
     
     def punching_shear(self):
-        if self.rhs_joint:
+        if self.rhs_joint and self.joint_type == 'K':
             results = self.rhs_joint.punching_shear() 
             return results / 1000
         
@@ -828,11 +854,20 @@ class TrussJoint():
             return results / 1000 # N to kN
     
     def chord_shear(self):
-        if self.rhs_joint:
-            self.rhs_joint.V0 = max([max(V.shear_force) for V in self.chord_elements.values()])
-            results = self.rhs_joint.chord_shear()
-            return results 
-    
+        if self.rhs_joint and self.joint_type == 'K':
+            V0 = [elem.shear_force for elem in self.chord.elements.values() if
+                  self.cnode in elem.nodes]
+            # item for sublist in list for item in sublist
+            V0 = [abs(V) for forces in V0 for V in forces]
+            V0 = max(V0)
+            self.rhs_joint.V0 = V0 * 1e3 # kN to N
+            results = [r / 1000 for r in self.rhs_joint.chord_shear()]
+            return results
+        
+    def chord_web_buckling(self):
+        if self.rhs_joint and self.joint_type == 'Y':
+            return self.rhs_joint.chord_web_buckling() / 1000
+        
     def calc_nodal_coordinates(self):
         """
         Calculates eccentricity nodes coordinates and adds them to chord's
@@ -1010,15 +1045,25 @@ class TrussJoint():
             pass
         elif len(self.nodal_coordinates) == 2:
             self.joint_type = 'Y'
+            self.rhs_joint = RHSYJoint(self.chord.cross_section,
+                                       [w.cross_section for w in self.webs.values()][0],
+                                       theta)
         elif len(self.nodal_coordinates) == 3:
             self.joint_type = 'Y'
+            self.rhs_joint = RHSYJoint(self.chord.cross_section,
+                                       [w.cross_section for w in self.webs.values()][0],
+                                       theta)
         elif len(self.nodal_coordinates) == 4:
             self.joint_type = 'N'
+            self.rhs_joint = RHSKGapJoint(self.chord.cross_section,
+                             [w.cross_section for w in self.webs.values()],
+                             [math.degrees(self.chord.angle - w.angle) for w in self.webs.values()],
+                             self.g1 * 1000) # m to mm
         elif len(self.nodal_coordinates) == 5:
             self.joint_type = 'K'
             self.rhs_joint = RHSKGapJoint(self.chord.cross_section,
                                          [w.cross_section for w in self.webs.values()],
-                                         [math.degrees(w.angle) for w in self.webs.values()],
+                                         [math.degrees(self.chord.angle - w.angle) for w in self.webs.values()],
                                          self.g1 * 1000) # m to mm
         elif len(self.nodal_coordinates) == 6:
             self.joint_type = 'KT'
