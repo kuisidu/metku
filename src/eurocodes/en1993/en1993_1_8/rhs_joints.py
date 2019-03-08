@@ -10,7 +10,7 @@ EN 1993-1-8 Rules for connections
 import math
 import numpy as np
 
-from eurocodes.en1993.constants import gammaM5
+from eurocodes.en1993.constants import gammaM5, E
 
 class RHSJoint:
     """ Class for joints between RHS members """
@@ -178,8 +178,12 @@ class RHSKGapJoint(RHSJoint):
         fy0 = self.fy0()
         # braces
         NiRd = fy0*Aeta/math.sqrt(3)/s/gammaM5
-        # chord                                         
-        N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0*1e3/self.chord.shear_force_resistance())**2))/gammaM5
+        # chord                          
+        if self.V0/self.chord.shear_force_resistance() > 1:
+            print("Chord is not strong enough for shear forces")
+            N0Rd = 1e-6
+        else:
+            N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0/self.chord.shear_force_resistance())**2))/gammaM5
             
         r = self.strength_reduction()
         NiRd = r*NiRd
@@ -208,11 +212,93 @@ class RHSKGapJoint(RHSJoint):
         b = self.b()
         fy0 = self.fy0()
         t0 = self.t0()
-        bep = 10/(self.b0()/t0)*b
-        bep_arr = np.array([min(x, bep[i]) for i,x in enumerate(b)]) 
+        bep = 10/(self.b0()/t0)*b 
         r = self.strength_reduction()
         
         s = np.sin(np.radians(np.array(self.angles)))
             
         NRd = r*fy0*t0/math.sqrt(3)/s*(2*self.h()/s+b+bep)/gammaM5
         return NRd
+
+
+class RHSYJoint(RHSJoint):
+    
+    def __init__(self, chord_profile, brace, angle):
+        super().__init__(chord_profile)
+        self.brace = brace
+        self.angle = angle
+        
+        
+    def h(self):
+        """ Brace heights """
+        return self.brace.H
+    
+    def b(self):
+        """ Brace widths """
+        return self.brace.B
+    
+    def t(self):
+        """ Brace thickness """
+        return self.brace.T
+    
+    def fy(self):
+        """ Brace yield strength """
+        return self.brace.fy
+    
+    def beta(self):
+        return self.b() / self.b0()
+        
+        
+    def chord_face_failure(self):
+                        
+        b = self.beta()                          
+        kn = self.eval_KN()
+        n = self.eval_N()
+        r = self.strength_reduction()
+        fy0 =  self.fy0()
+        t0 = self.t0()
+        NRd = r**kn*fy0*t0**2 / ((1-b)*np.sin(np.radians(self.angle)))
+        NRd = NRd * (2*n / np.sin(np.radians(self.angle)) + 4*np.sqrt(1-b))
+        NRd = NRd/ gammaM5
+
+        return NRd
+    
+    
+    def slend(self):
+        
+       slend = 3.46*(self.h0()/(self.t0() -2) *np.sqrt(1/np.sin(np.radians(self.angle))))
+       slend = slend / (np.pi * np.sqrt(E / self.fy0()))
+       return slend
+   
+    def chord_web_buckling(self):
+        alpha = self.chord.imp_factor[0]
+        slend = self.slend()
+        phi = 0.5*(1 + alpha*(slend - 0.2) + slend **2)
+        chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
+        fb = chi * self.fy0()
+        kn = self.eval_KN()
+        r = self.strength_reduction()
+        t0 = self.t0()
+        h = self.h()
+        NRd = r**kn*fb*t0**2 / (np.sin(np.radians(self.angle)))
+        NRd = NRd * (2*h / np.sin(np.radians(self.angle)) + 10*t0)
+        NRd = NRd / gammaM5
+        return NRd
+    
+    def brace_failure(self):
+        r = self.strength_reduction()
+        b = self.b()
+        h = self.h()
+        t = self.t()
+        fy = self.fy()
+        fy0 = self.fy0()
+        t0 = self.t0() 
+        beff = 10/(self.b0()/t0)*fy0*t0/(fy*t)*b
+            
+        NiRd = r*self.fy()*t*(2*h-4*t+2*beff)/gammaM5
+        return NiRd
+    
+    
+        
+        
+    
