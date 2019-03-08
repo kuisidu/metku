@@ -70,7 +70,6 @@ class SteelMember:
     def MbRd(self):
         return self.LT_buckling_strength()
 
-
     def nsect(self):
         """ Number of sections """
         return len(self.ned)
@@ -82,7 +81,8 @@ class SteelMember:
     def ncrit(self):
         """ Buckling force according to Euler """
         C = math.pi ** 2 * self.profile.E
-        ncrit = C * np.array(self.profile.I) / (self.length * self.lcr) ** 2
+
+        ncrit = C * np.array(self.profile.I) / (self.length*1e3 * self.lcr) ** 2
         return ncrit
 
     def slenderness(self):
@@ -169,13 +169,21 @@ class SteelMember:
         It = self.profile.It
         E = constants.E
         G = constants.G
-        L = self.length
+        L = self.length*1e3
+        C1, C2 = C
+        part1 = C1 * (math.pi**2 * E * Iz) / (kz * L)**2
+        part2 = np.sqrt((kz / kw)**2 * Iw/Iz + (kz*L)**2 * G * It /
+                        (math.pi**2 * E * Iz) + (C2 * zg)**2)
+        part3 = C2*zg
 
+        Mcr = part1 * (part2 - part3)
+        """
         Mcr = C[0] * math.pi ** 2 * E * Iz / ((kz * L) ** 2) * (math.sqrt((kz / kw) ** 2 * Iw / Iz +
                                                                           (kz * L) ** 2 * G * It / (
                                                                               math.pi ** 2 * E * Iz) + (
                                                                           C[1] * zg) ** 2) -
                                                                 C[1] * zg)
+        """
         return Mcr
 
     def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0, ted=0.0, loc=0.0):
@@ -200,10 +208,11 @@ class SteelMember:
 
     def check_sections(self, class1or2=True):
         """ Verify resistance of all sections """
-        r = []
+        r = np.zeros(len(self.check_section()))
         for n in range(self.nsect()):
-            r.append(self.check_section(n))
-        return r
+            r = np.vstack((r, self.check_section(n)))
+            #r.append(self.check_section(n))
+        return np.max(r, axis=0)
 
     def check_buckling(self):
         """ Verify buckling resistance
@@ -220,8 +229,7 @@ class SteelMember:
             """
             r = [0.0, 0.0]
         else:
-            NbRd = self.buckling_strength()
-            r = abs(NEd) / NbRd
+            r = abs(NEd) / self.NbRd
 
         return r
 
