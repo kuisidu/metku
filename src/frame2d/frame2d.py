@@ -9,7 +9,7 @@ import math
 import matplotlib.pyplot as plt
 #import fem.frame_fem as fem
 
-import framefem  as fem
+import framefem.framefem  as fem
 from framefem.elements import EBBeam, EBSemiRigidBeam
 
 from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISection
@@ -164,6 +164,7 @@ class Frame2D:
             if this.nodal_coordinates not in self.nodal_coordinates:
                 self.nodal_coordinates.extend(this.nodal_coordinates)           
                 self.nodal_coordinates.sort()
+
 
         # POINTLOADS
         elif isinstance(this, PointLoad):
@@ -572,9 +573,10 @@ class Frame2D:
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
-        
+        if not self.is_generated:
+            self.is_generated = True
         for member in self.members.values():
-            member.round_coordinates()           
+            member.round_coordinates()
             member.generate(self.f)
             for coord in member.nodal_coordinates:
                 if coord not in self.nodal_coordinates:
@@ -604,7 +606,7 @@ class Frame2D:
             
     
     
-    def to_robot(self, filename, PATH=""):
+    def to_robot(self, filename, num_frames=1, s=1):
 
         nodes = []
         elements = []
@@ -612,134 +614,181 @@ class Frame2D:
         material = []
         releases = {}
         pointloads = []
-
-        for member in self.members.values():
-            n1, n2 = member.coordinates
-            if n1 not in nodes:
-                nodes.append(n1)
-            if n2 not in nodes:
-                nodes.append(n2)
-            elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
-            elements.append(elem)
-            splitted_val = member.profile.split(" ")
-            profile_type = splitted_val[0]
-            if profile_type == 'RHS':
-                profile = 'RRHS ' + splitted_val[1]
-            elif profile_type == 'HE':
-                profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
-            elif profile_type == "SHS":
-                dims = splitted_val[1].split("X")
-                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
-            else:
-                profile = member.profile
-            # Webs
-            if member.mtype == "web" or member.mtype == "beam" or\
-                member.mtype=="top_chord" or member.mtype == "bottom_chord":
-                Sj1 = min(1e10, member.Sj1)
-                Sj2 = min(1e10, member.Sj2)
-                releases[elements.index(elem) +1] = f'ORIgin RY Hy={Sj1}  END RY Hy={Sj2}'
-
-            profiles.append(profile)
-            material.append(member.material)
-            
-            # Eccentricity elements
-            if len(member.ecc_coordinates):
-                for coords in member.ecc_coordinates:
-                    n1, n2 = coords
-                    if n1 not in nodes:
-                        nodes.append(n1)
-                    if n2 not in nodes:
-                        nodes.append(n2)
-                    elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
-                    elements.append(elem)
-                    profiles.append("HEA 1000")
-                    material.append("S355")
-                    #if n1 < n2:
-                    #    releases[elements.index(elem) +1] = 'END RY'
-                    #else:
-                    #    releases[elements.index(elem) +1] = 'ORIgin RY'
+        vert_braces = []
+        for i in range(num_frames):
+            for member in self.members.values():
+                n1, n2 = member.coordinates
+                if num_frames != 1:
+                    n1 = [n1[0], i*s, n1[1]]
+                    n2 = [n2[0], i*s, n2[1]]
+                if n1 not in nodes:
+                    nodes.append(n1)
+                if n2 not in nodes:
+                    nodes.append(n2)
+                elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                elements.append(elem)
+                splitted_val = member.profile.split(" ")
+                profile_type = splitted_val[0]
+                # Add columns end node to vertical braces list
+                if num_frames != 1 and member.mtype == 'top_chord':
+                    if nodes.index(n1) +1 not in vert_braces:
+                        vert_braces.append(nodes.index(n1) +1)
                     
-
-        try:
-            if self.truss:
-                truss = self.truss
-            else:
-                truss = self
-            for joint in truss.joints.values():
-                # Y joint
-                if len(joint.nodal_coordinates) == 2:
-                    n1, n2 = sorted(joint.nodal_coordinates)
-                    if n1 not in nodes:
-                        nodes.append(n1)
-                    if n2 not in nodes:
-                        nodes.append(n2)
-                    # Eccentricity element
-                    elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
-                    elements.append(elem)
-                    profiles.append("HEA 1000")
-                    material.append("S355")
-                # K joint
-                elif len(joint.nodal_coordinates) == 5:
-                    coords = sorted(joint.nodal_coordinates)
-                    n1, n2, n3, n4, n5 = coords
-                    if n1 not in nodes:
-                        nodes.append(n1)
-                    if n2 not in nodes:
-                        nodes.append(n2)
-                    if n4 not in nodes:
-                        nodes.append(n4)
-                    if n5 not in nodes:
-                        nodes.append(n5)
-                    # Eccentricity elements
-                    elem1 = [nodes.index(n1) + 1, nodes.index(n2) + 1]
-                    elem2 = [nodes.index(n4) + 1, nodes.index(n5) + 1]
-                    elements.append(elem1)
-                    elements.append(elem2)
-                    profiles.append("HEA 1000")
-                    material.append("S355")
-                    profiles.append("HEA 1000")
-                    material.append("S355")
-                    #releases[elements.index(elem1)+1] = "END RY"
-                    #releases[elements.index(elem2)+1] = "END RY"
+                    if nodes.index(n2) +1 not in vert_braces:
+                        vert_braces.append(nodes.index(n2) +1)
+                
+                if profile_type == 'RHS':
+                    profile = 'RRHS ' + splitted_val[1]
+                elif profile_type == 'HE':
+                    profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
+                elif profile_type == "SHS":
+                    dims = splitted_val[1].split("X")
+                    profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
                 else:
-                    pass
+                    profile = member.profile
+                # Webs
+                if member.mtype == "web" or member.mtype == "beam" or\
+                    member.mtype=="top_chord" or member.mtype == "bottom_chord":
+                    Sj1 = min(1e10, member.Sj1)
+                    Sj2 = min(1e10, member.Sj2)
+                    releases[elements.index(elem) +1] = f'ORIgin RY Hy={Sj1}  END RY Hy={Sj2}'
+    
+                profiles.append(profile)
+                material.append(member.material)
                 
-        except:
-            pass
-                
-        for pointload in self.point_loads.values():
+                # Eccentricity elements
+                if len(member.ecc_coordinates):
+                    for coords in member.ecc_coordinates:
+                        n1, n2 = coords
+                        if num_frames != 1:
+                            n1 = [n1[0], i*s, n1[1]]
+                            n2 = [n2[0], i*s, n2[1]]
+                        if n1 not in nodes:
+                            nodes.append(n1)
+                        if n2 not in nodes:
+                            nodes.append(n2)
+                        elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                        elements.append(elem)
+                        profiles.append("HEA 1000")
+                        material.append("S355")
+                        #if n1 < n2:
+                        #    releases[elements.index(elem) +1] = 'END RY'
+                        #else:
+                        #    releases[elements.index(elem) +1] = 'ORIgin RY'
+                        
+                        
+    
             try:
-                idx = nodes.index(pointload.coordinate)
-            except ValueError:
-                nodes.append(pointload.coordinate)
-                idx = nodes.index(pointload.coordinate) +1
-            FX, FZ, MY = pointload.v
-            if FX:
-                pointloads.append(f'    {idx} FX={FX}')
-            elif FX and FZ:
-                pointloads.append(f'    {idx} FX={FX}  FZ={FZ}')
-            elif FX and MY:
-                pointloads.append(f'    {idx} FX={FX}  MY={MY}')
-            elif FZ:
-                pointloads.append(f'    {idx} FZ={FZ}')
-            elif FZ and MY:
-                pointloads.append(f'    {idx} FZ={FZ}  MY={MY}')
-            elif MY:
-                pointloads.append(f'    {idx} MY={MY}')
-            elif FX and FZ and MY:
-                pointloads.append(f'    {idx} FX={FX}  FZ={FZ}  MY={MY}')
+                if self.truss:
+                    truss = self.truss
+                else:
+                    truss = self
+                for joint in truss.joints.values():
+                    # Y joint
+                    if len(joint.nodal_coordinates) == 2:
+                        n1, n2 = sorted(joint.nodal_coordinates)
+                        if num_frames != 1:
+                            n1 = [n1[0], i*s, n1[1]]
+                            n2 = [n2[0], i*s, n2[1]]
+                        if n1 not in nodes:
+                            nodes.append(n1)
+                        if n2 not in nodes:
+                            nodes.append(n2)
+                        # Eccentricity element
+                        elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                        elements.append(elem)
+                        profiles.append("HEA 1000")
+                        material.append("S355")
+                    # K joint
+                    elif len(joint.nodal_coordinates) == 5:
+                        coords = sorted(joint.nodal_coordinates)
+                        n1, n2, n3, n4, n5 = coords
+                        if num_frames != 1:
+                            n1 = [n1[0], i*s, n1[1]]
+                            n2 = [n2[0], i*s, n2[1]]
+                            n3 = [n3[0], i*s, n3[1]]
+                            n4 = [n4[0], i*s, n4[1]]
+                            n5 = [n5[0], i*s, n5[1]]
+                        if n1 not in nodes:
+                            nodes.append(n1)
+                        if n2 not in nodes:
+                            nodes.append(n2)
+                        if n4 not in nodes:
+                            nodes.append(n4)
+                        if n5 not in nodes:
+                            nodes.append(n5)
+                        # Eccentricity elements
+                        elem1 = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                        elem2 = [nodes.index(n4) + 1, nodes.index(n5) + 1]
+                        elements.append(elem1)
+                        elements.append(elem2)
+                        profiles.append("HEA 1000")
+                        material.append("S355")
+                        profiles.append("HEA 1000")
+                        material.append("S355")
+                        #releases[elements.index(elem1)+1] = "END RY"
+                        #releases[elements.index(elem2)+1] = "END RY"
+                    else:
+                        pass
+                    
+            except:
+                pass
+                    
+            for pointload in self.point_loads.values():
+                try:
+                    n1 = pointload.coordinate
+                    if num_frames != 1:
+                        n1 = [n1[0], i*s, n1[1]]
+                    idx = nodes.index(n1)
+                except ValueError:
+                    n1 = pointload.coordinate
+                    if num_frames != 1:
+                        n1 = [n1[0], i*s, n1[1]]
+                    nodes.append(n1)
+                    idx = nodes.index(n1) +1
+                FX, FZ, MY = pointload.v
+                if FX:
+                    pointloads.append(f'    {idx} FX={FX}')
+                elif FX and FZ:
+                    pointloads.append(f'    {idx} FX={FX}  FZ={FZ}')
+                elif FX and MY:
+                    pointloads.append(f'    {idx} FX={FX}  MY={MY}')
+                elif FZ:
+                    pointloads.append(f'    {idx} FZ={FZ}')
+                elif FZ and MY:
+                    pointloads.append(f'    {idx} FZ={FZ}  MY={MY}')
+                elif MY:
+                    pointloads.append(f'    {idx} MY={MY}')
+                elif FX and FZ and MY:
+                    pointloads.append(f'    {idx} FX={FX}  FZ={FZ}  MY={MY}')
                 
+        
+        # Vertical braces
+        for i in range(len(vert_braces) -3):
+            n1 = vert_braces[i]
+            n2 = vert_braces[i + 3]
+            # Eccentricity element
+            elem = [n1, n2]
+            elements.append(elem)
+            profiles.append("RRHS 50X50X2")
+            material.append("S355")
             
+        
 
-        with  open(PATH + filename + '.str', 'w') as f:
+        with  open(filename + '.str', 'w') as f:
             f.write("ROBOT97 \n")
+            if num_frames != 1:
+                f.write("FRAme SPAce \n")
             f.write("NUMbering DIScontinuous \n")
             f.write(f'NODes {len(nodes)}  ELEments {len(elements)} \n')
             f.write("UNIts \n")
             f.write("LENgth=m	Force=kN \n")
             f.write("NODes \n")
             for i, node in enumerate(nodes):
-                f.write(f'{i+1}   {node[0]}    {node[1]} \n')
+                if num_frames != 1:
+                    f.write(f'{i+1}   {node[0]}    {node[1]}    {node[2]} \n')
+                else:
+                    f.write(f'{i+1}   {node[0]}    {node[1]} \n')
 
             f.write('ELEments \n')
             for i, element in enumerate(elements):
@@ -754,34 +803,42 @@ class Frame2D:
             f.write("SUPports \n")
             if self.is_calculated:
                 for sup in self.supports.values():
-                    idx = nodes.index(sup.coordinate) + 1
-                    if sup.dofs[0] == [-1]:
-                        f.write(f'{idx}  UX  \n')
-                    elif sup.dofs[0:1] == [-1, -1]:
-                        f.write(f'{idx}  UX UZ \n')
-                    elif sup.dofs == [-1, -1, -1]:
-                        f.write(f'{idx}  \n')
-                    elif sup.dofs[1] == [-1]:
-                        f.write(f'{idx}  UZ  \n')
-                    elif sup.dofs[1:2] == [-1, -1]:
-                        f.write(f'{idx}  UZ RY  \n')
-                    else:
-                        f.write(f'{idx}  RY \n')
+                    for i in range(num_frames):
+                        n1 = sup.coordinate
+                        if num_frames != 1:
+                            n1 = [n1[0], i*s, n1[1]]
+                        idx = nodes.index(n1) + 1
+                        if sup.dofs[0] == [-1]:
+                            f.write(f'{idx}  UX  \n')
+                        elif sup.dofs[0:1] == [-1, -1]:
+                            f.write(f'{idx}  UX UZ \n')
+                        elif sup.dofs == [-1, -1, -1]:
+                            f.write(f'{idx}  \n')
+                        elif sup.dofs[1] == [-1]:
+                            f.write(f'{idx}  UZ  \n')
+                        elif sup.dofs[1:2] == [-1, -1]:
+                            f.write(f'{idx}  UZ RY  \n')
+                        else:
+                            f.write(f'{idx}  RY \n')
             else:
                 for sup in self.supports.values():
-                    idx = nodes.index(sup.coordinate) + 1
-                    if sup.dofs == [1, 0, 0]:
-                        f.write(f'{idx}  UX  \n')
-                    elif sup.dofs == [1, 1, 0]:
-                        f.write(f'{idx}  UX UZ \n')
-                    elif sup.dofs == [1, 1, 1]:
-                        f.write(f'{idx}  \n')
-                    elif sup.dofs == [0, 1, 0]:
-                        f.write(f'{idx}  UZ  \n')
-                    elif sup.dofs == [0, 1, 1]:
-                        f.write(f'{idx}  UZ RY  \n')
-                    else:
-                        f.write(f'{idx}  RY \n')
+                    for i in range(num_frames):
+                        n1 = sup.coordinate
+                        if num_frames != 1:
+                            n1 = [n1[0], i*s, n1[1]]
+                        idx = nodes.index(n1) + 1
+                        if sup.dofs == [1, 0, 0]:
+                            f.write(f'{idx}  UX  \n')
+                        elif sup.dofs == [1, 1, 0]:
+                            f.write(f'{idx}  UX UZ \n')
+                        elif sup.dofs == [1, 1, 1]:
+                            f.write(f'{idx}  \n')
+                        elif sup.dofs == [0, 1, 0]:
+                            f.write(f'{idx}  UZ  \n')
+                        elif sup.dofs == [0, 1, 1]:
+                            f.write(f'{idx}  UZ RY  \n')
+                        else:
+                            f.write(f'{idx}  RY \n')
             
             f.write("RELeases \n")
             for elem in releases.keys():
@@ -791,22 +848,26 @@ class Frame2D:
             f.write("CASe # 1 LC1 \n")
             if len(self.line_loads):
                 f.write("ELEments \n")
-                for lineload in self.line_loads.values():
-                    n1, n2 = lineload.member.coordinates
-                    n1_idx = nodes.index(n1) + 1
-                    n2_idx = nodes.index(n2) + 1
-                    idx = elements.index([n1_idx, n2_idx]) + 1
-                    if lineload.direction == 'y':
-                        dir = 'PZ'
-                    else:
-                        dir = 'PX'
-                    q0, q1 = lineload.values
-                    if q0 != q1:
-                        f.write(f' {idx} X=0.0 {dir}={q0} TILl  ')
-                        f.write(f'X=1.000  {dir}={q1}      RElative \n')
-    
-                    else:
-                        f.write(f' {idx} {dir}={q0} \n')
+                for i in range(num_frames):
+                    for lineload in self.line_loads.values():
+                        n1, n2 = lineload.member.coordinates
+                        if num_frames != 1:
+                            n1 = [n1[0], i*s, n1[1]]
+                            n2 = [n2[0], i*s, n2[1]]
+                        n1_idx = nodes.index(n1) + 1
+                        n2_idx = nodes.index(n2) + 1
+                        idx = elements.index([n1_idx, n2_idx]) + 1
+                        if lineload.direction == 'y':
+                            dir = 'PZ'
+                        else:
+                            dir = 'PX'
+                        q0, q1 = lineload.values
+                        if q0 != q1:
+                            f.write(f' {idx} X=0.0 {dir}={q0} TILl  ')
+                            f.write(f'X=1.000  {dir}={q1}      RElative \n')
+        
+                        else:
+                            f.write(f' {idx} {dir}={q0} \n')
             if len(pointloads):
                 f.write("NODes \n")
                 for val in pointloads:
@@ -814,10 +875,8 @@ class Frame2D:
                     
 
             f.write("END")
-        if PATH != "":
-            print(f'{filename}.str created to: \n{PATH}')
-        else:
-            print(f'{filename}.str created to: \n{os.getcwd()}')
+        
+        print(f'{filename}.str created to: \n{os.getcwd()}')
     def plot(self, print_text=True, show=True,
              loads=True, color=False):
         """ Plots the frame
@@ -1282,10 +1341,14 @@ class FrameMember:
         Sets cross-section's height to givel value.
         Changes profile and sets new cross-sectional properties to member's elements
         """
+        
         splitted = self.profile.split()
         if len(splitted) == 2:
-            profile_type = self.profile.split()[0]
-            self.profile = profile_type + " " + str(val)
+            profile_type = self.profile.split()[0].upper()
+            if profile_type == "IPE":
+                self.profile = profile_type + " " + str(val)
+            elif profile_type == "SHS":
+                self.profile = profile_type + " " + str(val) + 'X'+ str(val) + 'X' + str(max(round(val / 20), 2))
         elif len(splitted) == 3:
             self.profile = splitted[0] + " " + str(val) + " " + splitted[2]
 
@@ -1461,7 +1524,7 @@ class FrameMember:
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
-        if not self.is_generated:            
+        if not self.is_generated:   
             self.add_nodes(fem_model)
             self.add_material(fem_model)
             self.add_section(fem_model)
@@ -1564,6 +1627,7 @@ class FrameMember:
                 self.nodes[idx].parents.append(self)
             if not self.n1:
                 self.n1 = fem_model.nodes[idx]
+                
         # Add last node
         if not self.n2 and idx:
             self.n2 = fem_model.nodes[idx]
@@ -1883,14 +1947,16 @@ class FrameMember:
         x1, y1 = start_node
         x2, y2 = end_node
         x, y = coordinate
-
-        if x2 - x1 == 0:          
-            y1, y2 = sorted([y1, y2])
-            return x == x1 and y1 <= y <= y2 
-        else:
-            k = (y2 - y1) / (x2 - x1)
-            b = y1 - k * x1
-            return math.isclose(y, k*x + b, rel_tol=1e-3) #y == k * x + b
+        # Coordinate is between member's coordinates
+        if x1 <= x <= x2 and y1 <= y <= y2 or 'chord' in self.mtype: 
+            if x2 - x1 == 0:          
+                y1, y2 = sorted([y1, y2])
+                return x == x1 and y1 <= y <= y2 
+            else:
+                k = (y2 - y1) / (x2 - x1)
+                b = y1 - k * x1
+                return math.isclose(y, k*x + b, rel_tol=1e-3) #y == k * x + b
+        return False
         
 
     def plot(self, print_text=True, c='k'):
@@ -2020,8 +2086,8 @@ class FrameMember:
                     else:
                         horz = 'right'
                     plt.text(x, y, f'{bending_moment:.2f} kNm', horizontalalignment=horz)
-        X.append(self.nodal_coordinates[i][0])
-        Y.append(self.nodal_coordinates[i][1])
+        X.append(self.nodal_coordinates[i+1][0])
+        Y.append(self.nodal_coordinates[i+1][1])
         plt.plot(X, Y, color='gray')
 
     def bmd_test(self):
