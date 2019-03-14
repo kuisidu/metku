@@ -294,7 +294,7 @@ class SteelSection(metaclass=ABCMeta):
                 res = 1
         """
 
-    def section_resistance(self, axis='y', return_list=False):
+    def section_resistance(self, axis='y', return_list=True):
         """ Calculates resistance of cross-section
             Checks the following:
                 Axial force
