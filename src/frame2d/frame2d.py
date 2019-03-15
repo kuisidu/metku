@@ -606,7 +606,7 @@ class Frame2D:
             
     
     
-    def to_robot(self, filename, num_frames=1, s=1):
+    def to_robot(self, filename, num_frames=1, s=1, brace_profile="SHS 50x50x2"):
 
         nodes = []
         elements = []
@@ -739,7 +739,7 @@ class Frame2D:
                     n1 = pointload.coordinate
                     if num_frames != 1:
                         n1 = [n1[0], i*s, n1[1]]
-                    idx = nodes.index(n1)
+                    idx = nodes.index(n1) + 1
                 except ValueError:
                     n1 = pointload.coordinate
                     if num_frames != 1:
@@ -770,8 +770,20 @@ class Frame2D:
             # Eccentricity element
             elem = [n1, n2]
             elements.append(elem)
-            profiles.append("RRHS 50X50X2")
+            splitted_val = brace_profile.split(" ")
+            profile_type = splitted_val[0]
+            if profile_type == 'RHS':
+                profile = 'RRHS ' + splitted_val[1]
+            elif profile_type == 'HE':
+                profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
+            elif profile_type == "SHS":
+                dims = splitted_val[1].split("X")
+                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
+            else:
+                profile = brace_profile
+            profiles.append(profile)
             material.append("S355")
+            releases[elements.index(elem) + 1] = f'ORIgin RY  END RY'
             
         
 
@@ -906,7 +918,7 @@ class Frame2D:
         # Plot supports
         for support in self.supports.values():
             node_coord = support.coordinate
-            if support.dofs == [-1, -1, -1]:
+            if support.dofs == [-1, -1, -1] or support.dofs == [1,1,1]:
                 marker = 's'
             elif support.dofs == [1]:
                 if node_coord[0] == 0:
@@ -930,7 +942,7 @@ class Frame2D:
     def plot_loads(self):
 
         for load in self.point_loads.values():
-            x, y = load.node.x
+            x, y = load.coordinate
             plt.scatter(x, y, c='b', marker='*')
 
         for lineload in self.line_loads.values():
