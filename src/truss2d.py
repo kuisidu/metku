@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 PREC = 3
 
 class Truss2D(Frame2D):
-    def __init__(self, simple=[],num_elements=2, fem=FrameFEM()):
+    def __init__(self, simple=[], num_elements=2, fem=FrameFEM()):
         super().__init__(num_elements=num_elements, fem=fem)
         self.top_chords = []
         self.bottom_chords = []
@@ -693,7 +693,6 @@ class TrussWeb(TrussMember):
         self.Sj2 = Sj2
         self.mtype = 'web'
         
-        
      
     @property
     def bot_coord(self):
@@ -718,6 +717,8 @@ class TrussWeb(TrussMember):
             self.n2.x = val
         self.coordinates = [self.bot_coord, val]
         
+        
+    
 
 class TrussJoint():
     def __init__(self, chord, loc, joint_type="N", g1=0.05, g2=0.05):
@@ -997,10 +998,12 @@ class TrussJoint():
                     # TOP CHORD
                     if self.chord.mtype == 'top_chord':
                         # if the web is the leftmost web
-                        if web.bot_coord[0] == min([x.bot_coord[0] for x in self.webs.values()]):
+                        #if web.bot_coord[0] == min([x.bot_coord[0] for x in self.webs.values()]):   
+                        if web.bot_loc == min([x.bot_loc for x in self.webs.values()]):
                             ecc_x = -ecc_x                    
                         # Web's eccentricity node on chord's center line
                         coord1 = central_coord + ecc_x*v
+                        coord1 = [round(c, PREC) for c in coord1]
                         # Check that coordinate is between chord's coordinates
                         if list(coord1)[0] < self.chord.coordinates[0][0] or\
                             list(coord1)[0] > self.chord.coordinates[1][0]:
@@ -1009,11 +1012,13 @@ class TrussJoint():
                         coord2 = coord1 - ecc_y*u
                         # Move chord's coordinate to newly calculated location
                         #coord2 = [round(c, 3) for c in coord2]
+                        print(coord1)
                         web.top_coord = list(coord2)
                     # BOTTOM CHORD
-                    else:                    
+                    else:                  
                         # if the web is the leftmost web
-                        if web.top_coord[0] == min([x.top_coord[0] for x in self.webs.values()]):
+                        #if web.top_coord[0] == min([x.top_coord[0] for x in self.webs.values()]):
+                        if web.top_loc == min([x.top_loc for x in self.webs.values()]):
                             ecc_x = -ecc_x
                         # Web's eccentricity node on chord's center line
                         coord1 = central_coord + ecc_x*v
@@ -1397,3 +1402,193 @@ class TrussJoint():
         plt.title("Joint " + str(self.jid))
         if show:
             plt.show()
+
+
+
+class TrussColumn(Truss2D):
+    
+    def __init__(self, coordinate, H1, H2, L1, L2, n, flip=False):
+        super().__init__()
+        self.flip = flip
+        self.coordinate = coordinate
+        self.L1 = L1
+        self.L2 = L2
+        self.H1 = H1
+        self.H2 = H2
+        self.n = n
+        
+        self.generate_chords()
+        self.generate_webs()
+        
+    def add(self, this):
+        # TOP CHORD
+        if isinstance(this, TopChord):
+            self.top_chords.append(this)
+            this.mem_id = len(self.members)
+            self.members["T" + str(this.mem_id)] = this
+            this.calc_nodal_coordinates(self.num_elements)
+            
+        # BOTTOM CHORD   
+        elif isinstance(this, BottomChord):
+            self.bottom_chords.append(this)
+            this.mem_id = len(self.members)
+            self.members["B" + str(this.mem_id)] = this
+            this.calc_nodal_coordinates(self.num_elements)
+            
+        # WEB
+        elif isinstance(this, TrussWeb):
+            if this.coord_type == "local":
+                # Calculate web's global coordinates
+                bottom_chord = self.bottom_chords[0]
+                top_chord = self.top_chords[0]
+                c01 = self.bottom_chords[0].local(this.bot_loc)
+                c02 = self.top_chords[0].local(this.top_loc)
+                # Change web's coordinates to global coordinates
+                this.bot_coord = c01
+                this.top_coord =  c02
+            else:
+                # Sort by y-coordinate
+                c01, c02 = sorted(this.coordinates, key=lambda x: x[1])
+                # Find corresponding bottom chord
+                for chord in self.bottom_chords:
+                    if chord.point_intersection(c01):
+                        bottom_chord = chord
+                        this.bot_loc = bottom_chord.global_coord(c01)
+                        break 
+                else:
+                #if UnboundLocalError and not bottom_chord:
+                    raise ValueError("Web's coordinates doesn't match bottom chord's coordinates")                     
+                # Find corresponding top chord
+                for chord in self.top_chords:   
+                    if chord.global_coord(c02) <= 1 and c01[0] <= chord.coordinates[1][0]:
+                        top_chord = chord
+                        this.top_loc = top_chord.global_coord(c02)
+                        break   
+                else:
+                #if UnboundLocalError and not top_chord:
+                    raise ValueError("Web's coordinates doesn't match top chord's coordinates")
+            # Check if there's already a joint at given location
+            # if not, create a new joint
+            j1, j2 = None, None 
+            R = 0.03 
+            for joint in bottom_chord.joints:    
+                if np.sqrt((joint.loc - this.bot_loc)**2)  <= R:
+                    j1 = joint
+                    this.j1 = j1
+                    break
+            else:
+                j1 = TrussJoint(bottom_chord, this.bot_loc)
+                bottom_chord.joints.append(j1)
+                this.j1 = j1
+                    
+                    
+            for joint in top_chord.joints:
+                if np.sqrt((joint.loc - this.top_loc)**2) <= R:
+                    j2 = joint
+                    this.j2 = j2
+                    break
+            else:
+                j2 = TrussJoint(top_chord, this.top_loc)
+                top_chord.joints.append(j2)
+                this.j2 = j2
+                
+            # Assign member id
+            this.mem_id = len(self.webs)
+            # Assign joint id's   
+            if j1.jid == None:
+                j1.jid = len(self.joints)
+                self.joints[j1.jid] = j1
+            if j2.jid == None:
+                j2.jid = len(self.joints)
+                self.joints[j2.jid] = j2
+
+            j1.add_web(this, self.num_elements)
+            j2.add_web(this, self.num_elements)
+     
+            self.webs[this.mem_id] = this
+            self.members["W" + str(this.mem_id)] = this
+
+        # POINTLOADS
+        elif isinstance(this, PointLoad):
+            if this.name in self.point_loads.keys():
+                this.name += str(len(self.point_loads))
+            self.point_loads[this.name] = this
+
+            for member in self.members.values():
+                coord = member.point_intersection(this.coordinate)
+                if coord:
+                    member.add_node_coord(this.coordinate)
+
+
+        # LINELOADS
+        elif isinstance(this, LineLoad):
+            if this.name in self.line_loads.keys():
+                this.name += str(len(self.line_loads))
+            self.line_loads[this.name] = this
+
+        # SUPPORTS
+        elif isinstance(this, Support):
+            this.supp_id = len(self.supports)
+            self.supports[this.supp_id] = this
+            self.support_nodes.append(this.coordinate)
+
+            for member in self.members.values():
+                coord = member.point_intersection(this.coordinate)
+                if coord:
+                    member.add_node_coord(this.coordinate)
+
+        # TRUSS
+        elif isinstance(this, Truss2D):
+            self.truss = this
+
+
+        else:
+            print(type(this), " is not supported.")
+            raise TypeError
+        
+        
+    def generate_chords(self):
+        
+        x0, y0 = self.coordinate
+        
+        top_chord = TopChord([[x0, y0], [x0, y0 + self.H1]])
+        bottom_chord = BottomChord([[x0 + self.L1, y0], [x0 + self.L1 + self.L2, y0 + self.H2]])
+        
+        self.add(top_chord)
+        self.add(bottom_chord)
+        
+    def generate_webs(self):
+        
+        c1 = 0.0
+        c2 = 0.0
+        
+        #self.add(TrussWeb(1,1))
+        
+        for i in range(1, self.n +1):
+            if i%2 == 0:
+                c1 = round(i/self.n, 4)
+                if c1 > 1:
+                    c1 = 1
+            elif i!=0:
+                c2 = round(i/self.n, 4)
+                if c2 > 1:
+                    c2 = 1
+            
+            if self.flip:
+                self.add(TrussWeb(c1, c2))
+            else:
+                self.add(TrussWeb(c2, c1))
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
