@@ -89,7 +89,8 @@ class SteelSection(metaclass=ABCMeta):
         elif self.C == 3:
             return self.code.bending_resistance(self.Wel, self.fy)
         else:
-            raise NotImplemented("Calculation of cross-section class 4 is not implemented yet")
+            return self.code.bending_resistance(self.Wel, self.fy)
+            #raise NotImplemented("Calculation of cross-section class 4 is not implemented yet")
 
     @property
     def C(self):
@@ -294,7 +295,7 @@ class SteelSection(metaclass=ABCMeta):
                 res = 1
         """
 
-    def section_resistance(self, axis='y', return_list=False):
+    def section_resistance(self, axis='y', return_list=True):
         """ Calculates resistance of cross-section
             Checks the following:
                 Axial force
@@ -320,7 +321,8 @@ class SteelSection(metaclass=ABCMeta):
             if MNRd > 0.0:
                 UMN = abs(self.Med) / MNRd
             else:
-                UMN = INFEASIBLE
+                UMN = UN + UM
+                #UMN = INFEASIBLE
         else:
             UMN = UN + UM
 
