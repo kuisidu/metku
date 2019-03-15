@@ -17,13 +17,12 @@ import matplotlib.pyplot as plt
 PREC = 3
 
 class Truss2D(Frame2D):
-    def __init__(self, simple=[], flip=False, num_elements=2, fem=FrameFEM()):
+    def __init__(self, simple=[],num_elements=2, fem=FrameFEM()):
         super().__init__(num_elements=num_elements, fem=fem)
         self.top_chords = []
         self.bottom_chords = []
         self.webs = {}
         self.joints = {}
-        self.flip = flip
 
         if len(simple) == 4:
             H0, H1, L1, n = simple
@@ -92,21 +91,26 @@ class Truss2D(Frame2D):
 
         c1 = 0.0
         c2 = 0.0
+        
+        if self.n // 2 % 2:
+            flip = True
+        else:
+            flip = False
         for i in range(1,int(self.n/2)+1):
             if i%2 == 0:
                 c1 = round(i/self.n, 4)
                 if c1 > 1:
                     c1 = 1
-                if self.H2 and not self.flip:
+                if self.H2 and not flip:
                     c1 = min(0.99, c1*2)
             elif i!=0:
                 c2 = round(i/self.n, 4)
                 if c2 > 1:
                     c2 = 1
-                if self.flip:
+                if flip:
                     c2 = min(0.99, c2*2)
             
-            if self.flip:
+            if flip:
                 self.add(TrussWeb(c1, c2))
                 self.add(TrussWeb(1-c1, 1-c2))
             else:
@@ -245,6 +249,8 @@ class Truss2D(Frame2D):
     def generate(self):
         """ Generates the truss
         """
+        if not self.is_generated:
+            self.is_generated = True
         # Generate members' nodes and elements
         for member in self.members.values():
             if member.mtype != "web":
@@ -1037,7 +1043,7 @@ class TrussJoint():
                         
         # Move existing nodes
         if len(self.nodes):
-            for i, node in enumerate(self.nodes.values()):                
+            for i, node in enumerate(self.nodes.values()):
                 node.x = self.nodal_coordinates[i]
           
         # Set joint type
