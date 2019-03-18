@@ -160,8 +160,8 @@ class Frame2D:
                         member.add_node_coord(coord)
                         # Create eccentricity to connection
                         if member.mtype == "column":
-                            joint0 = [j for j in this.joints.values() if j.coordinate == c0]                          
-                            joint1 = [j for j in this.joints.values() if j.coordinate == c1]
+                            joint0 = [j for j in bchord.joints if j.loc <= 0.02]                          
+                            joint1 = [j for j in bchord.joints if j.loc >= 0.98]
                             if coord == c0 and joint0:
                                 joint0 = joint0[0]
                                 web = list(joint0.webs.values())[0]
@@ -194,6 +194,7 @@ class Frame2D:
                                 member.ecc_coordinates.append([coord, c1])
                                 bchord.columns[c1[0]] = member
                 # Change chord's end coordinates
+                
                 bchord.coordinates = [c0, c1]
                 bchord.calc_nodal_coordinates()
                       
@@ -207,8 +208,8 @@ class Frame2D:
                         # Create eccentricity to connection
                         if member.mtype == "column":
                             
-                            joint0 = [j for j in this.joints.values() if j.loc == 0]                      
-                            joint1 = [j for j in this.joints.values() if j.loc == 1]
+                            joint0 = [j for j in tchord.joints if j.loc <= 0.02]                      
+                            joint1 = [j for j in tchord.joints if j.loc >= 0.98]
 
                             # Chord's position vector
                             v = np.array([math.cos(tchord.angle),
@@ -224,12 +225,11 @@ class Frame2D:
                                 theta = abs(joint0.chord.angle - web.angle)
                                 #ecc_x = member.h / 2 + abs(joint0.g1*math.cos(joint0.chord.angle) +
                                 #        web.h/2 * math.sin(theta))
-                                ecc_x = member.h / 2 + joint0.g1
-                                # m to mm
-                                ecc_x = ecc_x/1000
+                                ecc_x = member.h / 2000 + joint0.g1
+   
                                 coord0 = np.asarray(joint0.coordinate)
                                 # Change joint's coordinate
-                                joint0.coordinate = list(coord0 + ecc_x * v)
+                                joint0.coordinate = list(c0 + ecc_x * v)
                             if coord == c0:
                                 # Calculate chord's new start coordinate
                                 #c0 = [c0[0] + tchord.h / 2000 * u[0], c0[1] + tchord.h / 2000 * u[1]]
@@ -251,11 +251,9 @@ class Frame2D:
                                 theta = abs(joint1.chord.angle - web.angle)
                                 #ecc_x = member.h / 2 + abs(joint1.g1*1000*math.cos(joint1.chord.angle) +
                                 #        web.h/2 * math.sin(theta))  
-                                ecc_x = member.h / 2 + joint1.g1
-                                # m to mm
-                                ecc_x = ecc_x/1000
+                                ecc_x = member.h / 2000 + joint1.g1
                                 coord1 = np.asarray(joint1.coordinate)
-                                joint1.coordinate = list(coord1 - ecc_x*v)
+                                joint1.coordinate = list(c1 - ecc_x*v)
                             if coord == c1:
                                 # Calculate chord's new end point
                                 #c1 = [c1[0] + tchord.h/2000 * u[0], c1[1] + tchord.h/2000 * u[1]]
@@ -952,8 +950,7 @@ class Frame2D:
                 X = []
                 Y = []
                 for i, node in enumerate(member.nodes.values()):
-                    x0 = member.nodal_coordinates[i][0]
-                    y0 = member.nodal_coordinates[i][1]
+                    x0, y0 = node.x
                     if not isinstance(node.v[0], int):
                         x1 = node.v[0][j]
                         y1 = node.v[1][j]
@@ -1268,6 +1265,7 @@ class FrameMember:
             if profile_type == "IPE":
                 self.profile = profile_type + " " + str(val)
             elif profile_type == "SHS":
+                val = max(val, 25)
                 self.profile = profile_type + " " + str(val) + 'X'+ str(val) + 'X' + str(max(round(val / 20), 2))
         elif len(splitted) == 3:
             self.profile = splitted[0] + " " + str(val) + " " + splitted[2]
