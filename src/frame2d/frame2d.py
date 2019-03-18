@@ -1,7 +1,5 @@
 """
-Created on Fri Jan 19 10:39:56 2018
-
-@author: huuskoj
+@author: Jaakko Huusko
 """
 import os
 import numpy as np
@@ -16,88 +14,34 @@ from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISectio
 from sections.steel.RHS import RHS, SHS
 from sections.steel.CHS import CHS
 from sections.steel.catalogue import mat as MATERIALS
-
+from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
 from structures.steel.steel_member import SteelMember
 
+# Eounding precision
 PREC = 3
 
-# profiles from lightest to heaviest
-PROFILES = [
-    'IPE 80', 'IPE 100', 'IPE 120', 'HE 100 AA', 'IPE 140',
-    'HE 120 AA', 'IPE 160', 'HE 100 A', 'HE 140 AA', 'IPE 180',
-    'HE 120 A', 'HE 100 B', 'IPE 200', 'HE 160 AA', 'HE 140 A',
-    'IPE 220', 'HE 120 B', 'HE 180 AA', 'HE 160 A', 'IPE 240',
-    'HE 100 C', 'HE 140 B', 'HE 200 AA', 'HE 180 A', 'IPE 270',
-    'HE 120 C', 'HE 220 AA', 'HE 100 M', 'IPE 300', 'HE 200 A',
-    'HE 160 B', 'HE 240 AA', 'HE 140 C', 'IPE 330', 'HE 220 A',
-    'HE 180 B', 'HE 120 M', 'HE 260 AA', 'IPE 360', 'HE 160 C',
-    'HE 240 A', 'HE 280 AA', 'HE 200 B', 'HE 140 M', 'IPE 400',
-    'HE 260 A', 'HE 300 AA', 'HE 180 C', 'HE 220 B', 'HE 320 AA',
-    'HE 160 M', 'HE 280 A', 'IPE 450', 'HE 340 AA', 'HE 200 C',
-    'HE 240 B', 'HE 360 AA', 'HE 300 A', 'HE 180 M', 'IPE 500',
-    'HE 400 AA', 'HE 260 B', 'HE 220 C', 'HE 320 A', 'HE 450 AA',
-    'HE 200 M', 'HE 280 B', 'HE 340 A', 'IPE 550', 'HE 500 AA',
-    'HE 360 A', 'HE 300 B', 'HE 220 M', 'HE 240 C', 'HE 550 AA',
-    'IPE 600', 'HE 400 A', 'HE 320 B', 'HE 600 AA', 'HE 260 C',
-    'HE 340 B', 'HE 650 AA', 'HE 450 A', 'HE 360 B', 'HE 280 C',
-    'HE 700 AA', 'HE 500 A', 'HE 400 B', 'HE 240 M', 'HE 550 A',
-    'HE 450 B', 'HE 800 AA', 'HE 260 M', 'HE 300 C', 'HE 600 A',
-    'HE 320 C', 'HE 500 B', 'HE 280 M', 'HE 650 A', 'HE 900 AA',
-    'HE 550 B', 'HE 700 A', 'HE 600 B', 'HE 1000 AA', 'HE 800 A',
-    'HE 650 B', 'HE 300 M', 'HE 700 B', 'HE 320 M', 'HE 340 M',
-    'HE 360 M', 'HE 900 A', 'HE 400 M', 'HE 800 B', 'HE 450 M',
-    'HE 500 M', 'HE 1000 A', 'HE 550 M', 'HE 600 M', 'HE 900 B',
-    'HE 650 M', 'HE 700 M', 'HE 1000 B', 'HE 800 M', 'HE 900 M',
-    'HE 1000 M', 'IPE 750']
-
-IPE_PROFILES = ['IPE 80', 'IPE 100', 'IPE 120', 'IPE 140', 'IPE 160',
-                'IPE 180', 'IPE 200', 'IPE 220', 'IPE 240', 'IPE 270',
-                'IPE 300', 'IPE 330', 'IPE 360', 'IPE 400', 'IPE 450',
-                'IPE 500', 'IPE 550', 'IPE 600', 'IPE 750']
 
 
 # -----------------------------------------------------------------------------
 class Frame2D:
-    """ Class for semi-rigid frame
-    
-        Written by Jaakko Huusko
-        
-        Attributes:
-        ========
-        f -- FrameFEM-class
-        storeys -- number of storeys
-        bays -- number of bays
-        storey_height -- storey height in meters
-        bay_length -- bay length in meters
-        members -- dict of members of the frame, key: member name 
-        num_member -- number of members in the frame
-        support_nodes -- node id's of supports
-        num_elements -- number of elements in one member
-        line_loads -- dict containing all line loads, key: load id
-        nodes -- nodes in list, list index is node id
-        nodal_coordinates -- coordinates of every node in a list,
-                             list index is node id
-        nodal_forces -- dict of nodal forces, key: node id
-        nodal_displacements -- dict of nocal displacements, key: node id
-        weight -- frame's weight in kg's
-        r -- list of every members' utilization ratios
-        is_generated -- boolean value if frame is generated
-        is_designed -- boolean value if frame is designed
-        is_calculated -- boolean value if frame is calculated
-        is_strong_enough -- boolean value if frame is strong enough
-        penalty_val -- penalty value used in differential evolution
-        optimizer -- optimization algorithm used for optimization
-        optimize_joints -- boolean value if joints are optimized
-        
+    """ Class for 2D frame
 
-        Uses classes:
-        ========   
-        FrameFEM
-        FrameMember
-        
-        Examples:
-        ========
-        TODO
+        Parameters:
+        ------------
+            :param simple: creates a simple frame with given list [storeys, bays, storey height, bay length]
+            :param num_elements: number of elements per member
+            :param supports: Generates supports to simple frame 'FIXED', 'XHINGED', 'YHINGED', 'XYHINGED'
+            :param fem: FrameFEM -instance, used to share fem model with other Frame2D -instances
+                        default: creates a new  FrameFEM -instance
+
+            :type simple: list
+            :type num_elements: int
+            :type supports: string
+            :type fem: FrameFEM
+
+        Attributes:
+        ------------
+
     
     """
 
@@ -121,11 +65,7 @@ class Frame2D:
         self.is_generated = False
         self.is_designed = False
         self.is_calculated = False
-        self.is_strong_enough = False
-        self.is_optimized = False
         self.self_weight = False
-        self.optimize_joints = True
-        self.load_robot = False
         self.truss = None
         self.simple = simple
 
@@ -140,6 +80,15 @@ class Frame2D:
             self.generate_supports(supports)
 
     def add(self, this):
+        """ Adds given item to the frame.
+
+            Parameters:
+            -----------
+
+            :param this:  item to be added to frame
+
+            :type this: FrameMember, Support, PointLoad, LineLoad, Truss2D
+        """
         # MEMBERS
         if isinstance(this, FrameMember):
             # Give member an unique id
@@ -328,53 +277,7 @@ class Frame2D:
                 # Change chord's ends' coordinates
                 tchord.coordinates = [c0, c1]
                 tchord.calc_nodal_coordinates()
-            """
-            # Bottom chord coordinates
-            for tchord in this.top_chords:
-                c0, c1 = tchord.coordinates
-                for member in self.members.values():
-                    coord = member.line_intersection(tchord.coordinates)
-                    if isinstance(coord, list):
-                        member.add_node_coord(coord)
-                        # Create eccentricity to connection
-                        if member.mtype == "column":
-                            joint0 = [j for j in this.joints.values() if j.coordinate == c0]                          
-                            joint1 = [j for j in this.joints.values() if j.coordinate == c1]
-                            if coord == c0 and joint0:
-                                joint0 = joint0[0]
-                                web = list(joint0.webs.values())[0]
-                                theta = abs(joint0.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(joint0.g1*math.cos(joint0.chord.angle) +
-                                        web.h/2 * math.sin(theta))
-                                # m to mm
-                                ecc_x = ecc_x/1000
-                                x0, y0 = joint0.coordinate
-                                # Change joint's coordinate
-                                joint0.coordinate = [x0 + ecc_x, y0]
-                            if coord == c0:
-                                # Calculate chord's new start coordinate
-                                c0 = [c0[0] + member.h/2000, c0[1]]
-                                # Add eccentricity element's coordinates to list
-                                member.ecc_coordinates.append([coord, c0])  
-                                tchord.columns[c0[0]] = member
-                            if coord == c1 and joint1:
-                                joint1 = joint1[0]
-                                web = list(joint1.webs.values())[0]
-                                theta = abs(joint1.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(joint1.g1*math.cos(joint1.chord.angle) +
-                                        web.h/2 * math.sin(theta))
-                                # m to mm
-                                ecc_x = ecc_x/1000
-                                x1, y1 = joint1.coordinate
-                                joint1.coordinate = [x1 - ecc_x, y1]
-                            if coord == c1:
-                                c1 = [c1[0] - member.h/2000, c1[1]]
-                                member.ecc_coordinates.append([coord, c1])
-                                tchord.columns[c1[0]] = member
-                # Change chord's end coordinates
-                tchord.coordinates = [c0, c1]
-                tchord.calc_nodal_coordinates()
-            """
+
             # Add truss's members to frame's members dict
             for key in this.members.keys():
                 this.members[key].mem_id = len(self.members)
@@ -386,7 +289,7 @@ class Frame2D:
             raise TypeError
             
     def add_materials_and_sections(self):
-        """ Adds materials and sections to a list in fem.FrameFEM()
+        """ Adds members' materials and sections to the fem model
         """
         # Iterate through all frame's members and calculate cross-sections
         # properties and add those and member's material properties to 
@@ -435,8 +338,9 @@ class Frame2D:
             
             Parameters
             ----------
-            load_id : int
-                Load id
+            :param load_id: loadcase's id
+
+            :type load_id : int
         """
         if self.is_calculated == False:
             self.is_calculated = True
@@ -449,12 +353,12 @@ class Frame2D:
         self.check_members_strength()
         #self.alpha_cr, _ = self.f.linear_buckling(k=4)
 
-    def design_members(self):
+    def design_members(self, prof_type="IPE"):
         """ Desgins frame's members
         """
         self.is_designed = True
         for member in self.members.values():
-            member.design_member()
+            member.design_member(prof_type)
 
         self.check_members_strength()
 
@@ -607,7 +511,15 @@ class Frame2D:
     
     
     def to_robot(self, filename, num_frames=1, s=1, brace_profile="SHS 50x50x2"):
+        """ Creates Autodesk Robot Structural analysis .str -file
 
+        Parameters
+        -----------
+        :param filename: name of the .str file
+        :param num_frames: number of frames created
+        :param s: distance between created frames
+        :param brace_profile: profile of the vertical braces (default: SHS 50x50x2)
+        """
         nodes = []
         elements = []
         profiles = []
@@ -771,6 +683,7 @@ class Frame2D:
             elem = [n1, n2]
             elements.append(elem)
             splitted_val = brace_profile.split(" ")
+            splitted_val = [val.upper() for val in splitted_val]
             profile_type = splitted_val[0]
             if profile_type == 'RHS':
                 profile = 'RRHS ' + splitted_val[1]
@@ -778,7 +691,7 @@ class Frame2D:
                 profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
             elif profile_type == "SHS":
                 dims = splitted_val[1].split("X")
-                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
+                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[2])
             else:
                 profile = brace_profile
             profiles.append(profile)
@@ -895,9 +808,17 @@ class Frame2D:
             
             Parameters
             ----------
-            print_text : boolean
-                Set true to print member's profiles and names
-            Color's meaning:
+            :param print_text: Set true to print member's profiles and names (default: True)
+            :param show: Set true to show the plot (default: True)
+            :param loads: Set true to show loads (default: True)
+            :param color: Set true to show members' utilization ratio (default: False)
+
+            :type print_text : bool
+            :type show: bool
+            :type loads: bool
+            :type color: bool
+
+            Colors' meaning:
                 blue -- member has load
                 green -- member can bear its loads
                 red -- member breaks under its loads
@@ -940,6 +861,8 @@ class Frame2D:
             plt.show()
 
     def plot_loads(self):
+        """ Plots loads
+        """
 
         for load in self.point_loads.values():
             x, y = load.coordinate
@@ -1151,22 +1074,7 @@ class Frame2D:
                 member.Sj2 = MIN_VAL
 
     
-# -----------------------------------------------------------------------------
-"""
-TODO
-class SimpleFrame:
 
-    def __init__(self, vals, num_elements=5, supports='fixed'):
-
-        self.storeys = vals[0]
-        self.bays = vals[1]
-        self.storey_height = vals[2]
-        self.bay_length = vals[3]
-        self.supp_type = supports
-
-
-
-"""
 # -----------------------------------------------------------------------------
 class FrameMember:
     """ Class for frame member
@@ -1910,19 +1818,33 @@ class FrameMember:
         else:
             self.is_strong_enough = True
 
-    def design_member(self):
+    def design_member(self, prof_type):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
             before currrent profile.
         """
-        i = 0
-        self.is_strong_enough = False
-        while not self.is_strong_enough:
-            i += 1
-            self.profile = PROFILES[i]
+        prof_type = prof_type.upper()
+        if prof_type == "IPE":
+            profiles = ipe_profiles.keys()
+        elif prof_type == "H":
+            profiles = h_profiles.keys()
+        elif prof_type == "RHS":
+            profiles = rhs_profiles.keys()
+        elif prof_type == "CHS":
+            profiles = chs_profiles.keys()
+        elif prof_type == "SHS":
+            profiles = shs_profiles.keys()
+        else:
+            raise ValueError(f'"{prof_type}" is not a valid profile type!')
+
+        for profile in profiles:
+            self.profile = profile
             self.check_cross_section()
-            self.profile_idx = i
+            if max(self.r) <= 1.0:
+                break
+
+
 
     def line_intersection(self, coordinates):
         """
