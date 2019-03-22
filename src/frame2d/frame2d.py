@@ -695,6 +695,7 @@ class Frame2D:
             elem = [n1, n2]
             elements.append(elem)
             splitted_val = brace_profile.split(" ")
+            splitted_val = [val.upper() for val in splitted_val]
             profile_type = splitted_val[0]
             if profile_type == 'RHS':
                 profile = 'RRHS ' + splitted_val[1]
@@ -702,7 +703,7 @@ class Frame2D:
                 profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
             elif profile_type == "SHS":
                 dims = splitted_val[1].split("X")
-                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
+                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[1]) + 'X' + str(dims[2])
             else:
                 profile = brace_profile
             profiles.append(profile)
