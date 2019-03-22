@@ -904,12 +904,10 @@ class Frame2D:
             member.calc_nodal_displacements(self.f)
             max_x = 0
             max_y = 0
-            for i in range(len(member.nodes)):
-                node = list(member.nodes.keys())[i]
-                x0 = member.nodal_coordinates[i][0]
-                y0 = member.nodal_coordinates[i][1]
-                x1 = member.nodal_displacements[node][0]
-                y1 = member.nodal_displacements[node][1]
+            for i, node in enumerate(member.nodes.values()):
+                x0, y0 = node.x
+                x1 = node.u[0]
+                y1 = node.u[1]
                 x = x0 + x1 * (scale) / 1000
                 y = y0 + y1 * (scale) / 1000
                 if abs(x1) >= abs(max_x) and member.mtype == "column":
@@ -929,7 +927,7 @@ class Frame2D:
                 plt.text(loc_max_x, loc_max_y,
                          (str(max_y)[0:prec + 1] + " mm"))
 
-            if member.mtype == "column":
+            elif member.mtype == "column":
                 plt.plot(loc_max_x, loc_max_y, 'ro')
                 plt.text(loc_max_x, loc_max_y,
                          (str(max_x)[0:prec + 1] + " mm"))
@@ -1829,6 +1827,7 @@ class FrameMember:
         x2, y2 = end_node
         x3, y3 = coordinates[0]
         x4, y4 = coordinates[1]
+        
         
         if ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)) == 0:
             return None
