@@ -61,7 +61,6 @@ class SteelMember:
 
 
 
-
     @property
     def NbRd(self):
         return self.buckling_strength()

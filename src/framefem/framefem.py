@@ -439,11 +439,12 @@ class FrameFEM:
             # Find free dofs
             free_dofs = dofs >= 0
 
-            # Substitute free dofs from global displacement vector                        
+            # Substitute free dofs from global displacement vector
+                                    
             for i in range(len(free_dofs)):
                 if free_dofs[i]:
                     node.v[i] = v[dofs[i]]
-
+        
         return w, v
 
     def draw(self):
@@ -849,7 +850,7 @@ class FEMNode:
         # NOTE: for multiple load cases, the dimension of u must be increased for each load case
         self.u = np.array([])
         """ Nodal displacement vector (linear statics)"""
-        self.v = np.array([])
+        self.v = [0,0,0]
         """ Nodal displacement vector (linear buckling)"""
         # List of FrameMember-type objects that are connected to this node
         self.parents = []

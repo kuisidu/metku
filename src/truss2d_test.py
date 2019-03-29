@@ -4,14 +4,16 @@ Created on Fri Oct 26 12:23:00 2018
 
 @author: huuskoj
 """
-from truss2d import Truss2D, TopChord, BottomChord, TrussWeb, TrussJoint
+from truss2d import Truss2D, TopChord, BottomChord, TrussWeb, TrussJoint, TrussColumn
 from frame2d.frame2d import SteelBeam, LineLoad,PointLoad, XYHingedSupport, Frame2D, SteelColumn, FixedSupport, YHingedSupport
+from frame2d.frameoptimizer import FrameOptimizer
 from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint
 from sections.steel.RHS import RHS
 import matplotlib.pyplot as plt
 import numpy as np
 import math
-import random
+import robot3D
+
 from framefem import FrameFEM
 
 def test1():
@@ -237,7 +239,7 @@ def portal_frame():
     frame.add(FixedSupport([0, -9.8]))
     frame.add(FixedSupport([24, -9.8]))
 
-    truss = Truss2D(num_elements=40, fem=frame.f)
+    truss = Truss2D(num_elements=40, fem_model=frame.f)
     bottom_chord = BottomChord([[0, -1.8],[24,-1.8]], material="S420", profile="RHS 140x140x6")
     top_chord1 = TopChord([[0,0], [12,0.6]], material="S420", profile="rhs 120x120x6")
     top_chord2 = TopChord([[12,0.6], [24,0]], material="S420", profile="rhs 120x120x6")
@@ -272,7 +274,7 @@ def portal_frame2():
     
     print("PORTAL FRAME 2")
     # INITIALIZE EMPTY FRAME
-    frame = Frame2D(num_elements=2, fem=FrameFEM())
+    frame = Frame2D(num_elements=2, fem_model=FrameFEM())
     # COLUMNS
     col1 = SteelColumn([[0,0],[0, 5]], profile="RHS 200x200x7.1")
     col2 = SteelColumn([[10,0],[10, 5]], profile="RHS 200x200x7.1")
@@ -282,7 +284,7 @@ def portal_frame2():
     frame.add(FixedSupport([0, 0]))
     frame.add(FixedSupport([10, 0]))
     
-    truss = Truss2D(num_elements=4, fem=frame.f)
+    truss = Truss2D(num_elements=4, fem_model=frame.f)
     
     coord1 = [[0,5], [10,5]]
     coord2 = [[0,2], [10,2]]   
@@ -430,7 +432,7 @@ def truss_test():
     frame.add(col2)
     
     
-    truss = Truss2D(num_elements=4, fem=frame.f)
+    truss = Truss2D(num_elements=4, fem_model=frame.f)
     
     coord1 = [[0,5], [10,5]]
     coord2 = [[0,2], [10,2]]   
@@ -590,16 +592,15 @@ def frame_truss():
 
 def simple_truss():
     
-    H0 = 4
-    H1 = 1
-    H2 = 1.5
-    H3 = H1
-    L1 = 5
-    L2 = 5
-    n = 10
-    flip = True
+    H0 = 8.5
+    H1 = 2
+    H2 = 6
+    H3 = 2
+    L1 = 24
+    L2 = L1
+    n = 30
     
-    frame = Frame2D(num_elements=2, fem=FrameFEM())
+    frame = Frame2D(num_elements=20, fem_model=FrameFEM())
     # COLUMNS
     c1 = [0,0]
     col1 = SteelColumn([c1,[0, H0+H1]], profile="RHS 200x200x7.1")
@@ -610,19 +611,26 @@ def simple_truss():
     frame.add(FixedSupport(c1))
     frame.add(FixedSupport([L1+L2, 0]))
     
-    truss = Truss2D(simple=[H0, H1, H2,H3, L1,L2, n], flip=flip,num_elements=4, fem=frame.f)
-    
+    truss = Truss2D(simple=[H0, H1, H2,H3, L1,L2, n],num_elements=10, fem_model=frame.f)
+    #bchord = truss.bottom_chords[0]
+    #bchord.coordinates = [[0.5, H0], [L1 + L2 - 0.5, H0]]
     frame.add(truss)
-    frame.add(LineLoad(truss.top_chords[0], [-10, -10], 'y'))
-    frame.add(LineLoad(truss.top_chords[1], [-10, -10], 'y'))
+    frame.add(LineLoad(truss.top_chords[0], [-100, -100], 'y'))
+    frame.add(LineLoad(truss.top_chords[1], [-100, -100], 'y'))
+    frame.add(PointLoad([0, H0+H1], [100, 0, 0]))
+    #for web in truss.webs.values():
+    #    web.Sj1 = 1e10
+    #    web.Sj2 = 1e10
     #frame.add(PointLoad([L/2,H0+H], [0,-100,0]))
     frame.generate()
     #frame.f.draw()
     frame.calculate()
+    frame.plot_deflection(10)
     
     #frame.bmd(30)
-    frame.plot_normal_force()
-    frame.to_robot("simple_truss")
+    #frame.plot_normal_force()
+    #frame.plot_buckling(50, 10)
+    frame.to_robot("simple_truss", num_frames=10, s=10)
     """
     # num elements affects results
     # the order in which web's are added affects the result
@@ -638,12 +646,150 @@ def simple_truss():
     truss.to_robot("simple_truss")
     """
     
+    
+def optimization_test():
+    
+    H0 = 2
+    H1 = 0.5
+    H2 = 0.8
+    H3 = H1
+    L1 = 4
+    L2 = 4
+    n = 6
+    
+    frame = Frame2D()
+    frame.add(SteelColumn([[0,0], [0,H0 + H1]]))
+    frame.add(SteelColumn([[L1 + L2,0], [L1+L2,H0 + H1]]))
+    frame.add(FixedSupport([0,0]))
+    frame.add(FixedSupport([L1 + L2, 0]))
+
+        
+    
+    truss = Truss2D(simple=[H0, H1, H2,H3, L1,L2, n], num_elements=2)
+    
+    truss.add(XYHingedSupport([0,H0+H1]))
+    truss.add(XYHingedSupport([L1+L2,H0+H1]))
+    
+    truss.add(LineLoad(truss.top_chords[0], [-20, -20], 'y'))
+    truss.add(LineLoad(truss.top_chords[1], [-20, -20], 'y'))
+    
+    frame.add(truss)
+    frame.generate()
+    
+    lb = [25] * len(truss.members)
+    ub = [300] * len(truss.members)
+
+    optimizer = FrameOptimizer(frame,
+                             opt_algorithm='basinhopping',
+                             lb=lb,
+                             ub=ub,
+                             maxiter=100)
+                
+    frame.plot()               
+    #optimizer.optimize()
+    frame.plot()
+
+
+def truss_column_test():
+
+    coord = [0,0]
+    L1 = 0.3
+    L2 = 1
+    H1 = 5.5
+    H2 = 5
+    n = 2
+    
+    
+    col = TrussColumn(coord, H1, H2, L1, L2, n)
+    col.plot()
+    
+
+    col.generate()
+    col.f.draw()
+    print(col.top_chords[0].nodal_coordinates)
+    col.to_robot("truss_column")
+    
+def strength_test():
+    
+    col = SteelColumn([[0,0], [0,3.65]], material='S420',profile="RHS 200x200x8")
+    print(col.cross_section.MRd)
+    print(col.steel_member.NbRd)
+    
+ 
+def robot_test_3D():
+    
+    H0 = 4
+    H1 = 1
+    H2 = 1.5
+    H3 = H1
+    L1 = 10
+    L2 = L1
+    n = 20
+    n2 = 6
+    s = 6
+    num_frames = 4
+    col1 = SteelColumn([[0,0], [0, H0 + H1]], profile="He 300 a")
+    col2 = SteelColumn([[L1, 0], [L1, H0 + H2]], profile="He 300 a")
+    col3 = SteelColumn([[L1 + L2, 0], [L1 + L2, H0 + H3]], profile="He 300 a")
+    beam1 = SteelBeam([[0, H0+H1], [L1, H0+H2]])
+    beam2 = SteelBeam([[L1, H0+H2], [L1 + L2, H0+H3]])
+    
+    #col4 = SteelColumn()
+    col5 = SteelColumn([[0,0], [0, H0 + H1]], profile="He 300 a")
+    col6 = SteelColumn([[L1 + L2, 0], [L1 + L2, H0 + H3]], profile="He 300 a")
+    
+    end_frame1 = Frame2D()
+    end_frame1.add(col1)
+    end_frame1.add(col2)
+    end_frame1.add(FixedSupport([L1, 0]))
+    end_frame1.add(col3)
+    end_frame1.add(beam1)
+    end_frame1.add(beam2)
+    end_frame1.add(SteelColumn([[L1/2, 0], [L1/2, beam1.shape(L1/2)]]))
+    end_frame1.add(SteelColumn([[L1 + L2/2, 0], [L1 + L2/2, beam2.shape(L1 + L2/2)]]))
+    end_frame1.add(FixedSupport([L1/2, 0]))
+    end_frame1.add(FixedSupport([L1 + L2/2, 0]))
+    
+    
+    end_frame2 = Frame2D()
+    long_frame1 = Frame2D(simple=[1, num_frames+1, H0 + H1, s], supports='fixed')
+    long_frame1.add(SteelBeam([[0, 0], [s, H0+H1]]))
+    long_frame1.add(SteelBeam([[s*(num_frames+1), 0], [s*num_frames, H0+H1]]))
+    long_frame2 = Frame2D(simple=[1, num_frames+1, H0 + H3, s], supports='fixed')
+    long_frame2.add(SteelBeam([[50, (H0+H1)/2], [60, (H0+H1)/2]]))
+    long_frame2.add(SteelBeam([[60, (H0+H1)/2], [70, (H0+H1)/2]]))
+    main_frame = Frame2D()
+    main_frame.add(col5)
+    main_frame.add(col6)
+    truss = Truss2D(simple=[H0, H1, H2, H3, L1, L2, n], fem_model=main_frame.f)
+    main_frame.add(truss)
+    stiff_truss = Truss2D(simple=[0, s, s, s, L1, L2, n2])
+    stiff_truss.plot()
+    
+    end_frame1.plot()
+    long_frame1.plot()
+    long_frame2.plot()
+    main_frame.plot()
+    
+    robot3D.to_robot_3D("testi",
+                        end_frame1,
+                        long_frame1,
+                        main_frame,
+                        num_frames=num_frames-1,
+                        s=s,
+                        L=L1 + L2,
+                        stiff_truss=stiff_truss)
+    
 if __name__ == '__main__':
     #truss_test()
     #frame_truss()
     #portal_frame()
     #frame_test()
-    simple_truss()
+    #simple_truss()
+    #optimization_test()
+    #truss_column_test()
+    #strength_test()
+    robot_test_3D()
 
 """
 truss = Truss2D(num_elements=1)
