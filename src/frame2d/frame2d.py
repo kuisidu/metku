@@ -5,11 +5,9 @@ import os
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-#import fem.frame_fem as fem
-
 import framefem.framefem  as fem
-from framefem.elements import EBBeam, EBSemiRigidBeam
 
+from framefem.elements import EBBeam, EBSemiRigidBeam
 from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISection
 from sections.steel.RHS import RHS, SHS
 from sections.steel.CHS import CHS
@@ -39,8 +37,27 @@ class Frame2D:
             :type supports: string
             :type fem: FrameFEM
 
-        Attributes:
-        ------------
+
+            Variables:
+            ----------
+            :ivar nodes:
+            :ivar nodal_coordinates:
+            :ivar num_elements:
+            :ivar f:
+            :ivar alpha_cr:
+            :ivar num_members:
+            :ivar support_nodes:
+            :ivar point_loads:
+            :ivar line_loads:
+            :ivar nodal_foces:
+            :ivar nodal_displacements:
+            :ivar joints:
+            :ivar r:
+            :ivar is_generated:
+            :ivar is_calculated:
+            :ivar self_weight:
+            :ivar truss:
+            :ivar simple:
 
     
     """
@@ -63,7 +80,6 @@ class Frame2D:
         self.joints = {}
         self.r = []
         self.is_generated = False
-        self.is_designed = False
         self.is_calculated = False
         self.self_weight = False
         self.truss = None
@@ -336,9 +352,9 @@ class Frame2D:
             
             Parameters
             ----------
-            :param load_id: loadcase's id
-
-            :type load_id : int
+            :param load_id: Id of the loads to be added in the calculation model
+            
+            :type load_id: int
         """
         if self.is_calculated == False:
             self.is_calculated = True
@@ -361,6 +377,10 @@ class Frame2D:
         self.check_members_strength()
 
     def delete_member(self, id):
+        """ Removes member from frame
+        TODO!
+        """
+        
         member = self.members[id]
         member.delete()
                 
@@ -413,13 +433,7 @@ class Frame2D:
                 y2 += self.storey_height
 
     def generate_beams(self):
-        """ Generates beams and adds them to self.members -dict
-
-            Parameters
-            ----------
-            member_id: int
-                member id of the last created column
-        """
+        """ Generates beams and adds them to self.members -dict """
         # x-coordinate, 1:start, 2: end
         x1 = 0
         x2 = self.bay_length
@@ -509,14 +523,19 @@ class Frame2D:
     
     
     def to_robot(self, filename, num_frames=1, s=1, brace_profile="SHS 50x50x2"):
-        """ Creates Autodesk Robot Structural analysis .str -file
-
-        Parameters
-        -----------
-        :param filename: name of the .str file
-        :param num_frames: number of frames created
-        :param s: distance between created frames
-        :param brace_profile: profile of the vertical braces (default: SHS 50x50x2)
+        """  Creates an Aurodesk Robot Structural Analysis .str -file
+        
+            Parameters
+            ----------
+            :param filename: Name of the created file
+            :param num_frames: Number of frames 
+            :param s: Spacing between created frames
+            :param brace_profile: Profile for vertical braces
+                
+            :type filename: string
+            :type num_frames: int
+            :type s: float
+            :type brace_profile: string
         """
         nodes = []
         elements = []
@@ -817,6 +836,7 @@ class Frame2D:
             :type color: bool
 
             Colors' meaning:
+
                 blue -- member has load
                 green -- member can bear its loads
                 red -- member breaks under its loads
@@ -824,8 +844,7 @@ class Frame2D:
         """
         if self.is_calculated and color:
             color = True
-            
-        
+              
         # Plot members
         for member in self.members.values():
             member.plot(print_text, color)
@@ -879,10 +898,15 @@ class Frame2D:
             
             Parameters
             ----------
-            scale : float, optional
-                Scaling factor
-            prec : int, optional
-                Precision for displacement value
+            :param scale: Scaling factor
+            :param prec: Precision for displacement value
+            :param show: Shows the plotted diagram, allows to plot multiple
+                        diagrams to be plotted on same picture
+                           
+            :type scale : float               
+            :type prec : int
+            :type show: bool
+                
         """
         #if self.truss:
         #    self.truss.plot_deflection(scale, show=False)
@@ -896,12 +920,10 @@ class Frame2D:
             member.calc_nodal_displacements(self.f)
             max_x = 0
             max_y = 0
-            for i in range(len(member.nodes)):
-                node = list(member.nodes.keys())[i]
-                x0 = member.nodal_coordinates[i][0]
-                y0 = member.nodal_coordinates[i][1]
-                x1 = member.nodal_displacements[node][0]
-                y1 = member.nodal_displacements[node][1]
+            for i, node in enumerate(member.nodes.values()):
+                x0, y0 = node.x
+                x1 = node.u[0]
+                y1 = node.u[1]
                 x = x0 + x1 * (scale) / 1000
                 y = y0 + y1 * (scale) / 1000
                 if abs(x1) >= abs(max_x) and member.mtype == "column":
@@ -921,7 +943,7 @@ class Frame2D:
                 plt.text(loc_max_x, loc_max_y,
                          (str(max_y)[0:prec + 1] + " mm"))
 
-            if member.mtype == "column":
+            elif member.mtype == "column":
                 plt.plot(loc_max_x, loc_max_y, 'ro')
                 plt.text(loc_max_x, loc_max_y,
                          (str(max_x)[0:prec + 1] + " mm"))
@@ -930,19 +952,22 @@ class Frame2D:
             plt.show()
         
         
-    def plot_buckling(self, scale=1, k=4, calc=True, show=True):
+    def plot_buckling(self, scale=1, k=4, show=True):
         """ Draws buckling shapes of the frame
             
             Parameters
             ----------
-            scale : float, optional
-                Scaling factor
-            k : integer
-                number of different buckling shapes
+            :param scale: Scaling factor
+            :param k: number of buckling modes
+            :param show: Shows the plotted diagram, allows to plot multiple
+                        diagrams to be plotted on same picture
+            
+            :type scale : float, optional
+            :type k: int
+            :type show: bool
         """
-        if calc:
-            w, v = self.f.linear_buckling(k=k)
-            self.alpha_cr = w
+        w, v = self.f.linear_buckling(k=k)
+        self.alpha_cr = w
         for j in range(v.shape[1]):
             if show:
                 self.plot(print_text=False, show=False, loads=False, color=False)
@@ -974,8 +999,8 @@ class Frame2D:
             
             Parameters
             ----------
-            scale : int, optional
-                Scaling factor
+            :param scale: Scaling factor
+            :type scale : int
         """
         self.plot(print_text=False, show=False, color=False)
         for member in self.members.values():
@@ -983,21 +1008,18 @@ class Frame2D:
         if self.truss:
             self.truss.bmd(scale)
         plt.show()
-
-    def smd(self, scale=1):
-        """ Draws bending moment diagram
-
-            Parameters
-            ----------
-            scale : int, optional
-                Scaling factor
-        """
-        self.plot(print_text=False, show=False)
-        for member in self.members.values():
-            member.smd(scale)
-        plt.show()
         
     def plot_normal_force(self, show=True):
+        """ Plots normal force and utilization ratio
+            
+            Parameters
+            ------------
+            :param show: Shows the plotted diagram, allows to plot multiple
+                        diagrams to be plotted on same picture
+            :type show: bool
+        
+        
+        """
         for member in self.members.values():
             member.plot_normal_force()
         #if self.truss:
@@ -1009,7 +1031,7 @@ class Frame2D:
 
     @property
     def weight(self):
-        """ Calculates frame's weight and saves it to self.weight
+        """ Calculates frame's weight
         """
         weight = 0
         for member in self.members.values():
@@ -1071,7 +1093,6 @@ class Frame2D:
                 member.Sj2 = MIN_VAL
 
     
-
 # -----------------------------------------------------------------------------
 class FrameMember:
     """ Class for frame member
@@ -1495,30 +1516,11 @@ class FrameMember:
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """      
-        
-        # If member's angle is negative, y-coordinates must be multiplied by -1
-        start_node, end_node = self.coordinates
-        x0, y0 = start_node
-        Lx = end_node[0] - start_node[0]
-        Ly = end_node[1] - start_node[1]
-        if Lx != 0:
-            k = Ly / Lx
-        else:
-            k = 0
-        s = 1
-        if k < 0 or end_node[1] < 0:
-            s = -1
-            
-        #print(start_node, "  ", end_node)
-        #print("Add node coord ", coord, coord not in self.nodal_coordinates,
-        #      start_node[0] <= coord[0] <= end_node[0],s*start_node[1] <= s*coord[1] <= s*end_node[1] )
-        #if coord not in self.nodal_coordinates and\
-        #start_node[0] <= coord[0] <= end_node[0] and\
-        #s*start_node[1] <= s*coord[1] <= s*end_node[1]: 
         if coord not in self.added_coordinates and self.point_intersection(coord):                  
             self.added_coordinates.append(coord)
             self.nodal_coordinates.append(coord)
             self.nodal_coordinates.sort()
+            start_node, end_node = self.coordinates
             x, y = coord
             x1, y1 = start_node
             dx = x - x1
@@ -1544,8 +1546,7 @@ class FrameMember:
                 self.nodes[idx] = fem_model.nodes[idx]
                 self.nodes[idx].parents.append(self)
             if not self.n1:
-                self.n1 = fem_model.nodes[idx]
-                
+                self.n1 = fem_model.nodes[idx]               
         # Add last node
         if not self.n2 and idx:
             self.n2 = fem_model.nodes[idx]
@@ -1631,9 +1632,7 @@ class FrameMember:
         # A = 34680
         # Iy = 5538000000
         sect_id = len(fem_model.sections)
-        #sect_id = self.mem_id
         sect = fem.BeamSection(38880*1e-6, 6299657109*1e-12)
-        #sect = fem.BeamSection(1e20, 1e20)
         fem_model.add_section(sect)
                
         for coordinates in self.ecc_coordinates:
@@ -1856,6 +1855,7 @@ class FrameMember:
         x2, y2 = end_node
         x3, y3 = coordinates[0]
         x4, y4 = coordinates[1]
+        
         
         if ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)) == 0:
             return None
