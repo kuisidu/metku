@@ -17,8 +17,9 @@ import matplotlib.pyplot as plt
 PREC = 3
 
 class Truss2D(Frame2D):
-    def __init__(self, simple=[], num_elements=2, fem=FrameFEM()):
-        super().__init__(num_elements=num_elements, fem=fem)
+    def __init__(self, simple=[], num_elements=2, fem_model=None):
+        super().__init__(num_elements=num_elements, fem_model=fem_model)
+        self.truss = self
         self.top_chords = []
         self.bottom_chords = []
         self.webs = {}
@@ -318,7 +319,6 @@ class TrussMember(FrameMember):
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        
         #if self.shape(coord[0]) == coord[1]:
         if coord not in self.added_coordinates and self.point_intersection(coord):
             self.added_coordinates.append(coord)
@@ -1011,8 +1011,6 @@ class TrussJoint():
                         # Web's eccentricity node on chord's edge
                         coord2 = coord1 - ecc_y*u
                         # Move chord's coordinate to newly calculated location
-                        #coord2 = [round(c, 3) for c in coord2]
-                        print(coord1)
                         web.top_coord = list(coord2)
                     # BOTTOM CHORD
                     else:                  
@@ -1029,7 +1027,7 @@ class TrussJoint():
                         # Web's eccentricity node on chord's edge
                         coord2 = coord1 + ecc_y*u
                         # Move chord's coordinate to newly calculated location
-                        #coord2 = [round(c, 3) for c in coord2]
+                        coord2 = [round(c, 3) for c in coord2]
                         web.bot_coord = list(coord2)                    
                     # Calculate web's new nodal locations 
                     web.calc_nodal_coordinates()
@@ -1039,7 +1037,8 @@ class TrussJoint():
                     # chord's shape function
                     if i == n-1:
                         coord1 = list([coord1[0], self.chord.shape(coord1[0])])
-                        #coord1 = [round(c,3) for c in coord1]
+                        coord1 = [round(c,PREC) for c in coord1]
+                        coord2 = [round(c,PREC) for c in coord2]
                         # Node coordinate on chord's center line
                         self.add_node_coord(coord1)
                         self.chord.add_node_coord(coord1)

@@ -213,8 +213,10 @@ def test6():
     frame.calculate()
     """
 
-    print(frame.members[2].nodal_forces)
+    frame.plot_deflection(25)
     frame.bmd(25)
+    frame.plot_buckling(2)
+    frame.to_robot("result_test")
 
 def test7():
     frame = Frame2D(simple=[1,1,1,1], supports='fixed', num_elements=4)
@@ -230,7 +232,7 @@ def test7():
     frame.add(PointLoad([1,2], [-50, 0, 0]))
 
 def test8():
-    frame = Frame2D(simple=[1, 1, 10, 14], supports='xyhinged', num_elements=4)
+    frame = Frame2D(simple=[3, 3, 10, 14], supports='xyhinged', num_elements=4)
     for member in frame.members.values():
         if member.mtype == 'beam':
             member.profile = 'he 550 a'
@@ -243,36 +245,36 @@ def test8():
                 frame.add(LineLoad(member, [2, 2], 'x'))
 
     #frame.add(LineLoad(frame.members[2], [-10, -50], 'y'))
-    frame.hinge_joints()
+    #frame.hinge_joints()
     frame.generate()
     frame.calculate()
     #for elem in frame.members[0].elements.values():
     #    print(elem.bending_moment[0])
     #print(elem.bending_moment[1])
     frame.f.draw()
-    frame.bmd(10)
-    #frame.plot_buckling(50, 2)
-    frame.to_robot('test_robot')
+    frame.plot_deflection(25)
+    frame.bmd(25)
+    frame.plot_buckling(20)
+    frame.to_robot("result_test")
     
 
 def test9():
     """
     Test for buckling shape plotting
     """
-    frame = Frame2D(simple=[1,1,4,4], supports='fixed', num_elements=2)
+    frame = Frame2D(simple=[1,10,4,4], supports='fixed', num_elements=2)
     for member in frame.members.values():
-        member.profile = 'ipe 80'
-    frame.add(PointLoad([4,2], [70, 0, 0]))
-    frame.add(PointLoad([2,5.5], [0, -80, 0]))
+        if member.mtype == "beam":
+            member.profile = 'ipe 80'
+        else:
+            member.profile = 'HE 300 A'
+    #frame.add(PointLoad([4,2], [70, 0, 0]))
+    #frame.add(PointLoad([2,4], [0, -80, 0]))
     #frame.members[2].Sj2 = 1e-6
     frame.generate()
-    frame.members[0].coordinates = [[0, 0], [0, 7]]
     
     frame.calculate()
-    frame.f.draw()
-    print(frame.members[2].nodal_coordinates)
-    frame.plot_buckling(20,2)
-    
+    frame.bmd(10)
     
 def test10():
     frame = Frame2D(num_elements=2)
@@ -322,6 +324,13 @@ def test10():
 
     frame.to_robot("frame-truss-test")
 
+
+
+
+    
+    
+    
+
 def test_all():
     test1()
     #test2()
@@ -335,7 +344,7 @@ def test_all():
     test10()
 
 if __name__ == '__main__':
-    test8()
+    test9()
 
     """
     for member in frame.members.values():

@@ -62,7 +62,7 @@ class Frame2D:
     
     """
 
-    def __init__(self, simple=None, num_elements=None, supports=None, fem_model=None):
+    def __init__(self, simple=None, num_elements=None, supports=None, fem_model=None, beams=True):
 
         if fem_model:                
             self.f = fem_model
@@ -87,6 +87,7 @@ class Frame2D:
         self.self_weight = False
         self.truss = None
         self.simple = simple
+        self.beams = beams
 
         if simple:
             self.storeys = simple[0]
@@ -463,7 +464,8 @@ class Frame2D:
             member_id keeps track for running numbering for id's
         """
         self.generate_columns()
-        self.generate_beams()
+        if self.beams:
+            self.generate_beams()
 
     def generate_supports(self, supp_type):
         supp_type = supp_type.upper()
@@ -1449,6 +1451,21 @@ class FrameMember:
             ele.rot_stiff[1] = val
 
         self.__Sj2 = val
+        
+    def shape(self, x):
+        """
+        Returns chord's y value corresponding to x
+        """
+        start_node, end_node = self.coordinates
+        x0, y0 = start_node
+        Lx = end_node[0] - start_node[0]
+        Ly = end_node[1] - start_node[1]
+        try:
+            k = Ly / Lx
+        except ZeroDivisionError:
+            k = 0
+
+        return k*(x-x0) + y0
 
     @property
     def length(self):

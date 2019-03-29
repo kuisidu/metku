@@ -71,8 +71,12 @@ class FrameOptimizer:
         args = ratio_limit
         if not self.constf:
             constraint_function = self.constraint_function
+        else:
+            constraint_function = self.constf
         if not self.costf:
             cost_function = self.cost_function
+        else:
+            cost_function = self.costf
         # initial guess
         x0=[]
         bounds = []
@@ -101,7 +105,7 @@ class FrameOptimizer:
             res = basinhopping(cost_function,
                                 x0,
                                 minimizer_kwargs=kwargs,
-                                stepsize=100,
+                                stepsize=30,
                                 niter=self.maxiter,
                                 interval=10,
                                 disp=debug)
