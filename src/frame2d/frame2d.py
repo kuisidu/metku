@@ -62,9 +62,12 @@ class Frame2D:
     
     """
 
-    def __init__(self, simple=None, num_elements=None, supports=None, fem=fem.FrameFEM()):
+    def __init__(self, simple=None, num_elements=None, supports=None, fem_model=None):
 
-        self.f = fem
+        if fem_model:                
+            self.f = fem_model
+        else:
+            self.f = fem.FrameFEM()
         self.alpha_cr = []
         self.members = {}
         self.num_members = 0
@@ -1004,7 +1007,7 @@ class Frame2D:
         """
         self.plot(print_text=False, show=False, color=False)
         for member in self.members.values():
-            member.bmd(scale)
+            member.bmd_test(scale)
         if self.truss:
             self.truss.bmd(scale)
         plt.show()
@@ -1206,6 +1209,19 @@ class FrameMember:
         # Create SteelMember object
         self.steel_member = SteelMember(self.cross_section, self.length,
                                    Lcr=[1.0, 1.0], mtype=self.mtype)
+    @property
+    def angle(self):
+        """
+        Returns member's angle in radians
+        """
+        start_node, end_node = self.coordinates
+        x0, y0 = start_node
+        x1, y1 = end_node
+        if (x1-x0) == 0:
+            angle = math.radians(90)
+        else:
+            angle = math.atan((y1 - y0) / (x1 - x0))
+        return angle
 
 
     @property
@@ -1985,11 +2001,9 @@ class FrameMember:
         for i in range(len(self.nodes)):
             node = node_ids[i]
             if self.mtype == "beam":
-                x0 = self.nodal_coordinates[i+1][0]
-                y0 = self.nodal_coordinates[i+1][1]
+                x0, y0 = self.nodal_coordinates[i+1].x
                 bending_moment = self.nodal_forces[node][2]
                 y1 = bending_moment / (1000 / scale)
-
                 x = x0
                 y = y0 - y1
                 X.append(x)
@@ -2022,36 +2036,48 @@ class FrameMember:
         Y.append(self.nodal_coordinates[i+1][1])
         plt.plot(X, Y, color='gray')
 
-    def bmd_test(self):
+    def bmd_test(self, scale=1):
 
+        # Member's position vector
+        v = np.array([math.cos(self.angle), math.sin(self.angle)])
+        # Vector perpendicular to v
+        u = np.array([-math.sin(self.angle), math.cos(self.angle)])
         X = []
         Y = []
-        x0 = self.coordinates[0][0]
-        y0 = self.coordinates[0][1]
+        start_coord, end_coord = self.coordinates
+        x01, y01 = start_coord
+        x02, y02 = end_coord
+        X.append(x01)
+        Y.append(y01)
+        self.calc_nodal_forces()
 
-        #X.append(self.coordinates[0][0])
-        #Y.append(self.coordinates[0][1])
-        for element in self.elements.values():
-            L = element.length()
-            V1, V2 = element.shear_force
-            M1, M2 = element.bending_moment
-            k = (V2 - V1) / L
-            func = lambda x: -(1/2 *k*x**2 + V1*x +M1) /1000
-            dx = L/5
-            for i in range(5):
-                if self.mtype == 'beam':
-                    X.append(x0)
-                    Y.append(func(x0))
-                    x0 += dx
-                elif self.mtype == 'column':               
-                    X.append(func(y0))
-                    Y.append(y0)
-                    y0 += dx
-                    
-                
-        #X.append(self.coordinates[1][0])
-        #Y.append(self.coordinates[1][1])
+        moment_values = [x[2] for x in self.nodal_forces.values()]
+        
+        for elem in self.elements.values():
+            x0, y0 = elem.nodes[0].x
+            bending_moment = elem.bending_moment[0]
+            val = bending_moment / (1000 / scale)
+            x, y = np.array([x0, y0]) - val * u
+            X.append(x)
+            Y.append(y)
+            horzalign = 'center'
+            vertalign = 'center'
+            if bending_moment == max(moment_values) or bending_moment == min(moment_values):
+                plt.text(x, y, f'{bending_moment:.2f} kNm', horizontalalignment=horzalign)
+        x0, y0 = elem.nodes[1].x
+        bending_moment = elem.bending_moment[1]
+        val = bending_moment / (1000 / scale)
+        x, y = np.array([x0, y0]) - val * u
+        X.append(x)
+        Y.append(y)
+        X.append(x02)
+        Y.append(y02)
+        plt.text(x, y, f'{bending_moment:.2f} kNm', horizontalalignment=horzalign)
         plt.plot(X, Y, color='gray')
+            
+            
+        
+        
 
     def sfd(self, scale):
         """
