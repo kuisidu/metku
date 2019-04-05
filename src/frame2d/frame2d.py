@@ -85,7 +85,7 @@ class Frame2D:
         self.is_generated = False
         self.is_calculated = False
         self.self_weight = False
-        self.truss = None
+        self.truss = []
         self.simple = simple
         self.beams = beams
 
@@ -98,6 +98,14 @@ class Frame2D:
 
         if supports:
             self.generate_supports(supports)
+
+    @property
+    def L(self):
+        x_coordinates =[mem.coordinates[0][0] for mem in self.members.values()]
+        x_min = min(x_coordinates)
+        x_max = max(x_coordinates)
+        L = x_max - x_min
+        return L
 
     def add(self, this):
         """ Adds given item to the frame.
@@ -169,7 +177,7 @@ class Frame2D:
 
         # TRUSS
         elif isinstance(this, Frame2D):
-            self.truss = this
+            self.truss.append(this)
             
             # Bottom chord coordinates
             for bchord in this.bottom_chords:
@@ -298,8 +306,9 @@ class Frame2D:
 
             # Add truss's members to frame's members dict
             for key in this.members.keys():
-                this.members[key].mem_id = len(self.members)
-                self.members[key] = this.members[key]
+                new_id = len(self.members)
+                this.members[key].mem_id = new_id
+                self.members[new_id] = this.members[key]
                 
         # WRONG TYPE
         else:
@@ -504,9 +513,10 @@ class Frame2D:
                     self.nodal_coordinates.append(coord)
             self.nodes.extend(list(member.nodes.values()))
         # Generate TrussJoints
-        if self.truss:
-            for joint in self.truss.joints.values():
-                joint.generate(self.f)
+        if len(self.truss):
+            for truss in self.truss:
+                for joint in truss.joints.values():
+                    joint.generate(self.f)
 
         # Generate eccentricity elements
         for member in self.members.values():

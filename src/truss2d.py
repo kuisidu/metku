@@ -17,9 +17,10 @@ import matplotlib.pyplot as plt
 PREC = 3
 
 class Truss2D(Frame2D):
-    def __init__(self, simple=[], num_elements=2, fem_model=None):
+    def __init__(self, origo=[0,0], simple=[], num_elements=2, fem_model=None):
         super().__init__(num_elements=num_elements, fem_model=fem_model)
         self.truss = self
+        self.origo = origo
         self.top_chords = []
         self.bottom_chords = []
         self.webs = {}
@@ -73,19 +74,19 @@ class Truss2D(Frame2D):
     def generate_chords(self):
         #self.add(TopChord([[0,self.H0 + self.H1],[self.L,self.H0 + self.H1]]))
         #self.add(BottomChord([[0,self.H0],[self.L,self.H0]]))
-        
+        x, y = self.origo
         if self.H2:
-            self.add(TopChord([[0,self.H0 + self.H1],
-                               [self.L1,self.H0 + self.H2]]))
-            self.add(TopChord([[self.L1,self.H0 + self.H2],
-                               [self.L1 + self.L2, self.H0 + self.H3]]))
+            self.add(TopChord([[x,y+self.H0 + self.H1],
+                               [x+self.L1,y+self.H0 + self.H2]]))
+            self.add(TopChord([[x+self.L1,y+self.H0 + self.H2],
+                               [x+self.L1 + self.L2,y+ self.H0 + self.H3]]))
     
         else:
-            self.add(TopChord([[0,self.H0 + self.H1],
-                               [self.L1*2,self.H0 + self.H1]]))
+            self.add(TopChord([[x,y+self.H0 + self.H1],
+                               [x+self.L1*2,y+self.H0 + self.H1]]))
 
-        self.add(BottomChord([[0, self.H0],
-                              [self.L1 + self.L2, self.H0]]))
+        self.add(BottomChord([[x, y+self.H0],
+                              [x+self.L1 + self.L2, y+self.H0]]))
 
                  
     def generate_webs(self):

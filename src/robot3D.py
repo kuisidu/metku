@@ -1,5 +1,5 @@
 import os
-
+from frame2d.frame2d import SteelBeam
 
 def to_robot_3D(filename,
                 end_frame1,
@@ -29,7 +29,7 @@ def to_robot_3D(filename,
             end_frame2 = end_frame1
         if not long_frame2:
             long_frame2 = long_frame1
-            
+        num_frames -= 1
         L1=L/2
         L2=L/2
         nodes = []
@@ -50,26 +50,49 @@ def to_robot_3D(filename,
             elif i == num_frames+4:
                 frame = long_frame2
             elif i == num_frames+5:
-                frame = stiff_truss
+                if stiff_truss:
+                    frame = stiff_truss
+                    # Omit eccentricity elements
+                    frame.truss = False 
+                else:
+                    continue
             elif i == num_frames+6:
-                frame = stiff_truss
+                if stiff_truss:
+                    frame = stiff_truss
+                    # Omit eccentricity elements
+                    frame.truss = False 
+                else:
+                    continue
             else:
                 frame = main_frame
-                
+            
+            # Loop through members
             for member in frame.members.values():
                 n1, n2 = member.coordinates
                 if i == num_frames+3:
-                    n1 = [0, n1[0], n1[1]]
-                    n2 = [0, n2[0], n2[1]]
+                    if isinstance(member, SteelBeam):
+                        n1 = [0, n1[0], n1[1]]
+                        n2 = [0, n2[0], n2[1]]
+                    else:
+                        continue
                 elif i == num_frames+4:
-                    n1 = [L, n1[0], n1[1]]
-                    n2 = [L, n2[0], n2[1]]
+                    if isinstance(member, SteelBeam):
+                        n1 = [L, n1[0], n1[1]]
+                        n2 = [L, n2[0], n2[1]]
+                    else:
+                        continue
+                    
                 elif i == num_frames+5:
                     if member.mtype=='web':
                         idx1 = int(abs(n1[0]-1e-3) //  L1)
                         idx2 = int(abs(n2[0]-1e-3) //  L2)
-                        chord1 = main_frame.truss.top_chords[idx1]
-                        chord2 = main_frame.truss.top_chords[idx2]
+                        if main_frame.truss:   
+                            chord1 = main_frame.truss.top_chords[idx1]
+                            chord2 = main_frame.truss.top_chords[idx2]
+                        else:
+                            beams = [b for b in main_frame.members.values() if b.mtype == "beam"]
+                            chord1 = beams[idx1]
+                            chord2 = beams[idx2]
                         n1 = [n1[0], 0, chord1.shape(n1[0])]
                         n2 = [n2[0], s, chord2.shape(n2[0])]
                     else:
@@ -78,8 +101,13 @@ def to_robot_3D(filename,
                     if member.mtype=='web':
                         idx1 = int(abs(n1[0]-1e-3) //  L1)
                         idx2 = int(abs(n2[0]-1e-3) //  L2)
-                        chord1 = main_frame.truss.top_chords[idx1]
-                        chord2 = main_frame.truss.top_chords[idx2]
+                        if main_frame.truss:
+                            chord1 = main_frame.truss.top_chords[idx1]
+                            chord2 = main_frame.truss.top_chords[idx2]
+                        else:
+                            beams = [b for b in main_frame.members.values() if b.mtype == "beam"]
+                            chord1 = beams[idx1]
+                            chord2 = beams[idx2]
                         n1 = [n1[0], s*(num_frames+2), chord1.shape(n1[0])]
                         n2 = [n2[0], s*(num_frames+1), chord2.shape(n2[0])]
                     else:
@@ -87,6 +115,7 @@ def to_robot_3D(filename,
                 else:
                     n1 = [n1[0], i*s, n1[1]]
                     n2 = [n2[0], i*s, n2[1]]
+                    
                 if n1 not in nodes:
                     nodes.append(n1)
                 if n2 not in nodes:
@@ -148,54 +177,54 @@ def to_robot_3D(filename,
     
             
             if frame.truss:
-                truss = frame.truss
-                for joint in truss.joints.values():
-                    # Y joint
-                    if len(joint.nodal_coordinates) == 2:
-                        n1, n2 = sorted(joint.nodal_coordinates)
-                        if num_frames != 1:
-                            n1 = [n1[0], i*s, n1[1]]
-                            n2 = [n2[0], i*s, n2[1]]
-                        if n1 not in nodes:
-                            nodes.append(n1)
-                        if n2 not in nodes:
-                            nodes.append(n2)
-                        # Eccentricity element
-                        elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
-                        elements.append(elem)
-                        profiles.append("HEA 1000")
-                        material.append("S355")
-                    # K joint
-                    elif len(joint.nodal_coordinates) == 5:
-                        coords = sorted(joint.nodal_coordinates)
-                        n1, n2, n3, n4, n5 = coords
-                        if num_frames != 1:
-                            n1 = [n1[0], i*s, n1[1]]
-                            n2 = [n2[0], i*s, n2[1]]
-                            n3 = [n3[0], i*s, n3[1]]
-                            n4 = [n4[0], i*s, n4[1]]
-                            n5 = [n5[0], i*s, n5[1]]
-                        if n1 not in nodes:
-                            nodes.append(n1)
-                        if n2 not in nodes:
-                            nodes.append(n2)
-                        if n4 not in nodes:
-                            nodes.append(n4)
-                        if n5 not in nodes:
-                            nodes.append(n5)
-                        # Eccentricity elements
-                        elem1 = [nodes.index(n1) + 1, nodes.index(n2) + 1]
-                        elem2 = [nodes.index(n4) + 1, nodes.index(n5) + 1]
-                        elements.append(elem1)
-                        elements.append(elem2)
-                        profiles.append("HEA 1000")
-                        material.append("S355")
-                        profiles.append("HEA 1000")
-                        material.append("S355")
-                        #releases[elements.index(elem1)+1] = "END RY"
-                        #releases[elements.index(elem2)+1] = "END RY"
-                else:
-                    pass
+                for truss in frame.truss:
+                    for joint in truss.joints.values():
+                        # Y joint
+                        if len(joint.nodal_coordinates) == 2:
+                            n1, n2 = sorted(joint.nodal_coordinates)
+                            if num_frames != 1:
+                                n1 = [n1[0], i*s, n1[1]]
+                                n2 = [n2[0], i*s, n2[1]]
+                            if n1 not in nodes:
+                                nodes.append(n1)
+                            if n2 not in nodes:
+                                nodes.append(n2)
+                            # Eccentricity element
+                            elem = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                            elements.append(elem)
+                            profiles.append("HEA 1000")
+                            material.append("S355")
+                        # K joint
+                        elif len(joint.nodal_coordinates) == 5:
+                            coords = sorted(joint.nodal_coordinates)
+                            n1, n2, n3, n4, n5 = coords
+                            if num_frames != 1:
+                                n1 = [n1[0], i*s, n1[1]]
+                                n2 = [n2[0], i*s, n2[1]]
+                                n3 = [n3[0], i*s, n3[1]]
+                                n4 = [n4[0], i*s, n4[1]]
+                                n5 = [n5[0], i*s, n5[1]]
+                            if n1 not in nodes:
+                                nodes.append(n1)
+                            if n2 not in nodes:
+                                nodes.append(n2)
+                            if n4 not in nodes:
+                                nodes.append(n4)
+                            if n5 not in nodes:
+                                nodes.append(n5)
+                            # Eccentricity elements
+                            elem1 = [nodes.index(n1) + 1, nodes.index(n2) + 1]
+                            elem2 = [nodes.index(n4) + 1, nodes.index(n5) + 1]
+                            elements.append(elem1)
+                            elements.append(elem2)
+                            profiles.append("HEA 1000")
+                            material.append("S355")
+                            profiles.append("HEA 1000")
+                            material.append("S355")
+                            #releases[elements.index(elem1)+1] = "END RY"
+                            #releases[elements.index(elem2)+1] = "END RY"
+                    else:
+                        pass
                     
                     
             for pointload in frame.point_loads.values():
