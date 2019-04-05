@@ -81,35 +81,44 @@ def to_robot_3D(filename,
                         n2 = [L, n2[0], n2[1]]
                     else:
                         continue
-                    
-                elif i == num_frames+5:
+               # Wind truss 
+                elif i == num_frames+5:                   
                     if member.mtype=='web':
-                        idx1 = int(abs(n1[0]-1e-3) //  L1)
-                        idx2 = int(abs(n2[0]-1e-3) //  L2)
+                        idx1 = int(abs(n1[0]-1e-3) // (main_frame.truss[0].L1))
+                        idx2 = int(abs(n2[0]-1e-3)//  (main_frame.truss[0].L2))
+                        idxT1 = int(idx1 // 2)
+                        idxT2 = int(idx2 // 2)
+                        idx1 -= 2*idxT1
+                        idx2 -= 2*idxT2
                         if main_frame.truss:   
-                            chord1 = main_frame.truss.top_chords[idx1]
-                            chord2 = main_frame.truss.top_chords[idx2]
+                            chord1 = main_frame.truss[idxT1].top_chords[idx1]
+                            chord2 = main_frame.truss[idxT2].top_chords[idx2]
                         else:
                             beams = [b for b in main_frame.members.values() if b.mtype == "beam"]
                             chord1 = beams[idx1]
                             chord2 = beams[idx2]
                         n1 = [n1[0], 0, chord1.shape(n1[0])]
-                        n2 = [n2[0], s, chord2.shape(n2[0])]
+                        n2 = [n2[0], s, chord2.shape(n2[0])]                
                     else:
                         continue
+                # Wind truss
                 elif i == num_frames+6:
                     if member.mtype=='web':
-                        idx1 = int(abs(n1[0]-1e-3) //  L1)
-                        idx2 = int(abs(n2[0]-1e-3) //  L2)
-                        if main_frame.truss:
-                            chord1 = main_frame.truss.top_chords[idx1]
-                            chord2 = main_frame.truss.top_chords[idx2]
+                        idx1 = int(abs(n1[0]-1e-3) //  (main_frame.truss[0].L1))
+                        idx2 = int(abs(n2[0]-1e-3)//  (main_frame.truss[0].L2))
+                        idxT1 = int(idx1 // 2)
+                        idxT2 = int(idx2 // 2)
+                        idx1 -= 2*idxT1
+                        idx2 -= 2*idxT2
+                        if main_frame.truss:   
+                            chord1 = main_frame.truss[idxT1].top_chords[idx1]
+                            chord2 = main_frame.truss[idxT2].top_chords[idx2]
                         else:
                             beams = [b for b in main_frame.members.values() if b.mtype == "beam"]
                             chord1 = beams[idx1]
                             chord2 = beams[idx2]
                         n1 = [n1[0], s*(num_frames+2), chord1.shape(n1[0])]
-                        n2 = [n2[0], s*(num_frames+1), chord2.shape(n2[0])]
+                        n2 = [n2[0], s*(num_frames+1), chord2.shape(n2[0])]                                    
                     else:
                         continue
                 else:
@@ -230,13 +239,11 @@ def to_robot_3D(filename,
             for pointload in frame.point_loads.values():
                 try:
                     n1 = pointload.coordinate
-                    if num_frames != 1:
-                        n1 = [n1[0], i*s, n1[1]]
+                    n1 = [n1[0], i*s, n1[1]]
                     idx = nodes.index(n1) + 1
                 except ValueError:
                     n1 = pointload.coordinate
-                    if num_frames != 1:
-                        n1 = [n1[0], i*s, n1[1]]
+                    n1 = [n1[0], i*s, n1[1]]
                     nodes.append(n1)
                     idx = nodes.index(n1) +1
                 FX, FZ, MY = pointload.v
@@ -356,8 +363,7 @@ def to_robot_3D(filename,
             if long_frame1.is_calculated:
                 for sup in long_frame1.supports.values():
                     n1 = sup.coordinate
-                    if num_frames != 1:
-                        n1 = [n1[1], n1[0], 0]
+                    n1 = [n1[1], n1[0], 0]
                     idx = nodes.index(n1) + 1
                     if sup.dofs[0] == [-1]:
                         f.write(f'{idx}  UX  \n')
@@ -374,8 +380,7 @@ def to_robot_3D(filename,
             else:
                 for sup in long_frame1.supports.values():
                         n1 = sup.coordinate
-                        if num_frames != 1:
-                            n1 = [n1[1], n1[0], 0]
+                        n1 = [n1[1], n1[0], 0]
                         idx = nodes.index(n1) + 1
                         if sup.dofs == [1, 0, 0]:
                             f.write(f'{idx}  UX  \n')
@@ -393,8 +398,7 @@ def to_robot_3D(filename,
             if long_frame2.is_calculated:
                 for sup in long_frame2.supports.values():
                     n1 = sup.coordinate
-                    if num_frames != 1:
-                        n1 = [L, n1[0], 0]
+                    n1 = [L, n1[0], 0]
                     idx = nodes.index(n1) + 1
                     if sup.dofs[0] == [-1]:
                         f.write(f'{idx}  UX  \n')
@@ -411,8 +415,7 @@ def to_robot_3D(filename,
             else:
                 for sup in long_frame2.supports.values():
                         n1 = sup.coordinate
-                        if num_frames != 1:
-                            n1 = [L, n1[0], 0]
+                        n1 = [L, n1[0], 0]
                         idx = nodes.index(n1) + 1
                         if sup.dofs == [1, 0, 0]:
                             f.write(f'{idx}  UX  \n')
@@ -464,3 +467,9 @@ def to_robot_3D(filename,
             f.write("END")
         
         print(f'{filename}.str created to: \n{os.getcwd()}')
+        
+        
+        
+        
+        
+        
