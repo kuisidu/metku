@@ -172,34 +172,37 @@ class SteelSection(metaclass=ABCMeta):
 
         return p
 
-    def section_class(self):
+    def section_class(self,verb=False):
         """ Determines cross-section class """
 
         C = 1
         # Pure bending
         if abs(self.Ned) < 1e-4 and abs(self.Med) > 1e-4:
-            Cweb = self.web_class_bend()
-            Cflange = self.flange_class()
+            Cweb = self.web_class_bend(verb)
+            Cflange = self.flange_class(verb)
             C = max(Cweb, Cflange)
 
         # Compression
         elif self.Ned < 0.0:
             # Pure compression
             if abs(self.Med) < 1e-4:
-                Cweb = self.web_class_comp()
-                Cflange = self.flange_class()
+                Cweb = self.web_class_comp(verb)
+                Cflange = self.flange_class(verb)
                 C = max(Cweb, Cflange)
             # Bending and compression
             else:
                 # Flange is in compression
-                Cflange = self.flange_class()
+                Cflange = self.flange_class(verb)
                 # Classify web as a part in compression and bending
-                Cweb = self.web_class_comp_bend(self.Ned)
+                Cweb = self.web_class_comp_bend(self.Ned,verb)
                 C = max(Cweb, Cflange)
 
         # Axial tension and bending
         elif self.Ned > 0.0 and abs(self.Med) > 1e-4:
             C = 1
+
+        if verb:
+            print("Section class = {0}".format(C))
 
         return C
 
@@ -211,7 +214,7 @@ class SteelSection(metaclass=ABCMeta):
 
         return NRd
 
-    def bending_resistance(self, C=0, axis="y"):
+    def bending_resistance(self, C=0, axis="y", verb=False):
         # Bending resistance, Nmm
         if C == 0:
             C = self.section_class()
@@ -229,6 +232,9 @@ class SteelSection(metaclass=ABCMeta):
             WRd = self.Wel[n]
 
         MRd = en1993_1_1.bending_resistance(WRd, self.fy)
+        
+        if verb:
+            print("MRd = {0:4.2f} kNm".format(MRd*1e-6))
 
         return MRd, C
 
@@ -248,7 +254,7 @@ class SteelSection(metaclass=ABCMeta):
             n = 1
         return en1993_1_1.bending_resistance(self.Wpl[n], self.fy)
 
-    def shear_force_resistance(self, C=0):
+    def shear_force_resistance(self, C=0, verb=False):
         if C == 0:
             C = self.section_class()
 
@@ -258,6 +264,10 @@ class SteelSection(metaclass=ABCMeta):
             VRd = en1993_1_1.shear_resistance(self.Ashear, self.fy)
         else:
             VRd = en1993_1_1.shear_resistance(self.Ashear, self.fy)
+
+        if verb:
+            print("Shear area = {0:4.2f} mm2".format(self.Ashear))
+            print("VRd = {0:4.2f} kN".format(VRd*1e-3))
 
         return VRd
 

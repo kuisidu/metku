@@ -7,133 +7,129 @@ EN 1993-1-8 Rules for connections
 @author: kmela
 """
 
+# Bolt materials [MPa], SFS EN 1993-1-8, table 3.1
+mat_bolt = {4.6: {"f_yb": 240.0, "f_ub": 400.0},
+            4.8: {"f_yb": 320.0, "f_ub": 400.0},
+            5.6: {"f_yb": 300.0, "f_ub": 500.0},
+            5.8: {"f_yb": 400.0, "f_ub": 500.0},
+            6.8: {"f_yb": 480.0, "f_ub": 600.0},
+            8.8: {"f_yb": 640.0, "f_ub": 800.0},
+            10.9: {"f_yb": 900.0, "f_ub": 1000.0}}
+
+# Standard bolt sizes
+bolt_sizes = [12, 16, 20, 24, 30, 36]
+
+# Standard bolt lengths
+bolt_lengths = [20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 90.0, 100.0, 110.0,
+                120.0, 130.0, 140.0, 150.0, 160.0, 180.0, 200.0, 220.0, 240.0, 260.0, 280.0, 300.0]
+
+# Bolt sizes, stress area [mm^2]
+bolt_size = {12: {"A_s": 84.3},
+             16: {"A_s": 157.0},
+             20: {"A_s": 245.0},
+             24: {"A_s": 353.0},
+             30: {"A_s": 561.0},
+             36: {"A_s": 817.0},
+             }
+
 import math
 
 from eurocodes.en1993.constants import gammaM5
 
-class RHSJoint:
-    """ Class for joints between RHS members """
-    properties
-        chord
-        N0
-        Np
-        M0
-        V0
-        fy0
-    end
+""" CHAPTER 3: Bolts """
+def bolt_shear_resistance(fub,A,bolt_class=8.8,threads_in_plane=False):
+    """ EN 1993-1-8, Table 3.4
+        Input:
+            fub .. ultimate strength of bolt [MPa]
+            A .. cross-sectional area [mm^2]
+            threads_at_plane .. True, if shear plane passes through threaded
+                                portion of the bolt
+                                False, otherwise
+        Output:
+            FvRd .. bolt shear resistance [N]
+    """
     
-    properties (Constant = true)
-        E = 210 % Young's Modulus [GPa]
-        nu = 0.30 % Poisson's ratio
-        G = 81 % Shear modulus [GPa]
-        gM5 = 1.0;
-    end
+    if threads_in_plane:
+        av = 0.6
+    else:
+        if bolt_class = {10.9,6.8,5.8,4.8}:
+            av = 0.5
+        elif bolt_class = {4.6,5.6,8.8}:
+            av = 0.6
     
-    properties (Dependent = true)
-        Gamma
-        H0
-        B0
-        T0
-        %fy0
-    end
+    FvRd = av*fub*A/gammaM2
+    return FvRd
+
+def bolt_bearing_resistance(fub,fu,d,t,e,p,d0,pos_perp="edge",pos_load="edge"):
+    """ EN 1993-1-8, Table 3.4
+        Input:
+            fub .. ultimate strength of bolt [MPa]
+            fu .. ultimate strength of plate [MPa]
+            d .. diameter of bolt hole [mm]
+            t .. thickness of plate [mm]
+            pos_perp .. position of bolt in direction perpendicular to
+                        load transfer ("edge" or "innter")
+            pos_load .. position of bolt in direction of load transfer
+                        ("edge" or "inner")
+        Output:
+            FbRd .. bearing resistance [N]
+    """
+    e1 = e[0]
+    e2 = e[1]
+    p1 = p[0]
+    p2 = p[1]
     
-    methods (Abstract)
-        b = Beta(obj);
-        eta = Eta(obj);        
-    end
+    if pos_load == "edge":
+        ad = e1/3/d0
+    else:
+        ad = p1/3/d0 - 0.25    
+
+    if pos_perp == "edge":
+        k1 = min(2.8*e2/d0-1.7,2.5)
+    else:
+        k1 = min(1.4*p2/d0-1.7,2.5)
+        
     
-    methods
-        function obj = RHSJoint(chordProfile,fy0,varargin)
-            nargs = length(varargin);
-            N0 = 0;
-            M0 = 0;
-            if nargs > 0
-                N0 = varargin{1};
-            end
-            
-            if nargs > 1
-                M0 = varargin{2};
-            end            
-            obj.chord = chordProfile;  
-            obj.fy0 = fy0;
-            obj.N0 = N0;
-            obj.M0 = M0;
-        end                              
-        
-        function h0 = get.H0(obj)
-            h0 = obj.chord.H;
-        end
-        
-        function b0 = get.B0(obj)
-            b0 = obj.chord.B;
-        end
-        
-        function t0 = get.T0(obj)
-            t0 = obj.chord.T;
-        end
-        
-%         function fy0 = get.fy0(obj)
-%             fy0 = obj.chord.fy;
-%         end
-        
-        function g = get.Gamma(obj)
-            g = obj.H0/2/obj.T0;
-        end
-        
-        function bbar = BStraigth(obj)            
-            bbar = obj.chord.B-2*obj.chord.R;
-        end
-        
-        function kn = EvalKN(obj)
-            n = obj.EvalN;
-            b = obj.Beta;
-            if n > 0 % compression                
-                kn = min(1.3-0.4*n/b,1.0);
-            else % tension
-                kn = 1.0;
-            end
-        end
-        
-        function r = StrengthReduction(obj)
-            r = 1.0;
-            if obj.fy0 > 355
-                r = 0.9;
-            elseif obj.fy0 > 460
-                r = 0.8;            
-            end
-        end
-        
-        function n = EvalN(obj)
-            % s0Ed > 0 for compression
-            s0Ed = obj.ChordStress;
-            n = s0Ed/obj.fy0/obj.gM5;
-        end
-        
-        function s0Ed = ChordStress(obj)
-            A0 = obj.chord.A;
-            Wel0 = obj.chord.Wel(1);                 
-            % s0Ed is positive, if the stress in the chord
-            % is compressive.
-            s0Ed = -obj.N0*1e3/A0+obj.M0*1e6./Wel0;
-            
-            %Wpl0 = obj.chord.Wpl(1)           
-            %s0Ed = -obj.N0*1e3/A0+obj.M0*1e6./Wpl0;
-        end
-        
-        function n = NewEvalN(obj)
-            % s0Ed > 0 for compression
-            s0Ed = obj.NewChordAxialStress;
-            % n < 0 for compression
-            n = -s0Ed/obj.fy0/obj.gM5;
-        end
-        
-        % Axial stress in the chord face at the joint
-        % Based on the new proposal, where plastic bending resistance is 
-        % used instead of elastic
-        function s0Ed = NewChordAxialStress(obj)
-            A0 = obj.chord.A;                        
-            Wpl0 = obj.chord.Wpl(1);
-            % s0Ed < 0 for compression
-            s0Ed = -obj.N0*1e3/A0+obj.M0*1e6./Wpl0;
-        end
-    end
+    ab = min(ad,fub/fu,1.0)
+    
+    FbRd = k1*ab*fu*d*t
+    
+    return FbRd
+
+def bolt_tension_resistance(fub,As,k2=0.9):
+    """ EN 1993-1-8, Table 3.4
+        Input:
+            fub .. ultimate strength of bolt [MPa]
+            As .. stress area of bolt [mm^2]
+            k2 = 0.63 for countersunk bolts
+               = 0.9 otherwise (default)
+        Output:
+            FtRd .. bolt tension resistance [N]
+    """
+    FtRd = k2*fub*As/gammaM2
+    return FtRd
+
+def bolt_punching_shear_resistance(dm,tp,fu):
+    """ EN 1993-1-8, Table 3.4
+        Input:
+            dm .. mean of the across points and across flats 
+                dimensions of the bolt head or the nut, whichever is smaller
+            tp .. thickness of the plate under the bolt or nut
+        Output:
+            BpRd .. punching shear resistance [N]
+    """
+    BpRd = 0.6*math.pi*dm*tp*fu/gammaM2
+    return BpRd
+
+def shear_and_tension_resistance(FvEd,FvRd,FtEd,FtRd):
+    """ EN 1993-1-8, Table 3.4
+        Input:
+            FvEd .. shear force in bolt
+            FvRd .. shear resistance of bolt
+            FtEd .. tension force in bolt
+            FtRd .. tension resistance of bolt
+        Output:
+            U .. utilization ratio
+    """
+    U = FvEd/FvRd + FtEd/FtRd/1.4
+    return U
