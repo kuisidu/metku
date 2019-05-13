@@ -9,6 +9,7 @@ EN 1993-1-5 Rules of plated structures
 
 import math
 
+from constants import gammaM1
 
 
 def shear_eta(fy):
@@ -108,3 +109,70 @@ def buckling_factor_outstand(psi=1.0,sigma1="tip"):
             ksigma = 23.8
     
     return ksigma
+
+def transverse_force_resistance(fyw,hw,tw,fyf,bf,tf,ss,a=0,type="a",c=0):
+    """ Clause 6 
+        input:
+            fyw .. yield strength of the web [MPa]
+            hw .. height of the web (mm)
+            tw .. web thickness (mm)
+            fyf .. yield strength of the flange
+            bf .. width of flange
+            tf .. thicknes of flange
+            a .. distance between transverse stiffeners (a=0 for no stiffeners)
+            ss .. length of stiff bearing
+            type .. type of load application
+                    "a" .. through one flange at the middle of the member
+                    "b" .. through two flanges at the middle of the member
+                    "c" .. through one side of the flange at the end of the member
+            c .. distance of the edge of the load application surface from the end
+                of the member (for type "c")
+    """
+    if a == 0:
+        a = 1000*hw
+    
+    ss = min(ss,hw)
+    
+    if type == "a":
+        kF = 6 + 2*(hw/a)**2
+    elif type == "b":
+        kF = 3.5+2*(hw/a)**2
+    elif type == "c":
+        kF = min(2+6*(ss+c)/hw,6.0)
+    
+    # Next, the reduction factor for effective length (Clause 6.4) and
+    # Effective loaded length are determined. This may require iteration
+    m1 = fyf*bf/fyw/tw
+    m2 = 0
+    
+    Fcr = 0.9*kF*E*tw**3/hw
+            
+    if type == "a" or type == "b":
+        ly = min(ss + 2*tf*(1+math.sqrt(m1+m2)),a)
+    elif type == "c":
+        le = min(0.5*kF*E*tw**2/fyw/hw,ss+c)
+        ly = min(le + tf*math.sqrt(0.5*m1+(le/tf)**2+m2),le+tf*math.sqrt(m1+m2))
+    
+    lambdaF = math.sqrt(ly*tw*fyw/Fcr)
+    
+    if lambdaF > 0.5:
+        # in this case, the initial assumption of m2=0 was wrong, and
+        # ly needs to be corrected:
+        m2 = 0.02*(hw/tf)**2
+    
+    if type == "a" or type == "b":
+        ly = min(ss + 2*tf*(1+math.sqrt(m1+m2)),a)
+    elif type == "c":
+        le = min(0.5*kF*E*tw**2/fyw/hw,ss+c)
+        ly = min(le + tf*math.sqrt(0.5*m1+(le/tf)**2+m2),le+tf*math.sqrt(m1+m2))
+    
+    lambdaF = math.sqrt(ly*tw*fyw/Fcr)
+        
+    # Reduction factor (Eq. (6.3))
+    chiF = min(0.5/lambdaF,1.0)
+    
+    Leff = chiF*lambdaF
+    
+    FRd = fyw*Leff*tw/gammaM1
+    
+    return FRd
