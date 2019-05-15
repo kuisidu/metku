@@ -34,9 +34,109 @@ bolt_size = {12: {"A_s": 84.3},
 
 import math
 
-from eurocodes.en1993.constants import gammaM5
+from eurocodes.en1993.constants import gammaM2, gammaM5
 
 """ CHAPTER 3: Bolts """
+class Bolt:
+    """ Class for bolts """
+    
+    def __init__(self,size,bolt_class=8.8,length=50.0):
+        """ Constructor
+             input: size .. bolt size
+                    bolt_class .. bolt class
+                    length .. length of bolt
+        """
+        self.d = size # diameter of unthreaded shank
+        
+        # bolt hole: EN 1090-2 (2018): Table 11
+        if size < 16:
+            self.d0 = size+1
+        elif size < 27:
+            self.d0 = size+2
+        else:
+            self.d0 = size+3
+        
+        self.A = math.pi*size**2/4
+        self.As = bolt_size[size]["A_s"]
+        
+        self.length = length
+        self.fyb = mat_bolt[bolt_class]["f_yb"]
+        self.fub = mat_bolt[bolt_class]["f_ub"]
+        self.bolt_class = bolt_class
+        
+    def shear_resistance(self,threads_in_plane=False):
+        """ EN 1993-1-8, Table 3.4
+        Input:
+            fub .. ultimate strength of bolt [MPa]
+            A .. cross-sectional area [mm^2]
+            threads_at_plane .. True, if shear plane passes through threaded
+                                portion of the bolt
+                                False, otherwise
+        Output:
+            FvRd .. bolt shear resistance [N]
+        """
+        
+        if threads_in_plane:
+            av = 0.6
+        else:
+            if self.bolt_class in {10.9,6.8,5.8,4.8}:
+                av = 0.5
+            elif self.bolt_class in {4.6,5.6,8.8}:
+                av = 0.6
+    
+        
+        FvRd = av*self.fub*self.A/gammaM2
+        return FvRd
+    
+    def tension_resistance(self,k2=0.9):
+        """ EN 1993-1-8, Table 3.4
+            Input:
+                k2 = 0.63 for countersunk bolts
+                   = 0.9 otherwise (default)
+            Output:
+                FtRd .. bolt tension resistance [N]
+        """
+        FtRd = k2*self.fub*self.As/gammaM2
+        return FtRd
+    
+ 
+    def bearing_resistance(self,fu,t,e,p,pos_perp="edge",pos_load="edge"):
+        """ EN 1993-1-8, Table 3.4
+            Input:
+                t .. thickness of plate [mm]
+                pos_perp .. position of bolt in direction perpendicular to
+                            load transfer ("edge" or "inner")
+                pos_load .. position of bolt in direction of load transfer
+                            ("edge" or "inner")
+                e .. array for edge distances e[0] = e1, e[1] = e2
+                p .. array for bolt row distances p[0] = p1, p[1] = p2
+                fu .. ultimate strength of plate [MPa]
+            Output:
+                FbRd .. bearing resistance [N]
+        """
+        e1 = e[0]
+        e2 = e[1]
+        p1 = p[0]
+        p2 = p[1]
+        
+        if pos_load == "edge":
+            ad = e1/3/self.d0
+        else:
+            ad = p1/3/self.d0 - 0.25    
+    
+        if pos_perp == "edge":
+            k1 = min(2.8*e2/self.d0-1.7,2.5)
+        else:
+            k1 = min(1.4*p2/self.d0-1.7,2.5)
+            
+        
+        ab = min(ad,self.fub/fu,1.0)
+        
+        FbRd = k1*ab*self.fu*self.d*t
+        
+        return FbRd
+
+    
 def bolt_shear_resistance(fub,A,bolt_class=8.8,threads_in_plane=False):
     """ EN 1993-1-8, Table 3.4
         Input:
@@ -52,9 +152,9 @@ def bolt_shear_resistance(fub,A,bolt_class=8.8,threads_in_plane=False):
     if threads_in_plane:
         av = 0.6
     else:
-        if bolt_class = {10.9,6.8,5.8,4.8}:
+        if bolt_class in {10.9,6.8,5.8,4.8}:
             av = 0.5
-        elif bolt_class = {4.6,5.6,8.8}:
+        elif bolt_class in {4.6,5.6,8.8}:
             av = 0.6
     
     FvRd = av*fub*A/gammaM2
