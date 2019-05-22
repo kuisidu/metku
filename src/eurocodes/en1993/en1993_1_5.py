@@ -9,7 +9,7 @@ EN 1993-1-5 Rules of plated structures
 
 import math
 
-from constants import E, gammaM1
+from eurocodes.en1993.constants import E, gammaM1
 
 
 def shear_eta(fy):
