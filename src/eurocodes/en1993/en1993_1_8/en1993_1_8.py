@@ -34,7 +34,7 @@ bolt_size = {12: {"A_s": 84.3},
 
 import math
 
-from eurocodes.en1993.constants import gammaM2, gammaM5
+from eurocodes.en1993.constants import gammaM0, gammaM2, gammaM5
 
 """ CHAPTER 3: Bolts """
 class Bolt:
@@ -64,7 +64,7 @@ class Bolt:
         self.fub = mat_bolt[bolt_class]["f_ub"]
         self.bolt_class = bolt_class
         
-    def shear_resistance(self,threads_in_plane=False):
+    def shear_resistance(self,threads_in_plane=False,verb=False):
         """ EN 1993-1-8, Table 3.4
         Input:
             fub .. ultimate strength of bolt [MPa]
@@ -78,14 +78,30 @@ class Bolt:
         
         if threads_in_plane:
             av = 0.6
+            As = self.A
         else:
+            As = self.As
             if self.bolt_class in {10.9,6.8,5.8,4.8}:
                 av = 0.5
             elif self.bolt_class in {4.6,5.6,8.8}:
                 av = 0.6
     
         
-        FvRd = av*self.fub*self.A/gammaM2
+        FvRd = av*self.fub*As/gammaM2
+        
+        if verb:
+            print("Shear resistance:")
+            if threads_in_plane:
+                print("Bolt threads in shear plane")
+            else:
+                print("Bolt threads not in shear plane")
+                
+            print("Area: As = {0:4.2f}".format(As))            
+            print("alpha_v = {0:4.2f}".format(av))            
+            print("fub = {0:4.2f}".format(self.fub))            
+            print("FvRd = {0:4.2f} kN".format(FvRd*1e-3))    
+        
+        
         return FvRd
     
     def tension_resistance(self,k2=0.9):
@@ -100,7 +116,8 @@ class Bolt:
         return FtRd
     
  
-    def bearing_resistance(self,fu,t,e,p,pos_perp="edge",pos_load="edge"):
+    def bearing_resistance(self,fu,t,e,p,pos_perp="edge",pos_load="edge",\
+                           verb=False):
         """ EN 1993-1-8, Table 3.4
             Input:
                 t .. thickness of plate [mm]
@@ -132,9 +149,43 @@ class Bolt:
         
         ab = min(ad,self.fub/fu,1.0)
         
-        FbRd = k1*ab*self.fu*self.d*t
+        FbRd = k1*ab*fu*self.d*t/gammaM2
+        
+        if verb:
+            print("Bearing resistance:")
+            print("Edge distances: e1 = {0:4.2f}, e2 = {1:4.2f}".format(e1,e2))
+            print("Bolt row distances: p1 = {0:4.2f}, p2 = {1:4.2f}".format(p1,p2))
+            print("alpha_d = {0:4.2f}".format(ad))
+            print("alpha_b = {0:4.2f}".format(ab))
+            print("k1 = {0:4.2f}".format(k1))
+            print("d = {0:4.2f}".format(self.d))
+            print("t = {0:4.2f}".format(t))
+            print("t = {0:4.2f}".format(t))
+            print("FbRd = {0:4.2f} kN".format(FbRd*1e-3))
         
         return FbRd
+
+def block_tearing(fy,fu,Ant,Anv,concentric_load=True,verb=False):
+    """ Check block tearing resistance 
+        fy .. yield strength of the plate [MPa]
+        fu .. ultimate strength of the plate [MPa]
+        Ant .. net area subject to tension [mm2]
+        Anv .. net area subject to shear [mm2]
+    """
+    
+    if concentric_load:
+        Veff = fu*Ant/gammaM2 + fy/math.sqrt(3)*Anv/gammaM0
+    else:
+        Veff = 0.5*fu*Ant/gammaM2 + fy/math.sqrt(3)*Anv/gammaM0
+    
+    if verb:
+        print("Block tearing:")
+        print("fy = {0:4.2f} MPa, fu = {1:4.2f} MPa".format(fy,fu))
+        print("Ant = {0:4.2f} mm^2, Anv = {1:4.2f} mm^2".format(Ant,Anv))
+        print("Veff,Rd = {0:4.2f} kN".format(Veff*1e-3))
+    
+    return Veff
+    
 
     
 def bolt_shear_resistance(fub,A,bolt_class=8.8,threads_in_plane=False):
@@ -158,6 +209,9 @@ def bolt_shear_resistance(fub,A,bolt_class=8.8,threads_in_plane=False):
             av = 0.6
     
     FvRd = av*fub*A/gammaM2
+    
+    
+    
     return FvRd
 
 def bolt_bearing_resistance(fub,fu,d,t,e,p,d0,pos_perp="edge",pos_load="edge"):
@@ -192,7 +246,7 @@ def bolt_bearing_resistance(fub,fu,d,t,e,p,d0,pos_perp="edge",pos_load="edge"):
     
     ab = min(ad,fub/fu,1.0)
     
-    FbRd = k1*ab*fu*d*t
+    FbRd = k1*ab*fu*d*t    
     
     return FbRd
 

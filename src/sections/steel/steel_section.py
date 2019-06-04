@@ -68,6 +68,7 @@ class SteelSection(metaclass=ABCMeta):
         self.Ved = Ved
         self.imp_factor = None
         self.code = design_code
+        self.density = constants.density
 
     @property
     def NRd(self):
