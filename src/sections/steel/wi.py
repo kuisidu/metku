@@ -132,17 +132,17 @@ class WISection(SteelSection):
     @property
     def cf_top(self):
         """ Straight part of the top flange """
-        return 0.5*(self.b[0]-self.tw) - math.sqrt(2)*self.aw
+        return 0.5*(self.b[0]-self.tw) - math.sqrt(2)*self.weld_throat
 
     @property
     def cf_bottom(self):
         """ Straight part of the bottom flange """
-        return 0.5*(self.b[1]-self.tw) - math.sqrt(2)*self.aw
+        return 0.5*(self.b[1]-self.tw) - math.sqrt(2)*self.weld_throat
 
     @property
     def cw(self):
         """ Straight part of the web """
-        return self.hw - 2*math.sqrt(2)*self.aw
+        return self.hw - 2*math.sqrt(2)*self.weld_throat
    
     def flange_class(self,verb=False):
         """ Determine class of compressed flange """
@@ -175,8 +175,8 @@ class WISection(SteelSection):
         """ Determine class of web in bending """
         zel = self.elastic_neutral_axis()
         dpl = self.plastic_neutral_axis()
-        rw = self.hw / self.tw
-        psi = zel/(self.height-zel)
+        rw = self.cw / self.tw
+        psi = zel/(self.h-zel)
         alpha = dpl/self.hw
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps,alpha,psi)
 
