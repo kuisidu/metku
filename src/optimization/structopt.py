@@ -107,6 +107,10 @@ class LinearConstraint(Constraint):
     def __call__(self,x):
         """ Evaluate constraint at x """    
         return np.array(self.a).dot(np.array(x))-self.b
+    
+    def neg_call(self,x):
+        """ Evaluate -g(x) """
+        return self(x)
 
 class NonLinearConstraint(Constraint):
     """ Class for linear constraints """
@@ -124,11 +128,15 @@ class NonLinearConstraint(Constraint):
         """ Evaluate constraint at x """        
         return self.con(x)
     
+    def neg_call(self,x):
+        """ Return -g(x) """
+        return -self.con(x)
+    
 class OptimizationProblem:
     """ Class for defining and operating with optimization problems """
     
     def __init__(self,name="",variables=[],constraints=[],objective=None,\
-                 gradient=None,hess=None):
+                 gradient=None,hess=None, structure=None):
         """ Constructor
             
             Parameters:
@@ -154,7 +162,8 @@ class OptimizationProblem:
         self.obj = objective
         self.grad = gradient
         self.hess = hess
-    
+        self.structure = structure
+        
     def __call__(self,x):
         """ Call method evaluates the objective function and all constraints
             at x and returns their values
@@ -189,6 +198,29 @@ class OptimizationProblem:
             g.append(con(x))
         
         return g        
+    
+    def eval_eq_con(self,x):
+        """ Evaluates equality constraionts """
+        
+        geq = []
+        
+        for con in self.cons:
+            if con.type == "=":
+                geq.append(con(x))
+    
+    def eval_ineq_con(self,x):
+        """ Evaluate inequality constriants
+            All constraints are evaluated in the form g(x) >= 0
+        """
+        
+        g = []
+        
+        for con in self.cons:
+            if con.type == ">":
+                g.append(con(x))
+            elif con.type == "<":
+                g.append(-con(x))
+                
 
     def nvars(self):
         """ Return number of variables """
@@ -210,7 +242,11 @@ class OptimizationProblem:
     def add_constraints(self,constraints):
         """ Adds new constraints to the problem """
         self.cons.append(constraints)
-        
+    
+    def add_structure(self,structure):
+        """ Add structure to the problem """
+        self.structure = structure
+    
     def var_bounds(self):
         """ Returns arrays lb and ub for variable bounds """
         lb = []
@@ -240,10 +276,43 @@ class OptimizationProblem:
                 jac = self.grad
             
             if self.hess is not None:
-                hess = self.hess          
+                hess = self.hess      
+                
+            """ Crerate constraints
+            Constraints for COBYLA, SLSQP are defined as a 
+            list of dictionaries. Each dictionary with fields:
+
+                type: str
+
+                Constraint type: ‘eq’ for equality, ‘ineq’ for inequality.
+                
+                fun: callable The function defining the constraint.
+    
+                jac: callable, optional. The Jacobian of fun (only for SLSQP).
+    
+                args: sequence, optional
+
+                    Extra arguments to be passed to the function and Jacobian.
+
+            """
+            #cons = [{"type":"ineq", "fun":self.eval_ineq_con}]
+            
+            
+            cons = []
+            for con in self.cons:
+                if con.type == "=":
+                    new_con = {"type":"eq", "fun":con}
+                elif con.type == "<":
+                    new_con = {"type":"ineq", "fun":con}
+                else:
+                    new_con = {"type":"ineq", "fun":con.neg_call}
+                    
+                cons.append(new_con)
+            
+            print(cons)
             
             res = sciop.minimize(self.obj,kwargs["x0"],method=solver,\
-                           jac=jac,bounds=bnds)
+                           jac=jac,bounds=bnds,constraints=cons)
         elif solver == "trust-constr":
             jac = "2-point"        
             hess = "2-point"
@@ -274,10 +343,39 @@ def NumGrad(fun,h,x):
     for i in range(len(x)):
         dx = np.zeros(n)
         dx[i] = h[i]
+        print(x+dx)
         fh = fun(x+dx)        
         df[i] = (fh-fx)/h[i]
 
     return df
+
+def Linearize(fun,x,grad=None):
+    """ Linearization of a function 
+    
+        input:
+            fun .. function that takes x as input
+            x .. point of linearization (array)
+            grad .. returns the gradient of fun at x
+            
+        output:
+            a .. grad(x)
+            b .. fun(x)
+            c .. grad(x)*x 
+            
+    """
+    
+    b = fun(x)
+    
+    if grad == None:
+        h = 0.01*x # check if this is OK
+        a = NumGrad(fun,h,x)
+    else:
+        a = grad(x)
+    
+    c = a.dot(x)
+    
+    return a, b, c
+
 
 
 if __name__ == '__main__':

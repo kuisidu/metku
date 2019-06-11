@@ -11,7 +11,7 @@ from sections.steel.wi import WISection
 #from structopt import Variable, LinearConstraint, Constraint, OptimizationProblem
 import structopt as sop
 import numpy as np
-
+import copy
 
 
 def IBeamWeight(p,x):
@@ -27,6 +27,7 @@ def IBeamWeight(p,x):
             f: weight of the beam
             
     """
+    
     L = 6000
     p.h = x[0]
     p.tw = x[1]
@@ -105,7 +106,10 @@ def IBeamWeightHessian(p,x):
 
 
 def IBeamFlangeClassCon(p,flange_class=2):
-    """ Builds a constraint for cross-section class of an I beam """
+    """ Builds a constraint for cross-section class of an I beam 
+    
+        0.5*b -  0.5*tw - sqrt(2)*aw <= C0*e*tf
+    """
     
     a = [0,0,0,0]
     b = 0
@@ -114,17 +118,19 @@ def IBeamFlangeClassCon(p,flange_class=2):
     e = p.eps
     
     if flange_class == 1:
-        C0 = 9*e
+        C0 = 9
     elif flange_class == 2:
-        C0 = 10*e
+        C0 = 10
     elif flange_class > 2:
-        C0 = 14*e
+        C0 = 14
     
     b = math.sqrt(2)*p.weld_throat
-    a[1] = -C0*e
+    a[1] = -0.5
     a[2] = 0.5
-    a[3] = -0.5
+    a[3] = -C0*e
     
+    
+    print(a)
     if flange_class > 3:
         """ if class 4 is required, the cf/tf ratio needs to
             be greater than the class 3 limit. This  changes the
@@ -138,7 +144,10 @@ def IBeamFlangeClassCon(p,flange_class=2):
     return con
 
 def IBeamWebClassCon(p,web_class=2):
-    """ Builds a constraint for cross-section class of an I beam """
+    """ Builds a constraint for cross-section class of an I beam 
+    
+        h - 2*tf -2*sqrt(2)*aw <= C1*e*tw
+    """
     
     a = [0,0,0,0]
     b = 0
@@ -148,16 +157,18 @@ def IBeamWebClassCon(p,web_class=2):
      
     """ web is assumed to be in bending """
     if web_class == 1:
-        C1 = 72*e
+        C1 = 72
     elif web_class == 2:
-        C1 = 83*e
+        C1 = 83
     elif web_class > 2:
-        C1 = 124*e
+        C1 = 124
     
     b = 2*math.sqrt(2)*p.weld_throat
     a[0] = 1
     a[1] = -C1*e
     a[3] = -2
+    
+    print(a)
     
     if web_class > 3:
         """ if class 4 is required, the cw/tw ratio needs to
@@ -187,12 +198,15 @@ def IBeamBendingCon(p,section_class,x):
     elif section_class == 3:
         MRd = p.elastic_bending_resistance()
     
-    return p.Med - MRd
+    #print("Med = {0:4.2f}, MRd = {1:4.2f}".format(p.Med,MRd*1e-6))
+    
+    return 1 - MRd*1e-6/p.Med
         
 
 if __name__ == '__main__':
     
     p = WISection(h=300,tw=10,b=[100,100],tf=[15,15])
+    p.Med = 20*6**2/8
     
     """ Design variables:
         x[0] .. height of the beam
@@ -203,7 +217,7 @@ if __name__ == '__main__':
     dvars = []
     dvars.append(sop.Variable("Height",150,1000))
     dvars.append(sop.Variable("Web thickness",5,40))
-    dvars.append(sop.Variable("Flange width",150,500))
+    dvars.append(sop.Variable("Flange width",50,500))
     dvars.append(sop.Variable("Flange thickness",5,40))
     #dvars.append(sop.Variable("Web thickness",5,40))
     
@@ -212,7 +226,8 @@ if __name__ == '__main__':
     obj_hess = partial(IBeamWeightHessian,p)
     
     prob = sop.OptimizationProblem(name="I-Beam Weight Minimization",\
-                            variables=dvars,objective=obj,gradient=obj_grad)
+                            variables=dvars,objective=obj,gradient=obj_grad,\
+                            structure=p)
     
     flange_class = 2
     web_class = 2
@@ -231,12 +246,12 @@ if __name__ == '__main__':
 
     prob.add_constraints(bending_con)
     
-    x = [280,8,110,12]
+    x = [200,8,110,12]
     #prob(x)
     #print(prob.grad(x))
     #x0 = np.array(x)
     #print(sop.NumGrad(prob.obj,0.01*x0,x0))
     
     r0 = prob.solve("slsqp",x0=x)
-    r1 = prob.solve("trust-constr",x0=x)
+    #r1 = prob.solve("trust-constr",x0=x)
     
