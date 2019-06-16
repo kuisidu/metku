@@ -119,7 +119,7 @@ class FrameFEM:
         :type y: float
         """
 
-        newNode = FEMNode(x, y)
+        newNode = FEMNode(x, y ,len(self.nodes))
         self.nodal_coords.append([x, y])
 
         for i in range(self.nloadcases()):
@@ -840,10 +840,12 @@ class FEMNode:
 
     """
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, nid):
 
         self.x = np.array([x, y])
         """ Nodal coordinates"""
+        self.nid = nid
+        """ Node id """
         # For 3D frames, the order of dofs must be redefined
         self.dofs = [0, 0, 0]
         """ Node's degrees of freedom """

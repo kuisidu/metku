@@ -8,6 +8,7 @@ from frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from framefem.elements import EBBeam, EBSemiRigidBeam
 #from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
 from framefem import FrameFEM, BeamSection
+from structures.steel.steel_member import SteelMember
 from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
 
 import math
@@ -15,9 +16,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 PREC = 3
+L_sys = 0.8
 
 class Truss2D(Frame2D):
-    def __init__(self, origo=[0,0], simple=[], num_elements=2, fem_model=None):
+    def __init__(self, origo=[0,0], simple={}, num_elements=2, fem_model=None):
         super().__init__(num_elements=num_elements, fem_model=fem_model)
         self.truss = self
         self.origo = origo
@@ -25,55 +27,45 @@ class Truss2D(Frame2D):
         self.bottom_chords = []
         self.webs = {}
         self.joints = {}
+        self.simple = {'H0': 0,
+                      'H1': 0,
+                      'H2': 0,
+                      'H3': 0,
+                      'L1': 0,
+                      'L2': 0,
+                      'n': 0,
+                       'dx':0}
+        for key in simple:
+            self.simple[key] = simple[key]
 
-        if len(simple) == 4:
-            H0, H1, L1, n = simple
-            self.H0 = H0
-            self.H1 = H1
-            self.H2 = 0
-            self.H3 = H1
-            self.L1 = L1/2
-            self.L2 = 0
-            self.n = n
-            self.generate_chords()
-            self.generate_webs()
-        elif len(simple) == 5:
-            H0, H1, H2, L1, n = simple
-            self.H0 = H0
-            self.H1 = H1
-            self.H2 = H2
-            self.H3 = H1
-            self.L1 = L1 / 2
-            self.L2 = L1 / 2
-            self.n = n
-            self.generate_chords()
-            self.generate_webs()
-        elif len(simple) == 6:
-            H0, H1, H2, L1, L2, n = simple
-            self.H0 = H0
-            self.H1 = H1
-            self.H2 = H2
-            self.H3 = H1
-            self.L1 = L1
-            self.L2 = L2
-            self.n = n
-            self.generate_chords()
-            self.generate_webs()
-        elif len(simple) == 7:  
-            H0, H1, H2, H3, L1, L2, n = simple
-            self.H0 = H0
-            self.H1 = H1
-            self.H2 = H2
-            self.H3 = H3
-            self.L1 = L1
-            self.L2 = L2
-            self.n = n
+        if len(simple):
+            self.H0 = self.simple['H0']
+            self.H1 = self.simple['H1']
+            self.H2 = self.simple['H2']
+            if not self.simple['H3']:
+                self.H3 = self.H1
+            else:
+                self.H3 = self.simple['H3']
+            self.L1 = self.simple['L1']
+            if not self.simple['L2']:
+                self.L2 = self.L1
+            else:
+                self.L2 = self.simple['L2']
+            if not self.simple['n']:
+                self.n = 10
+            else:
+                self.n = self.simple['n']
+            self.dx = self.simple['dx']
             self.generate_chords()
             self.generate_webs()
             
     def generate_chords(self):
         #self.add(TopChord([[0,self.H0 + self.H1],[self.L,self.H0 + self.H1]]))
         #self.add(BottomChord([[0,self.H0],[self.L,self.H0]]))
+
+
+
+
         x, y = self.origo
         if self.H2:
             self.add(TopChord([[x,y+self.H0 + self.H1],
@@ -85,8 +77,8 @@ class Truss2D(Frame2D):
             self.add(TopChord([[x,y+self.H0 + self.H1],
                                [x+self.L1*2,y+self.H0 + self.H1]]))
 
-        self.add(BottomChord([[x, y+self.H0],
-                              [x+self.L1 + self.L2, y+self.H0]]))
+        self.add(BottomChord([[x+ self.dx, y+self.H0],
+                              [x+self.L1 + self.L2 - self.dx, y+self.H0]]))
 
                  
     def generate_webs(self):
@@ -98,6 +90,7 @@ class Truss2D(Frame2D):
             flip = True
         else:
             flip = False
+
         for i in range(1,int(self.n/2)+1):
             if i%2 == 0:
                 c1 = round(i/self.n, 4)
@@ -111,14 +104,14 @@ class Truss2D(Frame2D):
                     c2 = 1
                 if flip:
                     c2 = min(0.99, c2*2)
-            
+
             if flip:
                 self.add(TrussWeb(c1, c2))
                 self.add(TrussWeb(1-c1, 1-c2))
             else:
                 self.add(TrussWeb(c2, c1))
                 self.add(TrussWeb(1-c2, 1-c1))
-        
+
 
     def add(self, this):
         # TOP CHORD
@@ -248,6 +241,13 @@ class Truss2D(Frame2D):
             print(type(this), " is not supported.")
             raise TypeError
 
+
+
+    def calculate(self, load_id=2):
+        super().calculate(load_id)
+        for joint in self.joints.values():
+            joint.calculate()
+
     def generate(self):
         """ Generates the truss
         """
@@ -301,6 +301,7 @@ class TrussMember(FrameMember):
                  num_elements=2,
                  Sj1=np.inf,
                  Sj2=np.inf):
+
         super().__init__(coordinates,
                          mem_id,
                          profile,
@@ -311,6 +312,8 @@ class TrussMember(FrameMember):
         self.joints = []
         # FrameMember -objects that chord is connected to
         self.columns = {}
+        # List of chords' members between joints
+        self.steel_members = []
 
     
     def add_node_coord(self, coord):
@@ -418,6 +421,36 @@ class TrussMember(FrameMember):
                 #joint.calc_nodal_coordinates()
         
         #self.nodal_coordinates.sort()
+
+
+
+
+    def check_cross_section(self):
+        super().check_cross_section()
+        if self.mtype != 'web':
+            # Sort joints using joints' local coordinate
+            self.joints.sort(key=lambda x: x.loc)
+            for i in range(len(self.joints) -1):
+                j0 = self.joints[i]
+                j1 = self.joints[i + 1]
+                x0, y0 = j0.coordinate
+                x1, y1 = j1.coordinate
+                L = np.sqrt((x0 - x1)**2 + (y0 - y1)**2)
+                steel_mem = SteelMember(self.cross_section, L, [L_sys, L_sys])
+                for id in range(j0.cnode.nid, j1.cnode.nid):
+                    N, V, M = self.nodal_forces[id]
+                    steel_mem.add_section(ned=N, myed=M, vyed=V)
+                self.steel_members.append(steel_mem)
+
+            for steel_member in self.steel_members:
+                r = []
+                r_sect = steel_member.check_sections()
+                r_buckling = steel_member.check_buckling()
+                r_lt_buckling = steel_member.check_LT_buckling()
+                r.extend(r_sect)
+                r.extend(r_buckling)
+                r.append(r_lt_buckling)
+
 
         
     def local(self, value):
@@ -722,7 +755,7 @@ class TrussWeb(TrussMember):
     
 
 class TrussJoint():
-    def __init__(self, chord, loc, joint_type="N", g1=0.05, g2=0.05):
+    def __init__(self, chord, loc, joint_type="N", g1=30, g2=30):
 
         self.chord = chord
         self.chord_elements = {}
@@ -825,10 +858,12 @@ class TrussJoint():
             r3 = abs(wNEd / r3)
             r5 = abs(NEd0 / r4[1]) # chord
             r4 = abs(wNEd / r4[0])
-            
+
+            #self.r = [r1, r2, r3, r4]
             maxR_for_webs = np.max((r1, r2, r3, r4), axis=0)
             maxR = np.append(maxR_for_webs, r5)
-            return maxR
+            self.r = maxR
+            #return maxR
 
         elif self.joint_type == 'Y':
             NEd1 = [w.ned for w in self.webs.values()][0]
@@ -840,9 +875,11 @@ class TrussJoint():
             r1 = abs(NEd0 / r1)
             r2 = abs(NEd0 / r2)
             r3 = abs(NEd1 / r3)
-            
+            #self.r = [r1, r2, r3]
+
             maxR = [r3, max(r1, r2)]
-            return maxR
+            self.r = maxR
+            #return maxR
         elif self.joint_type == 'KT':
             pass
         
@@ -911,7 +948,7 @@ class TrussJoint():
         self.nodal_coordinates = []
         central_coord = np.asarray(self.coordinate)
         # Eccentricity along y-axis
-        ecc_y = self.chord.h / 2000 # div by 2 and 1000 (mm to m)
+        ecc_y = self.chord.h / 2
 
         # Add joint's central coordinate to joint's and chord's list
         self.add_node_coord(list(central_coord))
@@ -922,7 +959,7 @@ class TrussJoint():
             theta = abs(self.chord.angle - web.angle)
             # Eccentricity along x-axis
             ecc_x = abs(self.g1 * math.cos(self.chord.angle)
-                    + web.h/2000 / math.sin(theta)) 
+                    + web.h/2 / math.sin(theta))
 
             ecc_x = round(ecc_x, PREC)
             # TOP CHORD
@@ -969,7 +1006,7 @@ class TrussJoint():
         elif len(self.webs) >= 2:
             self.chord.add_node_coord(list([central_coord[0], self.chord.shape(central_coord[0])]))
             # Calculate coordinates n-times because web's angle changes
-            n = 5
+            n = 10
             for i in range(n):                
                 # Iterate trhough every web member in the joint
                 for web in self.webs.values():
@@ -977,7 +1014,7 @@ class TrussJoint():
                     theta = abs(self.chord.angle - web.angle)
                     # Eccentricity along x-axis
                     ecc_x = abs(self.g1/2 * math.cos(self.chord.angle)
-                            + web.h/2000 / math.sin(theta))      
+                            + web.h/2 / math.sin(theta))
                     # If joint type is KT, there's two gap values g1 and g2
                     if len(self.webs) == 3:
                         # Find the leftmost, rightmost and middle web with x-values
@@ -989,10 +1026,10 @@ class TrussJoint():
                         middle_web = [x for x in self.webs.values() if x.bot_coord[0] != min_val and x.bot_coord[0] != max_val][0]
                         # eccentricity for the leftmost web
                         if web.bot_coord[0] == min_val:
-                            ecc_x = self.g1 *math.cos(self.chord.angle) + web.h/2000 / math.sin(theta) + middle_web.h/2000
+                            ecc_x = self.g1 *math.cos(self.chord.angle) + web.h/2 / math.sin(theta) + middle_web.h/2
                         # eccentricity for the rightmost web
                         elif web.bot_coord[0] == max_val:
-                            ecc_x = self.g2 *math.cos(self.chord.angle) + web.h/2000 / math.sin(theta) + middle_web.h/2000
+                            ecc_x = self.g2 *math.cos(self.chord.angle) + web.h/2 / math.sin(theta) + middle_web.h/2
                         # eccentricity for the middle web
                         else:
                             ecc_x = 0
@@ -1069,13 +1106,13 @@ class TrussJoint():
             self.rhs_joint = RHSKGapJoint(self.chord.cross_section,
                              [w.cross_section for w in self.webs.values()],
                              [math.degrees(self.chord.angle - w.angle) for w in self.webs.values()],
-                             self.g1 * 1000) # m to mm
+                             self.g1) # m to mm
         elif len(self.nodal_coordinates) == 5:
             self.joint_type = 'K'
             self.rhs_joint = RHSKGapJoint(self.chord.cross_section,
                                          [w.cross_section for w in self.webs.values()],
                                          [math.degrees(self.chord.angle - w.angle) for w in self.webs.values()],
-                                         self.g1 * 1000) # m to mm
+                                         self.g1) # m to mm
         elif len(self.nodal_coordinates) == 6:
             self.joint_type = 'KT'
         else:
