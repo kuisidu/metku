@@ -5,3 +5,4 @@ test:
   stage: test
   script:
   - echo "Running tests!"
+  - echo "All tests ran!"
