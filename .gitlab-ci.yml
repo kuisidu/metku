@@ -4,4 +4,5 @@ stages:
 test:
   stage: test
   script:
-  - python src/sections/steel/test_ISection.py
+  - echo "Running tests!"
+  - python3 src/sections/steel/test_ISection.py
