@@ -1,0 +1,7 @@
+stages:
+  - test
+
+test:
+  stage: test
+  script:
+  - python src/sections/steel/test_ISection.py
