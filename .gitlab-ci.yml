@@ -5,5 +5,5 @@ test:
   stage: test
   script:
   - echo "Running tests!
-  - python3 src/sections/steel/test_ISection.py
+  - python3 --version
   - echo "All tests ran!"
