@@ -4,6 +4,6 @@ stages:
 test:
   stage: test
   script:
-  - echo "Running tests!
+  - echo "Running tests!"
   - python3 --version
   - echo "All tests ran!"
