@@ -16,14 +16,88 @@ import numpy as np
 import scipy.optimize as sciop
 
 class Variable:
-    """ Class for optimization variables """
+    """ Class for optimization variables     
+    """
     
-    def __init__(self,name,lb,ub):
-        
+    def __init__(self,name,lb,ub,target=None):
+        """
+        Parameters:
+            -----------
+                :param name: string stating the name of the variable
+                :param value: current value of the variable
+                :param lb: lower bound
+                :param ub: upper bound
+                :param ub: upper bound
+                :param target: dict that provides information about the part of
+                the structure that the variable is changing
+                
+                target = {"property": string, "objects": list}
+                    property .. unique identifier that shows which property of the
+                                structure is affected by the variable
+                    objects .. list of objects (e.g. frame members) that are
+                                affected by the variable
+                
+                if target is 'None', then the variable does not change anything
+                in the structure
+                
+                Allowed values for 'property':
+                    'AREA' .. cross-sectional area of a member
+                    'IY' .. second moment of area of a member (major axis)
+                    'IZ' .. second moment of area of a member (minor axis)
+                    'WELY' .. elastic section modulus of a member (major axis)
+                    'WELZ' .. elastic section modulus of a member (minor axis)
+                    'WPLY' .. plastic section modulus of a member (major axis)
+                    'WPLZ' .. plastic section modulus of a member (minor axis)
+                    'PROFILE' .. choosing a profile from a given catalogue
+                    'BF' .. width of flange
+                    'TF' .. thickness of flange
+                    'H' .. height of the profile
+                    'TW' .. thickness of the web
+        """
         self.name = name
         self.value = None
         self.lb = lb
         self.ub = ub
+        self.target = target
+        
+    def substitute(self,new_value):
+        """ Substitute a new value for the variable """
+        
+        self.value = new_value
+        
+        """ Modify target object(s) if any """
+        if self.target is not None:
+            for obj in self.target['objects']:
+                if self.target['property'] == 'AREA':
+                    obj.A = new_value
+                elif self.target['property'] == 'IY':
+                    obj.I[0] = new_value
+                elif self.target['property'] == 'IZ':
+                    obj.I[1] = new_value
+                elif self.target['property'] == 'WELY':
+                    obj.Wel[0] = new_value
+                elif self.target['property'] == 'WELZ':
+                    obj.Wel[1] = new_value
+                elif self.target['property'] == 'WPLY':
+                    obj.Wpl[0] = new_value
+                elif self.target['property'] == 'WPLZ':
+                    obj.Wpl[1] = new_value
+                elif self.target['property'] == 'H':
+                    obj.h = new_value
+                elif self.target['property'] == 'TW':    
+                    obj.tw = new_value
+                elif self.target['property'] == 'BF':
+                    if isinstance(obj.b,list):
+                        for i in range(len(obj.b)):
+                            obj.b[i] = new_value
+                    else:                        
+                        obj.b = new_value
+                elif self.target['property'] == 'TF':    
+                    if isinstance(obj.tf,list):
+                        for i in range(len(obj.b)):
+                            obj.tf[i] = new_value
+                    else:                        
+                        obj.tf = new_value
         
 class IntegerVariable(Variable):
     """ Class for integer variables 
@@ -110,7 +184,7 @@ class LinearConstraint(Constraint):
     
     def neg_call(self,x):
         """ Evaluate -g(x) """
-        return self(x)
+        return -self(x)
 
 class NonLinearConstraint(Constraint):
     """ Class for linear constraints """
@@ -136,7 +210,7 @@ class OptimizationProblem:
     """ Class for defining and operating with optimization problems """
     
     def __init__(self,name="",variables=[],constraints=[],objective=None,\
-                 gradient=None,hess=None, structure=None):
+                 gradient=None,hess=None, structure=None, profiles=None):
         """ Constructor
             
             Parameters:
@@ -145,6 +219,10 @@ class OptimizationProblem:
                 :param variables: list of variables (Variable)
                 :param constraints: list of constraints (Constraint)
                 :param objective: objective function
+                :param gradient: gradient of the objective function
+                :param hess: Hessian of the objective function
+                :param structure: structure to be optimized (optional)
+                :param profiles: list of available profiles (optional)
                 
                 Variables:
                 ----------
@@ -154,6 +232,8 @@ class OptimizationProblem:
                 :ivar obj: objective function
                 :ivar grad: gradient of the objective function
                 :ivar hess: Hessian of the objective function
+                :ivar structure: structure to be optimized
+                :ivar profiles: list of available profiles (optional)
         """
 
         self.name = name        
@@ -163,6 +243,7 @@ class OptimizationProblem:
         self.grad = gradient
         self.hess = hess
         self.structure = structure
+        self.profiles = profiles
         
     def __call__(self,x):
         """ Call method evaluates the objective function and all constraints
@@ -257,6 +338,44 @@ class OptimizationProblem:
             ub.append(v.ub)
         
         return lb, ub
+    
+    def substitute_variable(self,i,xval):
+        """ Substitutes the value 'xval' for variable i """
+        var = self.vars[i]
+        var.value = xval
+        
+        if var.target is not None:
+            for obj in var.target['objects']:
+                if var.target['property'] == 'AREA':
+                    obj.A = xval
+                elif var.target['property'] == 'IY':
+                    obj.I[0] = xval
+                elif var.target['property'] == 'IZ':
+                    obj.I[1] = xval
+                elif var.target['property'] == 'WELY':
+                    obj.Wel[0] = xval
+                elif var.target['property'] == 'WELZ':
+                    obj.Wel[1] = xval
+                elif var.target['property'] == 'WPLY':
+                    obj.Wpl[0] = xval
+                elif var.target['property'] == 'WPLZ':
+                    obj.Wpl[1] = xval
+                elif var.target['property'] == 'H':
+                    obj.h = xval
+                elif var.target['property'] == 'TW':    
+                    obj.tw = xval
+                elif var.target['property'] == 'BF':    
+                    obj.b = xval
+                elif var.target['property'] == 'TF':    
+                    obj.tf = xval
+                    
+    
+    
+    def substitute_variables(self,xvals):
+        """ Substitute variable values from xval to structure """
+        
+        for i in range(len(xvals)):
+            self.substitute_variable(i,xvals[i])
             
     
     def solve(self,solver="slsqp",**kwargs):
@@ -303,13 +422,13 @@ class OptimizationProblem:
                 if con.type == "=":
                     new_con = {"type":"eq", "fun":con}
                 elif con.type == "<":
-                    new_con = {"type":"ineq", "fun":con}
-                else:
                     new_con = {"type":"ineq", "fun":con.neg_call}
+                else:
+                    new_con = {"type":"ineq", "fun":con}
                     
                 cons.append(new_con)
             
-            print(cons)
+            #print(cons)
             
             res = sciop.minimize(self.obj,kwargs["x0"],method=solver,\
                            jac=jac,bounds=bnds,constraints=cons)

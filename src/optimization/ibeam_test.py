@@ -14,7 +14,7 @@ import numpy as np
 import copy
 
 
-def IBeamWeight(p,x):
+def IBeamWeight(p,dvars,x):
     """ Weight of I-beam
         
         Parameters:
@@ -28,7 +28,15 @@ def IBeamWeight(p,x):
             
     """
     
+    #print('h = {0:4.2f}, tw = {1:4.2f}, bt = {2:4.2f}, bb = {3:4.2f}, tf1 = {4:4.2f}, tf2 = {5:4.2f}'.format(p.h,p.tw,p.b[0],p.b[1],p.tf[0],p.tf[1]))
+    
+    
     L = 6000
+    for i in range(len(x)):
+        dvars[i].substitute(x[i])
+        
+    #print('h = {0:4.2f}, tw = {1:4.2f}, bt = {2:4.2f}, bb = {3:4.2f}, tf1 = {4:4.2f}, tf2 = {5:4.2f}'.format(p.h,p.tw,p.b[0],p.b[1],p.tf[0],p.tf[1]))
+    """
     p.h = x[0]
     p.tw = x[1]
     
@@ -37,6 +45,7 @@ def IBeamWeight(p,x):
     
     p.tf[0] = x[3]
     p.tf[1] = x[3]
+    """
     
     return p.weight()*L
 
@@ -130,7 +139,7 @@ def IBeamFlangeClassCon(p,flange_class=2):
     a[3] = -C0*e
     
     
-    print(a)
+    #print(a)
     if flange_class > 3:
         """ if class 4 is required, the cf/tf ratio needs to
             be greater than the class 3 limit. This  changes the
@@ -168,7 +177,7 @@ def IBeamWebClassCon(p,web_class=2):
     a[1] = -C1*e
     a[3] = -2
     
-    print(a)
+    #print(a)
     
     if web_class > 3:
         """ if class 4 is required, the cw/tw ratio needs to
@@ -182,8 +191,12 @@ def IBeamWebClassCon(p,web_class=2):
     
     return con
 
-def IBeamBendingCon(p,section_class,x):
+def IBeamBendingCon(p,dvars,section_class,x):
     """ Constraint for the bending moment resistance """
+    for i in range(len(x)):
+        dvars[i].substitute(x[i])
+    
+    """
     p.h = x[0]
     p.tw = x[1]
     
@@ -192,13 +205,16 @@ def IBeamBendingCon(p,section_class,x):
     
     p.tf[0] = x[3]
     p.tf[1] = x[3]
-
+    """
+    
     if section_class < 3:
         MRd = p.plastic_bending_resistance()
     elif section_class == 3:
         MRd = p.elastic_bending_resistance()
     
     #print("Med = {0:4.2f}, MRd = {1:4.2f}".format(p.Med,MRd*1e-6))
+    
+    """ Med <= MRd -> Med/MRd >= 1 -> 1-Med/MRd <= 0 """
     
     return 1 - MRd*1e-6/p.Med
         
@@ -215,13 +231,13 @@ if __name__ == '__main__':
         x[3] .. thickness of flanges
     """
     dvars = []
-    dvars.append(sop.Variable("Height",150,1000))
-    dvars.append(sop.Variable("Web thickness",5,40))
-    dvars.append(sop.Variable("Flange width",50,500))
-    dvars.append(sop.Variable("Flange thickness",5,40))
+    dvars.append(sop.Variable("Height",lb=150,ub=1000,target={'property':'H','objects':[p]}))
+    dvars.append(sop.Variable("Web thickness",lb=5,ub=40,target={'property':'TW','objects':[p]}))
+    dvars.append(sop.Variable("Flange width",lb=50,ub=500,target={'property':'BF','objects':[p]}))
+    dvars.append(sop.Variable("Flange thickness",lb=5,ub=40,target={'property':'TF','objects':[p]}))
     #dvars.append(sop.Variable("Web thickness",5,40))
     
-    obj = partial(IBeamWeight,p)
+    obj = partial(IBeamWeight,p,dvars)
     obj_grad = partial(IBeamWeightGrad,p)
     obj_hess = partial(IBeamWeightHessian,p)
     
@@ -239,14 +255,14 @@ if __name__ == '__main__':
     prob.add_constraints(flange_con)
     prob.add_constraints(web_con)
     
-    bending_con_fun = partial(IBeamBendingCon,p,sec_class)
+    bending_con_fun = partial(IBeamBendingCon,p,dvars,sec_class)
     bending_con = sop.NonLinearConstraint(bending_con_fun,'<',\
                                       "Bending resistance (mid-span)")
         
 
     prob.add_constraints(bending_con)
     
-    x = [200,8,110,12]
+    x = [300,10,150,12]
     #prob(x)
     #print(prob.grad(x))
     #x0 = np.array(x)
