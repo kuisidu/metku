@@ -632,12 +632,15 @@ class Frame2D:
                         # else:
                         #    releases[elements.index(elem) +1] = 'ORIgin RY'
 
-            try:
-                if self.truss:
-                    truss = self.truss
-                else:
-                    truss = self
+
+            if self.truss:
+                trusses = self.truss
+            else:
+                trusses = list(self)
+
+            for truss in trusses:
                 for joint in truss.joints.values():
+
                     # Y joint
                     if len(joint.nodal_coordinates) == 2:
                         n1, n2 = sorted(joint.nodal_coordinates)
@@ -654,7 +657,7 @@ class Frame2D:
                         profiles.append("HEA 1000")
                         material.append("S355")
                     # K joint
-                    elif len(joint.nodal_coordinates) == 5:
+                    elif joint.joint_type == "K":
                         coords = sorted(joint.nodal_coordinates)
                         n1, n2, n3, n4, n5 = coords
                         if num_frames != 1:
@@ -685,8 +688,8 @@ class Frame2D:
                     else:
                         pass
 
-            except:
-                pass
+            #except:
+            #    pass
 
             for pointload in self.point_loads.values():
                 try:
