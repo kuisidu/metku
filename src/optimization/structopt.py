@@ -19,7 +19,7 @@ class Variable:
     """ Class for optimization variables     
     """
     
-    def __init__(self,name,lb,ub,target=None):
+    def __init__(self,name,lb,ub,target=None,profiles=None):
         """
         Parameters:
             -----------
@@ -30,6 +30,7 @@ class Variable:
                 :param ub: upper bound
                 :param target: dict that provides information about the part of
                 the structure that the variable is changing
+                :param profiles: list of available profiles (optional)
                 
                 target = {"property": string, "objects": list}
                     property .. unique identifier that shows which property of the
@@ -59,6 +60,7 @@ class Variable:
         self.lb = lb
         self.ub = ub
         self.target = target
+        self.profiles = profiles
         
     def substitute(self,new_value):
         """ Substitute a new value for the variable """
@@ -98,6 +100,13 @@ class Variable:
                             obj.tf[i] = new_value
                     else:                        
                         obj.tf = new_value
+                elif self.target['property'] == 'PROFILE':
+                    """ susbstitute profile """
+                    try:
+                        obj.profile = self.profiles[new_value]
+                    except ValueError:
+                        print('Index variable value must be integer!')
+                    
         
 class IntegerVariable(Variable):
     """ Class for integer variables 
@@ -222,7 +231,7 @@ class OptimizationProblem:
                 :param gradient: gradient of the objective function
                 :param hess: Hessian of the objective function
                 :param structure: structure to be optimized (optional)
-                :param profiles: list of available profiles (optional)
+                :param profiles: list of available profiles (optional)                        
                 
                 Variables:
                 ----------
@@ -368,6 +377,8 @@ class OptimizationProblem:
                     obj.b = xval
                 elif var.target['property'] == 'TF':    
                     obj.tf = xval
+                elif var.target['property'] == 'PROFILE':
+                    obj.profile = self.profiles(xval)
                     
     
     
