@@ -77,18 +77,28 @@ class SteelMember:
         """ Yield strength of the member """
         return self.profile.fy
 
-    def ncrit(self):
+    def ncrit(self,verb=False):
         """ Buckling force according to Euler """
         C = math.pi ** 2 * self.profile.E
 
-        ncrit = C * np.array(self.profile.I) / (self.length*1e3 * self.lcr) ** 2
+        ncrit = C * np.array(self.profile.I) / (self.length * self.lcr) ** 2
+        
+        if verb:
+            print("Ncr,y = {0:4.2f} kN".format(ncrit[0]*1e-3))
+            print("Ncr,z = {0:4.2f} kN".format(ncrit[1]*1e-3))
+            
         return ncrit
 
-    def slenderness(self):
+    def slenderness(self,verb=False):
         """ Non-dimensional slenderness according to EN 1993-1-1 """
         NRd = self.profile.A * self.fy()
-        Ncr = self.ncrit()
+        Ncr = self.ncrit(verb)
         slend = np.sqrt(NRd / Ncr)
+        
+        if verb:
+            print("lambda,y = {0:4.2f}".format(slend[0]))
+            print("lambda,z = {0:4.2f}".format(slend[1]))
+        
         return slend
 
     def LT_slenderness(self, Mcr):
@@ -99,21 +109,33 @@ class SteelMember:
         lambdaLT = np.sqrt(MRd / Mcr)
         return lambdaLT
 
-    def buckling_strength(self):
+    def buckling_strength(self,verb=False):
         """ Member buckling strength according to EN 1993-1-1 """
 
-        slend = self.slenderness()
+        if verb:
+            print("** Buckling strength** ")
+
+        slend = self.slenderness(verb)
         NbRd = []
         NRd = self.profile.A * self.fy()
         # self.profile.imp_factor()
         # print(slend)
         # p = 0.5*(1+np.array(self.profile.imp_factor)*(slend-0.2)+slend**2)
         # r = 1/(p+np.sqrt(p**2-slend**2))
+        
+    
 
         for i in range(len(slend)):
             p = 0.5 * (1 + self.profile.imp_factor[i] * (slend[i] - 0.2) + slend[i] ** 2)
             r = min(1 / (p + math.sqrt(p ** 2 - slend[i] ** 2)), 1.0)
+            if verb:
+                print("Psi,{0:1} = {1:4.2f}".format(i,p))
+                print("chi,{0:1} = {1:4.2f}".format(i,r))
+                print("NbRd,{0:1} = {1:4.2f}".format(i,NRd*r*1e-3))
+                
             NbRd.append(NRd * r)
+
+        
 
         # NbRd = self.profile.A*self.fy()*r;
         return NbRd

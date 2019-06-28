@@ -207,11 +207,14 @@ class SteelSection(metaclass=ABCMeta):
 
         return C
 
-    def axial_force_resistance(self):
+    def axial_force_resistance(self,verb=False):
         if self.Ned >= 0:
             NRd = en1993_1_1.tension_resistance(self.A, self.fy)
         else:
             NRd = en1993_1_1.compression_resistance(self.A, self.fy)
+
+        if verb:
+            print("NRd = {0:4.2f} kN".format(NRd*1e-3))
 
         return NRd
 
