@@ -7,3 +7,4 @@ Eurocodes package
 @author: kmela
 """
 
+from . import ISection

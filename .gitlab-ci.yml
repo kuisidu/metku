@@ -1,0 +1,9 @@
+stages:
+  - test
+
+test:
+  stage: test
+  script:
+  - echo "Running tests!"
+  - python3 src/sections/steel/test_ISection.py
+  - echo "All tests ran!"
