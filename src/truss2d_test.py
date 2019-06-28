@@ -6,7 +6,7 @@ Created on Fri Oct 26 12:23:00 2018
 """
 from truss2d import Truss2D, TopChord, BottomChord, TrussWeb, TrussJoint, TrussColumn
 from frame2d.frame2d import SteelBeam, LineLoad,PointLoad, XYHingedSupport, Frame2D, SteelColumn, FixedSupport, YHingedSupport
-from frame2d.frameoptimizer import FrameOptimizer
+#from frame2d.frameoptimizer import FrameOptimizer
 from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint
 from sections.steel.RHS import RHS
 import matplotlib.pyplot as plt
@@ -783,13 +783,13 @@ def robot_test_3D():
 if __name__ == '__main__':
     #truss_test()
     #frame_truss()
-    #portal_frame()
+    portal_frame()
     #frame_test()
     #simple_truss()
     #optimization_test()
     #truss_column_test()
     #strength_test()
-    robot_test_3D()
+    #robot_test_3D()
 
 """
 truss = Truss2D(num_elements=1)

@@ -79,29 +79,47 @@ class ISection(SteelSection):
         """ Straight part of the flange """
         return 0.5 * (self.b - self.tw) - self.r
 
-    def flange_class(self):
+    def flange_class(self,verb=False):
         """ Determine class of compressed flange """
         # cf = 0.5*(self.b - self.tw) - self.r
         rf = self.cf / self.tf
         cFlange = en1993_1_1.outstand_part_in_compression(rf, self.eps)
 
+        if verb:
+            print("Flange classification (outstand element):")
+            print("cf = {0:4.2f}, tf = {1:4.2f}".format(self.cf,self.tf))
+            print("cf/tf = {0:4.2f}".format(rf))
+            print("Flange class = {0}".format(cFlange))
+
         return cFlange
 
-    def web_class_comp(self):
+    def web_class_comp(self,verb=False):
         """ Determine class of compressed web """
         rw = self.hw / self.tw
         cWeb = en1993_1_1.internal_part_in_compression(rw, self.eps)
 
+        if verb:
+            print("Web classification (internal part in compression):")
+            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw,self.tw))
+            print("hw/tw = {0:4.2f}".format(rw))
+            print("Web class = {0}".format(cWeb))
+
         return cWeb
 
-    def web_class_bend(self):
+    def web_class_bend(self,verb=False):
         """ Determine class of web in bending """
         rw = self.hw / self.tw
         cWeb = en1993_1_1.internal_part_in_bending(rw, self.eps)
 
+        if verb:
+            print("Web classification (internal part in bending):")
+            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw,self.tw))
+            print("hw/tw = {0:4.2f}".format(rw))
+            print("Web class = {0}".format(cWeb))
+
         return cWeb
 
-    def web_class_comp_bend(self, Ned):
+    def web_class_comp_bend(self, Ned, verb=False):
         """ Determine class of web in combined bending and compression 
             TODO
         """
@@ -113,6 +131,12 @@ class ISection(SteelSection):
 
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, a, p)
 
+        if verb:
+            print("Web classification (internal part in compression and bending):")
+            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw,self.tw))
+            print("hw/tw = {0:4.2f}".format(rw))
+            print("Web class = {0}".format(cWeb))
+
         return cWeb
 
     def moment_axial_force_interact(self, UN, MRd):
@@ -120,7 +144,7 @@ class ISection(SteelSection):
             axial force and bending
             
             input: UN .. NEd/NRd
-                  MRd .. moment resistance
+                  MRd .. moment resistance                 
         """
         aw = min((self.A - 2 * self.b * self.tf) / self.A, 0.5)
 
