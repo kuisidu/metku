@@ -1604,7 +1604,7 @@ class FrameMember:
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        if coord not in self.nodal_coordinates and self.point_intersection(coord):
+        if coord not in self.added_coordinates and self.point_intersection(coord):
             self.added_coordinates.append(coord)
             self.nodal_coordinates.append(coord)
             self.nodal_coordinates.sort()
@@ -1721,7 +1721,6 @@ class FrameMember:
         sect_id = len(fem_model.sections)
         sect = fem.BeamSection(38880, 6299657109)
         fem_model.add_section(sect)
-
         for coordinates in self.ecc_coordinates:
             for i, coord in enumerate(coordinates):
                 coordinates[i] = [round(c, PREC) for c in coord]
@@ -2122,7 +2121,7 @@ class FrameMember:
         for elem in self.elements.values():
             x0, y0 = elem.nodes[0].x
             bending_moment = elem.bending_moment[0]
-            val = bending_moment * unit_scaler / scale
+            val = bending_moment * unit_scaler * scale
             x, y = np.array([x0, y0]) - val * u
             X.append(x)
             Y.append(y)
@@ -2132,7 +2131,7 @@ class FrameMember:
                 plt.text(x, y, f'{bending_moment*unit_scaler:.2f} kNm', horizontalalignment=horzalign)
         x0, y0 = elem.nodes[1].x
         bending_moment = elem.bending_moment[1]
-        val = bending_moment * unit_scaler / scale
+        val = bending_moment * unit_scaler * scale
         x, y = np.array([x0, y0]) - val * u
         X.append(x)
         Y.append(y)
