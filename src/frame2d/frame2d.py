@@ -107,6 +107,15 @@ class Frame2D:
         L = x_max - x_min
         return L
 
+    @property
+    def H(self):
+        y_coordinates = [mem.coordinates[0][1] for mem in self.members.values()]
+        y_min = min(y_coordinates)
+        y_max = max(y_coordinates)
+        H = y_max - y_min
+        return H
+
+
     def add(self, this):
         """ Adds given item to the frame.
 
@@ -636,7 +645,7 @@ class Frame2D:
             if self.truss:
                 trusses = self.truss
             else:
-                trusses = list(self)
+                trusses = [self]
 
             for truss in trusses:
                 for joint in truss.joints.values():
@@ -937,6 +946,7 @@ class Frame2D:
 
         self.plot(print_text=False, show=False)
         self.calc_nodal_displacements()
+        max_locs = []
         for member in self.members.values():
             X = []
             Y = []
@@ -948,8 +958,8 @@ class Frame2D:
                 x0, y0 = node.x
                 x1 = node.u[0]
                 y1 = node.u[1]
-                x = x0 + x1 * (scale) / 1000
-                y = y0 + y1 * (scale) / 1000
+                x = x0 + x1 * (scale)
+                y = y0 + y1 * (scale)
                 if abs(x1) >= abs(max_x) and member.mtype == "column":
                     max_x = abs(x1)
                     loc_max_x = x
@@ -958,19 +968,23 @@ class Frame2D:
                     max_y = abs(y1)
                     loc_max_x = x
                     loc_max_y = y
+
                 X.append(x)
                 Y.append(y)
             plt.plot(X, Y, color='gray')
 
-            if member.mtype == "beam":
-                plt.plot(loc_max_x, loc_max_y, 'ro')
-                plt.text(loc_max_x, loc_max_y,
-                         (str(max_y)[0:prec + 1] + " mm"))
+            if (loc_max_x, loc_max_y) not in max_locs:
+                max_locs.append((loc_max_x, loc_max_y))
 
-            elif member.mtype == "column":
-                plt.plot(loc_max_x, loc_max_y, 'ro')
-                plt.text(loc_max_x, loc_max_y,
-                         (str(max_x)[0:prec + 1] + " mm"))
+                if member.mtype == "beam":
+                    plt.plot(loc_max_x, loc_max_y, 'ro')
+                    plt.text(loc_max_x, loc_max_y,
+                             (str(max_y)[0:prec + 1] + " mm"))
+
+                elif member.mtype == "column":
+                    plt.plot(loc_max_x, loc_max_y, 'ro')
+                    plt.text(loc_max_x, loc_max_y,
+                             (str(max_x)[0:prec + 1] + " mm"))
 
         if show:
             plt.show()
@@ -1229,6 +1243,33 @@ class FrameMember:
         self.steel_member = SteelMember(self.cross_section, self.length,
                                         Lcr=[1.0, 1.0], mtype=self.mtype)
 
+
+
+    @property
+    def A(self):
+        return self.cross_section.A
+
+    @A.setter
+    def A(self, val):
+        self.cross_section.A = val
+        for elem in self.elements.values():
+            elem.section.area = val
+
+    @property
+    def E(self):
+        return self.cross_section.E
+
+    @E.setter
+    def E(self, val):
+
+        try:
+            self.cross_section.E = val
+            for elem in self.elements.values():
+                elem.material.young = val
+
+        except:
+            pass
+
     @property
     def angle(self):
         """
@@ -1424,8 +1465,8 @@ class FrameMember:
         # Change member's elements' properties
         if len(self.elements) > 0:
             for element in self.elements.values():
-                element.section.A = self.cross_section.A * 1e-6
-                element.section.Iy = self.cross_section.I[0] * 1e-12
+                element.section.A = self.cross_section.A
+                element.section.Iy = self.cross_section.I[0]
         # Change steel_member objects properties
         if self.steel_member:
             self.steel_member.profile = self.cross_section
@@ -1563,7 +1604,7 @@ class FrameMember:
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        if coord not in self.added_coordinates and self.point_intersection(coord):
+        if coord not in self.nodal_coordinates and self.point_intersection(coord):
             self.added_coordinates.append(coord)
             self.nodal_coordinates.append(coord)
             self.nodal_coordinates.sort()
