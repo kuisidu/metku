@@ -315,7 +315,7 @@ class TenBarTruss(OptimizationProblem):
         self.obj = objective
 
 if __name__ == '__main__':
-    #problem = TenBarTruss()
+    problem = TenBarTruss()
     problem = FifteenBarTruss()
     solver = DiscreteVNS(step_length=3)
     solver.solve(problem, maxiter=int(1e3), maxtime=300)
