@@ -1,5 +1,8 @@
+#import pyximport; pyximport.install(pyimport=True)
+
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 from abc import ABCMeta, abstractclassmethod
 from scipy.sparse.linalg import eigsh
@@ -453,10 +456,10 @@ class FrameFEM:
 
         """ draw nodes """
         for n in self.nodes:
-            plt.plot(n.x[0], n.x[1], 'ro')
+            plt.plot(n.coord[0], n.coord[1], 'ro')
 
         for i in range(self.nnodes()):
-            plt.text(self.nodes[i].x[0], self.nodes[i].x[1], str(i))
+            plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
 
         """ draw members """
         for i in range(self.nels()):
@@ -842,7 +845,7 @@ class FEMNode:
 
     def __init__(self, x, y, nid):
 
-        self.x = np.array([x, y])
+        self.coord = np.array([x, y])
         """ Nodal coordinates"""
         self.nid = nid
         """ Node id """
@@ -856,6 +859,23 @@ class FEMNode:
         """ Nodal displacement vector (linear buckling)"""
         # List of FrameMember-type objects that are connected to this node
         self.parents = []
+
+    @property
+    def x(self):
+        return self.coord[0]
+
+    @x.setter
+    def x(self, val):
+        self.coord[0] = val
+
+    @property
+    def y(self):
+        return self.coord[1]
+
+    @y.setter
+    def y(self, val):
+        self.coord[1] = val
+
 
 
 class Element(metaclass=ABCMeta):
@@ -911,7 +931,7 @@ class Element(metaclass=ABCMeta):
             :rtype: np.array
 
         """
-        X = np.array([self.nodes[0].x, self.nodes[1].x])
+        X = np.array([self.nodes[0].coord, self.nodes[1].coord])
         return X
 
     def direction_cosines(self):
