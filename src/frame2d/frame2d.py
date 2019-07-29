@@ -1,13 +1,14 @@
 """
 @author: Jaakko Huusko
 """
+
 import math
 import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 import framefem.framefem  as fem
+
 from framefem.elements import EBBeam, EBSemiRigidBeam
 from sections.steel.CHS import CHS
 from sections.steel.ISection import *
@@ -26,40 +27,41 @@ class Frame2D:
 
         Parameters:
         ------------
-            :param simple: creates a simple frame with given list [storeys, bays, storey height, bay length]
-            :param num_elements: number of elements per member
-            :param supports: Generates supports to simple frame 'FIXED', 'XHINGED', 'YHINGED', 'XYHINGED'
-            :param fem: FrameFEM -instance, used to share fem model with other Frame2D -instances
-                        default: creates a new  FrameFEM -instance
+        :param simple: creates a simple frame with given list
+                    [storeys, bays, storey height, bay length]
+        :param num_elements: number of elements per member
+        :param supports: Generates supports to simple frame
+                    'FIXED', 'XHINGED', 'YHINGED', 'XYHINGED'
+        :param fem: FrameFEM -instance, used to share fem model
+                    with other Frame2D -instances
+                    default: creates a new  FrameFEM -instance
 
-            :type simple: list
-            :type num_elements: int
-            :type supports: string
-            :type fem: FrameFEM
+        :type simple: list
+        :type num_elements: int
+        :type supports: string
+        :type fem: FrameFEM
 
 
-            Variables:
-            ----------
-            :ivar nodes:
-            :ivar nodal_coordinates:
-            :ivar num_elements:
-            :ivar f:
-            :ivar alpha_cr:
-            :ivar num_members:
-            :ivar support_nodes:
-            :ivar point_loads:
-            :ivar line_loads:
-            :ivar nodal_foces:
-            :ivar nodal_displacements:
-            :ivar joints:
-            :ivar r:
-            :ivar is_generated:
-            :ivar is_calculated:
-            :ivar self_weight:
-            :ivar truss:
-            :ivar simple:
-
-    
+        Variables:
+        ----------
+        :ivar nodes:
+        :ivar nodal_coordinates:
+        :ivar num_elements:
+        :ivar f:
+        :ivar alpha_cr:
+        :ivar num_members:
+        :ivar support_nodes:
+        :ivar point_loads:
+        :ivar line_loads:
+        :ivar nodal_foces:
+        :ivar nodal_displacements:
+        :ivar joints:
+        :ivar r:
+        :ivar is_generated:
+        :ivar is_calculated:
+        :ivar self_weight:
+        :ivar truss:
+        :ivar simple:
     """
 
     def __init__(self, simple=None, num_elements=None, supports=None, fem_model=None, beams=True):
@@ -102,6 +104,7 @@ class Frame2D:
     @property
     def L(self):
         x_coordinates = [mem.coordinates[0][0] for mem in self.members.values()]
+        x_coordinates.extend([mem.coordinates[0][0] for mem in self.members.values()])
         x_min = min(x_coordinates)
         x_max = max(x_coordinates)
         L = x_max - x_min
@@ -110,6 +113,7 @@ class Frame2D:
     @property
     def H(self):
         y_coordinates = [mem.coordinates[0][1] for mem in self.members.values()]
+        y_coordinates.extend([mem.coordinates[1][1] for mem in self.members.values()])
         y_min = min(y_coordinates)
         y_max = max(y_coordinates)
         H = y_max - y_min
@@ -142,10 +146,10 @@ class Frame2D:
             # If coordinate is outside of member's coordinates,
             # it's rejected in member's add_node_coord function
             for member in self.members.values():
-                coord = this.line_intersection(member.coordinates)
-                if isinstance(coord, list):
-                    this.add_node_coord(coord)
-                    member.add_node_coord(coord)
+               coord = this.line_intersection(member.coordinates)
+               if isinstance(coord, list):
+                   this.add_node_coord(coord)
+                   member.add_node_coord(coord)
 
             if this.nodal_coordinates not in self.nodal_coordinates:
                 self.nodal_coordinates.extend(this.nodal_coordinates)
@@ -380,6 +384,7 @@ class Frame2D:
             self.f.add_loadcase(supp_id=1, load_id=load_id)
             self.f.nodal_dofs()
 
+        self.calculated = True
         self.f.linear_statics()
         self.calc_nodal_forces()
         self.calc_nodal_displacements()
@@ -644,6 +649,7 @@ class Frame2D:
 
             if self.truss:
                 trusses = self.truss
+                print(self.truss)
             else:
                 trusses = [self]
 
@@ -955,7 +961,7 @@ class Frame2D:
             max_x = 0
             max_y = 0
             for i, node in enumerate(member.nodes.values()):
-                x0, y0 = node.x
+                x0, y0 = node.coord
                 x1 = node.u[0]
                 y1 = node.u[1]
                 x = x0 + x1 * (scale)
@@ -1012,7 +1018,7 @@ class Frame2D:
                 X = []
                 Y = []
                 for i, node in enumerate(member.nodes.values()):
-                    x0, y0 = node.x
+                    x0, y0 = node.coord
                     if not isinstance(node.v[0], int):
                         x1 = node.v[0][j]
                         y1 = node.v[1][j]
@@ -1180,7 +1186,7 @@ class FrameMember:
             
         Uses classes:
         ========   
-        SemiRigidFrame
+        Frame2D
         FrameFEM
         I_sections
         CrossSection
@@ -1198,7 +1204,7 @@ class FrameMember:
         self.ecc_coordinates = []
         self.ecc_element_nodes = {}
         self.steel_member = None
-        # strat node, FEMNode object
+        # start node, FEMNode object
         self.n1 = None
         # end node, FEMNode object
         self.n2 = None
@@ -1287,8 +1293,8 @@ class FrameMember:
     @property
     def coordinates(self):
         if self.n1 and self.n2:
-            if self.__coordinates != [list(self.n1.x), list(self.n2.x)]:
-                self.__coordinates = [list(self.n1.x), list(self.n2.x)]
+            if self.__coordinates != [list(self.n1.coord), list(self.n2.coord)]:
+                self.__coordinates = [list(self.n1.coord), list(self.n2.coord)]
                 # self.calc_nodal_coordinates(self.num_elements)
         return self.__coordinates
 
@@ -1300,8 +1306,8 @@ class FrameMember:
             self.__coordinates = val
             x1, y1 = val[0]
             x2, y2 = val[1]
-            self.n1.x = np.array([x1, y1])
-            self.n2.x = np.array([x2, y2])
+            self.n1.coord = np.array([x1, y1])
+            self.n2.coord = np.array([x2, y2])
             for mem in self.n1.parents:
                 mem.calc_nodal_coordinates()
             for mem in self.n2.parents:
@@ -1459,9 +1465,9 @@ class FrameMember:
 
             elif profile_type == 'SHS':
                 self.cross_section = SHS(H, T, self.fy)
-
             else:
                 raise ValueError('{} is not valid profile type!'.format(profile_type))
+
         # Change member's elements' properties
         if len(self.elements) > 0:
             for element in self.elements.values():
@@ -1517,7 +1523,7 @@ class FrameMember:
         Ly = end_node[1] - start_node[1]
         try:
             k = Ly / Lx
-        except ZeroDivisionError:
+        except:
             k = 0
 
         return k * (x - x0) + y0
@@ -1593,7 +1599,7 @@ class FrameMember:
             for j, node in enumerate(self.nodes.values()):
                 # print(self.nodal_coordinates)
                 # print(j, len(self.nodal_coordinates))
-                node.x = np.array(self.nodal_coordinates[j])
+                node.coord = np.array(self.nodal_coordinates[j])
 
         self.nodal_coordinates.sort()
 
@@ -1604,7 +1610,7 @@ class FrameMember:
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        if coord not in self.added_coordinates and self.point_intersection(coord):
+        if coord not in self.nodal_coordinates and self.point_intersection(coord):
             self.added_coordinates.append(coord)
             self.nodal_coordinates.append(coord)
             self.nodal_coordinates.sort()
@@ -2063,7 +2069,7 @@ class FrameMember:
         for i in range(len(self.nodes)):
             node = node_ids[i]
             if self.mtype == "beam":
-                x0, y0 = self.nodal_coordinates[i + 1].x
+                x0, y0 = self.nodal_coordinates[i + 1].coord
                 bending_moment = self.nodal_forces[node][2]
                 y1 = bending_moment / (1000 / scale)
                 x = x0
@@ -2119,7 +2125,7 @@ class FrameMember:
         moment_values = [x[2] for x in self.nodal_forces.values()]
 
         for elem in self.elements.values():
-            x0, y0 = elem.nodes[0].x
+            x0, y0 = elem.nodes[0].coord
             bending_moment = elem.bending_moment[0]
             val = bending_moment * unit_scaler * scale
             x, y = np.array([x0, y0]) - val * u
@@ -2129,7 +2135,7 @@ class FrameMember:
             vertalign = 'center'
             if bending_moment == max(moment_values) or bending_moment == min(moment_values):
                 plt.text(x, y, f'{bending_moment*unit_scaler:.2f} kNm', horizontalalignment=horzalign)
-        x0, y0 = elem.nodes[1].x
+        x0, y0 = elem.nodes[1].coord
         bending_moment = elem.bending_moment[1]
         val = bending_moment * unit_scaler * scale
         x, y = np.array([x0, y0]) - val * u
@@ -2299,10 +2305,19 @@ class PointLoad(Load):
             f -- scaling factor
         """
 
-        self.coordinate = coordinate
+        self.__coordinate = coordinate
         self.v = v
         self.f = f
         self.node = None
+
+
+    @property
+    def coordinate(self):
+        if self.node:
+            return self.node.coord
+        else:
+            return self.__coordinate
+
 
     def add_load(self, fem_model):
 
@@ -2365,15 +2380,15 @@ class Support:
 
     @property
     def coordinate(self):
-        if self.node and list(self.node.x) != self.__coordinate:
-            self.__coordinate = list(self.node.x)
+        if self.node and list(self.node.coord) != self.__coordinate:
+            self.__coordinate = list(self.node.coord)
         return self.__coordinate
 
     @coordinate.setter
     def coordinate(self, val):
         self.__coordinate = val
         if self.node:
-            self.node.x = np.array(val)
+            self.node.coord = np.array(val)
 
     def add_support(self, fem_model):
 
