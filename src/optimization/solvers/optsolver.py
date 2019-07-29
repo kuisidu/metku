@@ -1,5 +1,7 @@
+
 from optimization.structopt import OptimizationProblem
 from abc import ABCMeta, abstractclassmethod
+from scipy.optimize import basinhopping
 
 import numpy as np
 import time
@@ -11,16 +13,28 @@ class OptSolver(metaclass=ABCMeta):
     """
 
     def __init__(self):
-        pass
+        self.constr_vals = np.array([])
+        self.X = np.array([])
 
-    @abstractclassmethod
+
+
+    def calc_constraints(self, x=[]):
+        """
+        Calculates constraint values and saves them to numpy array
+
+        Parameters:
+        ------------
+        :param x: (Optional, default: self.X) Point where constraint values are calculated
+
+        """
+        if not len(x):
+            x = self.X
+        # Calculate constraints
+        for i in range(len(self.problem.cons)):
+            self.constr_vals[i] = self.problem.cons[i](x)
+
     def solve(self, problem):
-        pass
-
-
-
-
-
+        self.problem = problem
 
 
 
@@ -98,20 +112,7 @@ class DiscreteVNS(OptSolver):
         return X, reward, done, 'INFO'
 
 
-    def calc_constraints(self, x=[]):
-        """
-        Calculates constraint values and saves them to numpy array
 
-        Parameters:
-        ------------
-        :param x: (Optional, default: self.X) Point where constraint values are calculated
-
-        """
-        if not len(x):
-            x = self.X
-        # Calculate constraints
-        for i in range(len(self.problem.cons)):
-            self.constr_vals[i] = self.problem.cons[i](x)
 
 
 
@@ -159,7 +160,10 @@ class DiscreteVNS(OptSolver):
                 if time.process_time() >= maxtime:
                     i = maxiter
                     break
-                action = np.random.randint(-self.step_length, self.step_length + 1, len(self.X))
+                if r != 1:
+                    action = np.random.randint(-self.step_length,
+                                               self.step_length + 1,
+                                               len(self.X))
                 if list(action) not in actions:
                     actions.append(list(action))
                     s, r, d, _ = self.step(action)
@@ -174,6 +178,35 @@ class DiscreteVNS(OptSolver):
 
 
 
+
+class Basinhopping(OptSolver):
+
+    def __init__(self, step_length=1):
+        self.step_length = step_length
+
+
+    def step(self, x):
+        print(x)
+        self.X += x
+        self.calc_constraints()
+
+    def solve(self, problem, x0=[]):
+
+        self.problem = problem
+        # Srating point
+        self.X = np.zeros(len(problem.vars), dtype=int)
+        #self.X += problem.vars[0].ub
+        self.constr_vals = np.zeros(len(self.problem.cons))
+        self.calc_constraints()
+
+        if not len(x0):
+            x0 = self.X.copy()
+
+
+        return basinhopping(problem.obj,
+                            x0,
+                            stepsize=self.step_length,
+                            take_step=self.step)
 
 
 
