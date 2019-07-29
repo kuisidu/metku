@@ -71,7 +71,7 @@ class Variable:
         """ Modify target object(s) if any """
         if self.target is not None:
             for obj in self.target['objects']:
-                if self.target['property'] == 'AREA':
+                if self.target['property'] == 'AREA' or self.target['property'] == 'A':
                     obj.A = new_value
                 elif self.target['property'] == 'IY':
                     obj.I[0] = new_value
@@ -103,10 +103,21 @@ class Variable:
                         obj.tf = new_value
                 elif self.target['property'] == 'PROFILE':
                     """ susbstitute profile """
-                    try:
+                    if isinstance(new_value, str):
+                        obj.profile = new_value
+                    elif isinstance(new_value, int):
                         obj.profile = self.profiles[new_value]
-                    except ValueError:
-                        print('Index variable value must be integer!')
+                    else:
+                        raise ValueError('Variable type must be either str or int!')
+
+                elif self.target['property'] == 'x':
+                    obj.x = new_value
+
+                elif self.target['property'] == 'y':
+                    obj.y = new_value
+
+                elif self.target['property'] == 'loc':
+                    obj.loc = new_value
 
 
 class IntegerVariable(Variable):
@@ -147,7 +158,7 @@ class BinaryVariable(IntegerVariable):
 class DiscreteVariable(Variable):
     """ Class for general discrete variables """
 
-    def __init__(self, name="", values=None):
+    def __init__(self, name="", values=None, target=None, profiles=None):
         """ Constructor
 
             Parameters:
@@ -163,36 +174,58 @@ class DiscreteVariable(Variable):
 
         self.values = values
 
-        if values != None:
+        if profiles:
+            lb = 0
+            ub = len(profiles) -1
+
+
+        elif values != None:
             lb = min(values)
             ub = max(values)
         else:
             lb = None
             ub = None
 
-        Variable.__init__(self, name, lb, ub)
+        super().__init__( name, lb, ub, target=target, profiles=profiles)
 
+    def substitute(self, new_value):
+
+        if self.profiles:
+            new_value = self.profiles[new_value]
+        super().substitute(new_value)
 
 class Constraint:
     """ General class for constraints """
 
-    def __init__(self, name="", con_type="<"):
+    def __init__(self, name="", con_type="<", parent=None):
         self.name = name
         self.type = con_type
+        self.parent = parent
+        self.fea_required = False
+
+    def __call__(self, x):
+        """
+        Runs finite element analysis on problem's structure if needed
+        """
+        if self.fea_required and not self.parent.fea_done:
+            if np.any(self.parent.X != x): # Replace with norm
+                self.parent.substitute_variables(x)
+            self.parent.fea()
 
 
 class LinearConstraint(Constraint):
     """ Class for linear constraints """
 
-    def __init__(self, a=None, b=None, con_type="<", name=""):
+    def __init__(self, a=None, b=None, con_type="<", name="", parent=None):
         """ Constructor """
 
         self.a = a
         self.b = b
-        Constraint.__init__(self, name, con_type)
+        Constraint.__init__(self, name, con_type, parent)
 
     def __call__(self, x):
         """ Evaluate constraint at x """
+        super().__call__(x)
         return np.array(self.a).dot(np.array(x)) - self.b
 
     def neg_call(self, x):
@@ -203,22 +236,23 @@ class LinearConstraint(Constraint):
 class NonLinearConstraint(Constraint):
     """ Class for linear constraints """
 
-    def __init__(self, con_fun, con_type="<", name=""):
+    def __init__(self, con_fun, con_type="<", name="", parent=None):
         """ Constructor
             con_fun: function that returns the value of constraint function
                      g(x) <= 0 (or >= 0 or = 0)
         """
 
         self.con = con_fun
-        Constraint.__init__(self, name, con_type)
+        Constraint.__init__(self, name, con_type, parent)
 
     def __call__(self, x):
         """ Evaluate constraint at x """
+        super().__call__(x)
         return self.con(x)
 
     def neg_call(self, x):
         """ Return -g(x) """
-        return -self.con(x)
+        return -self(x)
 
 
 class OptimizationProblem:
@@ -259,30 +293,39 @@ class OptimizationProblem:
         self.hess = hess
         self.structure = structure
         self.profiles = profiles
+        self.fea_done = False
+        self.X = None
 
-    def __call__(self, x):
+    def fea(self):
+        """
+        Runs finite element analysis on structure
+        """
+        self.structure.calculate()
+        self.fea_done = True
+
+
+    def __call__(self, x, prec=2):
         """ Call method evaluates the objective function and all constraints
             at x and returns their values
         """
-
         fx = self.obj(x)
         print("** {0} **".format(self.name))
         if len(x) < 10:
             print("Variables:")
             print("----------")
             for i in range(len(x)):
-                print("{0} = {1:4.2f}".format(self.vars[i].name, x[i]))
+                print(f"{self.vars[i].name} = {x[i]:.{prec}f}")
 
             print("----------\n")
 
-        print("Objective function = {0:4.2f}\n".format(fx))
+        print(f"Objective function = {fx:.{prec}f}\n")
 
         print("Constraints:")
         print("----------")
 
         for con in self.cons:
             g = con(x)
-            print("{0}: {1:4.2f} {2} 0".format(con.name, g, con.type))
+            print(f"{con.name}: {g:.{prec}f} {con.type} 0")
 
     def eval_con(self, x):
         """ Constraint evaluation
@@ -360,7 +403,7 @@ class OptimizationProblem:
 
         if var.target is not None:
             for obj in var.target['objects']:
-                if var.target['property'] == 'AREA':
+                if var.target['property'] == 'A':
                     obj.A = xval
                 elif var.target['property'] == 'IY':
                     obj.I[0] = xval
@@ -388,8 +431,14 @@ class OptimizationProblem:
     def substitute_variables(self, xvals):
         """ Substitute variable values from xval to structure """
 
-        for i in range(len(xvals)):
-            self.substitute_variable(i, xvals[i])
+        self.X = xvals
+        self.fea_done = False
+        for x, var in zip(xvals, self.vars):
+            var.substitute(x)
+
+        #
+        # for i in range(len(xvals)):
+        #     self.substitute_variable(i, xvals[i])
 
     def solve(self, solver="slsqp", **kwargs):
         """ Solve the optimization problem
