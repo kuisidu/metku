@@ -203,14 +203,18 @@ class Constraint:
         self.parent = parent
         self.fea_required = False
 
-    def __call__(self, x):
+    def __call__(self, x, subs=True):
         """
         Runs finite element analysis on problem's structure if needed
         """
-        if self.fea_required and not self.parent.fea_done:
+        if self.fea_required and not self.parent.fea_done and subs:
             if np.any(self.parent.X != x): # Replace with norm
                 self.parent.substitute_variables(x)
             self.parent.fea()
+
+    def neg_call(self, x):
+        """ Evaluate -g(x) """
+        return -self(x)
 
 
 class LinearConstraint(Constraint):
@@ -228,9 +232,7 @@ class LinearConstraint(Constraint):
         super().__call__(x)
         return np.array(self.a).dot(np.array(x)) - self.b
 
-    def neg_call(self, x):
-        """ Evaluate -g(x) """
-        return -self(x)
+
 
 
 class NonLinearConstraint(Constraint):
@@ -250,9 +252,12 @@ class NonLinearConstraint(Constraint):
         super().__call__(x)
         return self.con(x)
 
-    def neg_call(self, x):
-        """ Return -g(x) """
-        return -self(x)
+    def linearize(self, X):
+
+
+
+
+
 
 
 class OptimizationProblem:
@@ -295,6 +300,41 @@ class OptimizationProblem:
         self.profiles = profiles
         self.fea_done = False
         self.X = None
+
+
+
+    def linearize(self, x):
+        """
+        Linearizes problem around x
+        :param x:
+        :return:
+        """
+
+        self.substitute_variables(x)
+        fx = self.obj(x)
+        # b = self.eval_nonlin_cons(x)
+        # m -- number of nonlinear constraints
+        # n -- number of variables
+        # A = np.zeros((m, n))
+        # df = np.zeros(n)
+        for i, var in enumerate(self.vars):
+            prev_val = var.value
+            h = max(0.01 * abs(prev_val), 1e-4)
+            var.substitute(prev_val + h)
+            ###
+            # xh = [var.value for var in self.vars]
+            # f_val = self.obj(xh)
+            # a = self.eval_nonlin_cons(xh)
+            # A[i] = (a - b) / h
+            # df[i] = (f_val - fx) / h
+            ###
+            var.substitute(prev_val)
+        A = None
+        b = None
+        return A, b, df, fx
+
+    def eval_nonlin_cons(self, X):
+        pass
 
     def fea(self):
         """
@@ -519,13 +559,14 @@ def NumGrad(fun, h, x):
     n = len(x)
 
     df = np.zeros(n)
-
+    #
     for i in range(len(x)):
         dx = np.zeros(n)
         dx[i] = h[i]
         print(x + dx)
-        fh = fun(x + dx)
-        df[i] = (fh - fx) / h[i]
+        fh = fun(x + h)
+    #     print(fx, fh)
+        df[i] = (fh - fx) / h
 
     return df
 
@@ -549,6 +590,7 @@ def Linearize(fun, x, grad=None):
 
     if grad == None:
         h = 0.01 * x  # check if this is OK
+        #h = np.ones_like(x) * 1e-2
         a = NumGrad(fun, h, x)
     else:
         a = grad(x)
@@ -559,10 +601,15 @@ def Linearize(fun, x, grad=None):
 
 
 if __name__ == '__main__':
-    dvars = []
-    dvars.append(Variable("Height", 150, 1000))
-    dvars.append(Variable("Flange width", 150, 500))
-    dvars.append(Variable("Flange thickness", 5, 40))
-    dvars.append(Variable("Web thickness", 5, 40))
+    # dvars = []
+    # dvars.append(Variable("Height", 150, 1000))
+    # dvars.append(Variable("Flange width", 150, 500))
+    # dvars.append(Variable("Flange thickness", 5, 40))
+    # dvars.append(Variable("Web thickness", 5, 40))
+    #
+    # p = OptimizationProblem(name="I-Beam Weight Minimization", variables=dvars)
 
-    p = OptimizationProblem(name="I-Beam Weight Minimization", variables=dvars)
+    def fun(x):
+        return x**3
+
+    print(Linearize(fun, np.array([3, 2])))
