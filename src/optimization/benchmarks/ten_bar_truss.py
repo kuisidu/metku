@@ -48,8 +48,8 @@ class TenBarTruss(OptimizationProblem):
         self.prob_type = prob_type
         self.structure = self._create_structure()
         self._create_vars(profiles=TEN_BAR_AREAS_mm2)
-        self._create_constraints()
-        self._create_objective()
+        self.create_constraints()
+        self.create_objective()
 
 
     def _create_vars(self, profiles=[0, 1e6]):
@@ -136,46 +136,59 @@ class TenBarTruss(OptimizationProblem):
         return frame
 
 
-    def _create_constraints(self):
-        """
-        Creates constraints for the problem
-        """
+    def create_constraints(self):
+
         # Initialize constraints as an empty list
         self.cons = []
-        # Create stress constraints
-        for i in range(len(self.structure.members)):
-            def con_fun(A, i=i):
-                mem = self.structure.members[i]
-                return mem.ned / mem.NRd - 1
-            constr = NonLinearConstraint(con_fun, name='Stress ' + str(i+1), parent=self)
-            constr.fea_required = True
-            self.cons.append(constr)
 
-        # Create displacement constraints
-        for j in range(len(self.structure.members)):
-            def con_fun(A, j=j):
-                mem = self.structure.members[j]
-                displacements = mem.nodal_displacements.values()
-                max_vals = [max(l[0:2]) for l in displacements]
-                min_vals = [min(l[0:2]) for l in displacements]
-                max_val = max(max_vals)
-                min_val = min(min_vals)
-                abs_max = max(max_val, abs(min_val))
-                return abs_max / self.delta_max - 1
-            constr = NonLinearConstraint(con_fun, name='Displacement ' + str(11 + j), parent=self)
-            constr.fea_required = True
-            self.cons.append(constr)
+        i = 0
+        for j, var in enumerate(self.vars):
+            for mem in var.target["objects"]:
+                if isinstance(mem, FrameMember):
+                    i += 1
+                    def stress_fun(x, i=i, j=j):
 
-    def _create_objective(self):
-        """
-        Creates the objective function
-        """
+                        if self.prob_type == 'discrete':
+                            A = TEN_BAR_AREAS_mm2[x[j]]
+                        else:
+                            A = x[j]
+
+                        return mem.ned / (A * mem.fy) - 1
+
+                    def disp_fun(A, i=i):
+                        displacements = mem.nodal_displacements.values()
+                        max_vals = [max(l[0:2]) for l in displacements]
+                        min_vals = [min(l[0:2]) for l in displacements]
+                        max_val = max(max_vals)
+                        min_val = min(min_vals)
+                        abs_max = max(max_val, abs(min_val))
+                        return abs_max / self.delta_max - 1
+
+                    stress_con = NonLinearConstraint(con_fun=stress_fun,
+                                                 name="Stress " + str(i),
+                                                 parent=self)
+                    stress_con.fea_required = True
+
+                    disp_con = NonLinearConstraint(con_fun=disp_fun,
+                                                 name='Displacement ' + str(i),
+                                                 parent=self)
+                    disp_con.fea_required = True
+
+                    self.cons.append(stress_con)
+                    self.cons.append(disp_con)
+
+    def create_objective(self):
+
         def objective(X):
             if np.any(self.X != X):
                 self.substitute_variables(X)
             weight = 0
             for x, mem in zip(X, self.structure.members.values()):
-                weight += self.rho * mem.A * mem.length
+                if self.prob_type == 'discrete':
+                    A = TEN_BAR_AREAS_mm2[x]
+                else:
+                    A = x
+                weight += self.rho * A * mem.length
             return weight
 
         self.obj = objective

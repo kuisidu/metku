@@ -1,2 +1,3 @@
-from frame2d.frame2d import *
-from optimization.structopt import *
+from .ten_bar_truss import TenBarTruss
+from .three_bar_truss import ThreeBarTruss
+from.fifteen_bar_truss import FifteenBarTruss

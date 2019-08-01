@@ -252,13 +252,6 @@ class NonLinearConstraint(Constraint):
         super().__call__(x)
         return self.con(x)
 
-    def linearize(self, X):
-
-
-
-
-
-
 
 class OptimizationProblem:
     """ Class for defining and operating with optimization problems """

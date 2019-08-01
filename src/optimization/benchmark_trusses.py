@@ -293,7 +293,11 @@ class ThreeBarTruss(OptimizationProblem):
                 self.substitute_variables(X)
             weight = 0
             for x, mem in zip(X, self.structure.members.values()):
-                weight += self.rho * mem.A * mem.length
+                if self.prob_type == 'discrete':
+                    A = THREE_BAR_AREAS_mm2[x]
+                else:
+                    A = x
+                weight += self.rho * A * mem.length
             return weight
 
         self.obj = objective
@@ -353,52 +357,140 @@ class ThreeBarTruss(OptimizationProblem):
 
         return frame
 
+
+    def _create_stress_constraint(self, mem, i, j):
+        """
+        THIS DOES NOT WORK YET!
+        GIVES DIFFERENT SOLUTIONS THAN THE FUNCTION CREATED
+        IN THE LOOP!
+        :param mem:
+        :param i:
+        :param j:
+        :return:
+        """
+        def con_fun(x, i=i, j=j):
+
+            if self.prob_type == 'discrete':
+                A = TEN_BAR_AREAS_mm2[x[j]]
+            else:
+                A = x[j]
+
+            return mem.ned / (A * mem.fy) - 1
+
+        return con_fun
+
     def create_constraints(self):
 
         # Initialize constraints as an empty list
         self.cons = []
-        # Create stress constraints
-        for i in range(len(self.structure.members)):
-            def con_fun(A, i=i):
-                mem = self.structure.members[i]
-                return abs(mem.ned / mem.NRd) - 1
 
-            constr = NonLinearConstraint(con_fun, name='Stress ' + str(i + 1),
-                                         parent=self)
-            constr.fea_required = True
-            self.cons.append(constr)
+        i = 0
+        for j, var in enumerate(self.vars):
+            for mem in var.target["objects"]:
+                if isinstance(mem, FrameMember):
+                    i += 1
+                    def stress_fun(x, i=i, j=j):
 
-        # Create displacement constraints
-        for j in range(len(self.structure.members)):
-            def con_fun(A, j=j):
-                mem = self.structure.members[j]
-                displacements = mem.nodal_displacements.values()
-                max_vals = [max(l[0:2]) for l in displacements]
-                min_vals = [min(l[0:2]) for l in displacements]
-                max_val = max(max_vals)
-                min_val = min(min_vals)
-                abs_max = max(max_val, abs(min_val))
-                return abs_max / self.delta_max - 1
+                        if self.prob_type == 'discrete':
+                            A = TEN_BAR_AREAS_mm2[x[j]]
+                        else:
+                            A = x[j]
 
-            constr = NonLinearConstraint(con_fun,
-                                         name='Displacement ' + str(1 + j),
-                                         parent=self)
-            constr.fea_required = True
-            self.cons.append(constr)
+                        return mem.ned / (A * mem.fy) - 1
 
-        # Create buckling constraints
-        for j in range(len(self.structure.members)):
-            def con_fun(A, j=j):
-                mem = self.structure.members[j]
-                sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
-                sigma = abs(mem.ned) / mem.A
-                return sigma / sigma_cr - 1
+                    def buckling_fun(x, i=i, j=j):
 
-            constr = NonLinearConstraint(con_fun,
-                                         name='Buckling ' + str(1 + j),
-                                         parent=self)
-            constr.fea_required = True
-            self.cons.append(constr)
+                        if self.prob_type == 'discrete':
+                            A = TEN_BAR_AREAS_mm2[x[j]]
+                        else:
+                            A = x[j]
+
+                        sigma_cr = 100 * mem.E * A / (8 * mem.length ** 2)
+                        sigma = -mem.ned / A
+                        return sigma / sigma_cr - 1
+
+                    def disp_fun(A, i=i):
+                        displacements = mem.nodal_displacements.values()
+                        max_vals = [max(l[0:2]) for l in displacements]
+                        min_vals = [min(l[0:2]) for l in displacements]
+                        max_val = max(max_vals)
+                        min_val = min(min_vals)
+                        abs_max = max(max_val, abs(min_val))
+                        return abs_max / self.delta_max - 1
+
+                    stress_con = NonLinearConstraint(con_fun=stress_fun,
+                                                 name="Stress " + str(i),
+                                                 parent=self)
+                    stress_con.fea_required = True
+
+                    buckling_con = NonLinearConstraint(con_fun=buckling_fun,
+                                                     name="Buckling " + str(i),
+                                                     parent=self)
+                    buckling_con.fea_required = True
+
+                    disp_con = NonLinearConstraint(con_fun=disp_fun,
+                                                 name='Displacement ' + str(i),
+                                                 parent=self)
+                    disp_con.fea_required = True
+
+                    self.cons.append(stress_con)
+                    self.cons.append(buckling_con)
+                    self.cons.append(disp_con)
+
+
+
+
+
+
+
+
+
+
+
+
+        # # Create stress constraints
+        # for i in range(len(self.structure.members)):
+        #     def con_fun(x, i=i):
+        #         mem = self.structure.members[i]
+        #         mem.A = x[i]
+        #         return abs(mem.ned / mem.NRd) - 1
+        #
+        #     constr = NonLinearConstraint(con_fun, name='Stress ' + str(i + 1),
+        #                                  parent=self)
+        #     constr.fea_required = True
+        #     self.cons.append(constr)
+        #
+        # # Create displacement constraints
+        # for j in range(len(self.structure.members)):
+        #     def con_fun(A, j=j):
+        #         mem = self.structure.members[j]
+        #         displacements = mem.nodal_displacements.values()
+        #         max_vals = [max(l[0:2]) for l in displacements]
+        #         min_vals = [min(l[0:2]) for l in displacements]
+        #         max_val = max(max_vals)
+        #         min_val = min(min_vals)
+        #         abs_max = max(max_val, abs(min_val))
+        #         return abs_max / self.delta_max - 1
+        #
+        #     constr = NonLinearConstraint(con_fun,
+        #                                  name='Displacement ' + str(1 + j),
+        #                                  parent=self)
+        #     constr.fea_required = True
+        #     self.cons.append(constr)
+        #
+        # # Create buckling constraints
+        # for j in range(len(self.structure.members)):
+        #     def con_fun(x, j=j):
+        #         mem = self.structure.members[j]
+        #         sigma_cr = 100 * mem.E * x[j] / (8 * mem.length ** 2)
+        #         sigma = abs(mem.ned) / mem.A
+        #         return sigma / sigma_cr - 1
+        #
+        #     constr = NonLinearConstraint(con_fun,
+        #                                  name='Buckling ' + str(1 + j),
+        #                                  parent=self)
+        #     constr.fea_required = True
+        #     self.cons.append(constr)
 
 
 class FifteenBarTruss(OptimizationProblem):
@@ -733,8 +825,6 @@ class TenBarTruss(OptimizationProblem):
     def create_objective(self):
 
         def objective(X):
-            if np.any(self.X != X):
-                self.substitute_variables(X)
             weight = 0
             for x, mem in zip(X, self.structure.members.values()):
                 weight += self.rho * mem.A * mem.length
@@ -898,9 +988,9 @@ def plot_convex_hull():
     plt.show()
 
 if __name__ == '__main__':
-    problem = TenBarTruss(prob_type='discrete')
-    solver = DiscreteVNS(step_length=3)
-    solver.solve(problem, maxiter=100, maxtime=30, subset_size=3)
+    problem = TenBarTruss(prob_type='continuous')
+    solver = SLSQP()
+    solver.solve(problem, maxiter=100)
 
 
     # solver = GA()

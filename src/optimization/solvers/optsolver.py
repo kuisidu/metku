@@ -74,7 +74,7 @@ class OptSolver:
 
         return bounds
 
-    def solve(self, maxiter=100, maxtime=30):
+    def solve(self, problem, x0=None, maxiter=100, maxtime=30):
         pass
 
 class DiscreteVNS(OptSolver):

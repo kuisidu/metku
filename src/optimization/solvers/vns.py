@@ -1,5 +1,5 @@
 
-
+import numpy as np
 
 
 
@@ -8,13 +8,14 @@ class DiscreteVNS(OptSolver):
         Variable Neighborhood Search (VNS) solver for discrete optimization problems
     """
 
-    def __init__(self, step_length=1):
+    def __init__(self, step_length=1, subset_size=-1):
         self.step_length = int(step_length)
         self.X = None
         self.problem = None
         self.constr_vals = None
         self.fval = 10e3
         self.best_fval = 10e3
+        self.subset_size = subset_size
 
 
     def shake(self):
@@ -42,7 +43,33 @@ class DiscreteVNS(OptSolver):
         self.X = x
 
 
+    def take_action(self):
+        """
+        Defines action to take
+        :return: action
+        """
+        if self.subset_size <= 0:
+            self.subset_size = len(self.X)
+        # Take random action in current neighborhood
+        action = np.random.randint(-self.step_length,
+                                   self.step_length + 1,
+                                   len(self.X))
+
+        # Choose random subset to stay still
+        subset = np.random.choice(len(self.X),
+                                  len(self.X) - self.subset_size,
+                                  replace=False)
+        action[subset] = 0
+
+        return action
+
     def step(self, action, X=[]):
+        """
+        Takes a step
+        :param action: direction of the step
+        :param X: starting point of the step
+        :return: state, reward, done, info
+        """
 
         if not len(X):
             X = self.X.copy()
@@ -74,26 +101,6 @@ class DiscreteVNS(OptSolver):
         done = np.all(self.constr_vals <= 0)
 
         return X, reward, done, 'INFO'
-
-
-
-
-
-
-    def worker(self):
-        r = -1
-        actions = []
-        while r <= 0:
-
-            action = np.random.randint(-self.step_length, self.step_length + 1, len(self.X))
-            if list(action) not in actions:
-                actions.append(list(action))
-                s, r, d, _ = self.step(action)
-
-        self.X = s
-        if d:
-            print("X: ", list(self.X))
-            print(f"Weight: {self.problem.obj(self.X):2f}")
 
 
     def solve(self, problem, maxiter=100, maxtime=100):
