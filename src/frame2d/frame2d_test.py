@@ -344,7 +344,13 @@ def test_all():
     test10()
 
 if __name__ == '__main__':
-    test9()
+
+    frame = Frame2D(simple=[1,1, 5000, 5000], supports='fixed')
+    frame.add(LineLoad(frame.members[2], [-10, -10], 'y'))
+    frame.generate()
+    frame.hinge_joints()
+    frame.calculate()
+    frame.bmd(10)
 
     """
     for member in frame.members.values():

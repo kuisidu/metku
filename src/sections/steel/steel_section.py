@@ -17,8 +17,8 @@ Class for general steel cross sections
 
 import numpy as np
 
-from eurocodes.en1993 import constants
-from eurocodes.en1993 import en1993_1_1
+from src.eurocodes.en1993 import constants
+from src.eurocodes.en1993 import en1993_1_1
 from abc import abstractclassmethod, ABCMeta
 
 INFEASIBLE = 999
