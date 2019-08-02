@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 PREC = 3
 L_sys = 0.8
 
-class Truss2D(Frame2D):
+class Truss2D(Frame2D):    
     def __init__(self, origo=[0,0], simple={}, num_elements=2, fem_model=None):
         super().__init__(num_elements=num_elements, fem_model=fem_model)
         self.truss = self
