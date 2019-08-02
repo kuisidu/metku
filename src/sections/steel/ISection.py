@@ -9,7 +9,7 @@ Rectangular hollow sections
 import math
 from eurocodes.en1993 import en1993_1_1, constants
 from sections.steel.steel_section import SteelSection
-from catalogue import profile
+from sections.steel.catalogue import profile
 
 
 class ISection(SteelSection):
@@ -90,6 +90,7 @@ class ISection(SteelSection):
             print("cf = {0:4.2f}, tf = {1:4.2f}".format(self.cf,self.tf))
             print("cf/tf = {0:4.2f}".format(rf))
             print("Flange class = {0}".format(cFlange))
+            
 
         return cFlange
 
@@ -130,7 +131,7 @@ class ISection(SteelSection):
         p = -1
 
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, a, p)
-
+        
         if verb:
             print("Web classification (internal part in compression and bending):")
             print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw,self.tw))

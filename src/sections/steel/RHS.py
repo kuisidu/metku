@@ -71,7 +71,7 @@ class RHS(SteelSection):
         return 4*Ap**2*self.T / p
         """
 
-    def flange_class(self):
+    def flange_class(self, verb=False):
         """ Determine class of compressed flange """
         cf = self.B-2*self.R
         rf = cf/self.T
@@ -79,7 +79,7 @@ class RHS(SteelSection):
         
         return cFlange
 
-    def web_class_comp(self):
+    def web_class_comp(self, verb=False):
         """ Determine class of compressed web """
         cw = self.H-2*self.R
         rw = cw/self.T
@@ -87,7 +87,7 @@ class RHS(SteelSection):
         
         return cWeb
         
-    def web_class_bend(self):
+    def web_class_bend(self, verb=False):
         """ Determine class of web in bending """
         cw = self.H-2*self.R
         rw = cw/self.T
@@ -95,7 +95,7 @@ class RHS(SteelSection):
 
         return cWeb
     
-    def web_class_comp_bend(self, Ned):
+    def web_class_comp_bend(self, Ned, verb=False):
         
         return 2
 	

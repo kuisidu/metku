@@ -6,7 +6,7 @@ Created on Fri Nov 30 11:43:48 2018
 """
 
 import unittest
-from sections.steel.ISection import IPE, HEA
+from ISection import IPE, HEA
 
 
 # Values from Arcelormittal catalogue, units [mm]
