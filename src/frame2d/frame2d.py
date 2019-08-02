@@ -7,15 +7,12 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import framefem.framefem  as fem
+import src.framefem.framefem  as fem
 
-from framefem.elements import EBBeam, EBSemiRigidBeam
-from sections.steel.CHS import CHS
-from sections.steel.ISection import *
-from sections.steel.RHS import RHS, SHS
-from sections.steel.catalogue import *
-from sections.steel.catalogue import mat as MATERIALS
-from structures.steel.steel_member import SteelMember
+from src.framefem.elements import EBBeam, EBSemiRigidBeam
+from src.sections.steel import *
+from src.sections.steel import mat as MATERIALS
+from src.structures.steel.steel_member import SteelMember
 
 # Eounding precision
 PREC = 3
@@ -716,6 +713,7 @@ class Frame2D:
                     n1 = pointload.coordinate
                     if num_frames != 1:
                         n1 = [n1[0], i * s, n1[1]]
+                    n1 = [val for val in n1]
                     nodes.append(n1)
                     idx = nodes.index(n1) + 1
                 FX, FZ, MY = pointload.v

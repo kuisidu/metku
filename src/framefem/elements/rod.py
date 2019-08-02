@@ -9,7 +9,7 @@ Rod element, for pin-jointed members with only axial forces
 
 import numpy as np
 
-from framefem import Element
+from src.framefem import Element
 
 
 class Rod(Element):
