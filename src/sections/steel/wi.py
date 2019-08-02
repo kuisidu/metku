@@ -45,7 +45,8 @@ class WISection(SteelSection):
         I = self.second_moment()
         Ashear = self.shear_area()
         Wel = self.section_modulus()
-        Wpl = self.plastic_section_modulus()        
+        Wpl = self.plastic_section_modulus()
+
         
         super().__init__(fy, A, I, Au, Wpl, Wel, Ashear)
 
@@ -385,5 +386,12 @@ def test_non_sym():
 
 if __name__ == '__main__':
     
-    test_non_sym()
-    
+    #test_non_sym()
+    from frame2d.frame2d import *
+    frame = Frame2D()
+    col = SteelColumn([[0,0], [0, 5000]])
+    frame.add(col)
+    col.cross_section = WISection(200, 5, [100, 100], [5, 5])
+    col.profile = "WI 200-5-100-5-100-5"
+    frame.plot()
+

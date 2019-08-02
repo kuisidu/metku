@@ -270,7 +270,7 @@ def to_robot_3D(filename,
             f.write("NUMbering DIScontinuous \n")
             f.write(f'NODes {len(nodes)}  ELEments {len(elements)} \n')
             f.write("UNIts \n")
-            f.write("LENgth=m	Force=kN \n")
+            f.write("LENgth=mm	Force=N \n")
             f.write("NODes \n")
             for i, node in enumerate(nodes):
                 if num_frames != 1:
