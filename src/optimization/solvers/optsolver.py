@@ -3,7 +3,7 @@ import time
 import numpy as np
 from scipy.optimize import basinhopping
 
-from optimization.structopt import OptimizationProblem
+from src.optimization.structopt import OptimizationProblem
 
 
 class OptSolver:

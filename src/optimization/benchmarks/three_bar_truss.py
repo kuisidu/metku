@@ -1,5 +1,5 @@
-from optimization.structopt import *
-from frame2d.frame2d import *
+from src.optimization.structopt import *
+from src.frame2d.frame2d import *
 
 THREE_BAR_AREAS_mm2 = [71.613, 90.968, 112.258, 141.935, 174.193, 185.161,
                          223.871,

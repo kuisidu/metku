@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from eurocodes.en1993 import constants
+from src.eurocodes.en1993 import constants
 
 
 class SteelMember:
