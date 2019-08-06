@@ -1,10 +1,56 @@
+<<<<<<< HEAD
 from src.optimization.solvers.optsolver import OptSolver
 from src.optimization.structopt import *
+=======
+from optimization.solvers.optsolver import OptSolver
+from optimization.structopt import LinearConstraint
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 from scipy.optimize import linprog
 import numpy as np
 import time
 
+<<<<<<< HEAD
 from src.optimization.benchmarks import *
+=======
+from optimization.benchmarks import *
+
+
+def numeric_gradient(fun, h, x):
+    """ Gradient by finite difference """
+    fx = fun(x)
+    n = len(x)
+    fh = fun(x + h)
+    df = (fh - fx) / h
+
+    return df
+
+
+def linearize(fun, x, grad=None):
+    """ Linearization of a function
+
+        input:
+            fun .. function that takes x as input
+            x .. point of linearization (array)
+            grad .. returns the gradient of fun at x
+
+        output:
+            a .. grad(x)
+            b .. fun(x)
+            c .. grad(x)*x
+    """
+
+    b = fun(x)
+
+    if grad == None:
+        h = np.ones_like(x) * 1e-2
+        a = numeric_gradient(fun, h, x)
+    else:
+        a = grad(x)
+
+    c = a.dot(x)
+
+    return a, b, c
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 
 class SLP(OptSolver):
 
@@ -19,6 +65,7 @@ class SLP(OptSolver):
         :return:
         """
 
+<<<<<<< HEAD
         A, B, df, fx = self.problem.linearize(self.X)
 
         bounds = [(x -self.step_length, x + self.step_length) for x in self.X]
@@ -51,6 +98,33 @@ class SLP(OptSolver):
         print("Starting point created!")
 
         return np.asarray(X)
+=======
+        A = np.zeros((len(self.problem.cons), len(self.X)))
+        B = np.zeros(len(self.problem.cons))
+        # This needs to be defined more generally!
+        C = np.zeros(len(self.X))
+        for i, var in enumerate(self.problem.vars):
+            mem = self.problem.structure.members[i]
+            C[i] = mem.A * mem.length
+
+
+        for i, con in enumerate(self.problem.cons):
+            # TODO: Check if constraint is already linear
+            print(self.X)
+            a, b, c = linearize(con, self.X)
+            print(self.X)
+            A[i] = a
+            B[i] = c - b
+
+
+        bounds = [(x -self.step_length, x + self.step_length) for x in self.X]
+
+        res = linprog(C, A, B, bounds=bounds, method='revised simplex')
+
+
+        return res.x - self.X
+
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 
     def step(self, action):
 
@@ -79,8 +153,13 @@ class SLP(OptSolver):
         if x0:
             self.X = x0
         else:
+<<<<<<< HEAD
             self.X = self.random_feasible_point()
 
+=======
+            self.X = np.zeros(len(problem.vars))
+            self.X += problem.vars[0].ub
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         problem.substitute_variables(self.X)
         done = False
         for i in range(maxiter):
@@ -94,7 +173,11 @@ class SLP(OptSolver):
             self.X = state
             problem.substitute_variables(state)
             self.calc_constraints(self.X)
+<<<<<<< HEAD
             print(state)
+=======
+            #print(state)
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 
             if log:
                 self.fvals.append(self.fval)
@@ -102,6 +185,7 @@ class SLP(OptSolver):
 
 if __name__ == '__main__':
 
+<<<<<<< HEAD
     problem = FifteenBarTruss(prob_type='continuous')
     solver = SLP(step_length=100)
     # problem = OptimizationProblem("Quadratic Problem")
@@ -119,4 +203,10 @@ if __name__ == '__main__':
     solver.solve(problem, maxiter=300, maxtime=300)
     problem(solver.X)
     problem.structure.plot_normal_force()
+=======
+    problem = TenBarTruss(prob_type='continuous')
+    solver = SLP()
+    solver.solve(problem, maxiter=200)
+    problem(solver.X)
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 

@@ -1,3 +1,4 @@
+
 from src.optimization.structopt import *
 from src.frame2d.frame2d import *
 import numpy as np
@@ -136,8 +137,6 @@ class TenBarTruss(OptimizationProblem):
         return frame
 
 
-
-
     def constraint_generator(self, mem):
 
         def compression_fun(x):
@@ -160,10 +159,6 @@ class TenBarTruss(OptimizationProblem):
             return abs_max / self.delta_max - 1
 
         return compression_fun, tension_fun, disp_fun
-
-
-
-
 
     def create_constraints(self):
 
@@ -193,9 +188,9 @@ class TenBarTruss(OptimizationProblem):
                                                  name='Displacement ' + str(i),
                                                  parent=self)
                     disp_con.fea_required = True
-
                     self.cons.append(comp_con)
                     self.cons.append(tension_con)
+
                     self.cons.append(disp_con)
 
     def create_objective(self):
@@ -206,6 +201,7 @@ class TenBarTruss(OptimizationProblem):
             weight = 0
             for mem in self.structure.members.values():
                 weight += self.rho * mem.A * mem.length
+
             return weight
 
         self.obj = objective

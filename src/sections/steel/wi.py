@@ -7,11 +7,13 @@ Welded I-sections
 @author: kmela
 """
 import math
-from eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
-from sections.steel.steel_section import SteelSection
+import numpy as np
+from src.eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
+from src.sections.steel.steel_section import SteelSection
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
 
 class WISection(SteelSection):
     """ Welded I-sections """
@@ -46,35 +48,45 @@ class WISection(SteelSection):
         Ashear = self.shear_area()
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()
+<<<<<<< HEAD
 
         
         super().__init__(fy, A, I, Au, Wpl, Wel, Ashear)
+=======
+        It = self.torsional_constant()
+        Iw = self.warping_constant()
+
+        super().__init__(fy, A, I, Au, Wpl, Wel, Ashear, It, Iw)
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 
         """ Determine buckling curve: EN 1993-1-1, Table 6.2 """        
         self.imp_factor = [en1993_1_1.buckling_curve["b"],
                            en1993_1_1.buckling_curve["b"]]
             
-    def __getattribute__(self,name):
+    def __getattribute__(self, name):
         """ override the attribute access for those attributes
             that depend on the section dimensions and that are
             constant for rolled sections
         """
-        if name=="A":            
+        if name == "A":
             return self.area()
-        elif name=="I":
+        elif name == "I":
             return self.second_moment()
-        elif name=="Wel":
+        elif name == "Wel":
             return self.section_modulus()
-        elif name=="Wpl":
+        elif name == "Wpl":
             return self.plastic_section_modulus()
-        elif name=="Ashear":
+        elif name == "Ashear":
             return self.shear_area()
-        elif name=="Au":
+        elif name == "Au":
             return self.paint_area()
+        elif name == "It":
+            return self.torsional_constant()
+        elif name == "Iw":
+            return self.warping_constant()
         else:
             return super().__getattribute__(name)
-    
-    
+
     @property
     def hw(self):
         """ Web height """
@@ -83,12 +95,12 @@ class WISection(SteelSection):
     @property
     def Aw(self):
         """ Area of web plate """
-        return self.hw*self.tw
+        return self.hw * self.tw
     
     @property
     def zw(self):
         """ Distance of centroid of web from bottom of section """
-        return self.tb + 0.5*self.hw
+        return self.tb + 0.5 * self.hw
 
     @property
     def tb(self):
@@ -103,12 +115,12 @@ class WISection(SteelSection):
     @property
     def Ab(self):
         """ Area of bottom flange """
-        return self.bb*self.tb
+        return self.bb * self.tb
     
     @property
     def zb(self):
         """ Distance of centroid of bottom flange from bottom of section """
-        return 0.5*self.tb
+        return 0.5 * self.tb
     
     @property
     def tt(self):
@@ -123,12 +135,12 @@ class WISection(SteelSection):
     @property
     def At(self):
         """ Area of top flange """
-        return self.bt*self.tt
+        return self.bt * self.tt
     
     @property
     def zt(self):
         """ Distance of centroid of top flange from bottom of section """
-        return self.h -0.5*self.tt
+        return self.h - 0.5 * self.tt
     
     @property
     def cf_top(self):
@@ -145,7 +157,7 @@ class WISection(SteelSection):
         """ Straight part of the web """
         return self.hw - 2*math.sqrt(2)*self.weld_throat
    
-    def flange_class(self,verb=False):
+    def flange_class(self, verb=False):
         """ Determine class of compressed flange """
         # cf = 0.5*(self.b - self.tw) - self.r
         rf = self.cf_top / self.tt
@@ -153,37 +165,45 @@ class WISection(SteelSection):
 
         if verb:
             print("Flange classification (outstand element):")
-            print("cf = {0:4.2f}, tf = {1:4.2f}".format(self.cf_top,self.tt))
+            print("cf = {0:4.2f}, tf = {1:4.2f}".format(self.cf_top, self.tt))
             print("cf/tf = {0:4.2f}".format(rf))
             print("Flange class = {0}".format(cFlange))
 
         return cFlange
 
-    def web_class_comp(self,verb=False):
+    def web_class_comp(self, verb=False):
         """ Determine class of compressed web """
         rw = self.cw / self.tw
         cWeb = en1993_1_1.internal_part_in_compression(rw, self.eps)
 
         if verb:
             print("Web classification (internal part in compression):")
-            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.cw,self.tw))
+            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.cw, self.tw))
             print("hw/tw = {0:4.2f}".format(rw))
             print("Web class = {0}".format(cWeb))
 
         return cWeb
 
-    def web_class_bend(self,verb=False):
+    def web_class_bend(self, verb=False):
         """ Determine class of web in bending """
         zel = self.elastic_neutral_axis()
         dpl = self.plastic_neutral_axis()
         rw = self.cw / self.tw
         psi = zel/(self.h-zel)
-        alpha = dpl/self.hw
-        cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps,alpha,psi)
+
+        if dpl <= self.tf[1] + math.sqrt(2) * self.weld_throat:
+            alpha = 1
+        elif dpl >= self.h - self.tf[0] - math.sqrt(2) * self.weld_throat:
+            alpha = 0  # TODO tarkista tämä
+        else:
+            alpha = dpl/self.h  # TODO tarkista tämä
+
+        cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, alpha, psi)
 
         if verb:
-            print("Web classification (internal part in compression and bending):")
-            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw,self.tw))
+            print("Web classification (internal part in compression and "
+                  "bending):")
+            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw, self.tw))
             print("hw/tw = {0:4.2f}".format(rw))
             print("alpha = {0:4.2f}".format(alpha))
             print("psi = {0:4.2f}".format(psi))
@@ -193,7 +213,7 @@ class WISection(SteelSection):
 
     def web_class_comp_bend(self, Ned, verb=False):
         """ Determine class of web in combined bending and compression 
-            TODO
+            TODO tarkista tämä
         """
         # cw = self.h-2*self.tf-2*self.r
         rw = self.hw / self.tw
@@ -204,8 +224,9 @@ class WISection(SteelSection):
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, a, p)
 
         if verb:
-            print("Web classification (internal part in compression and bending):")
-            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw,self.tw))
+            print("Web classification (internal part in compression and "
+                  "bending):")
+            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw, self.tw))
             print("hw/tw = {0:4.2f}".format(rw))
             print("Web class = {0}".format(cWeb))
 
@@ -217,9 +238,9 @@ class WISection(SteelSection):
             
             input: UN .. NEd/NRd
                   MRd .. moment resistance           
-            TODO
+            TODO tarkista tämä
         """
-        aw = min((self.A - 2 * self.b * self.tf) / self.A, 0.5)
+        aw = min((self.A - (self.b[0] *self.tf[0] - self.b[1] * self.tf[1])) / self.A, 0.5)
 
         if UN > 1.0:
             MNRd = 0.0
@@ -238,9 +259,9 @@ class WISection(SteelSection):
     
     def paint_area(self):
         """ Area to be painted (circumference of the section) """
-        return 2*self.tt + self.bt + 2*self.hw + 2*self.tb + 2*self.bb - 2*self.tw
-        
-    
+        return 2*self.tt + self.bt + 2*self.hw + 2*self.tb + 2*self.bb - \
+               2*self.tw
+
     def elastic_neutral_axis(self):
         """ Elastic neutral axis 
             measured from the bottom of the section
@@ -250,10 +271,19 @@ class WISection(SteelSection):
     
     def plastic_neutral_axis(self):
         """ Plastic neutral axis
-            measured downwards from the bottom of the top flange
+            measured from the bottom of the section
         """
+        # measured downwards from the bottom of the top flange
+        # dpl = 0.5*(self.Ab + self.Aw - self.At)/self.tw
+
         # with respect to y-axis
-        dpl = 0.5*(self.Ab + self.Aw - self.At)/self.tw
+        if self.At >= self.A / 2:
+            dpl = self.h - self.A / (2 * self.bt)
+        elif self.Ab >= self.A / 2:
+            dpl = self.A / (2 * self.bb)
+        else:
+            dpl = (self.A / 2 - self.Ab) / self.tw + self.tb
+
         return dpl
     
     def second_moment(self):
@@ -269,7 +299,7 @@ class WISection(SteelSection):
         Iz = 1/12*self.tb*self.bb**3 + 1/12*self.tt*self.bt**3 + \
                 1/12*self.hw*self.tw**3
 
-        return [Iy,Iz]
+        return [Iy, Iz]
     
     def section_modulus(self):
         """ Elastic section modulus for bending """
@@ -280,48 +310,70 @@ class WISection(SteelSection):
         # distance of neutral axis from the top of the section
         ztop = self.h - zel
         
-        Wel =[0,0]
-        Wel[0] = I[0]/max(zel,ztop)
+        Wel = [0, 0]
+        Wel[0] = I[0]/max(zel, ztop)
         
         # with respect to z-axis
         Wel[1] = I[1]/(0.5*max(self.b))
         
-        return Wel
+        return np.asarray(Wel)
     
     def plastic_section_modulus(self):
         """ Plastic section modulus for bending """
         
-        """ distance of plastic neutral axis from the bottom of the top flange """
-        Wpl = [0,0]
+        """ distance of plastic neutral axis from the bottom of the top 
+        flange """
+
+        Wpl = [0, 0]
     
         # with respect to y-axis
         dpl = self.plastic_neutral_axis()
 
-        
-        if dpl < 0:
+        if self.At >= self.A / 2:
             # neutral axis is in the top flange
-            # TODO
-            Wpl[0] = 0
-        elif dpl > self.hw:
+            Wpl[0] = (self.bt * pow(self.h - dpl, 2) / 2) \
+                     + (self.bt * pow(dpl - self.hw - self.tb, 2) / 2) \
+                     + (self.Aw * (dpl - self.hw/2-self.tb)) \
+                     + (self.Ab * (dpl - self.tb / 2))
+
+        elif self.Ab >= self.A / 2:
             # neutral axis is in the bottom flange
-            # TODO
-            Wpl[0] = 0        
+            Wpl[0] = (self.At * (self.h - dpl - self.tt / 2)) \
+                     + (self.Aw * (self.h - dpl - self.tt - self.hw / 2)) \
+                     + (self.bb * pow(self.h - dpl -
+                                      self.tt - self.hw, 2) / 2) \
+                     + (self.bb * pow(dpl, 2) / 2)
+
         else:
             # neutral axis is in the web
-            rt = dpl + 0.5*self.tt
-            rw1 = 0.5*(dpl+self.tt)
-            rw2 = 0.5*(self.hw-dpl)
-            rb = self.hw-dpl+0.5*self.tb
-            
-            Wpl[0] = self.At*rt + 2*(dpl+self.tt)*self.tw*rw1 + \
-                    2*(self.hw-dpl)*self.tw*rw2 + self.Ab*rb
+            Wpl[0] = (self.At * (self.h - dpl - self.tt / 2)) \
+                     + (self.tw * pow(self.h - dpl - self.tt, 2) / 2) \
+                     + (self.tw * pow(dpl - self.tb, 2) / 2) \
+                     + (self.Ab * (dpl - self.tb / 2))
             
         # with respect to z-axis
-        Wpl[1] = 1/4*self.Ab*self.bb + 1/4*self.At*self.bt + \
-                    1/4*self.Aw*(self.bt+self.tw)
-        return Wpl
-    
-    def effective_flange(self,flange="Top"):
+        Wpl[1] = (1/4 * self.Ab * self.bb) + (1/4 * self.At * self.bt) \
+                 + (1/4 * self.Aw * self.tw)
+
+        return np.asarray(Wpl)
+
+    def torsional_constant(self):
+        """ Torsional constant """
+
+        It = 1/3 * (self.b[0] * pow(self.tf[0], 3) + self.b[1] *
+                    pow(self.tf[1], 3) + self.h * pow(self.tw, 3))
+        return It
+
+    def warping_constant(self):
+        """ Warping constant on the weaker axis """
+
+        Izf1 = (self.tf[0] * pow(self.b[0], 3)) / 12
+        Iw = Izf1 * (1 - Izf1 / self.I[1]) * \
+             pow(self.h - self.tf[0] / 2 - self.tf[1] / 2, 2)
+
+        return Iw
+
+    def effective_flange(self, flange="Top"):
         """ Effective flange, assumed to be in pure compression """
         
         ksigma = en1993_1_5.buckling_factor_outstand(psi=1.0)
@@ -333,7 +385,7 @@ class WISection(SteelSection):
             c = self.cf_bottom
             t = self.tb
 
-        lp = en1993_1_5.lambda_p(c,t,self.eps,ksigma)
+        lp = en1993_1_5.lambda_p(c, t, self.eps, ksigma)
         rho = en1993_1_5.reduction_factor_outstand(lp)
 
         return rho                
@@ -343,19 +395,19 @@ class WISection(SteelSection):
         fig, ax = plt.subplots(1)
         
         # create section parts
-        bot_flange = patches.Rectangle((-0.5*self.bb,0),width=self.bb,height=self.tb,\
-                                       fill=False, hatch='\\')
-        web = patches.Rectangle((-0.5*self.tw,self.tb),width=self.tw,height=self.hw,\
-                                 fill=False, hatch='\\')
+        bot_flange = patches.Rectangle((-0.5*self.bb, 0), width=self.bb,
+                                       height=self.tb, fill=False, hatch='\\')
+        web = patches.Rectangle((-0.5*self.tw, self.tb), width=self.tw,
+                                height=self.hw, fill=False, hatch='\\')
     
-        top_flange = patches.Rectangle((-0.5*self.bt,self.h-self.tt),\
-                                       width=self.bt,height=self.tt,\
+        top_flange = patches.Rectangle((-0.5*self.bt, self.h-self.tt),
+                                       width=self.bt, height=self.tt,
                                        fill=False, hatch='\\')
         ax.add_patch(bot_flange)
         ax.add_patch(web)
         ax.add_patch(top_flange)
-        ax.set_xlim(-0.5*max(self.b),0.5*max(self.b))
-        ax.set_ylim(0,self.h)
+        ax.set_xlim(-0.5*max(self.b), 0.5*max(self.b))
+        ax.set_ylim(0, self.h)
         
         zel = self.elastic_neutral_axis()
         dpl = self.plastic_neutral_axis()        
@@ -363,22 +415,24 @@ class WISection(SteelSection):
         print(zel)
         print(dpl)
         
-        plt.plot(0.0,zel,'or')
-        plt.plot(0.0,self.tb+self.hw-dpl,'db')
+        plt.plot(0.0, zel, 'or')
+        plt.plot(0.0, dpl, 'db')
         
         ax.set_aspect('equal')
         
         plt.show()
-        
+
+
 def test_sym():
     """ symmetric I-beam """
-    p = WISection(500,8,[250,250],[12,12])
+    p = WISection(500, 8, [250, 250], [12, 12])
     p.draw()
+
 
 def test_non_sym():
     """ symmetric I-beam """
     print("Create section")
-    p = WISection(500,8,[300,250],[10,15])
+    p = WISection(500, 8, [300, 250], [10, 15])
     print("Done.")
     print(p.I)
     # p.draw()
@@ -386,6 +440,10 @@ def test_non_sym():
 
 if __name__ == '__main__':
     
+<<<<<<< HEAD
+=======
+
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
     #test_non_sym()
     from frame2d.frame2d import *
     frame = Frame2D()

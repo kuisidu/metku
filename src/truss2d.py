@@ -7,9 +7,11 @@ Created on Fri Oct 26 10:11:35 2018
 from src.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from src.framefem.elements import EBBeam, EBSemiRigidBeam
 #from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
+
 from src.framefem import FrameFEM, BeamSection
 from src.structures.steel.steel_member import SteelMember
 from src.eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
+
 
 import math
 import numpy as np
@@ -19,6 +21,7 @@ PREC = 3
 L_sys = 0.8
 
 class Truss2D(Frame2D):
+
     def __init__(self, origo=[0,0], simple={}, num_elements=2, fem_model=None):
         super().__init__(num_elements=num_elements, fem_model=fem_model)
         self.truss = self

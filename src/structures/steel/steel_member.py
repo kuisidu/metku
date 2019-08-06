@@ -270,3 +270,5 @@ class SteelMember:
     def check_beamcolumn(self, Cmy=0.9, class1or2=False):
         """ Verify stability for combined axial force and bending moment
         """
+        # find the largest compression force in the member
+        NEd = np.min(np.array(self.ned).clip(max=0.0))

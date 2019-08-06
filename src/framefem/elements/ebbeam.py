@@ -9,7 +9,11 @@ Euler-Bernoulli beam element in 2D
 
 import numpy as np
 
+<<<<<<< HEAD
 from src.framefem import Element
+=======
+from src.framefem.framefem import Element
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 
 
 class EBBeam(Element):

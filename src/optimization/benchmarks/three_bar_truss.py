@@ -1,3 +1,4 @@
+
 from src.optimization.structopt import *
 from src.frame2d.frame2d import *
 
@@ -48,8 +49,8 @@ class ThreeBarTruss(OptimizationProblem):
                 self.substitute_variables(X)
             weight = 0
             for x, mem in zip(X, self.structure.members.values()):
-
                 weight += self.rho * mem.A * mem.length  # mem.weight
+
             return weight
 
         self.obj = objective
@@ -148,6 +149,7 @@ class ThreeBarTruss(OptimizationProblem):
                     def buckling_fun(x, i=i, j=j):
                         sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
                         sigma = -mem.ned / mem.A
+
                         return sigma / sigma_cr - 1
 
                     def disp_fun(A, i=i):
@@ -182,7 +184,7 @@ class ThreeBarTruss(OptimizationProblem):
 
 
 if __name__ == '__main__':
-    from optimization.solvers import SLP, SLSQP
+    from src.optimization.solvers import SLP, SLSQP
     problem = ThreeBarTruss(prob_type='continuous')
     solver = SLP()
     solver.solve(problem, maxiter=200)

@@ -6,11 +6,85 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="913f43f8-b5ff-41c0-9a0b-8f46696effbd" name="Default" comment="">
+<<<<<<< HEAD
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_8/rhs_joints.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_8/rhs_joints.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/optimization/solvers/slp.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/optimization/solvers/slp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/optimization/structopt.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/optimization/structopt.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/truss2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/truss2d.py" afterDir="false" />
+=======
+      <change afterPath="$PROJECT_DIR$/.gitlab-ci.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/frame2d.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/en1993_examples.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/X_data.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/benchmark_trusses.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/benchmarks/24m_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/benchmarks/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/benchmarks/fifteen_bar_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/benchmarks/ten_bar_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/benchmarks/three_bar_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/gekko_optimization.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/ga.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/optsolver.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/pso.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/slp.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/slsqp.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/template.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/two_phase.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/solvers/vns.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/optimization/y_data.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/src_22102018.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/src_22102018.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/src/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/.idea/src.iml" beforeDir="false" afterPath="$PROJECT_DIR$/src/.idea/src.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/src/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/CI_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/autoarch.err" beforeDir="false" afterPath="$PROJECT_DIR$/src/optimization/benchmarks/tenbartruss_results.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_1.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_1.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_5.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_5.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/optimization/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/analysis/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/elements/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/elements/eb_semi_rigid_beam.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/elements/ebbeam.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/elements/rod.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/frame_fem.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/frame_fem_test2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/frame_fem_test3.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/frame_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fem/stability_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/frame2d/frame2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/frame2d/frame2d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/frame2d/frame2d_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/frame2d/frame2d_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/frame2d/test_frame2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/frame2d/test_frame2d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/framefem/elements/ebbeam.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/framefem/elements/ebbeam.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/framefem/elements/rod.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/framefem/elements/rod.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/framefem/framefem.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/framefem/framefem.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/optimization/structopt.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/optimization/structopt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/portal_frame.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/portal_test.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/robot3D.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/robot3D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/CHS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/CHS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/ISection.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/ISection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/RHS.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/RHS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/catalogue.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/catalogue.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/steel_section.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/steel_section.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/test_ISection.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/test_ISection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/sections/steel/wi.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/sections/steel/wi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/simple_truss.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/structures/steel/steel_member.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/structures/steel/steel_member.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test.xls" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/testi.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/testistats" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/truss2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/truss2d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/truss_test.str" beforeDir="false" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -21,6 +95,7 @@
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="false">
+<<<<<<< HEAD
         <entry file="file://$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_1.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="176">
@@ -36,11 +111,20 @@
               <caret line="28" column="29" lean-forward="true" selection-start-line="28" selection-start-column="29" selection-end-line="28" selection-end-column="29" />
               <folding>
                 <element signature="e#0#56#0" expanded="true" />
+=======
+        <entry file="file://$PROJECT_DIR$/src/sections/steel/wi.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="213">
+              <caret line="237" lean-forward="true" selection-start-line="237" selection-end-line="237" />
+              <folding>
+                <element signature="e#100#111#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
               </folding>
             </state>
           </provider>
         </entry>
       </file>
+<<<<<<< HEAD
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/optimization/renderer.py">
           <provider selected="true" editor-type-id="text-editor">
@@ -49,19 +133,37 @@
               <folding>
                 <element signature="e#0#13#0" expanded="true" />
               </folding>
+=======
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/frame2d/frame2d.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="85">
+              <caret line="5" column="9" lean-forward="true" selection-start-line="5" selection-start-column="9" selection-end-line="5" selection-end-column="9" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
+<<<<<<< HEAD
         <entry file="file://$PROJECT_DIR$/src/truss2d.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="176">
               <caret line="11" column="9" selection-start-line="11" selection-start-column="9" selection-end-line="11" selection-end-column="9" />
+=======
+        <entry file="file://$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_5.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="221">
+              <caret line="13" lean-forward="true" selection-start-line="13" selection-end-line="13" />
+              <folding>
+                <element signature="e#125#136#0" expanded="true" />
+              </folding>
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
             </state>
           </provider>
         </entry>
       </file>
+<<<<<<< HEAD
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_8/rhs_joints.py">
           <provider selected="true" editor-type-id="text-editor">
@@ -81,12 +183,22 @@
               <caret line="151" selection-start-line="151" selection-end-line="151" />
               <folding>
                 <element signature="e#0#40#0" expanded="true" />
+=======
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/sections/steel/__init__.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="238">
+              <caret line="14" selection-start-line="14" selection-end-line="14" />
+              <folding>
+                <element signature="e#103#131#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
+<<<<<<< HEAD
         <entry file="file://$PROJECT_DIR$/src/optimization/benchmarks/fifteen_bar_truss.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="-2594">
@@ -114,16 +226,34 @@
               <caret line="167" column="4" selection-start-line="167" selection-start-column="4" selection-end-line="198" selection-end-column="46" />
               <folding>
                 <element signature="e#0#40#0" expanded="true" />
+=======
+        <entry file="file://$PROJECT_DIR$/src/sections/steel/ISection.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="221">
+              <caret line="13" lean-forward="true" selection-start-line="13" selection-end-line="13" />
+              <folding>
+                <element signature="e#113#124#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
+<<<<<<< HEAD
         <entry file="file://$PROJECT_DIR$/src/optimization/structopt.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="3264">
               <caret line="205" column="26" selection-start-line="205" selection-start-column="26" selection-end-line="205" selection-end-column="26" />
+=======
+        <entry file="file://$PROJECT_DIR$/src/__init__.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="102">
+              <caret line="6" lean-forward="true" selection-start-line="6" selection-end-line="6" />
+              <folding>
+                <element signature="e#1#18#0" expanded="true" />
+              </folding>
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
             </state>
           </provider>
         </entry>
@@ -171,6 +301,12 @@
         <option value="$PROJECT_DIR$/src/frame2d/test_frame2d.py" />
         <option value="$PROJECT_DIR$/src/fem/frame/frame_fem.py" />
         <option value="$PROJECT_DIR$/src/fem/elements/eb_semi_rigid_beam.py" />
+<<<<<<< HEAD
+=======
+        <option value="$PROJECT_DIR$/src/structures/steel/steel_member.py" />
+        <option value="$PROJECT_DIR$/src/truss2d.py" />
+        <option value="$PROJECT_DIR$/src/frame2d/frame2d.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         <option value="$PROJECT_DIR$/src/sections/steel/catalogue.py" />
         <option value="$PROJECT_DIR$/src/truss2d_test.py" />
         <option value="$PROJECT_DIR$/src/fem/elements/ebbeam.py" />
@@ -178,6 +314,7 @@
         <option value="$PROJECT_DIR$/src/frame2d/frame2d_test.py" />
         <option value="$PROJECT_DIR$/src/fem/frame_fem.py" />
         <option value="$PROJECT_DIR$/src/__init__.py" />
+<<<<<<< HEAD
         <option value="$PROJECT_DIR$/src/optimization/solvers/slsqp.py" />
         <option value="$PROJECT_DIR$/src/optimization/solvers/optsolver.py" />
         <option value="$PROJECT_DIR$/src/frame2d/frame2d.py" />
@@ -198,14 +335,27 @@
         <option value="$PROJECT_DIR$/src/optimization/renderer.py" />
         <option value="$PROJECT_DIR$/src/truss2d.py" />
         <option value="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_8/rhs_joints.py" />
+=======
+        <option value="$PROJECT_DIR$/src/sections/steel/ISection.py" />
+        <option value="$PROJECT_DIR$/src/sections/steel/__init__.py" />
+        <option value="$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_5.py" />
+        <option value="$PROJECT_DIR$/src/sections/steel/wi.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
+<<<<<<< HEAD
     <option name="x" value="-8" />
     <option name="y" value="-8" />
     <option name="width" value="974" />
     <option name="height" value="1057" />
+=======
+    <option name="x" value="-1928" />
+    <option name="y" value="-8" />
+    <option name="width" value="1936" />
+    <option name="height" value="1056" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
   </component>
   <component name="ProjectInspectionProfilesVisibleTreeState">
     <entry key="Project Default">
@@ -234,6 +384,7 @@
         <subPane>
           <expand>
             <path>
+<<<<<<< HEAD
               <item name="jaakko" type="b2602c69:ProjectViewProjectNode" />
               <item name="jaakko" type="462c0819:PsiDirectoryNode" />
             </path>
@@ -247,6 +398,34 @@
               <item name="jaakko" type="462c0819:PsiDirectoryNode" />
               <item name="src" type="462c0819:PsiDirectoryNode" />
               <item name="optimization" type="462c0819:PsiDirectoryNode" />
+=======
+              <item name="frame2d" type="b2602c69:ProjectViewProjectNode" />
+              <item name="frame2d" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="frame2d" type="b2602c69:ProjectViewProjectNode" />
+              <item name="frame2d" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="frame2d" type="b2602c69:ProjectViewProjectNode" />
+              <item name="frame2d" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="frame2d" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="frame2d" type="b2602c69:ProjectViewProjectNode" />
+              <item name="frame2d" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="sections" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="frame2d" type="b2602c69:ProjectViewProjectNode" />
+              <item name="frame2d" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="sections" type="462c0819:PsiDirectoryNode" />
+              <item name="steel" type="462c0819:PsiDirectoryNode" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
             </path>
           </expand>
           <select />
@@ -258,7 +437,11 @@
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
+<<<<<<< HEAD
     <property name="settings.editor.selected.configurable" value="preferences.keymap" />
+=======
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
   </component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
@@ -284,8 +467,43 @@
       </list>
     </option>
   </component>
+<<<<<<< HEAD
   <component name="RunManager" selected="Python.renderer">
     <configuration name="frame2d_test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="src_22102018" />
+=======
+  <component name="RunManager" selected="Python.frame2d">
+    <configuration name="frame2d" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="frame2d" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/frame2d" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+<<<<<<< HEAD
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/frame2d/frame2d_test.py" />
+=======
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/frame2d/frame2d.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+<<<<<<< HEAD
+    <configuration name="frame_fem_test3" type="PythonConfigurationType" factoryName="Python" temporary="true">
+=======
+    <configuration name="frame2d_test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <module name="src_22102018" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -297,28 +515,11 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/frame2d/frame2d_test.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="frame_fem_test3" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="src_22102018" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/fem" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
+<<<<<<< HEAD
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/fem/frame_fem_test3.py" />
+=======
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/frame2d/frame2d_test.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -327,7 +528,11 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+<<<<<<< HEAD
     <configuration name="frame_test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+=======
+    <configuration name="frame_fem (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <module name="src_22102018" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -339,7 +544,11 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
+<<<<<<< HEAD
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/fem/frame_test.py" />
+=======
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/fem/frame_fem.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -348,7 +557,11 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+<<<<<<< HEAD
     <configuration name="renderer" type="PythonConfigurationType" factoryName="Python" temporary="true">
+=======
+    <configuration name="frame_fem_test3" type="PythonConfigurationType" factoryName="Python" temporary="true">
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <module name="src_22102018" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -360,7 +573,11 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
+<<<<<<< HEAD
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/optimization/renderer.py" />
+=======
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/fem/frame_fem_test3.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -369,7 +586,11 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+<<<<<<< HEAD
     <configuration name="slp" type="PythonConfigurationType" factoryName="Python" temporary="true">
+=======
+    <configuration name="frame_test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <module name="src_22102018" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -377,11 +598,19 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
+<<<<<<< HEAD
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/optimization/solvers" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/optimization/solvers/slp.py" />
+=======
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/fem" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/fem/frame_test.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -392,6 +621,7 @@
     </configuration>
     <list>
       <item itemvalue="Python.frame2d_test" />
+<<<<<<< HEAD
       <item itemvalue="Python.frame_test" />
       <item itemvalue="Python.frame_fem_test3" />
       <item itemvalue="Python.slp" />
@@ -404,6 +634,20 @@
         <item itemvalue="Python.frame2d_test" />
         <item itemvalue="Python.frame_fem_test3" />
         <item itemvalue="Python.frame_test" />
+=======
+      <item itemvalue="Python.frame_fem (1)" />
+      <item itemvalue="Python.frame_test" />
+      <item itemvalue="Python.frame_fem_test3" />
+      <item itemvalue="Python.frame2d" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.frame2d" />
+        <item itemvalue="Python.frame2d_test" />
+        <item itemvalue="Python.frame_fem_test3" />
+        <item itemvalue="Python.frame_test" />
+        <item itemvalue="Python.frame_fem (1)" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       </list>
     </recent_temporary>
   </component>
@@ -453,16 +697,28 @@
     </history-entry>
   </component>
   <component name="ToolWindowManager">
+<<<<<<< HEAD
     <frame x="-8" y="-8" width="1936" height="1066" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.14172813" />
       <window_info id="Structure" order="1" weight="0.10992908" />
+=======
+    <frame x="-1928" y="-8" width="1936" height="1056" extended-state="6" />
+    <editor active="true" />
+    <layout>
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.16332982" />
+      <window_info id="Structure" order="1" weight="0.29399368" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Inspection Results" order="0" weight="0.32903227" />
       <window_info anchor="bottom" id="Message" order="1" />
       <window_info anchor="bottom" id="Find" order="2" />
+<<<<<<< HEAD
       <window_info active="true" anchor="bottom" id="Run" order="3" visible="true" weight="0.5582418" />
+=======
+      <window_info anchor="bottom" id="Run" order="3" visible="true" weight="0.3109426" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <window_info anchor="bottom" id="Debug" order="4" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="5" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
@@ -490,14 +746,14 @@
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
+<<<<<<< HEAD
+=======
+    <entry file="file://$PROJECT_DIR$/src/anna_optimization_frame2d.py" />
+    <entry file="file://$PROJECT_DIR$/src/frame2d.py" />
+    <entry file="file://$PROJECT_DIR$/src/frame2d_test.py" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
     <entry file="file://$PROJECT_DIR$/CI_test.py" />
-    <entry file="file://$PROJECT_DIR$/src/CI_test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="315">
-          <caret line="21" column="25" lean-forward="true" selection-start-line="21" selection-start-column="25" selection-end-line="21" selection-end-column="25" />
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/src/CI_test.py" />
     <entry file="file://$PROJECT_DIR$/.gitignore">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
@@ -535,6 +791,7 @@
     <entry file="file://$PROJECT_DIR$/src/truss2d_interactive_test.py" />
     <entry file="file://$USER_HOME$/.PyCharmCE2017.2/system/python_stubs/906472395/builtins.py" />
     <entry file="file://$PROJECT_DIR$/src/sections/steel/profile_data.py">
+<<<<<<< HEAD
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="495">
           <caret line="33" column="85" lean-forward="true" selection-start-line="33" selection-start-column="85" selection-end-line="33" selection-end-column="85" />
@@ -543,6 +800,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/end_plate/write_excel.py" />
     <entry file="file://$PROJECT_DIR$/src/sections/steel/test_ISection.py">
+=======
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="660">
           <caret line="45" column="75" selection-start-line="45" selection-start-column="75" selection-end-line="45" selection-end-column="75" />
@@ -551,13 +810,19 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/sections/steel/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="135">
           <caret line="9" selection-start-line="9" selection-end-line="9" />
+=======
+        <state relative-caret-position="3030">
+          <caret line="205" column="29" selection-start-line="205" selection-start-column="29" selection-end-line="205" selection-end-column="29" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/sections/steel/test_rhs.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="60">
           <caret line="4" column="16" selection-start-line="4" selection-start-column="16" selection-end-line="4" selection-end-column="16" />
         </state>
@@ -575,11 +840,24 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="150">
           <caret line="10" column="12" selection-start-line="10" selection-start-column="12" selection-end-line="10" selection-end-column="12" />
+=======
+        <state relative-caret-position="570">
+          <caret line="40" column="18" selection-start-line="40" selection-start-column="18" selection-end-line="40" selection-end-column="18" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/end_plate/write_excel.py" />
+    <entry file="file://$PROJECT_DIR$/src/sections/steel/test_ISection.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="660">
+          <caret line="45" column="75" selection-start-line="45" selection-start-column="75" selection-end-line="45" selection-end-column="75" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/truss2d_test.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="4710">
           <caret line="319" column="16" selection-start-line="319" selection-start-column="16" selection-end-line="319" selection-end-column="16" />
         </state>
@@ -596,28 +874,43 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="205">
           <caret line="88" selection-start-line="88" selection-end-line="88" />
+=======
+        <state relative-caret-position="270">
+          <caret line="20" column="7" selection-start-line="20" selection-start-column="7" selection-end-line="20" selection-end-column="7" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/frame2d/frame2d_test.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="678">
           <caret line="333" column="15" selection-start-line="333" selection-start-column="15" selection-end-line="333" selection-end-column="15" />
+=======
+        <state relative-caret-position="60">
+          <caret line="4" column="16" selection-start-line="4" selection-start-column="16" selection-end-line="4" selection-end-column="16" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="96">
           <caret line="6" lean-forward="true" selection-start-line="6" selection-end-line="6" />
           <folding>
             <element signature="e#1#18#0" expanded="true" />
           </folding>
+=======
+        <state relative-caret-position="180">
+          <caret line="12" lean-forward="true" selection-start-line="12" selection-end-line="12" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/optimization/solvers/slsqp.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state>
           <caret column="5" lean-forward="true" selection-start-column="5" selection-end-column="9" />
         </state>
@@ -648,11 +941,24 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="176">
           <caret line="11" column="9" selection-start-line="11" selection-start-column="9" selection-end-line="11" selection-end-column="9" />
+=======
+        <state relative-caret-position="825">
+          <caret line="56" column="63" selection-start-line="56" selection-start-column="63" selection-end-line="56" selection-end-column="63" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fem/stability_test.py" />
+    <entry file="file://$PROJECT_DIR$/src/sections/steel/catalogue.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="150">
+          <caret line="10" column="12" selection-start-line="10" selection-start-column="12" selection-end-line="10" selection-end-column="12" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/sections/steel/RHS.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="176">
           <caret line="11" column="9" selection-start-line="11" selection-start-column="9" selection-end-line="11" selection-end-column="9" />
         </state>
@@ -699,10 +1005,66 @@
           <caret line="151" selection-start-line="151" selection-end-line="151" />
           <folding>
             <element signature="e#0#40#0" expanded="true" />
+=======
+        <state relative-caret-position="4710">
+          <caret line="319" column="16" selection-start-line="319" selection-start-column="16" selection-end-line="319" selection-end-column="16" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/end_plate/tables_and_tuples.py" />
+    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python36-32/Lib/site-packages/numpy/linalg/linalg.py" />
+    <entry file="file://$PROJECT_DIR$/src/truss2d.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="289">
+          <caret line="17" selection-start-line="17" selection-end-line="17" />
+          <folding>
+            <element signature="e#86#164#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/structures/steel/steel_member.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="85">
+          <caret line="5" selection-start-line="5" selection-end-line="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/optimization/ibeam_test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="16" column="27" selection-start-line="16" selection-start-column="27" selection-end-line="16" selection-end-column="27" />
+          <folding>
+            <element signature="e#85#96#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fem/frame_fem.py" />
+    <entry file="file://$PROJECT_DIR$/src/frame2d/frame2d_test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="387">
+          <caret line="333" column="15" selection-start-line="333" selection-start-column="15" selection-end-line="333" selection-end-column="15" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/fem/elements/ebbeam.py" />
+    <entry file="file://$PROJECT_DIR$/src/fem/elements/eb_semi_rigid_beam.py" />
+    <entry file="file://$PROJECT_DIR$/src/fem/frame_fem_test3.py" />
+    <entry file="file://$PROJECT_DIR$/src/fem/frame_fem_test2.py" />
+    <entry file="file://$PROJECT_DIR$/src/fem/frame_test.py" />
+    <entry file="file://$PROJECT_DIR$/src/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="102">
+          <caret line="6" lean-forward="true" selection-start-line="6" selection-end-line="6" />
+          <folding>
+            <element signature="e#1#18#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
+          </folding>
+        </state>
+      </provider>
+    </entry>
+<<<<<<< HEAD
     <entry file="file://$PROJECT_DIR$/src/framefem/elements/eb_semi_rigid_beam.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1952">
@@ -723,42 +1085,78 @@
           <caret line="167" column="4" selection-start-line="167" selection-start-column="4" selection-end-line="198" selection-end-column="46" />
           <folding>
             <element signature="e#0#40#0" expanded="true" />
+=======
+    <entry file="file://$PROJECT_DIR$/src/sections/steel/ISection.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="221">
+          <caret line="13" lean-forward="true" selection-start-line="13" selection-end-line="13" />
+          <folding>
+            <element signature="e#113#124#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
           </folding>
         </state>
       </provider>
     </entry>
+<<<<<<< HEAD
     <entry file="file://$PROJECT_DIR$/src/optimization/benchmarks/fifteen_bar_truss.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-2594">
           <caret line="45" lean-forward="true" selection-start-line="45" selection-end-line="45" />
           <folding>
             <element signature="e#0#33#0" expanded="true" />
+=======
+    <entry file="file://$PROJECT_DIR$/src/sections/steel/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="238">
+          <caret line="14" selection-start-line="14" selection-end-line="14" />
+          <folding>
+            <element signature="e#103#131#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
           </folding>
         </state>
       </provider>
     </entry>
+<<<<<<< HEAD
     <entry file="file://$PROJECT_DIR$/src/optimization/solvers/slp.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="448">
           <caret line="28" column="29" lean-forward="true" selection-start-line="28" selection-start-column="29" selection-end-line="28" selection-end-column="29" />
           <folding>
             <element signature="e#0#56#0" expanded="true" />
+=======
+    <entry file="file://$PROJECT_DIR$/src/eurocodes/en1993/en1993_1_5.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="221">
+          <caret line="13" lean-forward="true" selection-start-line="13" selection-end-line="13" />
+          <folding>
+            <element signature="e#125#136#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
           </folding>
         </state>
       </provider>
     </entry>
+<<<<<<< HEAD
     <entry file="file://$PROJECT_DIR$/src/optimization/renderer.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="64">
           <caret line="4" column="42" selection-start-line="4" selection-start-column="42" selection-end-line="4" selection-end-column="42" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
+=======
+    <entry file="file://$PROJECT_DIR$/src/sections/steel/wi.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="213">
+          <caret line="237" lean-forward="true" selection-start-line="237" selection-end-line="237" />
+          <folding>
+            <element signature="e#100#111#0" expanded="true" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/truss2d.py">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="176">
           <caret line="11" column="9" selection-start-line="11" selection-start-column="9" selection-end-line="11" selection-end-column="9" />
         </state>
@@ -771,6 +1169,10 @@
           <folding>
             <element signature="e#120#131#0" expanded="true" />
           </folding>
+=======
+        <state relative-caret-position="85">
+          <caret line="5" column="9" lean-forward="true" selection-start-line="5" selection-start-column="9" selection-end-line="5" selection-end-column="9" />
+>>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
         </state>
       </provider>
     </entry>

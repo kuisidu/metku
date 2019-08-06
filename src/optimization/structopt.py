@@ -208,7 +208,6 @@ class Constraint:
         Runs finite element analysis on problem's structure if needed
         """
         if self.fea_required and not self.parent.fea_done:
-
             if np.any(self.parent.X != x): # Replace with norm
                 self.parent.substitute_variables(x)
             self.parent.fea()
@@ -429,7 +428,6 @@ class OptimizationProblem:
         """ Number of nonlinear equality constraints """
 
         return len(self.vars)
-
 
 
     def add_variable(self, var):

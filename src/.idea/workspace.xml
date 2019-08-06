@@ -1,9 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="0e949e69-b072-40e4-ae8e-a5abe3ace80c" name="Default" comment="" />
+    <list default="true" id="0e949e69-b072-40e4-ae8e-a5abe3ace80c" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/../.gitlab-ci.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../.idea/frame2d.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/en1993_examples.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/X_data.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/benchmark_trusses.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/benchmarks/24m_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/benchmarks/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/benchmarks/fifteen_bar_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/benchmarks/ten_bar_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/benchmarks/three_bar_truss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/gekko_optimization.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/ga.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/optsolver.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/pso.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/slp.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/slsqp.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/template.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/two_phase.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/solvers/vns.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimization/y_data.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/src_22102018.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/src_22102018.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/src.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/src.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CI_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/autoarch.err" beforeDir="false" afterPath="$PROJECT_DIR$/optimization/benchmarks/tenbartruss_results.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/eurocodes/en1993/en1993_1_1.py" beforeDir="false" afterPath="$PROJECT_DIR$/eurocodes/en1993/en1993_1_1.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/eurocodes/en1993/en1993_1_5.py" beforeDir="false" afterPath="$PROJECT_DIR$/eurocodes/en1993/en1993_1_5.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimization/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/analysis/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/elements/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/elements/eb_semi_rigid_beam.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/elements/ebbeam.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/elements/rod.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/frame_fem.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/frame_fem_test2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/frame_fem_test3.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/frame_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fem/stability_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frame2d/frame2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/frame2d/frame2d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frame2d/frame2d_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/frame2d/frame2d_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frame2d/test_frame2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/frame2d/test_frame2d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/framefem/elements/ebbeam.py" beforeDir="false" afterPath="$PROJECT_DIR$/framefem/elements/ebbeam.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/framefem/elements/rod.py" beforeDir="false" afterPath="$PROJECT_DIR$/framefem/elements/rod.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/framefem/framefem.py" beforeDir="false" afterPath="$PROJECT_DIR$/framefem/framefem.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/optimization/structopt.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimization/structopt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/portal_frame.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/portal_test.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/robot3D.py" beforeDir="false" afterPath="$PROJECT_DIR$/robot3D.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/CHS.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/CHS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/ISection.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/ISection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/RHS.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/RHS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/catalogue.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/catalogue.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/steel_section.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/steel_section.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/test_ISection.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/test_ISection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sections/steel/wi.py" beforeDir="false" afterPath="$PROJECT_DIR$/sections/steel/wi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simple_truss.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/structures/steel/steel_member.py" beforeDir="false" afterPath="$PROJECT_DIR$/structures/steel/steel_member.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.xls" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/testi.str" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/testistats" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/truss2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/truss2d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/truss_test.str" beforeDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
-    <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -11,88 +82,109 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="frame2d_test.py" pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/frame2d/frame2d_test.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="223">
-              <caret line="329" column="0" lean-forward="true" selection-start-line="329" selection-start-column="0" selection-end-line="329" selection-end-column="0" />
+            <state relative-caret-position="68">
+              <caret line="10" selection-start-line="10" selection-end-line="10" />
               <folding>
-                <element signature="e#0#141#0" expanded="true" />
+                <element signature="e#0#154#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="frame_fem.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/fem/frame_fem.py">
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/sections/steel/wi.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="179">
-              <caret line="755" column="53" lean-forward="false" selection-start-line="755" selection-start-column="52" selection-end-line="755" selection-end-column="53" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="frame_example.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/frame2d/frame_example.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="645">
-              <caret line="44" column="0" lean-forward="false" selection-start-line="44" selection-start-column="0" selection-end-line="44" selection-end-column="0" />
+            <state relative-caret-position="1430">
+              <caret line="445" selection-start-line="445" selection-end-line="445" />
               <folding>
-                <element signature="e#22#91#0" expanded="true" />
+                <element signature="e#100#111#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="frame2d.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/frame2d/frame2d.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-1251">
-              <caret line="579" column="8" lean-forward="false" selection-start-line="579" selection-start-column="8" selection-end-line="579" selection-end-column="8" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="eb_semi_rigid_beam.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/fem/elements/eb_semi_rigid_beam.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="163">
-              <caret line="260" column="42" lean-forward="true" selection-start-line="260" selection-start-column="42" selection-end-line="260" selection-end-column="42" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="truss2d_test.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/truss2d_test.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="282">
-              <caret line="366" column="0" lean-forward="true" selection-start-line="366" selection-start-column="0" selection-end-line="366" selection-end-column="0" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="steel_member.py" pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/structures/steel/steel_member.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="189">
-              <caret line="159" column="23" lean-forward="false" selection-start-line="159" selection-start-column="23" selection-end-line="159" selection-end-column="23" />
+            <state relative-caret-position="516">
+              <caret line="181" selection-start-line="181" selection-end-line="181" />
               <folding>
-                <element signature="e#33#43#0" expanded="true" />
+                <element signature="e#33#44#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="constants.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/eurocodes/en1993/constants.py">
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/frame2d/frame2d.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="0">
-              <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-              <folding />
+            <state relative-caret-position="41973">
+              <caret line="2469" selection-start-line="2469" selection-end-line="2469" />
+              <folding>
+                <element signature="e#32#43#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/eurocodes/en1993/en1993_1_1.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1968">
+              <caret line="183" selection-start-line="183" selection-end-line="183" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/optimization/ibeam_test.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="238">
+              <caret line="14" selection-start-line="14" selection-end-line="14" />
+              <folding>
+                <element signature="e#85#96#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/sections/steel/ISection.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="153">
+              <caret line="9" selection-start-line="9" selection-end-line="9" />
+              <folding>
+                <element signature="e#113#124#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/sections/steel/steel_section.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="333">
+              <caret line="93" column="69" selection-start-line="93" selection-start-column="69" selection-end-line="93" selection-end-column="69" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/sections/steel/catalogue.py">
+          <provider selected="true" editor-type-id="text-editor" />
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/optimization/structopt.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1139">
+              <caret line="67" selection-start-line="67" selection-end-line="67" />
+              <folding>
+                <element signature="e#368#386#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -106,99 +198,53 @@
       </list>
     </option>
   </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>section_mo</find>
+      <find>dpl</find>
+      <find>Iz</find>
+      <find>WRd</find>
+    </findStrings>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/frame2d/frame_example.py" />
-        <option value="$PROJECT_DIR$/frame2d/frame2d.py" />
         <option value="$PROJECT_DIR$/frame2d/frame2d_test.py" />
         <option value="$PROJECT_DIR$/fem/frame_fem.py" />
         <option value="$PROJECT_DIR$/structures/steel/steel_member.py" />
         <option value="$PROJECT_DIR$/truss2d_test.py" />
+        <option value="$PROJECT_DIR$/sections/steel/ISection.py" />
+        <option value="$PROJECT_DIR$/sections/steel/steel_section.py" />
+        <option value="$PROJECT_DIR$/eurocodes/en1993/en1993_1_1.py" />
+        <option value="$PROJECT_DIR$/sections/steel/wi.py" />
+        <option value="$PROJECT_DIR$/frame2d/frame2d.py" />
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds">
-    <option name="x" value="953" />
-    <option name="width" value="974" />
-    <option name="height" value="1057" />
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="-1928" />
+    <option name="y" value="-8" />
+    <option name="width" value="1936" />
+    <option name="height" value="1056" />
   </component>
-  <component name="ProjectInspectionProfilesVisibleTreeState">
-    <entry key="Project Default">
-      <profile-state>
-        <expanded-state>
-          <State>
-            <id />
-          </State>
-        </expanded-state>
-        <selected-state>
-          <State>
-            <id>Python</id>
-          </State>
-        </selected-state>
-      </profile-state>
-    </entry>
-  </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
-    <navigator currentView="ProjectPane" proportions="" version="1">
-      <flattenPackages />
-      <showMembers />
-      <showModules />
-      <showLibraryContents />
-      <hideEmptyPackages />
-      <abbreviatePackageNames />
-      <autoscrollToSource />
-      <autoscrollFromSource />
-      <sortByType />
-      <manualOrder />
+    <navigator proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="ProjectPane" />
       <pane id="Scope" />
-      <pane id="Scratches" />
-      <pane id="ProjectPane">
-        <subPane>
-          <expand>
-            <path>
-              <item name="src" type="b2602c69:ProjectViewProjectNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="src" type="b2602c69:ProjectViewProjectNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="eurocodes" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="src" type="b2602c69:ProjectViewProjectNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="eurocodes" type="462c0819:PsiDirectoryNode" />
-              <item name="en1993" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="src" type="b2602c69:ProjectViewProjectNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="fem" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="src" type="b2602c69:ProjectViewProjectNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="fem" type="462c0819:PsiDirectoryNode" />
-              <item name="elements" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="src" type="b2602c69:ProjectViewProjectNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="frame2d" type="462c0819:PsiDirectoryNode" />
-            </path>
-          </expand>
-          <select />
-        </subPane>
-      </pane>
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="settings.editor.selected.configurable" value="PyConsoleConfigurable.Python Console" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/.." />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
@@ -219,25 +265,30 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.truss2d_test">
-    <configuration name="frame2d_test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+  <component name="RunManager" selected="Python.frame2d">
+    <configuration name="frame2d" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
-      <option name="SDK_HOME" value="" />
+      <option name="SDK_HOME" value="C:\Users\Victoria\venv\Scripts\python.exe" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/frame2d" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="src" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/frame2d/frame2d_test.py" />
+      <module name="" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/frame2d/frame2d.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
     </configuration>
     <configuration name="frame_example" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="src" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -248,13 +299,17 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="src" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/frame2d/frame_example.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
     </configuration>
     <configuration name="truss2d_test" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="src" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -265,27 +320,30 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <module name="src" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/truss2d_test.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
     </configuration>
-    <list size="3">
-      <item index="0" class="java.lang.String" itemvalue="Python.frame2d_test" />
-      <item index="1" class="java.lang.String" itemvalue="Python.frame_example" />
-      <item index="2" class="java.lang.String" itemvalue="Python.truss2d_test" />
+    <list>
+      <item itemvalue="Python.frame_example" />
+      <item itemvalue="Python.truss2d_test" />
+      <item itemvalue="Python.frame2d" />
     </list>
     <recent_temporary>
-      <list size="3">
-        <item index="0" class="java.lang.String" itemvalue="Python.truss2d_test" />
-        <item index="1" class="java.lang.String" itemvalue="Python.frame2d_test" />
-        <item index="2" class="java.lang.String" itemvalue="Python.frame_example" />
+      <list>
+        <item itemvalue="Python.frame2d" />
+        <item itemvalue="Python.truss2d_test" />
+        <item itemvalue="Python.frame_example" />
       </list>
     </recent_temporary>
   </component>
-  <component name="ShelveChangesManager" show_recycled="false">
-    <option name="remove_strategy" value="false" />
+  <component name="SvnConfiguration">
+    <configuration />
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -298,198 +356,175 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="953" y="0" width="974" height="1057" extended-state="0" />
+    <frame x="-1928" y="-8" width="1936" height="1056" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.20354906" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
-      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Python Console" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.33224756" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24947807" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Data View" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.13804004" />
+      <window_info id="Structure" order="1" weight="0.24920969" />
+      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.20910075" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="TODO" order="6" />
+      <window_info anchor="bottom" id="Version Control" order="7" />
+      <window_info anchor="bottom" id="Terminal" order="8" />
+      <window_info anchor="bottom" id="Python Console" order="9" />
+      <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" />
+      <window_info anchor="right" id="Commander" order="0" weight="0.4" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
+      <window_info anchor="right" id="Data View" order="3" />
     </layout>
   </component>
-  <component name="VcsContentAnnotationSettings">
-    <option name="myLimit" value="2678400000" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager />
-    <watches-manager />
-  </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/frame2d/frame2d_test.py">
+    <entry file="file://$PROJECT_DIR$/fem/frame_fem.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5115">
-          <caret line="349" column="33" lean-forward="false" selection-start-line="349" selection-start-column="33" selection-end-line="349" selection-end-column="33" />
-          <folding>
-            <element signature="e#0#141#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/frame2d/frame_example.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="645">
-          <caret line="44" column="0" lean-forward="false" selection-start-line="44" selection-start-column="0" selection-end-line="44" selection-end-column="0" />
-          <folding>
-            <element signature="e#22#91#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/structures/steel/steel_member.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2295">
-          <caret line="159" column="23" lean-forward="false" selection-start-line="159" selection-start-column="23" selection-end-line="159" selection-end-column="23" />
-          <folding>
-            <element signature="e#33#43#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="179">
+          <caret line="755" column="53" selection-start-line="755" selection-start-column="52" selection-end-line="755" selection-end-column="53" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/eurocodes/en1993/constants.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/frame2d/frame2d.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="32040">
-          <caret line="2136" column="6" lean-forward="false" selection-start-line="2136" selection-start-column="6" selection-end-line="2136" selection-end-column="6" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/frame2d/frame2d_test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5115">
-          <caret line="349" column="33" lean-forward="false" selection-start-line="349" selection-start-column="33" selection-end-line="349" selection-end-column="33" />
-          <folding>
-            <element signature="e#0#141#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
+      <provider selected="true" editor-type-id="text-editor" />
     </entry>
     <entry file="file://$PROJECT_DIR$/frame2d/frame_example.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="645">
-          <caret line="44" column="0" lean-forward="true" selection-start-line="44" selection-start-column="0" selection-end-line="44" selection-end-column="0" />
+        <state relative-caret-position="748">
+          <caret line="44" selection-start-line="44" selection-end-line="44" />
           <folding>
             <element signature="e#22#91#0" expanded="true" />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/structures/steel/steel_member.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2295">
-          <caret line="159" column="23" lean-forward="false" selection-start-line="159" selection-start-column="23" selection-end-line="159" selection-end-column="23" />
-          <folding>
-            <element signature="e#33#43#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/eurocodes/en1993/constants.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/frame2d/frame2d.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="32040">
-          <caret line="2136" column="6" lean-forward="false" selection-start-line="2136" selection-start-column="6" selection-end-line="2136" selection-end-column="6" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/eurocodes/en1993/constants.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/frame2d/frame_example.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="645">
-          <caret line="44" column="0" lean-forward="false" selection-start-line="44" selection-start-column="0" selection-end-line="44" selection-end-column="0" />
-          <folding>
-            <element signature="e#22#91#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/frame2d/frame2d_test.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="223">
-          <caret line="329" column="0" lean-forward="true" selection-start-line="329" selection-start-column="0" selection-end-line="329" selection-end-column="0" />
-          <folding>
-            <element signature="e#0#141#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/structures/steel/steel_member.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="189">
-          <caret line="159" column="23" lean-forward="false" selection-start-line="159" selection-start-column="23" selection-end-line="159" selection-end-column="23" />
-          <folding>
-            <element signature="e#33#43#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/frame2d/frame2d.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1251">
-          <caret line="579" column="8" lean-forward="false" selection-start-line="579" selection-start-column="8" selection-end-line="579" selection-end-column="8" />
-          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/fem/elements/eb_semi_rigid_beam.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="163">
-          <caret line="260" column="42" lean-forward="true" selection-start-line="260" selection-start-column="42" selection-end-line="260" selection-end-column="42" />
-          <folding />
+        <state relative-caret-position="841">
+          <caret line="260" column="42" selection-start-line="260" selection-start-column="42" selection-end-line="260" selection-end-column="42" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/truss2d_test.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="282">
-          <caret line="366" column="0" lean-forward="true" selection-start-line="366" selection-start-column="0" selection-end-line="366" selection-end-column="0" />
-          <folding />
+        <state relative-caret-position="841">
+          <caret line="366" selection-start-line="366" selection-end-line="366" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/fem/frame_fem.py">
+    <entry file="file://$PROJECT_DIR$/eurocodes/en1993/en1993_1_3/en1993_1_3.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="179">
-          <caret line="755" column="53" lean-forward="false" selection-start-line="755" selection-start-column="52" selection-end-line="755" selection-end-column="53" />
-          <folding />
+        <state relative-caret-position="-774" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/eurocodes/en1993/en1993_1_8/en1993_1_8.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1122" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/frame2d/frame2d_test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="68">
+          <caret line="10" selection-start-line="10" selection-end-line="10" />
+          <folding>
+            <element signature="e#0#154#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/optimization/structopt.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1139">
+          <caret line="67" selection-start-line="67" selection-end-line="67" />
+          <folding>
+            <element signature="e#368#386#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/sections/steel/catalogue.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/sections/steel/steel_section.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="333">
+          <caret line="93" column="69" selection-start-line="93" selection-start-column="69" selection-end-line="93" selection-end-column="69" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/sections/steel/ISection.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="153">
+          <caret line="9" selection-start-line="9" selection-end-line="9" />
+          <folding>
+            <element signature="e#113#124#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/optimization/ibeam_test.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="238">
+          <caret line="14" selection-start-line="14" selection-end-line="14" />
+          <folding>
+            <element signature="e#85#96#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/eurocodes/en1993/en1993_1_1.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1968">
+          <caret line="183" selection-start-line="183" selection-end-line="183" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/structures/steel/steel_member.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="516">
+          <caret line="181" selection-start-line="181" selection-end-line="181" />
+          <folding>
+            <element signature="e#33#44#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/sections/steel/wi.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1430">
+          <caret line="445" selection-start-line="445" selection-end-line="445" />
+          <folding>
+            <element signature="e#100#111#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/frame2d/frame2d.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="41973">
+          <caret line="2469" selection-start-line="2469" selection-end-line="2469" />
+          <folding>
+            <element signature="e#32#43#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+  <component name="masterDetails">
+    <states>
+      <state key="ScopeChooserConfigurable.UI">
+        <settings>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+    </states>
   </component>
 </project>

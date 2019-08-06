@@ -90,8 +90,11 @@ class SteelSection(metaclass=ABCMeta):
         elif self.C == 3:
             return self.code.bending_resistance(self.Wel, self.fy)
         else:
-            #return self.code.bending_resistance(self.Wel, self.fy)
-            raise NotImplemented("Calculation of cross-section class 4 is not implemented yet")
+
+            print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
+            return self.code.bending_resistance(self.Wel, self.fy)
+
+            #raise NotImplemented("Calculation of cross-section class 4 is not implemented yet")
 
     @property
     def C(self):

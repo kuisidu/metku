@@ -1,3 +1,4 @@
+
 from src.frame2d.frame2d import *
 from src.optimization.structopt import *
 from src.optimization.solvers import GA, DiscreteVNS
@@ -244,6 +245,7 @@ class FifteenBarTruss(OptimizationProblem):
                     self.cons.append(comp_con)
                     self.cons.append(tension_con)
                     self.cons.append(buckl_con)
+
 
 
 if __name__ == '__main__':
