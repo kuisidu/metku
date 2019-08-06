@@ -7,10 +7,6 @@ Rectangular hollow sections
 @author: kmela
 """
 import math
-<<<<<<< HEAD
-=======
-
->>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 from src.eurocodes.en1993 import en1993_1_1, constants
 from src.sections.steel.steel_section import SteelSection
 from src.sections.steel.catalogue import profile

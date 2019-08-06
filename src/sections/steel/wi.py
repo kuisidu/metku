@@ -48,16 +48,12 @@ class WISection(SteelSection):
         Ashear = self.shear_area()
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()
-<<<<<<< HEAD
 
-        
-        super().__init__(fy, A, I, Au, Wpl, Wel, Ashear)
-=======
         It = self.torsional_constant()
         Iw = self.warping_constant()
 
         super().__init__(fy, A, I, Au, Wpl, Wel, Ashear, It, Iw)
->>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
+
 
         """ Determine buckling curve: EN 1993-1-1, Table 6.2 """        
         self.imp_factor = [en1993_1_1.buckling_curve["b"],
@@ -439,11 +435,6 @@ def test_non_sym():
 
 
 if __name__ == '__main__':
-    
-<<<<<<< HEAD
-=======
-
->>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
     #test_non_sym()
     from frame2d.frame2d import *
     frame = Frame2D()

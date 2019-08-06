@@ -8,7 +8,6 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import src.framefem.framefem  as fem
-<<<<<<< HEAD
 
 from src.framefem.elements import EBBeam, EBSemiRigidBeam
 from src.sections.steel.CHS import CHS
@@ -17,24 +16,7 @@ from src.sections.steel.RHS import RHS, SHS
 from src.sections.steel.catalogue import *
 from src.sections.steel.catalogue import mat as MATERIALS
 from src.structures.steel.steel_member import SteelMember
-=======
 
-
-# from framefem.elements import EBBeam, EBSemiRigidBeam
-# from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISection
-# from sections.steel.wi import WISection
-# from sections.steel.RHS import RHS, SHS
-# from sections.steel.CHS import CHS
-# from sections.steel.catalogue import mat as MATERIALS
-# from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
-# from structures.steel.steel_member import SteelMember
-
-from src.framefem.elements import EBBeam, EBSemiRigidBeam
-from src.sections.steel import *
-from src.sections.steel import mat as MATERIALS
-from src.structures.steel.steel_member import SteelMember
-
->>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 
 # Eounding precision
 PREC = 3
@@ -735,10 +717,7 @@ class Frame2D:
                     n1 = pointload.coordinate
                     if num_frames != 1:
                         n1 = [n1[0], i * s, n1[1]]
-<<<<<<< HEAD
-=======
                     n1 = [val for val in n1]
->>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
                     nodes.append(n1)
                     idx = nodes.index(n1) + 1
                 FX, FZ, MY = pointload.v
@@ -1478,12 +1457,9 @@ class FrameMember:
             if profile_type == 'IPE':
                 self.cross_section = IPE(H, self.fy)
 
-<<<<<<< HEAD
-=======
             elif profile_type == 'WI':
                 self.cross_section = WISection(H, tw, [b1, b2], [tf1, tf2], self.fy)
 
->>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
             elif profile_type == 'HE':
                 if splitted_val[2] == 'A':
                     self.cross_section = HEA(H, self.fy)

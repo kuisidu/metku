@@ -1,8 +1,5 @@
-<<<<<<< HEAD
+
 from src.optimization.solvers.optsolver import OptSolver
-=======
-from optimization.solvers.optsolver import OptSolver
->>>>>>> a3ec75b58d4cde7906e8663c1ab84e7da86cf819
 from scipy.optimize import minimize
 
 import numpy as np
