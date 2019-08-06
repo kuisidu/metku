@@ -203,11 +203,12 @@ class Constraint:
         self.parent = parent
         self.fea_required = False
 
-    def __call__(self, x, subs=True):
+    def __call__(self, x):
         """
         Runs finite element analysis on problem's structure if needed
         """
-        if self.fea_required and not self.parent.fea_done and subs:
+        if self.fea_required and not self.parent.fea_done:
+
             if np.any(self.parent.X != x): # Replace with norm
                 self.parent.substitute_variables(x)
             self.parent.fea()

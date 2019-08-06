@@ -6,43 +6,6 @@ import time
 
 from src.optimization.benchmarks import *
 
-
-def numeric_gradient(fun, h, x):
-    """ Gradient by finite difference """
-    fx = fun(x)
-    n = len(x)
-    fh = fun(x + h)
-    df = (fh - fx) / h
-
-    return df
-
-
-def linearize(fun, x, grad=None):
-    """ Linearization of a function
-
-        input:
-            fun .. function that takes x as input
-            x .. point of linearization (array)
-            grad .. returns the gradient of fun at x
-
-        output:
-            a .. grad(x)
-            b .. fun(x)
-            c .. grad(x)*x
-    """
-
-    b = fun(x)
-
-    if grad == None:
-        h = np.ones_like(x) * 1e-2
-        a = numeric_gradient(fun, h, x)
-    else:
-        a = grad(x)
-
-    c = a.dot(x)
-
-    return a, b, c
-
 class SLP(OptSolver):
 
     def __init__(self, step_length=100, step_factor=1e-3):
@@ -56,29 +19,11 @@ class SLP(OptSolver):
         :return:
         """
 
-        # A = np.zeros((len(self.problem.cons), len(self.X)))
-        # B = np.zeros(len(self.problem.cons))
-        # # This needs to be defined more generally!
-        # C = np.zeros(len(self.X))
-        # for i, var in enumerate(self.problem.vars):
-        #     mem = self.problem.structure.members[i]
-        #     C[i] = mem.length
-        #
-        #
-        # for i, con in enumerate(self.problem.cons):
-        #     # TODO: Check if constraint is already linear
-        #     print(self.X)
-        #     a, b, c = linearize(con, self.X)
-        #     print(self.X)
-        #     A[i] = a
-        #     B[i] = c - b
-
         A, B, df, fx = self.problem.linearize(self.X)
-
 
         bounds = [(x -self.step_length, x + self.step_length) for x in self.X]
 
-        res = linprog(df, A, B, bounds=bounds, method='revised simplex')
+        res = linprog(df, A, B, bounds=bounds)
 
 
         return res.x - self.X
@@ -92,11 +37,13 @@ class SLP(OptSolver):
         """
         print("Creating random feasible starting point!")
 
-        X = [1] * self.problem.nvars()
+        X = [0] * self.problem.nvars()
+        for i, var in enumerate(self.problem.vars):
+            X[i] = var.lb + (var.ub - var.lb) * np.random.rand()
         while np.any(self.calc_constraints(X) > 0):
 
             for i, var in enumerate(self.problem.vars):
-                X[i] = np.random.rand() * var.ub
+                X[i] = var.lb + (var.ub - var.lb) * np.random.rand()
 
             self.problem.substitute_variables(X)
             self.problem.fea()
@@ -155,15 +102,12 @@ class SLP(OptSolver):
 
 if __name__ == '__main__':
 
-
-
-    problem = TenBarTruss(prob_type='continuous')
-    solver = SLP(step_length=1000)
-
-
-
-
+    problem = FifteenBarTruss(prob_type='continuous')
+    solver = SLP(step_length=100)
     # problem = OptimizationProblem("Quadratic Problem")
+
+
+
     # problem.obj = lambda x: x[0] ** 2 + x[1] ** 2
     # var1 = Variable("X1", 0, 5)
     # var2 = Variable("X2", 0, 5)
@@ -172,7 +116,7 @@ if __name__ == '__main__':
     # con2 = NonLinearConstraint(lambda x: x[1] ** 2 / 20 - x[0] + 1)
     # problem.add_constraints([con1, con2])
 
-    solver.solve(problem, maxiter=10, maxtime=300)
+    solver.solve(problem, maxiter=300, maxtime=300)
     problem(solver.X)
-
+    problem.structure.plot_normal_force()
 
