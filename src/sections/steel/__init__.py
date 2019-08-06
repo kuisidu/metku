@@ -11,3 +11,4 @@ from .ISection import *
 from .RHS import *
 from .CHS import *
 from .catalogue import *
+from .wi import *

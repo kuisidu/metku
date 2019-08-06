@@ -9,10 +9,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 import src.framefem.framefem  as fem
 
+
+# from framefem.elements import EBBeam, EBSemiRigidBeam
+# from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISection
+# from sections.steel.wi import WISection
+# from sections.steel.RHS import RHS, SHS
+# from sections.steel.CHS import CHS
+# from sections.steel.catalogue import mat as MATERIALS
+# from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
+# from structures.steel.steel_member import SteelMember
+
 from src.framefem.elements import EBBeam, EBSemiRigidBeam
 from src.sections.steel import *
 from src.sections.steel import mat as MATERIALS
 from src.structures.steel.steel_member import SteelMember
+
 
 # Eounding precision
 PREC = 3
@@ -1428,6 +1439,16 @@ class FrameMember:
                 except ValueError:
                     H = float(splitted_val[1])
                     catalogue = False
+
+            elif profile_type == 'WI':
+                vals = splitted_val[1].replace('X', '-').split('-')
+                H = float(vals[0])
+                b1 = float(vals[3])
+                b2 = float(vals[5])
+                tw = float(vals[1])
+                tf1 = float(vals[2])
+                tf2 = float(vals[4])
+
             else:
                 vals = splitted_val[1].split('X')
                 if len(vals) == 2:
@@ -1442,6 +1463,9 @@ class FrameMember:
 
             if profile_type == 'IPE':
                 self.cross_section = IPE(H, self.fy)
+
+            elif profile_type == 'WI':
+                self.cross_section = WISection(H, tw, [b1, b2], [tf1, tf2], self.fy)
 
             elif profile_type == 'HE':
                 if splitted_val[2] == 'A':
@@ -2422,3 +2446,24 @@ class XYHingedSupport(Support):
 class Hinge(Support):
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [0, 0, 0], supp_id)
+
+
+if __name__ == '__main__':
+
+    # Luo tyhjä kehä
+    frame = Frame2D(num_elements=4)
+    # Luo pilari (koordinaatit, profile=vapaaehtoinen)
+    col = SteelColumn([[0, 0], [0, 5000]], profile='Ipe 300')
+    # Lisää pilari kehälle
+    col.profile = 'WI 800-12-30X450-25X300'
+    frame.add(col)
+    # Lisää jäykkä tuki pisteeseen (0,0)
+    frame.add(FixedSupport([0, 0]))
+    # Lisää pistekuorma pilarin yläpäähän
+    frame.add(PointLoad([0, 5000], [10e3, -200e3, 0]))
+    # Luo kehän fem -malli
+    frame.generate()
+    # Laske
+    frame.calculate()
+    # Piirtää kehän (pilarin) näytölle
+    frame.plot()
