@@ -48,11 +48,8 @@ class ThreeBarTruss(OptimizationProblem):
                 self.substitute_variables(X)
             weight = 0
             for x, mem in zip(X, self.structure.members.values()):
-                if self.prob_type == 'discrete':
-                    A = THREE_BAR_AREAS_mm2[x]
-                else:
-                    A = x
-                weight += self.rho * A * mem.length  # mem.weight
+
+                weight += self.rho * mem.A * mem.length  # mem.weight
             return weight
 
         self.obj = objective
@@ -146,23 +143,11 @@ class ThreeBarTruss(OptimizationProblem):
                     i += 1
                     def stress_fun(x, i=i, j=j):
 
-                        if self.prob_type == 'discrete':
-                            A = THREE_BAR_AREAS_mm2[x[j]]
-                        else:
-                            A = x[j]
-
-
-                        return mem.ned / (A * mem.fy) - 1
+                        return mem.ned / (mem.A * mem.fy) - 1
 
                     def buckling_fun(x, i=i, j=j):
-
-                        if self.prob_type == 'discrete':
-                            A = THREE_BAR_AREAS_mm2[x[j]]
-                        else:
-                            A = x[j]
-
-                        sigma_cr = 100 * mem.E * A / (8 * mem.length ** 2)
-                        sigma = -mem.ned / A
+                        sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
+                        sigma = -mem.ned / mem.A
                         return sigma / sigma_cr - 1
 
                     def disp_fun(A, i=i):

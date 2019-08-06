@@ -136,6 +136,35 @@ class TenBarTruss(OptimizationProblem):
         return frame
 
 
+
+
+    def constraint_generator(self, mem):
+
+        def compression_fun(x):
+
+
+            return -mem.ned / (mem.A * mem.fy) - 1
+
+        def tension_fun(x):
+
+
+            return mem.ned / (mem.A * mem.fy) - 1
+
+        def disp_fun(x):
+            displacements = mem.nodal_displacements.values()
+            max_vals = [max(l[0:2]) for l in displacements]
+            min_vals = [min(l[0:2]) for l in displacements]
+            max_val = max(max_vals)
+            min_val = min(min_vals)
+            abs_max = max(max_val, abs(min_val))
+            return abs_max / self.delta_max - 1
+
+        return compression_fun, tension_fun, disp_fun
+
+
+
+
+
     def create_constraints(self):
 
         # Initialize constraints as an empty list
@@ -147,37 +176,8 @@ class TenBarTruss(OptimizationProblem):
                 if isinstance(mem, FrameMember):
                     i += 1
 
-                    def compression_fun(x, i=i, j=j):
+                    compression_fun, tension_fun, disp_fun = self.constraint_generator(mem)
 
-                        # if self.prob_type == 'discrete':
-                        #     A = TEN_BAR_AREAS_mm2[x[j]]
-                        # else:
-                        #     A = x[j]
-
-                        self.substitute_variables(x)
-                        return -mem.ned / (mem.A * mem.fy) - 1
-
-
-                    def tension_fun(x, i=i, j=j):
-
-                        # if self.prob_type == 'discrete':
-                        #     A = TEN_BAR_AREAS_mm2[x[j]]
-                        # else:
-                        #     A = x[j]
-                        self.substitute_variables(x)
-
-
-                        return mem.ned / (mem.A * mem.fy) - 1
-
-                    def disp_fun(x, i=i):
-                        #self.substitute_variables(x)
-                        displacements = mem.nodal_displacements.values()
-                        max_vals = [max(l[0:2]) for l in displacements]
-                        min_vals = [min(l[0:2]) for l in displacements]
-                        max_val = max(max_vals)
-                        min_val = min(min_vals)
-                        abs_max = max(max_val, abs(min_val))
-                        return abs_max / self.delta_max - 1
 
                     comp_con = NonLinearConstraint(con_fun=compression_fun,
                                                  name="Compression " + str(i),
@@ -204,12 +204,8 @@ class TenBarTruss(OptimizationProblem):
             if np.any(self.X != X):
                 self.substitute_variables(X)
             weight = 0
-            for x, mem in zip(X, self.structure.members.values()):
-                if self.prob_type == 'discrete':
-                    A = TEN_BAR_AREAS_mm2[x]
-                else:
-                    A = x
-                weight += self.rho * A * mem.length
+            for mem in self.structure.members.values():
+                weight += self.rho * mem.A * mem.length
             return weight
 
         self.obj = objective
