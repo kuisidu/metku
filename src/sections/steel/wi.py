@@ -36,7 +36,11 @@ class WISection(SteelSection):
         """
         self.h = h
         self.b = b
+        self.bt = b[0]
+        self.bb = b[1]
         self.tf = tf
+        self.tt = tf[0]
+        self.tb = tf[1]
         self.tw = tw
         self.weld_throat = weld_throat
         
@@ -86,7 +90,7 @@ class WISection(SteelSection):
     @property
     def hw(self):
         """ Web height """
-        return self.h - self.tf[0] - self.tf[1]
+        return self.h - self.tt - self.tb
     
     @property
     def Aw(self):
@@ -98,15 +102,15 @@ class WISection(SteelSection):
         """ Distance of centroid of web from bottom of section """
         return self.tb + 0.5 * self.hw
 
-    @property
-    def tb(self):
-        """ Thickness of bottom flange """
-        return self.tf[1]
-    
-    @property
-    def bb(self):
-        """ Width of bottom flange """
-        return self.b[1]
+    # @property
+    # def tb(self):
+    #     """ Thickness of bottom flange """
+    #     return self.tf[1]
+    #
+    # @property
+    # def bb(self):
+    #     """ Width of bottom flange """
+    #     return self.b[1]
     
     @property
     def Ab(self):
@@ -118,15 +122,15 @@ class WISection(SteelSection):
         """ Distance of centroid of bottom flange from bottom of section """
         return 0.5 * self.tb
     
-    @property
-    def tt(self):
-        """ Thickness of top flange """
-        return self.tf[0]
-    
-    @property
-    def bt(self):
-        """ Width of top flange """
-        return self.b[0]
+    # @property
+    # def tt(self):
+    #     """ Thickness of top flange """
+    #     return self.tf[0]
+    #
+    # @property
+    # def bt(self):
+    #     """ Width of top flange """
+    #     return self.b[0]
     
     @property
     def At(self):
@@ -141,12 +145,12 @@ class WISection(SteelSection):
     @property
     def cf_top(self):
         """ Straight part of the top flange """
-        return 0.5*(self.b[0]-self.tw) - math.sqrt(2)*self.weld_throat
+        return 0.5*(self.bt-self.tw) - math.sqrt(2)*self.weld_throat
 
     @property
     def cf_bottom(self):
         """ Straight part of the bottom flange """
-        return 0.5*(self.b[1]-self.tw) - math.sqrt(2)*self.weld_throat
+        return 0.5*(self.bb-self.tw) - math.sqrt(2)*self.weld_throat
 
     @property
     def cw(self):
@@ -187,9 +191,9 @@ class WISection(SteelSection):
         rw = self.cw / self.tw
         psi = zel/(self.h-zel)
 
-        if dpl <= self.tf[1] + math.sqrt(2) * self.weld_throat:
+        if dpl <= self.tb + math.sqrt(2) * self.weld_throat:
             alpha = 1
-        elif dpl >= self.h - self.tf[0] - math.sqrt(2) * self.weld_throat:
+        elif dpl >= self.h - self.tt - math.sqrt(2) * self.weld_throat:
             alpha = 0  # TODO tarkista tämä
         else:
             alpha = dpl/self.h  # TODO tarkista tämä
@@ -236,7 +240,8 @@ class WISection(SteelSection):
                   MRd .. moment resistance           
             TODO tarkista tämä
         """
-        aw = min((self.A - (self.b[0] *self.tf[0] - self.b[1] * self.tf[1])) / self.A, 0.5)
+        aw = min((self.A - (self.bt * self.tt - self.bb * self.tb))
+                 / self.A, 0.5)
 
         if UN > 1.0:
             MNRd = 0.0
@@ -255,8 +260,8 @@ class WISection(SteelSection):
     
     def paint_area(self):
         """ Area to be painted (circumference of the section) """
-        return 2*self.tt + self.bt + 2*self.hw + 2*self.tb + 2*self.bb - \
-               2*self.tw
+        return 2*self.tt + self.bt + 2*self.hw + 2*self.tb + 2*self.bb \
+               - 2*self.tw
 
     def elastic_neutral_axis(self):
         """ Elastic neutral axis 
@@ -356,16 +361,16 @@ class WISection(SteelSection):
     def torsional_constant(self):
         """ Torsional constant """
 
-        It = 1/3 * (self.b[0] * pow(self.tf[0], 3) + self.b[1] *
-                    pow(self.tf[1], 3) + self.h * pow(self.tw, 3))
+        It = 1/3 * (self.bt * pow(self.tt, 3) + self.bb *
+                    pow(self.tb, 3) + self.h * pow(self.tw, 3))
         return It
 
     def warping_constant(self):
         """ Warping constant on the weaker axis """
 
-        Izf1 = (self.tf[0] * pow(self.b[0], 3)) / 12
+        Izf1 = (self.tt * pow(self.bt, 3)) / 12
         Iw = Izf1 * (1 - Izf1 / self.I[1]) * \
-             pow(self.h - self.tf[0] / 2 - self.tf[1] / 2, 2)
+             pow(self.h - self.tt / 2 - self.tb / 2, 2)
 
         return Iw
 
@@ -435,8 +440,9 @@ def test_non_sym():
 
 
 if __name__ == '__main__':
+
     #test_non_sym()
-    from frame2d.frame2d import *
+    from src.frame2d.frame2d import *
     frame = Frame2D()
     col = SteelColumn([[0,0], [0, 5000]])
     frame.add(col)

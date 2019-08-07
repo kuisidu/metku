@@ -1,0 +1,5 @@
+site_name: Frame2D
+nav:
+    - Home: index.md
+    - Classes: hierarchy.md
+theme: readthedocs
