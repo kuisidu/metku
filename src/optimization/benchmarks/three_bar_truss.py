@@ -1,5 +1,6 @@
-from optimization.structopt import *
-from frame2d.frame2d import *
+
+from src.optimization.structopt import *
+from src.frame2d.frame2d import *
 
 THREE_BAR_AREAS_mm2 = [71.613, 90.968, 112.258, 141.935, 174.193, 185.161,
                          223.871,
@@ -48,11 +49,8 @@ class ThreeBarTruss(OptimizationProblem):
                 self.substitute_variables(X)
             weight = 0
             for x, mem in zip(X, self.structure.members.values()):
-                if self.prob_type == 'discrete':
-                    A = THREE_BAR_AREAS_mm2[x]
-                else:
-                    A = x
-                weight += self.rho * A * mem.length  # mem.weight
+                weight += self.rho * mem.A * mem.length  # mem.weight
+
             return weight
 
         self.obj = objective
@@ -146,23 +144,12 @@ class ThreeBarTruss(OptimizationProblem):
                     i += 1
                     def stress_fun(x, i=i, j=j):
 
-                        if self.prob_type == 'discrete':
-                            A = THREE_BAR_AREAS_mm2[x[j]]
-                        else:
-                            A = x[j]
-
-
-                        return mem.ned / (A * mem.fy) - 1
+                        return mem.ned / (mem.A * mem.fy) - 1
 
                     def buckling_fun(x, i=i, j=j):
+                        sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
+                        sigma = -mem.ned / mem.A
 
-                        if self.prob_type == 'discrete':
-                            A = THREE_BAR_AREAS_mm2[x[j]]
-                        else:
-                            A = x[j]
-
-                        sigma_cr = 100 * mem.E * A / (8 * mem.length ** 2)
-                        sigma = -mem.ned / A
                         return sigma / sigma_cr - 1
 
                     def disp_fun(A, i=i):
@@ -197,7 +184,7 @@ class ThreeBarTruss(OptimizationProblem):
 
 
 if __name__ == '__main__':
-    from optimization.solvers import SLP, SLSQP
+    from src.optimization.solvers import SLP, SLSQP
     problem = ThreeBarTruss(prob_type='continuous')
     solver = SLP()
     solver.solve(problem, maxiter=200)

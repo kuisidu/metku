@@ -52,10 +52,12 @@ class WISection(SteelSection):
         Ashear = self.shear_area()
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()
+
         It = self.torsional_constant()
         Iw = self.warping_constant()
 
         super().__init__(fy, A, I, Au, Wpl, Wel, Ashear, It, Iw)
+
 
         """ Determine buckling curve: EN 1993-1-1, Table 6.2 """        
         self.imp_factor = [en1993_1_1.buckling_curve["b"],
