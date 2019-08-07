@@ -105,12 +105,13 @@ class SLP(OptSolver):
 
 if __name__ == '__main__':
 
-    problem = FifteenBarTruss(prob_type='continuous')
+    problem = TenBarTruss(prob_type='continuous')
     solver = SLP(step_length=100)
+    solver.solve(problem, maxiter=30, maxtime=300)
+    problem(solver.X)
+    problem.structure.plot_normal_force()
+
     # problem = OptimizationProblem("Quadratic Problem")
-
-
-
     # problem.obj = lambda x: x[0] ** 2 + x[1] ** 2
     # var1 = Variable("X1", 0, 5)
     # var2 = Variable("X2", 0, 5)
@@ -118,8 +119,6 @@ if __name__ == '__main__':
     # con1 = NonLinearConstraint(lambda x: x[0] ** 2 / 20 - x[1] + 1)
     # con2 = NonLinearConstraint(lambda x: x[1] ** 2 / 20 - x[0] + 1)
     # problem.add_constraints([con1, con2])
-
-    solver.solve(problem, maxiter=300, maxtime=300)
-    problem(solver.X)
-    problem.structure.plot_normal_force()
+    # solver = SLP(step_length=1)
+    # solver.solve(problem, maxiter=30)
 
