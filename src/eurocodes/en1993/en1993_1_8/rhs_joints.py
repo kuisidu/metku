@@ -10,7 +10,7 @@ EN 1993-1-8 Rules for connections
 import math
 import numpy as np
 
-from eurocodes.en1993.constants import gammaM5, E
+from src.eurocodes.en1993.constants import gammaM5, E
 
 class RHSJoint:
     """ Class for joints between RHS members """

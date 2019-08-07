@@ -1,6 +1,7 @@
-from frame2d.frame2d import *
-from optimization.structopt import *
-from optimization.solvers import GA, DiscreteVNS
+
+from src.frame2d.frame2d import *
+from src.optimization.structopt import *
+from src.optimization.solvers import GA, DiscreteVNS
 
 FIFTEEN_BAR_AREAS_in2 = [0.111, 0.141, 0.174, 0.220, 0.270, 0.287, 0.347,
                          0.440, 0.539, 0.954, 1.081, 1.174, 1.333, 1.488,
@@ -39,17 +40,17 @@ class FifteenBarTruss(OptimizationProblem):
         self.prob_type = prob_type
         self.structure = self._create_structure()
         self._create_vars(profiles=FIFTEEN_BAR_AREAS_mm2)
-        self._create_constraints()
+        self.create_constraints()
         self._create_objective()
 
     def _create_objective(self):
 
         def objective(X):
+            self.substitute_variables(X)
             weight = 0
-            for x, mem in zip(X, self.structure.members.values()):
+            for mem in self.structure.members.values():
                 weight += self.rho * mem.A * mem.length
-            # Calculate stucture with new values
-            #self.structure.calculate()
+
             return weight
 
         self.obj = objective
@@ -194,38 +195,57 @@ class FifteenBarTruss(OptimizationProblem):
         frame.calculate()
         return frame
 
-    def _create_constraints(self):
+
+    def constraint_generator(self, mem):
+
+        def tension_fun(X):
+            return mem.ned / mem.NRd - 1
+
+        def compression_fun(X):
+            return -mem.ned / mem.NRd - 1
+
+        def buckling_fun(X):
+            sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
+            sigma = -mem.ned / mem.A
+            return sigma / sigma_cr - 1
+
+
+        return tension_fun, compression_fun, buckling_fun
+
+    def create_constraints(self):
 
         # Initialize constraints as an empty list
         self.cons = []
-        # Create stress constraints
-        for i in range(len(self.structure.members)):
-            def con_fun(A, i=i):
-                mem = self.structure.members[i]
-                return mem.ned / mem.NRd - 1
 
-            constr = NonLinearConstraint(con_fun,
-                                         name='Stress ' + str(i + 1),
-                                         parent=self)
-            constr.fea_required = True
-            self.cons.append(constr)
+        i = 0
+        for j, var in enumerate(self.vars):
+            for mem in var.target["objects"]:
+                if isinstance(mem, FrameMember):
+                    i += 1
 
-        # Create buckling constraints
-        for j in range(len(self.structure.members)):
-            def con_fun(A, j=j):
-                mem = self.structure.members[j]
-                if mem.length > 0:
-                    sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
-                    sigma = abs(mem.ned) / mem.A
-                    return sigma / sigma_cr - 1
-                else:
-                    return np.inf
+                    compression_fun, tension_fun, buckling_fun = self.constraint_generator(mem)
 
-            constr = NonLinearConstraint(con_fun,
-                                         name='Buckling ' + str(j + 1),
-                                         parent=self)
-            constr.fea_required = True
-            self.cons.append(constr)
+                    comp_con = NonLinearConstraint(con_fun=compression_fun,
+                                                   name="Compression " + str(
+                                                       i),
+                                                   parent=self)
+                    comp_con.fea_required = True
+
+                    tension_con = NonLinearConstraint(con_fun=tension_fun,
+                                                      name="Tension " + str(i),
+                                                      parent=self)
+                    tension_con.fea_required = True
+
+                    buckl_con = NonLinearConstraint(con_fun=buckling_fun,
+                                                   name='Buckling ' + str(
+                                                       i),
+                                                   parent=self)
+                    buckl_con.fea_required = True
+
+                    self.cons.append(comp_con)
+                    self.cons.append(tension_con)
+                    self.cons.append(buckl_con)
+
 
 
 if __name__ == '__main__':

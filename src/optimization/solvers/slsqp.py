@@ -1,4 +1,5 @@
-from optimization.solvers.optsolver import OptSolver
+
+from src.optimization.solvers.optsolver import OptSolver
 from scipy.optimize import minimize
 
 import numpy as np

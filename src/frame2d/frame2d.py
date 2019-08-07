@@ -9,19 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import src.framefem.framefem  as fem
 
-
-# from framefem.elements import EBBeam, EBSemiRigidBeam
-# from sections.steel.ISection import IPE, HEA, HEAA, HEB, HEC, HEM, CustomISection
-# from sections.steel.wi import WISection
-# from sections.steel.RHS import RHS, SHS
-# from sections.steel.CHS import CHS
-# from sections.steel.catalogue import mat as MATERIALS
-# from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
-# from structures.steel.steel_member import SteelMember
-
 from src.framefem.elements import EBBeam, EBSemiRigidBeam
-from src.sections.steel import *
-from src.sections.steel import mat as MATERIALS
+from src.sections.steel.CHS import CHS
+from src.sections.steel.ISection import *
+from src.sections.steel.RHS import RHS, SHS
+from src.sections.steel.catalogue import *
+from src.sections.steel.catalogue import mat as MATERIALS
 from src.structures.steel.steel_member import SteelMember
 
 

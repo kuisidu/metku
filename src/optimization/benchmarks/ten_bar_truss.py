@@ -1,7 +1,8 @@
-from optimization.structopt import *
-from frame2d.frame2d import *
+
+from src.optimization.structopt import *
+from src.frame2d.frame2d import *
 import numpy as np
-from optimization.solvers import DiscreteVNS
+from src.optimization.solvers import DiscreteVNS
 
 ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
 ten_bar_PSO = [40, 0, 38, 29, 0, 0, 27, 39, 37, 1]
@@ -136,6 +137,29 @@ class TenBarTruss(OptimizationProblem):
         return frame
 
 
+    def constraint_generator(self, mem):
+
+        def compression_fun(x):
+
+
+            return -mem.ned / (mem.A * mem.fy) - 1
+
+        def tension_fun(x):
+
+
+            return mem.ned / (mem.A * mem.fy) - 1
+
+        def disp_fun(x):
+            displacements = mem.nodal_displacements.values()
+            max_vals = [max(l[0:2]) for l in displacements]
+            min_vals = [min(l[0:2]) for l in displacements]
+            max_val = max(max_vals)
+            min_val = min(min_vals)
+            abs_max = max(max_val, abs(min_val))
+            return abs_max / self.delta_max - 1
+
+        return compression_fun, tension_fun, disp_fun
+
     def create_constraints(self):
 
         # Initialize constraints as an empty list
@@ -146,35 +170,27 @@ class TenBarTruss(OptimizationProblem):
             for mem in var.target["objects"]:
                 if isinstance(mem, FrameMember):
                     i += 1
-                    def stress_fun(x, i=i, j=j):
 
-                        if self.prob_type == 'discrete':
-                            A = TEN_BAR_AREAS_mm2[x[j]]
-                        else:
-                            A = x[j]
+                    compression_fun, tension_fun, disp_fun = self.constraint_generator(mem)
 
-                        return mem.ned / (A * mem.fy) - 1
 
-                    def disp_fun(A, i=i):
-                        displacements = mem.nodal_displacements.values()
-                        max_vals = [max(l[0:2]) for l in displacements]
-                        min_vals = [min(l[0:2]) for l in displacements]
-                        max_val = max(max_vals)
-                        min_val = min(min_vals)
-                        abs_max = max(max_val, abs(min_val))
-                        return abs_max / self.delta_max - 1
-
-                    stress_con = NonLinearConstraint(con_fun=stress_fun,
-                                                 name="Stress " + str(i),
+                    comp_con = NonLinearConstraint(con_fun=compression_fun,
+                                                 name="Compression " + str(i),
                                                  parent=self)
-                    stress_con.fea_required = True
+                    comp_con.fea_required = True
+
+                    tension_con = NonLinearConstraint(con_fun=tension_fun,
+                                                     name="Tension " + str(i),
+                                                     parent=self)
+                    tension_con.fea_required = True
 
                     disp_con = NonLinearConstraint(con_fun=disp_fun,
                                                  name='Displacement ' + str(i),
                                                  parent=self)
                     disp_con.fea_required = True
+                    self.cons.append(comp_con)
+                    self.cons.append(tension_con)
 
-                    self.cons.append(stress_con)
                     self.cons.append(disp_con)
 
     def create_objective(self):
@@ -183,12 +199,9 @@ class TenBarTruss(OptimizationProblem):
             if np.any(self.X != X):
                 self.substitute_variables(X)
             weight = 0
-            for x, mem in zip(X, self.structure.members.values()):
-                if self.prob_type == 'discrete':
-                    A = TEN_BAR_AREAS_mm2[x]
-                else:
-                    A = x
-                weight += self.rho * A * mem.length
+            for mem in self.structure.members.values():
+                weight += self.rho * mem.A * mem.length
+
             return weight
 
         self.obj = objective

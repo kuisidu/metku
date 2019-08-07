@@ -213,12 +213,12 @@ class Constraint:
         self.parent = parent
         self.fea_required = False
 
-    def __call__(self, x, subs=True):
+    def __call__(self, x):
         """
         Runs finite element analysis on problem's structure if needed
         """
-        if self.fea_required and not self.parent.fea_done and subs:
-            if np.any(self.parent.X != x):  # Replace with norm
+        if self.fea_required and not self.parent.fea_done:
+            if np.any(self.parent.X != x): # Replace with norm
                 self.parent.substitute_variables(x)
             self.parent.fea()
 
@@ -311,29 +311,51 @@ class OptimizationProblem:
 
         self.substitute_variables(x)
         fx = self.obj(x)
-        # b = self.eval_nonlin_cons(x)
-        # m -- number of nonlinear constraints
-        # n -- number of variables
-        # A = np.zeros((m, n))
-        # df = np.zeros(n)
+        b = self.eval_nonlin_cons(x)
+        m = self.nnonlincons()
+        n = self.nvars()
+        A = np.zeros((m, n))
+        df = np.zeros(n)
         for i, var in enumerate(self.vars):
             prev_val = var.value
             h = max(0.01 * abs(prev_val), 1e-4)
             var.substitute(prev_val + h)
-            ###
-            # xh = [var.value for var in self.vars]
-            # f_val = self.obj(xh)
-            # a = self.eval_nonlin_cons(xh)
-            # A[i] = (a - b) / h
-            # df[i] = (f_val - fx) / h
-            ###
+            xh = [var.value for var in self.vars]
+            f_val = self.obj(xh)
+            a = self.eval_nonlin_cons(xh)
+            A[:, i] = (a - b) / h
+            df[i] = (f_val - fx) / h
             var.substitute(prev_val)
-        A = None
-        b = None
-        return A, b, df, fx
+
+
+        B = A@x.T - b
+
+
+        return A, B, df, fx
+
+
+    def nnonlincons(self):
+        """ Returns number of non linear constraints"""
+        non_lin_cons = [con for con in self.cons if
+                        isinstance(con, NonLinearConstraint)]
+        return len(non_lin_cons)
+
 
     def eval_nonlin_cons(self, X):
-        pass
+        """
+        Calculates non linear constraints and returns their values as a numpy array
+        :param X:
+        :return:
+        """
+        g = []
+        non_lin_cons = [con for con in self.cons if
+                        isinstance(con, NonLinearConstraint)]
+
+        for con in non_lin_cons:
+            g.append(con(X))
+
+        return np.asarray(g)
+
 
     def fea(self):
         """
@@ -404,20 +426,33 @@ class OptimizationProblem:
 
     def nlincons(self):
         """ Number of nonlinear inequality constraints """
+
         return len(self.vars)
 
     def nlineqcons(self):
         """ Number of nonlinear equality constraints """
+
         return len(self.vars)
+
+
+    def add_variable(self, var):
+        """ Adds new variable to the problem """
+        self.vars.append(var)
 
     def add_variables(self, variables):
         """ Adds new variables to the problem """
+        for var in variables:
+            self.vars.append(var)
 
-        self.vars.append(variables)
+
+    def add_constraint(self, con):
+        """ Adds new constraint to the problem """
+        self.cons.append(con)
 
     def add_constraints(self, constraints):
         """ Adds new constraints to the problem """
-        self.cons.append(constraints)
+        for con in constraints:
+            self.cons.append(con)
 
     def add_structure(self, structure):
         """ Add structure to the problem """
