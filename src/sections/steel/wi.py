@@ -196,7 +196,8 @@ class WISection(SteelSection):
         elif dpl >= self.h - self.tt - math.sqrt(2) * self.weld_throat:
             alpha = 0  # TODO tarkista tämä
         else:
-            alpha = dpl/self.h  # TODO tarkista tämä
+            alpha = (self.h - self.tt - math.sqrt(2) * self.weld_throat - dpl)\
+                    / (self.h - self.tt - self.tb - 2 * math.sqrt(2))
 
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, alpha, psi)
 
