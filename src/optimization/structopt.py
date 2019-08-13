@@ -34,8 +34,8 @@ class Variable:
                 :param profiles: list of available profiles (optional)
 
                 target = {"property": string, "objects": list}
-                    property .. unique identifier that shows which property of the
-                                structure is affected by the variable
+                    property .. unique identifier that shows which property of
+                                the structure is affected by the variable
                     objects .. list of objects (e.g. frame members) that are
                                 affected by the variable
 
@@ -81,7 +81,8 @@ class Variable:
         """ Modify target object(s) if any """
         if self.target is not None:
             for obj in self.target['objects']:
-                if self.target['property'] == 'AREA' or self.target['property'] == 'A':
+                if self.target['property'] == 'AREA' \
+                        or self.target['property'] == 'A':
                     obj.A = new_value
                 elif self.target['property'] == 'IY':
                     obj.I[0] = new_value
@@ -99,6 +100,14 @@ class Variable:
                     obj.h = new_value
                 elif self.target['property'] == 'TW':
                     obj.tw = new_value
+                elif self.target['property'] == 'TT':
+                    obj.tt = new_value
+                elif self.target['property'] == 'TB':
+                    obj.tb = new_value
+                elif self.target['property'] == 'BT':
+                    obj.bt = new_value
+                elif self.target['property'] == 'BB':
+                    obj.bb = new_value
                 elif self.target['property'] == 'BF':
                     if isinstance(obj.b, list):
                         for i in range(len(obj.b)):
@@ -118,7 +127,8 @@ class Variable:
                     elif isinstance(new_value, int):
                         obj.profile = self.profiles[new_value]
                     else:
-                        raise ValueError('Variable type must be either str or int!')
+                        raise ValueError('Variable type must be either str or '
+                                         'int!')
 
                 elif self.target['property'] == 'x':
                     obj.x = new_value
@@ -188,7 +198,6 @@ class DiscreteVariable(Variable):
             lb = 0
             ub = len(profiles) - 1
 
-
         elif values != None:
             lb = min(values)
             ub = max(values)
@@ -196,7 +205,7 @@ class DiscreteVariable(Variable):
             lb = None
             ub = None
 
-        super().__init__( name, lb, ub, target=target, profiles=profiles)
+        super().__init__(name, lb, ub, target=target, profiles=profiles)
 
     def substitute(self, new_value):
 
@@ -205,6 +214,7 @@ class DiscreteVariable(Variable):
         if self.profiles:
             new_value = self.profiles[new_value]
         super().substitute(new_value)
+
 
 class Constraint:
     """ General class for constraints """
@@ -246,8 +256,6 @@ class LinearConstraint(Constraint):
         else:
             b = self.b
         return np.array(self.a).dot(np.array(x)) - b
-
-
 
 
 class NonLinearConstraint(Constraint):
@@ -308,32 +316,6 @@ class OptimizationProblem:
         self.profiles = profiles
         self.fea_done = False
         self.X = None
-
-
-
-    def discrete_gradient(self, dvar):
-        """
-        Computes the gradient for discrete variable
-        :param dvar:
-        :return:
-        """
-
-        if isinstance(dvar, DiscreteVariable):
-            prev_val = dvar.int_val
-            if prev_val == dvar.ub:
-                h = -1
-                fx *= -1
-            else:
-                h = 1
-        dvar.substitute(prev_val + h)
-        xh = [var.value for var in self.vars]
-        f_val = self.obj(xh)
-        a = self.eval_nonlin_cons(xh)
-        A[:, i] = (a - b) / h
-        df[i] = (f_val - fx) / h
-        dvar.substitute(prev_val)
-
-
 
     def linearize(self, x):
         """
@@ -406,7 +388,6 @@ class OptimizationProblem:
         """
         self.structure.calculate()
         self.fea_done = True
-
 
     def __call__(self, x, prec=2):
         """ Call method evaluates the objective function and all constraints
@@ -593,7 +574,6 @@ class OptimizationProblem:
             """
             # cons = [{"type":"ineq", "fun":self.eval_ineq_con}]
 
-
             cons = []
             for con in self.cons:
                 if con.type == "=":
@@ -666,7 +646,7 @@ def Linearize(fun, x, grad=None):
 
     if grad == None:
         h = 0.01 * x  # check if this is OK
-        #h = np.ones_like(x) * 1e-2
+        # h = np.ones_like(x) * 1e-2
         a = NumGrad(fun, h, x)
     else:
         a = grad(x)
@@ -683,7 +663,8 @@ if __name__ == '__main__':
     # dvars.append(Variable("Flange thickness", 5, 40))
     # dvars.append(Variable("Web thickness", 5, 40))
     #
-    # p = OptimizationProblem(name="I-Beam Weight Minimization", variables=dvars)
+    # p = OptimizationProblem(name="I-Beam Weight Minimization",
+    # variables=dvars)
 
     def fun(x):
         return x**3
