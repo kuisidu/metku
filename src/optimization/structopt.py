@@ -63,6 +63,16 @@ class Variable:
         self.target = target
         self.profiles = profiles
 
+    # @property
+    # def value(self):
+    #     return self.target['objects'][0].__dict__[self.target['property']]
+    #
+    #
+    # @value.setter
+    # def value(self, new_val):
+    #     for obj in self.target['objects']:
+    #         obj.__dict__[self.target['property']] = new_val
+
     def substitute(self, new_value):
         """ Substitute a new value for the variable """
 
@@ -176,7 +186,7 @@ class DiscreteVariable(Variable):
 
         if profiles:
             lb = 0
-            ub = len(profiles) -1
+            ub = len(profiles) - 1
 
 
         elif values != None:
@@ -190,6 +200,8 @@ class DiscreteVariable(Variable):
 
     def substitute(self, new_value):
 
+        if isinstance(new_value, float):
+            new_value = self.profiles.index(new_value)
         if self.profiles:
             new_value = self.profiles[new_value]
         super().substitute(new_value)
@@ -229,8 +241,11 @@ class LinearConstraint(Constraint):
 
     def __call__(self, x):
         """ Evaluate constraint at x """
-        super().__call__(x)
-        return np.array(self.a).dot(np.array(x)) - self.b
+        if isinstance(self.b, Variable):
+            b = self.b.value
+        else:
+            b = self.b
+        return np.array(self.a).dot(np.array(x)) - b
 
 
 
@@ -296,13 +311,40 @@ class OptimizationProblem:
 
 
 
-    def linearize(self, x):
+    def discrete_gradient(self, dvar):
         """
-        Linearizes problem around x
-        :param x:
+        Computes the gradient for discrete variable
+        :param dvar:
         :return:
         """
 
+        if isinstance(dvar, DiscreteVariable):
+            prev_val = dvar.int_val
+            if prev_val == dvar.ub:
+                h = -1
+                fx *= -1
+            else:
+                h = 1
+        dvar.substitute(prev_val + h)
+        xh = [var.value for var in self.vars]
+        f_val = self.obj(xh)
+        a = self.eval_nonlin_cons(xh)
+        A[:, i] = (a - b) / h
+        df[i] = (f_val - fx) / h
+        dvar.substitute(prev_val)
+
+
+
+    def linearize(self, x):
+        """
+        Linearizes problem around x
+
+        Ax < B
+
+        :param x:
+        :return:
+        """
+        x = np.asarray(x)
         self.substitute_variables(x)
         fx = self.obj(x)
         b = self.eval_nonlin_cons(x)
@@ -311,18 +353,25 @@ class OptimizationProblem:
         A = np.zeros((m, n))
         df = np.zeros(n)
         for i, var in enumerate(self.vars):
-            prev_val = var.value
-            h = max(0.01 * abs(prev_val), 1e-4)
-            var.substitute(prev_val + h)
-            xh = [var.value for var in self.vars]
-            f_val = self.obj(xh)
-            a = self.eval_nonlin_cons(xh)
-            A[:, i] = (a - b) / h
-            df[i] = (f_val - fx) / h
-            var.substitute(prev_val)
+            if not isinstance(var, BinaryVariable):
+                prev_val = var.value
+                h = max(0.01 * abs(prev_val), 1e-4)
+                if isinstance(var, DiscreteVariable):
+                    prev_val = var.profiles.index(var.value)
+                    if prev_val == var.ub:
+                        h = -1
+                        fx *= -1
+                    else:
+                        h = 1
+                var.substitute(prev_val + h)
+                xh = [var.value for var in self.vars]
+                f_val = self.obj(xh)
+                a = self.eval_nonlin_cons(xh)
+                A[:, i] = (a - b) / h
+                df[i] = (f_val - fx) / h
+                var.substitute(prev_val)
 
-
-        B = A@x.T - b
+        B = A @ x.T - b
 
 
         return A, B, df, fx
