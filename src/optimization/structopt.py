@@ -478,7 +478,6 @@ class OptimizationProblem:
 
         return len(self.vars)
 
-
     def add_variable(self, var):
         """ Adds new variable to the problem """
         self.vars.append(var)
