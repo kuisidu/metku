@@ -209,9 +209,7 @@ class DiscreteVariable(Variable):
 
     def substitute(self, new_value):
 
-        if isinstance(new_value, float):
-            new_value = self.profiles.index(new_value)
-        if self.profiles:
+        if self.profiles and not isinstance(new_value, float):
             new_value = self.profiles[new_value]
         super().substitute(new_value)
 
@@ -336,15 +334,17 @@ class OptimizationProblem:
         df = np.zeros(n)
         for i, var in enumerate(self.vars):
             if not isinstance(var, BinaryVariable):
+                if isinstance(var, DiscreteVariable):
+                    x[i] = var.value
                 prev_val = var.value
                 h = max(0.01 * abs(prev_val), 1e-4)
-                if isinstance(var, DiscreteVariable):
-                    prev_val = var.profiles.index(var.value)
-                    if prev_val == var.ub:
-                        h = -1
-                        fx *= -1
-                    else:
-                        h = 1
+                # if isinstance(var, DiscreteVariable):
+                #     prev_val = var.profiles.index(var.value)
+                #     if prev_val == var.ub:
+                #         h = -1
+                #         fx *= -1
+                #     else:
+                #         h = 1
                 var.substitute(prev_val + h)
                 xh = [var.value for var in self.vars]
                 f_val = self.obj(xh)
@@ -352,6 +352,7 @@ class OptimizationProblem:
                 A[:, i] = (a - b) / h
                 df[i] = (f_val - fx) / h
                 var.substitute(prev_val)
+
 
         B = A @ x.T - b
 
