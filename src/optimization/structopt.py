@@ -63,6 +63,16 @@ class Variable:
         self.target = target
         self.profiles = profiles
 
+    # @property
+    # def value(self):
+    #     return self.target['objects'][0].__dict__[self.target['property']]
+    #
+    #
+    # @value.setter
+    # def value(self, new_val):
+    #     for obj in self.target['objects']:
+    #         obj.__dict__[self.target['property']] = new_val
+
     def substitute(self, new_value):
         """ Substitute a new value for the variable """
 
@@ -199,7 +209,7 @@ class DiscreteVariable(Variable):
 
     def substitute(self, new_value):
 
-        if self.profiles:
+        if self.profiles and not isinstance(new_value, float):
             new_value = self.profiles[new_value]
         super().substitute(new_value)
 
@@ -239,8 +249,11 @@ class LinearConstraint(Constraint):
 
     def __call__(self, x):
         """ Evaluate constraint at x """
-        super().__call__(x)
-        return np.array(self.a).dot(np.array(x)) - self.b
+        if isinstance(self.b, Variable):
+            b = self.b.value
+        else:
+            b = self.b
+        return np.array(self.a).dot(np.array(x)) - b
 
 
 class NonLinearConstraint(Constraint):
@@ -305,10 +318,13 @@ class OptimizationProblem:
     def linearize(self, x):
         """
         Linearizes problem around x
+
+        Ax < B
+
         :param x:
         :return:
         """
-
+        x = np.asarray(x)
         self.substitute_variables(x)
         fx = self.obj(x)
         b = self.eval_nonlin_cons(x)
@@ -433,7 +449,6 @@ class OptimizationProblem:
         """ Number of nonlinear equality constraints """
 
         return len(self.vars)
-
 
     def add_variable(self, var):
         """ Adds new variable to the problem """

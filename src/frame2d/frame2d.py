@@ -10,9 +10,7 @@ import numpy as np
 import src.framefem.framefem  as fem
 
 from src.framefem.elements import EBBeam, EBSemiRigidBeam
-from src.sections.steel.CHS import CHS
-from src.sections.steel.ISection import *
-from src.sections.steel.RHS import RHS, SHS
+from src.sections.steel import *
 from src.sections.steel.catalogue import *
 from src.sections.steel.catalogue import mat as MATERIALS
 from src.structures.steel.steel_member import SteelMember
@@ -924,11 +922,43 @@ class Frame2D:
 
         for load in self.point_loads.values():
             x, y = load.coordinate
-            plt.scatter(x, y, c='b', marker='*')
+            scl = max(self.L, self.H) * 1e-1
+            dx, dy, _ = load.v
+            plt.arrow(x, y, np.sign(dx)*scl, np.sign(dy)*scl,
+                      head_width=scl*1e-1, ec='b')
+            #lt.scatter(x, y, c='b', marker='*')
 
         for lineload in self.line_loads.values():
             c0, c1 = lineload.coordinates
-            plt.plot([c0[0], c1[0]], [c0[1], c1[1]], c='b')
+            q1, q2 = lineload.values
+            x1, y1 = c0
+            x2, y2 = c1
+            num_arrows = 10
+            dx = (x2 - x1) / num_arrows
+            dy = (y2 - y1) / num_arrows
+            if dx:
+                X = np.arange(x1, x2 + dx, dx)
+            else:
+                X = np.ones(10) * x1
+            if dy:
+                Y = np.arange(y1, y2 + dy, dy)
+            else:
+                Y = np.ones(10) * y1
+            scl = max(self.L, self.H) * 8e-2
+            q_scl = q2 / q1
+            for x, y in zip(X, Y):
+                if lineload.direction == 'y':
+                    # Moves arrows above member
+                    y -= (np.sign(q1) * scl - scl * 2e-1)
+                    plt.arrow(x, y, 0, np.sign(q1) * scl,
+                              head_width=scl * 1e-1, ec='r',
+                              head_starts_at_zero=False)
+                else:
+                    x -= (np.sign(q1) * scl - scl * 2e-1)
+                    plt.arrow(x, y, np.sign(q1) * scl, 0,
+                              head_width=scl * 1e-1, ec='r')
+
+            #plt.plot([c0[0], c1[0]], [c0[1], c1[1]], c='b')
 
             # x0, y0 = self.f.elements[lineload.element_ids[0]].nodes[0].x
             # x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
@@ -1359,7 +1389,7 @@ class FrameMember:
     @h.setter
     def h(self, val):
         """
-        Sets cross-section's height to givel value.
+        Sets cross-section's height to given value.
         Changes profile and sets new cross-sectional properties to member's elements
         """
 
@@ -2321,7 +2351,7 @@ class PointLoad(Load):
         """
 
         self.__coordinate = coordinate
-        self.v = v
+        self.v = np.asarray(v)
         self.f = f
         self.node = None
 
@@ -2340,8 +2370,8 @@ class PointLoad(Load):
             idx = fem_model.nodal_coords.index(self.coordinate)
             self.node = fem_model.nodes[idx]
             fem_model.add_load(fem.PointLoad(self.load_id, self.node, self.v, self.f))
-        else:
-            pass
+
+
 
 
 class LineLoad(Load):
@@ -2359,7 +2389,7 @@ class LineLoad(Load):
             self.mem_id = None
             self.member = None
         self.coordinates = coordinates
-        self.values = values
+        self.values = np.asarray(values)
         self.direction = direction
         self.f = f
         self.element_ids = None
@@ -2443,20 +2473,12 @@ class Hinge(Support):
 
 if __name__ == '__main__':
 
-    # Luo tyhjä kehä
-    frame = Frame2D(num_elements=4)
-    # Luo pilari (koordinaatit, profile=vapaaehtoinen)
-    col = SteelColumn([[0, 0], [0, 5000]], profile='Ipe 300')
-    # Lisää pilari kehälle
-    col.profile = 'WI 800-12-30X450-25X300'
+    frame = Frame2D()
+    col = SteelColumn([[0,0], [0, 5000]])
+    beam = SteelBeam([[0, 5000], [5000, 8000]])
     frame.add(col)
-    # Lisää jäykkä tuki pisteeseen (0,0)
-    frame.add(FixedSupport([0, 0]))
-    # Lisää pistekuorma pilarin yläpäähän
-    frame.add(PointLoad([0, 5000], [10e3, -200e3, 0]))
-    # Luo kehän fem -malli
+    frame.add(beam)
+    frame.add(LineLoad(beam, [-10, -30], 'z'))
+
     frame.generate()
-    # Laske
-    frame.calculate()
-    # Piirtää kehän (pilarin) näytölle
     frame.plot()

@@ -37,6 +37,7 @@ class ThreeBarTruss(OptimizationProblem):
 
         super().__init__(name='ThreeBarTruss')
 
+        self.binary_vars = None
         self.prob_type = prob_type.lower()
         self.structure = self.create_structure()
         self.create_constraints()
@@ -48,7 +49,7 @@ class ThreeBarTruss(OptimizationProblem):
             if np.any(self.X != X):
                 self.substitute_variables(X)
             weight = 0
-            for x, mem in zip(X, self.structure.members.values()):
+            for mem in self.structure.members.values():
                 weight += self.rho * mem.A * mem.length  # mem.weight
 
             return weight
@@ -106,31 +107,78 @@ class ThreeBarTruss(OptimizationProblem):
 
             vars = [A1, A2]
 
+
+        elif self.prob_type == 'binary':
+            cont_A1 = Variable('A1', lb=THREE_BAR_AREAS_mm2[0],
+                          ub=THREE_BAR_AREAS_mm2[-1],
+                          target={"property": "A", "objects": [bar1, bar3]})
+            cont_A2 = Variable('A2', lb=THREE_BAR_AREAS_mm2[0],
+                          ub=THREE_BAR_AREAS_mm2[-1],
+                          target={"property": "A", "objects": [bar2]})
+
+
+            binary_A1 = []
+            for i in range(len(THREE_BAR_AREAS_mm2)):
+                binary = BinaryVariable("Bin A1"+str(i))
+                binary.target_val = THREE_BAR_AREAS_mm2[i]
+                binary_A1.append(binary)
+
+            binary_A2 = []
+            for i in range(len(THREE_BAR_AREAS_mm2)):
+                binary = BinaryVariable("Bin A2"+str(i))
+                binary.target_val = THREE_BAR_AREAS_mm2[i]
+                binary_A2.append(binary)
+
+            vars = [cont_A1, cont_A2]
+            vars.extend(binary_A1)
+            vars.extend(binary_A2)
+            self.binary_vars = [binary_A1, binary_A2]
+
         self.vars = vars
 
         return frame
 
 
-    def _create_stress_constraint(self, mem, i, j):
-        """
-        THIS DOES NOT WORK YET!
-        GIVES DIFFERENT SOLUTIONS THAN THE FUNCTION CREATED
-        IN THE LOOP!
-        :param mem:
-        :param i:
-        :param j:
-        :return:
-        """
-        def con_fun(x, i=i, j=j):
+    def binary_constraints(self):
 
-            if self.prob_type == 'discrete':
-                A = THREE_BAR_AREAS_mm2[x[j]]
-            else:
-                A = x[j]
+        # All available areas
+        A = np.zeros((len(self.binary_vars), (len(THREE_BAR_AREAS_mm2))))
 
-            return mem.ned / (A * mem.fy) - 1
+        for i, binary_A in enumerate(self.binary_vars):
+            # Binary constraint
+            # sum(bin_vars) == 1
+            binary_idx = [self.vars.index(bvar) for bvar in binary_A]
+            a = np.zeros(len(self.vars))
+            a[binary_idx] = 1
+            bin_con = LinearConstraint(a=a, b=1, con_type="=",
+                                       name="Binary Constraint "
+                                            + str(i+1))
+            self.cons.append(bin_con)
 
-        return con_fun
+            # Binary Area constraint
+            # Ai == sum(A[i][bin_idx])
+            a[binary_idx] = [bvar.target_val for bvar in binary_A]
+            b = self.vars[i]
+            bin_A_con = LinearConstraint(a=a, b=b, con_type="=",
+                                         name="Binary Area Constraint "
+                                         + str(i + 1))
+            self.cons.append(bin_A_con)
+
+
+    def constraint_generator(self, mem):
+
+        def tension_fun(X):
+            return mem.ned / mem.NRd - 1
+
+        def compression_fun(X):
+            return -mem.ned / mem.NRd - 1
+
+        def buckling_fun(X):
+            sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
+            sigma = -mem.ned / mem.A
+            return sigma / sigma_cr - 1
+
+        return tension_fun, compression_fun, buckling_fun
 
     def create_constraints(self):
 
@@ -139,53 +187,44 @@ class ThreeBarTruss(OptimizationProblem):
 
         i = 0
         for j, var in enumerate(self.vars):
-            for mem in var.target["objects"]:
-                if isinstance(mem, FrameMember):
-                    i += 1
-                    def stress_fun(x, i=i, j=j):
+            if not isinstance(var, BinaryVariable):
+                for mem in var.target["objects"]:
+                    if isinstance(mem, FrameMember):
+                        i += 1
 
-                        return mem.ned / (mem.A * mem.fy) - 1
+                        compression_fun, tension_fun, buckling_fun = self.constraint_generator(mem)
 
-                    def buckling_fun(x, i=i, j=j):
-                        sigma_cr = 100 * mem.E * mem.A / (8 * mem.length ** 2)
-                        sigma = -mem.ned / mem.A
+                        comp_con = NonLinearConstraint(con_fun=compression_fun,
+                                                       name="Compression " + str(i),
+                                                       parent=self)
+                        comp_con.fea_required = True
 
-                        return sigma / sigma_cr - 1
+                        tension_con = NonLinearConstraint(con_fun=tension_fun,
+                                                          name="Tension " + str(i),
+                                                          parent=self)
+                        tension_con.fea_required = True
 
-                    def disp_fun(A, i=i):
-                        displacements = mem.nodal_displacements.values()
-                        max_vals = [max(l[0:2]) for l in displacements]
-                        min_vals = [min(l[0:2]) for l in displacements]
-                        max_val = max(max_vals)
-                        min_val = min(min_vals)
-                        abs_max = max(max_val, abs(min_val))
-                        return abs_max / self.delta_max - 1
+                        buckl_con = NonLinearConstraint(con_fun=buckling_fun,
+                                                       name='Buckling ' + str(i),
+                                                       parent=self)
+                        buckl_con.fea_required = True
 
-                    stress_con = NonLinearConstraint(con_fun=stress_fun,
-                                                 name="Stress " + str(i),
-                                                 parent=self)
-                    stress_con.fea_required = True
+                        self.cons.append(comp_con)
+                        self.cons.append(tension_con)
+                        self.cons.append(buckl_con)
 
-                    buckling_con = NonLinearConstraint(con_fun=buckling_fun,
-                                                     name="Buckling " + str(i),
-                                                     parent=self)
-                    buckling_con.fea_required = True
-
-                    disp_con = NonLinearConstraint(con_fun=disp_fun,
-                                                 name='Displacement ' + str(i),
-                                                 parent=self)
-                    disp_con.fea_required = True
-
-                    self.cons.append(stress_con)
-                    self.cons.append(buckling_con)
-                    self.cons.append(disp_con)
-
-
-
+        if self.binary_vars:
+            self.binary_constraints()
 
 if __name__ == '__main__':
-    from src.optimization.solvers import SLP, SLSQP
-    problem = ThreeBarTruss(prob_type='continuous')
-    solver = SLP()
-    solver.solve(problem, maxiter=200)
-    problem(solver.X)
+    from src.optimization.solvers import *
+    problem = ThreeBarTruss(prob_type='binary')
+    X = [809, 7591, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    problem(X)
+    # solver = SLP(step_length=100)
+    # solver.problem = problem
+    # solver.random_feasible_point()
+    # solver.solve(problem, maxiter=200, maxtime=5)
+    # problem(solver.X)
