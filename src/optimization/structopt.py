@@ -333,28 +333,18 @@ class OptimizationProblem:
         A = np.zeros((m, n))
         df = np.zeros(n)
         for i, var in enumerate(self.vars):
-            if not isinstance(var, BinaryVariable):
-                if isinstance(var, DiscreteVariable):
-                    x[i] = var.value
-                prev_val = var.value
-                h = max(0.01 * abs(prev_val), 1e-4)
-                # if isinstance(var, DiscreteVariable):
-                #     prev_val = var.profiles.index(var.value)
-                #     if prev_val == var.ub:
-                #         h = -1
-                #         fx *= -1
-                #     else:
-                #         h = 1
-                var.substitute(prev_val + h)
-                xh = [var.value for var in self.vars]
-                f_val = self.obj(xh)
-                a = self.eval_nonlin_cons(xh)
-                A[:, i] = (a - b) / h
-                df[i] = (f_val - fx) / h
-                var.substitute(prev_val)
+            prev_val = var.value
+            h = max(0.01 * abs(prev_val), 1e-4)
+            var.substitute(prev_val + h)
+            xh = [var.value for var in self.vars]
+            f_val = self.obj(xh)
+            a = self.eval_nonlin_cons(xh)
+            A[:, i] = (a - b) / h
+            df[i] = (f_val - fx) / h
+            var.substitute(prev_val)
 
 
-        B = A @ x.T - b
+        B = A@x.T - b
 
 
         return A, B, df, fx

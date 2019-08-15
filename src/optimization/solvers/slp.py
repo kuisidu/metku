@@ -67,8 +67,12 @@ class SLP(OptSolver):
         return X - self.X
         #return res.x - self.X
 
+    def random_feasible_point(self):
+        """
+        Creates a random feasible starting point for optimization
 
 
+        return np.asarray(X)
 
     def step(self, action):
 
