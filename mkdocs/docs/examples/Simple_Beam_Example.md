@@ -1,14 +1,6 @@
-
 # Frame2D
 ## Creating and analyzing a simply supported beam
 
-### Add path to your frame2d directory
-
-
-```python
-import sys
-sys.path.append("PATH TO DIRECTORY, e.g. desktop/gitlab/frame2d/")
-```
 
 ### Import dependencies
 
@@ -48,22 +40,28 @@ frame.add(beam)
 #### LineLoad
 
 **Input parameters:**
-    - member (FrameMember) -- member to which load is acting on
-    - values (list) -- line load value at start and end [N/mm]
-    - direction (str) -- direction of the load 'y' or 'x'
+
+- member (FrameMember) -- member to which load is acting on
+- values (list) -- line load value at start and end [N/mm]
+- direction (str) -- direction of the load 'y' or 'x'
+    
 **Optional parameters:**
-    - f (float) -- factor of which the load is multiplied
-    - ltype (string) -- name type of the load, e.g. "snow", "wind"
-    - name (string) -- name of the load
+
+- f (float) -- factor of which the load is multiplied
+- ltype (string) -- name type of the load, e.g. "snow", "wind"
+- name (string) -- name of the load
     
 #### PointLoad
 **Input parameters:**
-    - member (FrameMember) -- member to which load is acting on
-    - values (list) -- point load values [Fx, Fy, Mz] [N, N, Nmm]
+
+- member (FrameMember) -- member to which load is acting on
+- values (list) -- point load values [Fx, Fy, Mz] [N, N, Nmm]
+    
 **Optional parameters:**
-    - f (float) -- factor of which the load is multiplied
-    - ltype (string) -- name type of the load, e.g. "snow", "wind"
-    - name (string) -- name of the load
+
+- f (float) -- factor of which the load is multiplied
+- ltype (string) -- name type of the load, e.g. "snow", "wind"
+- name (string) -- name of the load
     
     
 **Available support types:**
@@ -73,7 +71,7 @@ frame.add(beam)
 - FixedSupport
 
 **Input parameters for supports:**
-    - coordinate (list) -- support's coordinate
+- coordinate (list) -- support's coordinate
 
 
 
