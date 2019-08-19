@@ -363,7 +363,6 @@ class OptimizationProblem:
 
         B = A @ x.T - b
 
-
         return A, B, df, fx
 
 
