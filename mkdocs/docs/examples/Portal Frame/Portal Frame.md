@@ -1,12 +1,5 @@
-
 # Frame2D
 ## Portal Frame Example
-
-
-```python
-import sys
-sys.path.append("C:/Users/huusk/OneDrive/Tiedostot/GitLab/frame2d/master")
-```
 
 ### Import dependencies
 
