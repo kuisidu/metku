@@ -75,7 +75,6 @@ class Variable:
 
     def substitute(self, new_value):
         """ Substitute a new value for the variable """
-
         self.value = new_value
 
         """ Modify target object(s) if any """
@@ -314,6 +313,21 @@ class OptimizationProblem:
         self.profiles = profiles
         self.fea_done = False
         self.X = None
+        self.x0 = None
+        self.num_iters = 0
+        self.num_fem_analyses = 0
+        self.fvals = []
+        self.states = []
+
+
+
+    @property
+    def feasible(self):
+        """
+        Returns problem's feasibility
+        :return: True/False
+        """
+        return np.all(self.eval_cons(self.X) <= 1e-6)
 
     def linearize(self, x):
         """
@@ -338,21 +352,14 @@ class OptimizationProblem:
                     x[i] = var.value
                 prev_val = var.value
                 h = max(0.01 * abs(prev_val), 1e-4)
-                # if isinstance(var, DiscreteVariable):
-                #     prev_val = var.profiles.index(var.value)
-                #     if prev_val == var.ub:
-                #         h = -1
-                #         fx *= -1
-                #     else:
-                #         h = 1
                 var.substitute(prev_val + h)
+                self.fea()
                 xh = [var.value for var in self.vars]
                 f_val = self.obj(xh)
                 a = self.eval_nonlin_cons(xh)
                 A[:, i] = (a - b) / h
                 df[i] = (f_val - fx) / h
                 var.substitute(prev_val)
-
 
         B = A @ x.T - b
 
@@ -389,6 +396,7 @@ class OptimizationProblem:
         """
         self.structure.calculate()
         self.fea_done = True
+        self.num_fem_analyses += 1
 
     def __call__(self, x, prec=2):
         """ Call method evaluates the objective function and all constraints
@@ -396,6 +404,7 @@ class OptimizationProblem:
         """
         fx = self.obj(x)
         print("** {0} **".format(self.name))
+        print(f'Solution is feasible: {self.feasible}')
         if len(x) < 10:
             print("Variables:")
             print("----------")
@@ -413,7 +422,7 @@ class OptimizationProblem:
             g = con(x)
             print(f"{con.name}: {g:.{prec}f} {con.type} 0")
 
-    def eval_con(self, x):
+    def eval_cons(self, x):
         """ Constraint evaluation
 
         """
@@ -422,7 +431,7 @@ class OptimizationProblem:
         for con in self.cons:
             g.append(con(x))
 
-        return g
+        return np.asarray(g)
 
     def eval_eq_con(self, x):
         """ Evaluates equality constraionts """
@@ -528,6 +537,10 @@ class OptimizationProblem:
 
     def substitute_variables(self, xvals):
         """ Substitute variable values from xval to structure """
+
+        # Save starting point
+        if not np.any(self.X):
+            self.x0 = xvals.copy()
 
         self.X = xvals
         self.fea_done = False

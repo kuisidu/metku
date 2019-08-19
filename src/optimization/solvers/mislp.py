@@ -6,15 +6,16 @@ from ortools.linear_solver import pywraplp
 
 class MISLP(OptSolver):
 
-    def __init__(self, move_limits=[0.9, 1.1], gamma=1e-3):
+    def __init__(self, move_limits=[0.9, 1.1], gamma=1e-3, step_length=3):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
         self.gamma = gamma
+        self.step_length = step_length
 
     def take_action(self):
         """
         Defines action to take
-        :return:
+        :return: action
         """
         # Linearize problem
         A, B, df, fx = self.problem.linearize(self.X)
@@ -42,13 +43,15 @@ class MISLP(OptSolver):
                                            for j in range(m)]) <= B[i])
 
         # Create binary variables
+        discrete_vars = [var for var in
+                         self.problem.vars if isinstance(var, DiscreteVariable)]
         y = {}
-        for i, var in enumerate(self.problem.vars):
+        for i, var in enumerate(discrete_vars):
             for j in range(var.ub):
                 y[i, j] = CBC_solver.BoolVar(f'y{i},{j}')
 
         # Create binary constraints
-        for i, var in enumerate(self.problem.vars):
+        for i, var in enumerate(discrete_vars):
             # Binary constraint
             # sum(bin_vars) == 1
             CBC_solver.Add(CBC_solver.Sum([y[i, j]
@@ -64,14 +67,15 @@ class MISLP(OptSolver):
         # Solve
         sol = CBC_solver.Solve()
 
-        X = [j for i, var in enumerate(self.problem.vars)
+        X = [j for i, var in enumerate(discrete_vars)
              for j in range(var.ub) if y[i, j].solution_value() == 1.0]
 
-        # for i, var in enumerate(self.problem.vars):
+        for i in range(len(X), len(x)):
+            X.append(x[i].solution_value())
+
+        # for i, var in enumerate(discrete_vars):
         #     print(x[i].solution_value())
         #     print(var.profiles[X[i]])
-
-
 
         # for i, var in enumerate(self.problem.vars):
         #     for j in range(var.ub):
@@ -99,11 +103,16 @@ class MISLP(OptSolver):
 
 if __name__ == '__main__':
     from src.optimization.benchmarks import *
+    import matplotlib.pyplot as plt
 
     ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
     # [40  0 38 34  0  0 27 38 38  0] 2497.67
     problem = TenBarTruss(prob_type='discrete')
-    solver = MISLP(move_limits=[0.25, 1.75], gamma=1e-3)
-    solver.solve(problem, x0=[-1]*10, maxiter=500)
+    solver = MISLP(move_limits=[0.1, 5], gamma=1e-2)
+    x0 = [var.ub for var in problem.vars]
+    solver.solve(problem, x0=x0, maxiter=500, log=True)
     problem(solver.X)
+
+    plt.plot(solver.fvals)
+    plt.show()
     #problem(ten_bar_DLM)
