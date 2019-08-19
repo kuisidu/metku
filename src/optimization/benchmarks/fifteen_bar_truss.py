@@ -250,6 +250,7 @@ class FifteenBarTruss(OptimizationProblem):
 
 if __name__ == '__main__':
     truss = FifteenBarTruss(prob_type='discrete')
+    truss.structure.plot()
     #solver = GA(popsize=10)
     solver = DiscreteVNS(step_length=2)
     solver.solve(truss,maxiter=10000, maxtime=120, subset_size=10)

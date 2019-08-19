@@ -73,9 +73,10 @@ class TenBarTruss(OptimizationProblem):
                                ub=profiles[-1],
                                target={"property": "A",
                                        "objects": [mem]})
+
             else:
 
-                raise TypeError("Problem type must be either 'dicrete' "
+                raise TypeError("Problem type must be either 'discrete' "
                                 "or 'continuous")
 
 
@@ -141,11 +142,9 @@ class TenBarTruss(OptimizationProblem):
 
         def compression_fun(x):
 
-
             return -mem.ned / (mem.A * mem.fy) - 1
 
         def tension_fun(x):
-
 
             return mem.ned / (mem.A * mem.fy) - 1
 
@@ -164,13 +163,11 @@ class TenBarTruss(OptimizationProblem):
 
         # Initialize constraints as an empty list
         self.cons = []
-
         i = 0
-        for j, var in enumerate(self.vars):
+        for var in self.vars:
             for mem in var.target["objects"]:
                 if isinstance(mem, FrameMember):
                     i += 1
-
                     compression_fun, tension_fun, disp_fun = self.constraint_generator(mem)
 
 
@@ -190,7 +187,6 @@ class TenBarTruss(OptimizationProblem):
                     disp_con.fea_required = True
                     self.cons.append(comp_con)
                     self.cons.append(tension_con)
-
                     self.cons.append(disp_con)
 
     def create_objective(self):
@@ -212,22 +208,23 @@ if __name__ == '__main__':
     sub_sizes = np.arange(2, 10)
     step_lengths = np.arange(1, 5)
 
-    for step_length in step_lengths:
-        for sub_size in sub_sizes:
-            problem = TenBarTruss()
-            solver = DiscreteVNS(step_length=step_length)
-            start = time.time()
-            x, f, steps = solver.solve(problem,
-                                     maxiter=100000,
-                                     maxtime=300,
-                                     subset_size=sub_size)
-            end = time.time()
-            total_time = round(end - start, 2)
-            with open("tenbartruss_results.csv", 'a') as f:
-                f.write(f'{x};'
-                        f'{round(f,2)};'
-                        f'{len(steps)};'
-                        f'{step_length};'
-                        f'{sub_size};'
-                        f'{total_time}')
+    # for step_length in step_lengths:
+    #     for sub_size in sub_sizes:
+    problem = TenBarTruss()
+    problem.structure.plot()
+    # solver = DiscreteVNS(step_length=3)
+    # start = time.time()
+    # x, f, steps = solver.solve(problem,
+    #                          maxiter=1000,
+    #                          maxtime=300,
+    #                          subset_size=3)
+    # end = time.time()
+    # total_time = round(end - start, 2)
+    # with open("tenbartruss_results.csv", 'a') as f:
+    #     f.write(f'{x};'
+    #             f'{round(f,2)};'
+    #             f'{len(steps)};'
+    #             f'{step_length};'
+    #             f'{sub_size};'
+    #             f'{total_time}')
 
