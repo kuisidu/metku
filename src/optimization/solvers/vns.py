@@ -1,6 +1,6 @@
 
 import numpy as np
-
+from .optsolver import OptSolver
 
 
 class DiscreteVNS(OptSolver):

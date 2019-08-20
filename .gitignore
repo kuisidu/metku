@@ -119,3 +119,9 @@ dmypy.json
 # Robot Structural Analysis files
 *.str
 *.stp
+
+# Csv files and images
+*.csv
+*.jpg
+*.png
+*.gif

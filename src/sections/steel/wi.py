@@ -8,11 +8,17 @@ Welded I-sections
 """
 import math
 import numpy as np
-from src.eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
-from src.sections.steel.steel_section import SteelSection
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
+try:
+    from src.eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
+    from src.sections.steel.steel_section import SteelSection
+except:
+    from eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
+    from sections.steel.steel_section import SteelSection
+
 
 
 class WISection(SteelSection):

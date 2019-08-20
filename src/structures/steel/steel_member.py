@@ -4,7 +4,10 @@ import math
 
 import numpy as np
 
-from src.eurocodes.en1993 import constants
+try:
+    from src.eurocodes.en1993 import constants
+except:
+    from eurocodes.en1993 import constants
 
 
 class SteelMember:
