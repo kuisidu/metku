@@ -327,8 +327,8 @@ class SteelMember:
                             NEd / (chi_z * NRd)),
                           1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
 
-        com_comp_bend_y = NEd / NbRd[0] + kyy * MyEd / MRd[0]
-        com_comp_bend_z = NEd / NbRd[1] + kzy * MzEd / MRd[1]
+        com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd[0]
+        com_comp_bend_z = -NEd / NbRd[1] + kzy * MzEd / MRd[1]
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
 

@@ -30,9 +30,9 @@ class WIColumn(OptimizationProblem):
                     True .. rajoitusehto huomioidaan
                     False .. rajoitusehtoa ei huomioida
     """
-    def __init__(self, Lpi=6000, Fx=84e3, Fy=-293e3, Qx=3.9, Qy=0, Mz=0, lcr=2,
+    def __init__(self, Lpi=6000, Fx=800, Fy=-300e3, Qx=3.9, Qy=0, Mz=0, lcr=2,
                  top_flange_class=2, bottom_flange_class=2, web_class=2,
-                 symmetry="dual", buckling_z=False, LT_buckling=True):
+                 symmetry="dual", buckling_z=True, LT_buckling=False):
         super().__init__("WIColumn")
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
@@ -277,7 +277,9 @@ class WIColumn(OptimizationProblem):
             return mem.steel_member.check_beamcolumn()[1] - 1
 
         def lt_buckling(x):
-            return -mem.med / mem.MbRd - 1
+            #  med = max(abs(np.min(np.array(mem.steel_member.myed))),
+            #  np.max(np.array(mem.steel_member.myed)))
+            return mem.med / mem.MbRd - 1
 
         return \
             buckling_y, buckling_z, com_compression_bending_y, \
@@ -424,6 +426,6 @@ if __name__ == "__main__":
     problem = WIColumn()
     x0 = [500, 20, 300, 20]
     solver = SLP(step_length=3)
-    solver.solve(problem, maxiter=300, maxtime=20, x0=x0)
+    solver.solve(problem, maxiter=40000, maxtime=30, x0=x0)
     problem(solver.X)
 
