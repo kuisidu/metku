@@ -518,6 +518,7 @@ class Frame2D:
 
     def generate(self):
         """ Generates the frame and truss
+            FEM model
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
