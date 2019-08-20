@@ -1,6 +1,6 @@
 # Frame2D
 
-hierarchy.md
+Python library for structural analysis and optimization.
 
 ## Getting started
 

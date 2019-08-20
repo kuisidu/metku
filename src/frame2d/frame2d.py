@@ -1242,7 +1242,7 @@ class FrameMember:
 
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
                  material="S355", num_elements=5,
-                 Sj1=np.inf, Sj2=np.inf, mtype=""):
+                 Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False):
 
         self.element_ids = []
         self.elements = {}
@@ -1367,11 +1367,25 @@ class FrameMember:
         return self.cross_section.MRd
 
     @property
+    def MbRd(self):
+        """ Returns LT buckling resistance
+            Units: Nmm
+        """
+        return self.steel_member.MbRd
+
+    @property
     def NRd(self):
         """ Returns axial force resistance
             Units: N
         """
         return self.cross_section.NRd
+
+    @property
+    def NbRd(self):
+        """ Returns buckling resistance
+            Units: N
+        """
+        return self.steel_member.NbRd
 
     @property
     def VRd(self):
@@ -2321,8 +2335,9 @@ class SteelBeam(FrameMember):
 
 class SteelColumn(FrameMember):
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
-                 material="S355", num_elements=4):
-        super().__init__(coordinates, mem_id, profile, material, num_elements)
+                 material="S355", num_elements=4, LT_buckling=False):
+        super().__init__(coordinates, mem_id, profile, material, num_elements,
+                         LT_buckling)
 
         self.mtype = 'column'
         self.check_mtype()
@@ -2471,17 +2486,17 @@ class FixedSupport(Support):
 
 class XHingedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [1, 0, 0], supp_id)
+        super().__init__(coordinate, [0], supp_id)
 
 
 class YHingedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [0, 1, 0], supp_id)
+        super().__init__(coordinate, [1], supp_id)
 
 
 class XYHingedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [1, 1, 0], supp_id)
+        super().__init__(coordinate, [0, 1], supp_id)
 
 
 class Hinge(Support):

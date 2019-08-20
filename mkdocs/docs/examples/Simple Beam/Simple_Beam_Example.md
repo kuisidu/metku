@@ -1,4 +1,3 @@
-# Frame2D
 ## Creating and analyzing a simply supported beam
 
 
