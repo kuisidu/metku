@@ -7,14 +7,21 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import src.framefem.framefem  as fem
 
-from src.framefem.elements import EBBeam, EBSemiRigidBeam
-from src.sections.steel import *
-from src.sections.steel.catalogue import *
-from src.sections.steel.catalogue import mat as MATERIALS
-from src.structures.steel.steel_member import SteelMember
-
+try:
+    import src.framefem.framefem  as fem
+    from src.framefem.elements import EBBeam, EBSemiRigidBeam
+    from src.sections.steel import *
+    from src.sections.steel.catalogue import *
+    from src.sections.steel.catalogue import mat as MATERIALS
+    from src.structures.steel.steel_member import SteelMember
+except:
+    import framefem.framefem  as fem
+    from framefem.elements import EBBeam, EBSemiRigidBeam
+    from sections.steel import *
+    from sections.steel.catalogue import *
+    from sections.steel.catalogue import mat as MATERIALS
+    from structures.steel.steel_member import SteelMember
 
 # Eounding precision
 PREC = 3
@@ -177,8 +184,10 @@ class Frame2D:
 
         # SUPPORTS
         elif isinstance(this, Support):
-            this.supp_id = len(self.supports)
-            self.supports[this.supp_id] = this
+            #this.supp_id = len(self.supports)
+            supp_label = len(self.supports)
+            self.supports[supp_label] = this
+            #self.supports[this.supp_id] = this
             self.support_nodes.append(this.coordinate)
 
             for member in self.members.values():
@@ -533,12 +542,16 @@ class Frame2D:
 
         # Remove duplicate nodes
         self.nodes = list(set(self.nodes))
+        
+        # Add supports
         for support in self.supports.values():
             support.add_support(self.f)
 
+        # Add point loads (if any)
         for pointLoad in self.point_loads.values():
             pointLoad.add_load(self.f)
 
+        # Add line loads (if any)
         for lineLoad in self.line_loads.values():
             member = lineLoad.member
             lineLoad.element_ids = member.lineload_elements(lineLoad.coordinates)
@@ -2416,7 +2429,10 @@ class LineLoad(Load):
 # --------------------------- SUPPORT CLASSES ----------------------------
 class Support:
     def __init__(self, coordinate, dofs, supp_id=1):
-
+        """ Constructor
+            coordinate .. nodal coordinates [list]
+            node_id .. 
+        """
         self.node = None
         self.node_id = None
         self.coordinate = coordinate
@@ -2448,7 +2464,8 @@ class Support:
 
 class FixedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [1, 1, 1], supp_id)
+        #super().__init__(coordinate, [1, 1, 1], supp_id)
+        super().__init__(coordinate, [0, 1, 2], supp_id)
 
 
 class XHingedSupport(Support):
@@ -2474,11 +2491,17 @@ class Hinge(Support):
 if __name__ == '__main__':
 
     frame = Frame2D()
-    col = SteelColumn([[0,0], [0, 5000]])
-    beam = SteelBeam([[0, 5000], [5000, 8000]])
-    frame.add(col)
+    #col1 = SteelColumn([[0,0], [0, 1000]])
+    #col2 = SteelColumn([[2000,0], [2000, 1000]])
+    beam = SteelBeam([[0, 000], [2000, 000]])
+    #frame.add(col1)
+    #frame.add(col2)
     frame.add(beam)
-    frame.add(LineLoad(beam, [-10, -30], 'z'))
+    frame.add(LineLoad(beam, [-30, -30], 'y'))
+    frame.add(FixedSupport([0,000],supp_id=1))
+    frame.add(FixedSupport([2000,000],supp_id=1))
 
     frame.generate()
+    frame.calculate()
+    #frame.bmd(5)
     frame.plot()
