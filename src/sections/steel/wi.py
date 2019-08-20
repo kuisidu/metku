@@ -84,8 +84,22 @@ class WISection(SteelSection):
             return self.torsional_constant()
         elif name == "Iw":
             return self.warping_constant()
+        elif name == "b":
+            return np.array([self.bt, self.bb])
+        elif name == "tf":
+            return np.array([self.tt, self.tb])
         else:
             return super().__getattribute__(name)
+
+    def __setattr__(self, key, value):
+        if key == "b":
+            self.bt = value
+            self.bb = value
+        elif key == "tf":
+            self.tt = value
+            self.tb = value
+        else:
+            super().__setattr__(key, value)
 
     @property
     def hw(self):
@@ -445,9 +459,16 @@ if __name__ == '__main__':
     #test_non_sym()
     from src.frame2d.frame2d import *
     frame = Frame2D()
-    col = SteelColumn([[0,0], [0, 5000]])
+    col = SteelColumn([[0, 0], [0, 5000]])
     frame.add(col)
     col.cross_section = WISection(200, 5, [100, 100], [5, 5])
-    col.profile = "WI 200-5-100-5-100-5"
-    frame.plot()
+    col.profile = "WI 200-5-200-8-100-5"
+    # frame.plot()
+    print(col.cross_section.b)
+    print(col.cross_section.tf)
+    col.cross_section.b = 150
+    col.cross_section.tf = 6
+    print(col.cross_section.b)
+    print(col.cross_section.tf)
+    # col.cross_section.draw()
 

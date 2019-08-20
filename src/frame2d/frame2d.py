@@ -12,7 +12,7 @@ import src.framefem.framefem  as fem
 from src.framefem.elements import EBBeam, EBSemiRigidBeam
 from src.sections.steel.CHS import CHS
 from src.sections.steel.ISection import *
-from src.sections.steel.RHS import RHS, SHS
+from src.sections.steel import *
 from src.sections.steel.catalogue import *
 from src.sections.steel.catalogue import mat as MATERIALS
 from src.structures.steel.steel_member import SteelMember
@@ -1198,7 +1198,7 @@ class FrameMember:
 
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
                  material="S355", num_elements=5,
-                 Sj1=np.inf, Sj2=np.inf, mtype=""):
+                 Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False):
 
         self.element_ids = []
         self.elements = {}
@@ -1323,11 +1323,25 @@ class FrameMember:
         return self.cross_section.MRd
 
     @property
+    def MbRd(self):
+        """ Returns LT buckling resistance
+            Units: Nmm
+        """
+        return self.steel_member.MbRd
+
+    @property
     def NRd(self):
         """ Returns axial force resistance
             Units: N
         """
         return self.cross_section.NRd
+
+    @property
+    def NbRd(self):
+        """ Returns buckling resistance
+            Units: N
+        """
+        return self.steel_member.NbRd
 
     @property
     def VRd(self):
@@ -2277,8 +2291,9 @@ class SteelBeam(FrameMember):
 
 class SteelColumn(FrameMember):
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
-                 material="S355", num_elements=4):
-        super().__init__(coordinates, mem_id, profile, material, num_elements)
+                 material="S355", num_elements=4, LT_buckling=False):
+        super().__init__(coordinates, mem_id, profile, material, num_elements,
+                         LT_buckling)
 
         self.mtype = 'column'
         self.check_mtype()
