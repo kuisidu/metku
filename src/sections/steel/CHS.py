@@ -8,8 +8,12 @@ Rectangular hollow sections
 """
 
 import math
-from src.eurocodes.en1993 import en1993_1_1
-from src.sections.steel.steel_section import SteelSection
+try:
+    from src.eurocodes.en1993 import en1993_1_1
+    from src.sections.steel.steel_section import SteelSection
+except:
+    from eurocodes.en1993 import en1993_1_1
+    from sections.steel.steel_section import SteelSection
 
 class CHS(SteelSection):
     """ Circular hollow sections """
