@@ -76,7 +76,6 @@ class SLP(OptSolver):
 
     def step(self, action):
 
-
         self.move_limits += (1 - self.move_limits) * self.gamma
         self.X += action
         for i in range(len(self.X)):
@@ -87,48 +86,56 @@ class SLP(OptSolver):
 
         return self.X.copy(), 1, False, 'INFO'
 
-    def solve(self, problem, x0=None, maxiter=100, maxtime=60, log=False):
-        """
-        Solves given problem
-
-        :param problem:
-        :param maxiter:
-        :param maxtime:
-        :return:
-        """
-        self.problem = problem
-
-
-        if x0:
-            self.X = x0
-        else:
-            self.X = self.random_feasible_point()
-        problem.substitute_variables(self.X)
-        done = False
-        for i in range(maxiter):
-
-            if time.process_time() >= maxtime or done:
-                break
-
-
-            action = self.take_action()
-            state, reward, done, info = self.step(action)
-            self.X = state
-            problem.substitute_variables(state)
-            self.calc_constraints(self.X)
-            print(state)
-
-            if log:
-                self.fvals.append(self.fval)
+    # def solve(self, problem, x0=None, maxiter=100, maxtime=60, log=False):
+    #     """
+    #     Solves given problem
+    #
+    #     :param problem:
+    #     :param maxiter:
+    #     :param maxtime:
+    #     :return:
+    #     """
+    #     self.problem = problem
+    #
+    #
+    #     if x0:
+    #         self.X = x0
+    #     else:
+    #         self.X = self.random_feasible_point()
+    #     problem.substitute_variables(self.X)
+    #     done = False
+    #     for i in range(maxiter):
+    #
+    #         if time.process_time() >= maxtime or done:
+    #             break
+    #
+    #
+    #         action = self.take_action()
+    #         state, reward, done, info = self.step(action)
+    #         self.X = state
+    #         problem.substitute_variables(state)
+    #         self.calc_constraints(self.X)
+    #         print(state)
+    #
+    #         if log:
+    #             self.fvals.append(self.problem.obj(state))
 
 
 if __name__ == '__main__':
 
-    problem = TenBarTruss(prob_type='continuous')
-    solver = SLP(move_limits=[0.9, 1.1], gamma=2e-2)
-    solver.solve(problem, maxiter=150, maxtime=300)
+    problem = ThreeBarTruss(prob_type='discrete')
+    solver = SLP(move_limits=[0.25, 1.75], gamma=1e-2)
+    solver.solve(problem, maxiter=250, log=True)
     problem(solver.X)
-    print("Move limits: ", solver.move_limits)
+
+    problem.structure.plot()
+
+    import matplotlib.pyplot as plt
+
+    plt.plot(solver.fvals)
+    plt.show()
+
+
     #problem.structure.plot_normal_force()
 
     # problem = OptimizationProblem("Quadratic Problem")

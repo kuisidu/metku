@@ -1,8 +1,12 @@
 import time
 
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
 from scipy.optimize import basinhopping
 from src.optimization.structopt import OptimizationProblem
+
 
 
 class OptSolver:
@@ -14,6 +18,8 @@ class OptSolver:
         self.constr_vals = np.array([])
         self.X = np.array([])
         self.problem = None
+        self.fvals = []
+        self.xvals = []
 
     def calc_constraints(self, x=[]):
         """
@@ -73,8 +79,124 @@ class OptSolver:
 
         return bounds
 
-    def solve(self, problem, x0=None, maxiter=100, maxtime=30):
+    def take_action(self):
         pass
+
+
+    def step(self, action):
+        """
+        Takes a step
+        :param action:
+        :return:
+        """
+
+        self.step_length -= self.step_length * self.step_factor
+        self.X += action
+        for i in range(len(self.X)):
+            self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
+                           self.problem.vars[i].ub)
+
+        self.problem.substitute_variables(self.X)
+
+        return self.X.copy(), 1, False, 'INFO'
+
+
+
+    def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=False,
+              min_diff=1e-2):
+        """
+        Solves given problem
+
+        :param problem:
+        :param maxiter:
+        :param maxtime:
+        :return:
+        """
+        # If maxiter or maxtime aren't defined use 100 as maxiter
+        if maxiter <= 0 and maxtime <= 0:
+            maxiter = 100
+        # If only maxtime is defined, use large maxiter val
+        elif maxiter == -1:
+            maxiter = 1000000000
+        # If only maxiter is defined, use large maxtime val
+        elif maxtime == -1:
+            maxtime = 1000000000
+
+        # Assign problem
+        self.problem = problem
+
+        # If initial starting point is/isn't defined
+        if x0:
+            self.X = x0
+        else:
+            self.X = self.random_feasible_point()
+
+        # Substitute initial starting values
+        problem.substitute_variables(self.X)
+        # Assing done
+        done = False
+        # Start iteration
+        for i in range(maxiter):
+            # Check time
+            if time.process_time() >= maxtime or done:
+                break
+            # Save previous state
+            prev_state = self.X.copy()
+            # Define action to take
+            action = self.take_action()
+            # Take step
+            state, reward, done, info = self.step(action)
+            # If new state is almost same as previous
+            if np.linalg.norm(prev_state - state) <= min_diff or \
+                np.all(prev_state == state):
+                break
+            # Change current state
+            self.X = state
+            # Substitute new variables
+            problem.substitute_variables(state)
+            # Calculate constraints
+            self.calc_constraints(self.X)
+            print(state)
+            # Log objective vals per iteration
+            if log:
+                problem.num_iters += 1
+                problem.fvals.append(problem.obj(self.X))
+                problem.states.append(state)
+                self.fvals.append(problem.obj(self.X))
+                self.xvals.append(self.X)
+
+
+
+
+
+    def random_feasible_point(self):
+        """
+        Creates a random feasible starting point for optimization
+
+        :return: random feasible starting point
+        """
+        print("Creating random feasible starting point!")
+
+        X = [0] * self.problem.nvars()
+        for i, var in enumerate(self.problem.vars):
+            if self.problem.prob_type == 'continuous':
+                X[i] = var.lb + (var.ub - var.lb) * np.random.rand()
+            else:
+                X[i] = np.random.randint(var.lb, var.ub)
+        while np.any(self.calc_constraints(X) > -0.15):
+
+            for i, var in enumerate(self.problem.vars):
+                if self.problem.prob_type == 'continuous':
+                    X[i] = var.lb + (var.ub - var.lb) * np.random.rand()
+                else:
+                    X[i] = np.random.randint(var.lb, var.ub)
+
+            self.problem.substitute_variables(X)
+            self.problem.fea()
+
+        print("Starting point created!")
+
+        return np.asarray(X)
 
 class DiscreteVNS(OptSolver):
     """
@@ -88,7 +210,7 @@ class DiscreteVNS(OptSolver):
         self.problem = None
         self.constr_vals = None
         self.fval = 10e3
-        self.best_fval = 10e3
+        self.best_fval = 10e10
 
     def shake(self):
         action = np.random.randint(-self.step_length, self.step_length + 1,

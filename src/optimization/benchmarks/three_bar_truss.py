@@ -218,13 +218,37 @@ class ThreeBarTruss(OptimizationProblem):
 
 if __name__ == '__main__':
     from src.optimization.solvers import *
-    problem = ThreeBarTruss(prob_type='binary')
-    X = [809, 7591, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    problem(X)
-    # solver = SLP(step_length=100)
-    # solver.problem = problem
-    # solver.random_feasible_point()
-    # solver.solve(problem, maxiter=200, maxtime=5)
-    # problem(solver.X)
+    import matplotlib.pyplot as plt
+    problem = ThreeBarTruss(prob_type='continuous')
+    # X = [809, 7591, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    #      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    #      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    # problem(X)
+    # problem.structure.plot()
+    solver = SLP(move_limits=[0.8, 1.2])
+    solver.problem = problem
+    solver.random_feasible_point()
+    x0 = [THREE_BAR_AREAS_mm2[-1], THREE_BAR_AREAS_mm2[-1]]
+    solver.solve(problem,
+                 x0=x0,
+                 maxiter=15,
+                 maxtime=5,
+                 log=True)
+    problem(solver.X)
+    xvals = np.asarray(solver.xvals)
+    A1 = np.array(x0[0])
+    A2 = np.array(x0[1])
+    A1 = np.hstack((A1, xvals[:, 0]))
+    A2 = np.hstack((A2, xvals[:, 1]))
+    X, Y = np.meshgrid(A1, A2)
+    Z1 = problem.structure.members[0].length * X * problem.rho
+    Z2 = problem.structure.members[1].length * Y * problem.rho
+    Z = 2*Z1 + Z2
+
+    plt.plot(A1, A2)
+    plt.scatter(A1, A2, c='k', marker='x')
+    CS = plt.contour(X, Y, Z, levels=10, cmap='Greens_r')
+    plt.clabel(CS, inline=True)
+
+    plt.show()
+
