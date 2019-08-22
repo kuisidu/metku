@@ -48,17 +48,18 @@ class TenBarTruss(OptimizationProblem):
         super().__init__(name='TenBarTruss')
         self.prob_type = prob_type
         self.structure = self._create_structure()
-        self._create_vars(profiles=TEN_BAR_AREAS_mm2)
+        self.create_variables(profiles=TEN_BAR_AREAS_mm2)
         self.create_constraints()
         self.create_objective()
 
 
-    def _create_vars(self, profiles=[0, 1e6]):
+    def create_variables(self, profiles=[0, 1e6]):
         """
         Creates variables used in optimization
 
         Appends each variable to 'vars' 'list from where they can be accessed
         """
+        self.vars = []
         for i, mem in enumerate(self.structure.members.values()):
             name = 'A' + str(i + 1)
             if self.prob_type == "discrete":

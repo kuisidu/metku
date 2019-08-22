@@ -193,6 +193,7 @@ class DiscreteVariable(Variable):
 
         self.values = values
 
+
         if profiles:
             lb = 0
             ub = len(profiles) - 1
@@ -206,10 +207,15 @@ class DiscreteVariable(Variable):
 
         super().__init__(name, lb, ub, target=target, profiles=profiles)
 
-    def substitute(self, new_value):
 
-        if self.profiles and not isinstance(new_value, float):
-            new_value = self.profiles[new_value]
+    def substitute(self, new_value):
+        if self.profiles:
+            try:
+                new_value = self.profiles[int(new_value)]
+            except:
+                pass
+            #new_value = self.profiles[new_value]
+
         super().substitute(new_value)
 
 
@@ -318,8 +324,7 @@ class OptimizationProblem:
         self.num_fem_analyses = 0
         self.fvals = []
         self.states = []
-
-
+        self.gvals = []
 
     @property
     def feasible(self):
@@ -362,6 +367,12 @@ class OptimizationProblem:
                 var.substitute(prev_val)
 
         B = A @ x.T - b
+
+        # Add linear constraints' values
+        for con in self.cons:
+            if isinstance(con, LinearConstraint):
+                A = np.vstack((A, con.a))
+                B = np.hstack((B, con.b))
 
         return A, B, df, fx
 
@@ -549,6 +560,7 @@ class OptimizationProblem:
         #
         # for i in range(len(xvals)):
         #     self.substitute_variable(i, xvals[i])
+
 
     def solve(self, solver="slsqp", **kwargs):
         """ Solve the optimization problem

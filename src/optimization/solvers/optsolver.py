@@ -122,17 +122,17 @@ class OptSolver:
         elif maxtime == -1:
             maxtime = 1000000000
 
+
         # Assign problem
         self.problem = problem
-
         # If initial starting point is/isn't defined
         if x0:
             self.X = x0
+            problem.substitute_variables(x0)
         else:
             self.X = self.random_feasible_point()
+            problem.substitute_variables(self.X)
 
-        # Substitute initial starting values
-        problem.substitute_variables(self.X)
         # Assing done
         done = False
         # Start iteration
@@ -161,7 +161,8 @@ class OptSolver:
             if log:
                 problem.num_iters += 1
                 problem.fvals.append(problem.obj(self.X))
-                problem.states.append(state)
+                problem.states.append(list(state))
+                problem.gvals.append(list(self.constr_vals).copy())
                 self.fvals.append(problem.obj(self.X))
                 self.xvals.append(self.X)
 
