@@ -1,6 +1,124 @@
-
 import numpy as np
-from .optsolver import OptSolver
+from src.optimization.solvers import OptSolver
+from ortools.linear_solver import pywraplp
+from src.optimization.structopt import DiscreteVariable
+
+
+class VNS(OptSolver):
+    
+    def __init__(self, step_length=1, stochastic=False):
+        super().__init__()
+        self.step_length = step_length
+        self.initial_step_length = step_length
+        self.stochastic = stochastic
+        
+    def take_action(self, linearized=[]):
+        """
+        Defines action to take
+        """
+        if len(linearized):
+            A, B, df, fx = linearized
+        else:
+            # Linearize problem
+            A, B, df, fx = self.problem.linearize(self.X.copy())
+        
+        if self.problem.prob_type == 'discrete':
+            # Create CBC solver
+            solver = pywraplp.Solver('MIP',
+                               pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
+        else:
+            solver = pywraplp.Solver('LP',
+                                 pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
+        # Number of constraints
+        n = A.shape[0]
+        # Number of variables
+        m = A.shape[1]
+
+        # Create continuous variables
+        x = {}
+        for i, var in enumerate(self.problem.vars):
+            if isinstance(var, DiscreteVariable):
+                idx = var.profiles.index(var.value)
+                idx_lb = max(var.lb, idx - self.step_length)
+                idx_ub = min(var.ub, idx + self.step_length)
+                lb = var.profiles[idx_lb]
+                ub = var.profiles[idx_ub]
+            else:
+                # This can be made into instance variable
+                steps = 10
+                step_length = (var.ub - var.lb) / steps * self.step_length
+                lb, ub = var.value + np.array([-step_length, step_length])
+                
+            x[i] = solver.NumVar(lb,
+                                    ub,
+                                     str(var.target['property']) + str(i))
+        # Linear Constraints
+        # Ax <= B
+        for i in range(n):
+            solver.Add(solver.Sum([A[i, j] * x[j]
+                                           for j in range(m)]) <= B[i])
+
+        
+        # Create binary variables
+        discrete_vars = [var for var in
+                         self.problem.vars if isinstance(var, DiscreteVariable)]
+        y = {}
+        for i, var in enumerate(discrete_vars):
+            for j in range(var.ub):
+                y[i, j] = solver.BoolVar(f'y{i},{j}')
+
+        # Create binary constraints
+        for i, var in enumerate(discrete_vars):
+            # Binary constraint
+            # sum(bin_vars) == 1
+            solver.Add(solver.Sum([y[i, j]
+                                           for j in range(var.ub)]) == 1)
+            # Binary property constraint
+            # Ai == sum(A[i][bin_idx])
+            solver.Add(solver.Sum([y[i, j] * var.profiles[j]
+                                           for j in range(var.ub)]) == x[i])
+
+        # Objective
+        solver.Minimize(solver.Sum(df[i] * x[i] for i in range(m)))
+
+        # Solve
+        sol = solver.Solve()
+
+        # If solution is infeasible
+        if sol == 2:
+            print("Expanding search space!")
+            self.step_length += 1
+            return self.take_action(linearized=[A, B, df, fx])
+
+        else:
+            X = [j for i, var in enumerate(discrete_vars)
+                 for j in range(var.ub) if y[i, j].solution_value() == 1.0]
+    
+            for i in range(len(X), len(x)):
+                X.append(x[i].solution_value())
+    
+            X = np.asarray(X)
+            return X - self.X
+    
+    
+    def step(self, action):
+        """
+        Takes step
+        """
+        # Reset step_length
+        self.step_length = self.initial_step_length
+        if self.stochastic:
+            p = np.random.choice([-1,0,1], len(action), p=[0.1, 0.8, 0.1])
+            action += p
+            
+        self.X += action
+        for i in range(len(self.X)):
+            self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
+                                self.problem.vars[i].ub)
+
+
+        return self.X.copy(), 1, False, 'INFO'
+
 
 
 class DiscreteVNS(OptSolver):
@@ -146,3 +264,21 @@ class DiscreteVNS(OptSolver):
         print("TIME: ", time.process_time(), " s")
         print("X: ", list(self.X))
         print(f"Weight: {problem.obj(self.X):2f}")
+        
+
+        
+if __name__ == '__main__':
+    from src.optimization.benchmarks import *
+    
+    problem = FiftyTwoBarTruss('discrete')
+    solver = VNS(step_length=1, stochastic=True)
+    x0 = [var.ub -30 for var in problem.vars]
+    fopt, xopt = solver.solve(problem, maxiter=50, x0=x0)
+    print("XOPT: ", xopt)
+    problem(xopt)
+    
+    
+    
+    
+    
+    
