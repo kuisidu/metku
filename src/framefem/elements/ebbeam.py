@@ -290,6 +290,11 @@ class EBBeam3D(Element):
 
         :vartype bending_moment: list
         :vartype shear_force: list
+        
+        TODO:
+            equivalent_nodal_loads
+            internal_forces
+            test all functions
     """
     
     def __init__(self, n1, n2, nref, section, material):
