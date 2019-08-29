@@ -1,15 +1,16 @@
 import csv
 import os
+from datetime import datetime
+
 import matplotlib.pyplot as plt
 import numpy as np
-
 from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import MaxNLocator
-from datetime import datetime
+
+from src.optimization.structopt import DiscreteVariable
 
 
 class ResultExporter:
-
 
     def __init__(self, problem, solver):
 
@@ -25,7 +26,7 @@ class ResultExporter:
 
         if not name:
             time = datetime.now().strftime('_%Y_%m_%d')
-            name = type(self.solver).__name__ + '_'\
+            name = type(self.solver).__name__ + '_' \
                    + self.problem.name + time + '.gif'
         elif '.gif' not in name:
             name += '.gif'
@@ -59,10 +60,8 @@ class ResultExporter:
                              interval=50,
                              repeat_delay=200)
 
-        #plt.show()
-        #anim.save(name)
-
-
+        # plt.show()
+        # anim.save(name)
 
     def iteration_jpg(self, name="", fopt=None):
         """
@@ -93,10 +92,8 @@ class ResultExporter:
         elif num_iters <= 100:
             plt.xticks(np.arange(0, num_iters, 5))
 
-
         plt.savefig(name + '.jpg')
         plt.show()
-
 
     def to_csv(self, name=""):
         """
@@ -108,16 +105,21 @@ class ResultExporter:
         """
         if not name:
             time = datetime.now().strftime('_%Y_%m_%d')
-            name = type(self.solver).__name__ + '_' + self.problem.name + time + '.csv'
+            name = type(
+                self.solver).__name__ + '_' + self.problem.name + time + '.csv'
 
         # Optimal variable values
-        xopt = [round(var.value, 2) for var in self.problem.vars]
+        xopt = self.solver.best_x
 
         # Optimal result
-        fopt = self.problem.obj(xopt)
+        if np.any(xopt):
+            fopt = self.problem.obj(xopt)
 
-        # Constraints' values
-        con_vals = self.problem.eval_cons(xopt)
+            # Constraints' values
+            con_vals = list(self.problem.eval_cons(xopt))
+        else:
+            fopt = None
+            con_vals = None
 
         # Initial point, x0
         x0 = [round(var, 2) for var in self.problem.x0]
@@ -136,19 +138,67 @@ class ResultExporter:
         # Function values
         fvals = self.problem.fvals
 
-        results = {'f*': fopt,
-                   'x*': xopt,
-                   'x0': x0,
-                   'Iterations': iters,
-                   'FEM Analyses': fem_analyses
-                   }
+        # Constraint values
+        gvals = self.problem.gvals
+
+        # Upper and lower boundaries
+        bounds = [(var.lb, var.ub) for var in self.problem.vars]
+
+        # Targets
+        targets = [var.target['property'] for var in self.problem.vars]
+
+        # Objects
+        objects = [var.target['objects'] for var in self.problem.vars]
+        for i, obj in enumerate(objects):
+            for j, mem in enumerate(obj):
+                try:
+                    objects[i][j] = mem.mem_id
+                except:
+                    objects[i][j] = mem.nid
+
+        # Profiles and values for each discrete variable
+        disc_vars = [var for var in self.problem.vars
+                     if isinstance(var, DiscreteVariable)]
+
+        profiles = [var.profiles for var in disc_vars]
+        values = [var.values for var in disc_vars]
+
+        # Solver parameters
+        params = list(self.solver.__dict__.items())
+        excluded_params = ['X',
+                           'problem',
+                           'fvals',
+                           'constr_vals',
+                           'xvals']
+        params = [param for param in params if param[0] not in excluded_params]
+
+        results = {
+            'Feasible': self.problem.feasible,
+            'f*': fopt,
+            'x*': xopt,
+            'g*': con_vals,
+            'x0': x0,
+            'Iterations': iters,
+            'FEM Analyses': fem_analyses,
+            'States': states,
+            'Objective Values': fvals,
+            'Constraint Values': gvals,
+            'Variable boundaries': bounds,
+            'Variable targets': targets,
+            'Variable objects': objects,
+            'Discrete variable profiles': profiles,
+            'Discrete variable values': values
+        }
+
+        for param in params:
+            results[param[0]] = param[1]
 
         write_header = not os.path.exists(name)
 
         with open(name, 'a', newline='') as csvfile:
             fieldnames = list(results.keys())
 
-            writer = csv.DictWriter(csvfile, fieldnames)
+            writer = csv.DictWriter(csvfile, fieldnames, dialect='excel')
             if write_header:
                 writer.writeheader()
             writer.writerow(results)

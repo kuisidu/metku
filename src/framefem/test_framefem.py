@@ -1,7 +1,7 @@
 import unittest
 
-from framefem import FrameFEM, BeamSection, LineLoad, PointLoad
-from framefem.elements import EBBeam
+from .framefem import FrameFEM, BeamSection, LineLoad, PointLoad
+from .elements import EBBeam
 
 
 class TestFrameFEM(unittest.TestCase):
@@ -17,7 +17,7 @@ class TestFrameFEM(unittest.TestCase):
         fem = FrameFEM()
         fem.add_node(0, 0)
         node = fem.nodes[0]
-        self.assertEqual([0, 0], list(node.x))
+        self.assertEqual([0, 0], [node.x, node.y])
 
     def test_linear_statics(self):
         fem = FrameFEM()

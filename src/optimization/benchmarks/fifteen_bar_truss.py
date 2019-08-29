@@ -17,12 +17,13 @@ FIFTEEN_BAR_AREAS_mm2 = [71.613, 90.968, 112.258, 141.935, 174.193, 185.161,
                          6999.986, 8580.628, 9219.336, 11077.397, 12374.169]
 
 
+
 class FifteenBarTruss(OptimizationProblem):
     # Problem parameters
     L = 3048  # mm
-    F = 444890  # N # 1e5 lb
+    F = 44537 # N # 1e5 lb
     E = 68950  # MPa # 10e7 psi
-    rho = 2768e-9  # kg/mm3
+    rho = 2720e-9  # kg/mm3
 
     properties = {
         'L': str(L) + " mm",
@@ -38,12 +39,12 @@ class FifteenBarTruss(OptimizationProblem):
     def __init__(self, prob_type='discrete'):
         super().__init__(name='FifteenBarTruss')
         self.prob_type = prob_type
-        self.structure = self._create_structure()
-        self._create_vars(profiles=FIFTEEN_BAR_AREAS_mm2)
+        self.structure = self.create_structure()
+        self.create_variables(profiles=FIFTEEN_BAR_AREAS_mm2)
         self.create_constraints()
-        self._create_objective()
+        self.create_objective()
 
-    def _create_objective(self):
+    def create_objective(self):
 
         def objective(X):
             self.substitute_variables(X)
@@ -55,12 +56,13 @@ class FifteenBarTruss(OptimizationProblem):
 
         self.obj = objective
 
-    def _create_vars(self, profiles=[0, 1e6]):
+    def create_variables(self, profiles=[0, 1e6]):
         """
         Creates variables used in optimization
 
         Appends each variable to 'vars' 'list from where they can be accessed
         """
+        self.vars = []
         # Member area variables
         for i, mem in enumerate(self.structure.members.values()):
             name = 'A' + str(i + 1)
@@ -92,13 +94,14 @@ class FifteenBarTruss(OptimizationProblem):
         y_nodes = [self.structure.f.nodes[i] for i in [1, 2, 3, 5, 6, 7]]
 
         x2 = Variable('x2',
-                      lb=self.L / 2,
-                      ub=self.L * 3 / 2,
+                      lb=254,
+                      ub=3556,
                       target={"property": "x",
                               "objects": [x_nodes[0], x_nodes[2]]})
+
         x3 = Variable('x3',
-                      lb=self.L * 3 / 2,
-                      ub=self.L * 5 / 2,
+                      lb=5588,
+                      ub=6604,
                       target={"property": "x",
                               "objects": [x_nodes[1], x_nodes[3]]})
 
@@ -107,13 +110,14 @@ class FifteenBarTruss(OptimizationProblem):
                       ub=3556,
                       target={"property": "y",
                               "objects": [x_nodes[0]]})
+
         y3 = Variable('y3',
                       lb=2540,
                       ub=3556,
                       target={"property": "y",
                               "objects": [y_nodes[1]]})
         y4 = Variable('y4',
-                      lb=1270,
+                      lb=1525,
                       ub=2286,
                       target={"property": "y",
                               "objects": [y_nodes[2]]})
@@ -135,7 +139,7 @@ class FifteenBarTruss(OptimizationProblem):
 
         self.vars.extend([x2, x3, y2, y3, y4, y6, y7, y8])
 
-    def _create_structure(self):
+    def create_structure(self):
 
         frame = Frame2D(num_elements=1)
         # Nodes
@@ -236,23 +240,25 @@ class FifteenBarTruss(OptimizationProblem):
                                                       parent=self)
                     tension_con.fea_required = True
 
-                    buckl_con = NonLinearConstraint(con_fun=buckling_fun,
-                                                   name='Buckling ' + str(
-                                                       i),
-                                                   parent=self)
-                    buckl_con.fea_required = True
+                    # buckl_con = NonLinearConstraint(con_fun=buckling_fun,
+                    #                                name='Buckling ' + str(
+                    #                                    i),
+                    #                                parent=self)
+                    # buckl_con.fea_required = True
 
                     self.cons.append(comp_con)
                     self.cons.append(tension_con)
-                    self.cons.append(buckl_con)
+                    # self.cons.append(buckl_con)
 
 
 
 if __name__ == '__main__':
-    truss = FifteenBarTruss(prob_type='discrete')
-    truss.structure.plot()
+    from src.optimization.solvers import *
+    problem = FifteenBarTruss(prob_type='discrete')
     #solver = GA(popsize=10)
-    solver = DiscreteVNS(step_length=2)
-    solver.solve(truss,maxiter=10000, maxtime=120, subset_size=10)
+    solver = MISLP(move_limits=[0.5, 5], gamma=1e-3)
+    x0 = [var.ub for var in problem.vars]
 
-    truss.structure.plot()
+    solver.solve(problem, x0=x0, maxiter=200, log=True)
+    problem(solver.X)
+    problem.structure.plot()
