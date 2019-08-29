@@ -30,7 +30,7 @@ class WIColumn(OptimizationProblem):
                     True .. rajoitusehto huomioidaan
                     False .. rajoitusehtoa ei huomioida
     """
-    def __init__(self, Lpi=6000, Fx=800, Fy=-300e3, Qx=3.9, Qy=0, Mz=0, lcr=2,
+    def __init__(self, Lpi=6000, Fx=800, Fy=-280e3, Qx=5.85, Qy=0, Mz=0, lcr=2,
                  top_flange_class=2, bottom_flange_class=2, web_class=2,
                  symmetry="dual", buckling_z=True, LT_buckling=False):
         super().__init__("WIColumn")
@@ -424,8 +424,21 @@ class WIColumn(OptimizationProblem):
 if __name__ == "__main__":
     from src.optimization.solvers import *
     problem = WIColumn()
-    x0 = [500, 20, 300, 20]
-    solver = SLP(step_length=3)
-    solver.solve(problem, maxiter=40000, maxtime=30, x0=x0)
-    problem(solver.X)
+    x0 = [800, 50, 500, 50]
+    solver = SLP(move_limits=[0.9, 6])
+    solver.solve(problem, maxiter=50000, maxtime=30, x0=x0)
+    problem(solver.X, prec=5)
+    from src.optimization.result_exporter import *
+    # ResultExporter(problem, solver).to_csv()
+
+    # solver = SLSQP()
+    # solver.solve(problem, maxiter=50000, x0=x0)
+    # problem(solver.X)
+
+    # r0 = problem.solve("slsqp", x0=x0)
+    # print(r0)
+
+    # print(problem.structure.f.elements[0].bending_moment)
+    # print(problem.structure.f.elements[0].axial_force)
+    # print(problem.structure.f.loads[1].qval)
 

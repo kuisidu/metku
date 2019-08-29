@@ -17,43 +17,43 @@ class ColumnCalculation(WIColumn):
     L_list = [24000, 30000, 36000]  # mm
     Lpi_list = [6000, 8000, 10000]  # mm
     c = 6000  # mm
-    lcr_list = [2, 2]
+    lcr_list = [2, 0.7]
     buckling_z = [True, False]
     LT_buckling = [True, False]
     cross_section_class_list = [2, 3]
 
+    Mz = 0
     Qy = 0
     Qx = q_wind * c
 
-    for LT in LT_buckling:
-        for buck_z in buckling_z:
-            for cross_section_class in cross_section_class_list:
-                for L in L_list:
-                    Fy = (1.15 * (g_truss + g_roof * c)
-                          + (1.5 * q_snow * c)) * L / 2
+    # for LT in LT_buckling:
+    for buck_z in buckling_z:
+        for cross_section_class in cross_section_class_list:
+            for L in L_list:
+                Fy = (1.15 * (g_truss + g_roof * c)
+                      + (1.5 * q_snow * c)) * L / 2
 
-                    for Lpi in Lpi_list:
-                        phi_0 = 1 / 200
-                        m = 2
-                        alpha_m = math.sqrt(0.5 * (1 + 1 / m))
-                        alpha_h = max(2 / 3, min(2 / math.sqrt(Lpi), 1))
-                        phi = phi_0 * alpha_m * alpha_h
-                        Fx = phi * Fy
+                for Lpi in Lpi_list:
+                    phi_0 = 1 / 200
+                    m = 2
+                    alpha_m = math.sqrt(0.5 * (1 + 1 / m))
+                    alpha_h = max(2 / 3, min(2 / math.sqrt(Lpi), 1))
+                    phi = phi_0 * alpha_m * alpha_h
+                    Fx = phi * Fy
 
-                        for lcr in lcr_list:
-                            problem = WIColumn(
-                                Fy, Fx, Qx, lcr, LT_buckling=LT,
-                                buckling_z=buck_z,
-                                top_flange_class=cross_section_class,
-                                bottom_flange_class=cross_section_class,
-                                web_class=cross_section_class)
-                            x0 = [500, 20, 300, 20]
-                            print("Debug")
+                    for lcr in lcr_list:
+                        # annettava syöte, jos kiepahduss mukana LT_buckling=LT
+                        problem = WIColumn(
+                            Lpi, Fx, Fy, Qx, Qy, Mz, lcr,
+                            top_flange_class=cross_section_class,
+                            bottom_flange_class=cross_section_class,
+                            web_class=cross_section_class, symmetry="dual",
+                            buckling_z=buck_z, LT_buckling=False)
+                        x0 = [800, 50, 500, 50]
+                        solver = SLP(move_limits=[0.9, 6])
+                        solver.solve(problem, maxiter=500, maxtime=20, x0=x0)
+                        problem(solver.X, prec=5)
 
-                            solver = SLP(step_length=3)
-                            solver.solve(problem, maxiter=10, maxtime=10,
-                                         x0=x0)
-                            #  problem(solver.X)
-                            #  wi.cross_section.draw()
+                        #  wi.cross_section.draw()
 
 

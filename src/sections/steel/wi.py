@@ -67,7 +67,7 @@ class WISection(SteelSection):
 
         """ Determine buckling curve: EN 1993-1-1, Table 6.2 """        
         self.imp_factor = [en1993_1_1.buckling_curve["b"],
-                           en1993_1_1.buckling_curve["b"]]
+                           en1993_1_1.buckling_curve["c"]]
             
     def __getattribute__(self, name):
         """ override the attribute access for those attributes
@@ -314,7 +314,7 @@ class WISection(SteelSection):
                 
         # with respect to z axis
         Iy = 1/12*self.bb*self.tb**3 + (zel-self.zb)**2*self.Ab + \
-                1/12*self.tw*self.h**3 + (zel-self.zw)**2*self.Aw + \
+                1/12*self.tw*self.hw**3 + (zel-self.zw)**2*self.Aw + \
                 1/12*self.bt*self.tt**3 + (zel-self.zt)**2*self.At
 
         # with respect to z axis        
@@ -383,7 +383,15 @@ class WISection(SteelSection):
         """ Torsional constant """
 
         It = 1/3 * (self.bt * pow(self.tt, 3) + self.bb *
-                    pow(self.tb, 3) + self.h * pow(self.tw, 3))
+                    pow(self.tb, 3) + self.hw * pow(self.tw, 3))
+
+        # Tarkempi kaava (hidastaa laskentaa) ja lisätermit lähellä arvoa 1
+        # It = 1/3 * (self.bt * pow(self.tt, 3) * (1 - 0.63 * (
+        #         self.tt / self.bt) * (1 - pow(self.tt, 4) / (12 * pow(
+        #             self.bt, 4)))) + self.bb * pow(self.tb, 3) * (1 - 0.63 * (
+        #                 self.tb / self.bb) * (1 - pow(self.tb, 4) / (12 * pow(
+        #                     self.bb, 4)))) + self.hw * pow(self.tw, 3))
+
         return It
 
     def warping_constant(self):
