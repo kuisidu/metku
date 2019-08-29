@@ -7,9 +7,14 @@ Rectangular hollow sections
 @author: kmela
 """
 import math
-from src.eurocodes.en1993 import en1993_1_1, constants
-from src.sections.steel.steel_section import SteelSection
-from src.sections.steel.catalogue import profile
+try:
+    from src.eurocodes.en1993 import en1993_1_1, constants
+    from src.sections.steel.steel_section import SteelSection
+    from src.sections.steel.catalogue import profile
+except:
+    from eurocodes.en1993 import en1993_1_1, constants
+    from sections.steel.steel_section import SteelSection
+    from sections.steel.catalogue import profile
 
 
 class ISection(SteelSection):

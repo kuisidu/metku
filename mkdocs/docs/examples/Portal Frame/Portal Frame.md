@@ -1,4 +1,3 @@
-# Frame2D
 ## Portal Frame Example
 
 ### Import dependencies

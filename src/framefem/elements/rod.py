@@ -9,7 +9,11 @@ Rod element, for pin-jointed members with only axial forces
 
 import numpy as np
 
-from src.framefem import Element
+try:
+    from src.framefem import Element
+except:
+    from framefem import Element
+        
 
 
 class Rod(Element):
@@ -17,26 +21,37 @@ class Rod(Element):
 
     def __init__(self, n1, n2, section, material):
         Element.__init__(self, n1, n2, section, material)
+        
+        # Dimension of the element
+        self.dim = len(n1.coord)
 
     def transformation_matrix(self):
         """ From local to global coordinates """
         c = self.direction_cosines()
-        L1 = np.hstack((c, np.zeros(2)))
-        L2 = np.hstack((np.zeros(2), c))
+        L1 = np.hstack((c, np.zeros(len(c))))
+        L2 = np.hstack((np.zeros(len(c)), c))
         L = np.vstack((L1, L2))
         return L
 
     def global_dofs(self):
         """ Get numbering of element global degrees of freedom """
-        return self.nodes[0].dofs[:2] + self.nodes[1].dofs[:2]
+        d = self.dim            
+        return self.nodes[0].dofs[:d] + self.nodes[1].dofs[:d]
 
 
     def init_dofs(self):
         """ For truss members there are no rotational degrees of freedom
             so these can be set to be neglected (=1)
         """
-        for n in self.nodes:
-            n.dofs[2] = 1
+        for n in self.nodes:            
+            if self.dim == 2:
+                n.dofs[2] = 1
+            else:
+                n.dofs[3] =  1
+                n.dofs[4] =  1
+                n.dofs[5] =  1
+            
+            
 
     def local_stiffness_matrix(self):
         """ Stiffness matrix in local coordinates """
@@ -62,6 +77,8 @@ class Rod(Element):
     def local_geometric_stiffness_matrix(self):
         """ Geometric stiffness matrix in local coordinates
             From: Cook et. al 1989, Section 14.2
+            
+            TODO: Modify for 3D!
         """
         P = self.axial_force[1]
         Le = self.length()
@@ -75,6 +92,8 @@ class Rod(Element):
         """ Generate first the transformation matrix
             that takes into account two DOFs per node
             From: Cook et. al (1989), Section 7.5
+            
+            TODO: Modify for 3D!
         """
         c = self.direction_cosines()
         L = np.array([[c, 0, 0], [-c[1], c[0], 0, 0], [0, 0, c], [0, 0, -c[1], c[0]]])
@@ -88,6 +107,8 @@ class Rod(Element):
     def equivalent_nodal_loads(self, q):
         """ Equivalent nodal loads for load in vector q
             Ignore bending moment
+            
+            TODO: Modify for 3D!
         """
 
         fglob = np.zeros(4)
@@ -117,4 +138,5 @@ class Rod(Element):
             that nodal displacements are available.
         """
 
-        return np.hstack((self.nodes[0].u[:2], self.nodes[1].u[:2]))
+        d = self.dim
+        return np.hstack((self.nodes[0].u[:d], self.nodes[1].u[:d]))

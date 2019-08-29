@@ -4,7 +4,10 @@ import math
 
 import numpy as np
 
-from src.eurocodes.en1993 import constants
+try:
+    from src.eurocodes.en1993 import constants
+except:
+    from eurocodes.en1993 import constants
 
 
 class SteelMember:
@@ -21,7 +24,7 @@ class SteelMember:
 
     """
 
-    def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam"):
+    def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam", LT_buckling=False):
         """ Constructor
             
             profile -- member profile (of cross_section class)
@@ -58,6 +61,7 @@ class SteelMember:
         self.vzed = []
         self.ted = []
         self.loc = []
+        self.LT_B = LT_buckling
 
 
 
@@ -67,7 +71,8 @@ class SteelMember:
 
     @property
     def MbRd(self):
-        return self.LT_buckling_strength()
+        Mcr = self.mcrit()
+        return self.LT_buckling_strength(Mcr)
 
     def nsect(self):
         """ Number of sections """
@@ -122,8 +127,6 @@ class SteelMember:
         # print(slend)
         # p = 0.5*(1+np.array(self.profile.imp_factor)*(slend-0.2)+slend**2)
         # r = 1/(p+np.sqrt(p**2-slend**2))
-        
-    
 
         for i in range(len(slend)):
             p = 0.5 * (1 + self.profile.imp_factor[i] * (slend[i] - 0.2) + slend[i] ** 2)
@@ -134,8 +137,6 @@ class SteelMember:
                 print("NbRd,{0:1} = {1:4.2f}".format(i,NRd*r*1e-3))
                 
             NbRd.append(NRd * r)
-
-        
 
         # NbRd = self.profile.A*self.fy()*r;
         return NbRd
@@ -267,8 +268,71 @@ class SteelMember:
 
         return r
 
-    def check_beamcolumn(self, Cmy=0.9, class1or2=False):
+    def check_beamcolumn(self, Cmy=0.9):
         """ Verify stability for combined axial force and bending moment
+            LT_buckling -- kiepahdus
+                    True .. rajoitusehto huomioidaan
+                    False .. rajoitusehtoa ei huomioida
         """
         # find the largest compression force in the member
         NEd = np.min(np.array(self.ned).clip(max=0.0))
+
+        self.profile.Ned = NEd
+        cross_section_class = self.profile.section_class()
+
+        NRd = self.profile.A * self.fy()
+        NbRd = self.buckling_strength()
+
+        MyEd1 = np.max(np.array(self.myed))
+        MyEd2 = abs(np.min(np.array(self.myed)))
+        MyEd = max(MyEd1, MyEd2)
+        MzEd1 = np.max(np.array(self.mzed))
+        MzEd2 = abs(np.min(np.array(self.mzed)))
+        MzEd = max(MzEd1, MzEd2)
+        MRd = self.profile.MRd
+
+        slend = self.slenderness()
+        CmLT = 1  # Pitääkö käyttää jotakin kaavaa?
+
+        phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
+                slend[0] - 0.2) + slend[0] ** 2)
+        chi_y = min(1 / (phi_y + math.sqrt(phi_y ** 2 - slend[0] ** 2)), 1.0)
+
+        phi_z = 0.5 * (1 + self.profile.imp_factor[1] * (
+                slend[1] - 0.2) + slend[1] ** 2)
+        chi_z = min(1 / (phi_z + math.sqrt(phi_z ** 2 - slend[1] ** 2)), 1.0)
+
+        if cross_section_class <= 2:
+            if not self.LT_B:
+                kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
+                          Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
+                kzy = 0.6 * kyy
+
+            elif self.LT_B:
+                kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
+                          Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
+                if slend[1] < 0.4:
+                    kzy = min(0.6 + slend[1], 1 - (0.1 * slend[1] / (
+                            CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+                else:
+                    kzy = max(1 - (0.1 * slend[1] / (CmLT - 0.25)) * (
+                            NEd / (chi_z * NRd)),
+                            1 - (0.1 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+
+        elif cross_section_class > 2:
+            if not self.LT_B:
+                kyy = min(Cmy * (1 + 0.6 * slend[0] * (NEd / (chi_y * NRd))),
+                          Cmy * (1 + 0.6 * (NEd / (chi_y * NRd))))
+                kzy = 0.8 * kyy
+
+            elif self.LT_B:
+                kzy = max(1 - (0.05 * slend[1] / (CmLT - 0.25)) * (
+                            NEd / (chi_z * NRd)),
+                          1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+
+        com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd[0]
+        com_comp_bend_z = -NEd / NbRd[1] + kzy * MzEd / MRd[1]
+
+        com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
+
+        return com_comp_bend
