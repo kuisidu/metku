@@ -17,7 +17,7 @@ class MISLP(OptSolver):
         :return: action
         """
         # Linearize problem
-        A, B, df, fx = self.problem.linearize(self.X)
+        A, B, df, fx = self.problem.linearize(self.X.copy())
         # Create CBC solver
         CBC_solver = pywraplp.Solver('MISLP',
                            pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
@@ -30,7 +30,12 @@ class MISLP(OptSolver):
 
         # Create continuous variables
         x = {}
+        # Save discrete variables' indices to map binary variables to
+        # these relaxed variables
+        discrete_ids = []
         for i, var in enumerate(self.problem.vars):
+            if isinstance(var, DiscreteVariable):
+                discrete_ids.append(i)
             lb, ub = var.value * self.move_limits
             x[i] = CBC_solver.NumVar(lb,
                                      ub,
@@ -57,8 +62,9 @@ class MISLP(OptSolver):
                                            for j in range(var.ub)]) == 1)
             # Binary property constraint
             # Ai == sum(A[i][bin_idx])
+            idx = discrete_ids[i]
             CBC_solver.Add(CBC_solver.Sum([y[i, j] * var.profiles[j]
-                                           for j in range(var.ub)]) == x[i])
+                                           for j in range(var.ub)]) == x[idx])
 
         # Objective
         CBC_solver.Minimize(CBC_solver.Sum(df[i] * x[i] for i in range(m)))
@@ -68,6 +74,7 @@ class MISLP(OptSolver):
 
         X = [j for i, var in enumerate(discrete_vars)
              for j in range(var.ub) if y[i, j].solution_value() == 1.0]
+
 
         for i in range(len(X), len(x)):
             X.append(x[i].solution_value())
@@ -81,6 +88,7 @@ class MISLP(OptSolver):
         #         print(i, j, y[i,j].solution_value())
 
         X = np.asarray(X)
+
         return X - self.X
 
     def step(self, action):
@@ -95,23 +103,20 @@ class MISLP(OptSolver):
 
         return self.X.copy(), 1, False, 'INFO'
 
-    def solve(self, *args, **kwargs):
-        #if args[0].prob_type != 'discrete':
-        #    raise ValueError("MISLP only works for discrete problems")
-        super().solve(*args, **kwargs)
-
 if __name__ == '__main__':
     from src.optimization.benchmarks import *
     import matplotlib.pyplot as plt
 
     ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
     # [40  0 38 34  0  0 27 38 38  0] 2497.67
-    problem = TenBarTruss(prob_type='discrete')
-    solver = MISLP(move_limits=[0.1, 5], gamma=1e-2)
+    problem = FifteenBarTruss(prob_type='discrete')
+    solver = MISLP(move_limits=[0.5, 2], gamma=1e-3)
     x0 = [var.ub for var in problem.vars]
-    solver.solve(problem, x0=x0, maxiter=500, log=True)
+
+    solver.solve(problem, x0=x0, maxiter=200, log=True, verb=True)
     problem(solver.X)
 
-    plt.plot(solver.fvals)
-    plt.show()
+    # plt.plot(solver.fvals)
+    # plt.show()
+    problem.structure.plot()
     #problem(ten_bar_DLM)
