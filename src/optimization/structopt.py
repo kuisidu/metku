@@ -343,6 +343,8 @@ class OptimizationProblem:
         :param x:
         :return:
         """
+        import time
+        start = time.time()
         x = np.asarray(x)
         self.substitute_variables(x)
         fx = self.obj(x)
@@ -358,7 +360,10 @@ class OptimizationProblem:
                 prev_val = var.value
                 h = max(0.01 * abs(prev_val), 1e-4)
                 var.substitute(prev_val + h)
-                self.fea()
+                fea_start = time.time()
+                if self.structure:
+                    self.fea()
+                fea_end = time.time()
                 xh = [var.value for var in self.vars]
                 f_val = self.obj(xh)
                 a = self.eval_nonlin_cons(xh)
@@ -373,6 +378,9 @@ class OptimizationProblem:
             if isinstance(con, LinearConstraint):
                 A = np.vstack((A, con.a))
                 B = np.hstack((B, con.b))
+
+        end = time.time()
+        # print("Linearization took: ", end - start, " s")
 
         return A, B, df, fx
 
@@ -412,9 +420,11 @@ class OptimizationProblem:
         """ Call method evaluates the objective function and all constraints
             at x and returns their values
         """
+        self.substitute_variables(x)
         fx = self.obj(x)
         print("** {0} **".format(self.name))
         print(f'Solution is feasible: {self.feasible}')
+        print(f'X: {[round(val, prec) for val in x]}')
         if len(x) < 10:
             print("Variables:")
             print("----------")

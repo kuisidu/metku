@@ -103,7 +103,7 @@ class Frame2D:
     @property
     def L(self):
         x_coordinates = [mem.coordinates[0][0] for mem in self.members.values()]
-        x_coordinates.extend([mem.coordinates[0][0] for mem in self.members.values()])
+        x_coordinates.extend([mem.coordinates[1][0] for mem in self.members.values()])
         x_min = min(x_coordinates)
         x_max = max(x_coordinates)
         L = x_max - x_min
@@ -382,7 +382,6 @@ class Frame2D:
             self.is_calculated = True
             self.f.add_loadcase(supp_id=1, load_id=load_id)
             self.f.nodal_dofs()
-
         self.calculated = True
         self.f.linear_statics()
         self.calc_nodal_forces()
@@ -918,6 +917,14 @@ class Frame2D:
 
     def plot_loads(self):
         """ Plots loads
+
+            Point loads are blue arrows
+            Starting point is the given coordinate
+
+            Line loads are red arrows
+            Plots loads above given member
+
+            TODO: Load value plotting
         """
 
         for load in self.point_loads.values():
@@ -939,23 +946,27 @@ class Frame2D:
             if dx:
                 X = np.arange(x1, x2 + dx, dx)
             else:
-                X = np.ones(10) * x1
+                X = np.ones(11) * x1
             if dy:
                 Y = np.arange(y1, y2 + dy, dy)
             else:
-                Y = np.ones(10) * y1
+                Y = np.ones(11) * y1
             scl = max(self.L, self.H) * 8e-2
             q_scl = q2 / q1
             for x, y in zip(X, Y):
                 if lineload.direction == 'y':
                     # Moves arrows above member
                     y -= (np.sign(q1) * scl - scl * 2e-1)
-                    plt.arrow(x, y, 0, np.sign(q1) * scl,
+                    dx = 0
+                    dy = np.sign(q1) * scl
+                    plt.arrow(x, y, dx, dy,
                               head_width=scl * 1e-1, ec='r',
                               head_starts_at_zero=False)
                 else:
                     x -= (np.sign(q1) * scl - scl * 2e-1)
-                    plt.arrow(x, y, np.sign(q1) * scl, 0,
+                    dx = np.sign(q1) * scl
+                    dy = 0
+                    plt.arrow(x, y, dx, dy,
                               head_width=scl * 1e-1, ec='r')
 
             #plt.plot([c0[0], c1[0]], [c0[1], c1[1]], c='b')
@@ -1118,9 +1129,9 @@ class Frame2D:
         if self.self_weight == False:
             self.self_weight = True
             for member in self.members.values():
-                member.add_self_weight()
-            self.add_loads('self_weight')
-            self.generate_frame()
+                member.add_self_weight(self)
+            #self.add_loads('self_weight')
+            #self.generate_frame()
         else:
             self.remove_self_weight()
             self.add_self_weight()
@@ -1656,6 +1667,7 @@ class FrameMember:
         :param coord: array of two float values, node's coordinates
         """
         if coord not in self.nodal_coordinates and self.point_intersection(coord):
+        #if coord not in self.added_coordinates and self.point_intersection(coord):
             self.added_coordinates.append(coord)
             self.nodal_coordinates.append(coord)
             self.nodal_coordinates.sort()
@@ -1876,17 +1888,17 @@ class FrameMember:
         except ValueError:
             print("Error! Calculate results first.")
 
-    def add_self_weight(self):
+    def add_self_weight(self, frame):
         """ Adds self-weight to the member's loads
         """
         if not self.self_weight:
             self.self_weight = True
             load_id = "self_weight"
-            # self.weight is kg's, multiplier changes it to kN's
-            multiplier = 1e-2
+            # self.weight is kg's, multiplier changes it to N's
+            multiplier = 10
             value = -1 * multiplier * self.weight / self.length
             direction = 'y'
-            self.add_line_load(load_id, value, direction)
+            frame.add(LineLoad(self, [value, value], direction))
 
     def remove_self_weight(self):
         """ Removes self-weight from loads

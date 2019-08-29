@@ -24,12 +24,9 @@ class SLP(OptSolver):
 
         A, B, df, fx = self.problem.linearize(self.X)
 
-        #bounds = [(x -self.step_length, x + self.step_length) for x in self.X]
-
-        #res = linprog(df, A, B, bounds=bounds)
-
-
-
+        # bounds = [x*self.move_limits for x in self.X]
+        #
+        # res = linprog(df, A, B, bounds=bounds)
 
         solver = pywraplp.Solver('SLP',
                                  pywraplp.Solver.CLP_LINEAR_PROGRAMMING)
@@ -59,7 +56,7 @@ class SLP(OptSolver):
         # If solution if infeasible
         if sol == 2:
             print("Solution found was infeasible!")
-            self.move_limits += np.array([-self.gamma, 0.3])
+            self.move_limits += np.array([-self.gamma, self.gamma])
             # Return something != 0, otherwise iteration will
             # stop because two consecutive iterations produce
             # too similar results
@@ -74,7 +71,7 @@ class SLP(OptSolver):
             X = np.asarray(X)
 
             return X - self.X
-            #return res.x - self.X
+        # return res.x - self.X
 
     def step(self, action):
 
@@ -92,22 +89,18 @@ if __name__ == '__main__':
 
     problem = FifteenBarTruss(prob_type='continuous')
     x0 = [var.ub for var in problem.vars]
-    solver = SLP(move_limits=[0.75, 3], gamma=1e-3)
-    print(solver.__dict__.items())
-    # solver.solve(problem, maxiter=100, log=True)
-    # problem(solver.X)
-    #
-    # problem.structure.plot()
-    #
-    # import matplotlib.pyplot as plt
-    #
-    # plt.plot(solver.fvals)
-    # plt.show()
-
-
-    #problem.structure.plot_normal_force()
+    solver = SLP(move_limits=[0.85, 5], gamma=1e-3)
+    solver.solve(problem, x0=x0, maxiter=100, log=True, verb=True)
+    problem(solver.X)
+    problem.structure.plot()
+    # #
+    # # import matplotlib.pyplot as plt
+    # #
+    # # plt.plot(solver.fvals)
+    # # plt.show()
 
     # problem = OptimizationProblem("Quadratic Problem")
+    # problem.prob_type = 'continuous'
     # problem.obj = lambda x: x[0] ** 2 + x[1] ** 2
     # var1 = Variable("X1", 0, 5)
     # var2 = Variable("X2", 0, 5)
@@ -115,6 +108,7 @@ if __name__ == '__main__':
     # con1 = NonLinearConstraint(lambda x: x[0] ** 2 / 20 - x[1] + 1)
     # con2 = NonLinearConstraint(lambda x: x[1] ** 2 / 20 - x[0] + 1)
     # problem.add_constraints([con1, con2])
-    # solver = SLP(step_length=1)
-    # solver.solve(problem, maxiter=30)
+    # solver = SLP()
+    # x0 = [0.1, 0.1]
+    # solver.solve(problem, x0=x0, maxiter=30)
 

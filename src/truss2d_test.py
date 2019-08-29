@@ -779,17 +779,40 @@ def robot_test_3D():
                         s=s,
                         L=L1 + L2,
                         stiff_truss=stiff_truss)
+
+
     
 if __name__ == '__main__':
     #truss_test()
     #frame_truss()
-    portal_frame()
+    #portal_frame()
     #frame_test()
     #simple_truss()
     #optimization_test()
     #truss_column_test()
     #strength_test()
     #robot_test_3D()
+
+    L1 = 5000
+    H0 = 5000
+    H1 = 1000
+    H2 = 1500
+    n = 16
+    frame = Frame2D(simple=[1,1, 5000, 5000], supports='fixed', beams=False)
+
+    truss = Truss2D(simple={'H0': H0,
+                            'H1': H1,
+                            'H2': H2,
+                            'L1': L1/2,
+                            'n': n})
+    frame.add(truss)
+    frame.generate()
+    frame.plot()
+
+
+
+
+
 
 """
 truss = Truss2D(num_elements=1)

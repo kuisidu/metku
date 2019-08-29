@@ -193,8 +193,7 @@ class TenBarTruss(OptimizationProblem):
     def create_objective(self):
 
         def objective(X):
-            if np.any(self.X != X):
-                self.substitute_variables(X)
+            self.substitute_variables(X)
             weight = 0
             for mem in self.structure.members.values():
                 weight += self.rho * mem.A * mem.length

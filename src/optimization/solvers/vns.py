@@ -6,21 +6,29 @@ from src.optimization.structopt import DiscreteVariable
 
 class VNS(OptSolver):
     
-    def __init__(self, step_length=1, stochastic=False):
+    def __init__(self, step_length=1, stochastic=False, stoch_vals=[-1, 0, 1],
+                 stoch_prob=[0.05, 0.9, 0.05]):
         super().__init__()
         self.step_length = step_length
         self.initial_step_length = step_length
         self.stochastic = stochastic
+        self.stoch_vals = stoch_vals
+        self.stoch_prob = stoch_prob
+        self.temp_X = np.array([])
+        if sum(stoch_prob) != 1:
+            raise ValueError(f"Sum of stoch_prob must be 1.0 !")
         
-    def take_action(self, linearized=[]):
+    def take_action(self, linearized=[], X=[]):
         """
         Defines action to take
         """
         if len(linearized):
             A, B, df, fx = linearized
         else:
+            if not len(X):
+                X = self.X
             # Linearize problem
-            A, B, df, fx = self.problem.linearize(self.X.copy())
+            A, B, df, fx = self.problem.linearize(X)
         
         if self.problem.prob_type == 'discrete':
             # Create CBC solver
@@ -45,7 +53,7 @@ class VNS(OptSolver):
                 ub = var.profiles[idx_ub]
             else:
                 # This can be made into instance variable
-                steps = 10
+                steps = 100
                 step_length = (var.ub - var.lb) / steps * self.step_length
                 lb, ub = var.value + np.array([-step_length, step_length])
                 
@@ -98,6 +106,7 @@ class VNS(OptSolver):
                 X.append(x[i].solution_value())
     
             X = np.asarray(X)
+
             return X - self.X
     
     
@@ -107,18 +116,21 @@ class VNS(OptSolver):
         """
         # Reset step_length
         self.step_length = self.initial_step_length
+        # Stochastic push
         if self.stochastic:
-            p = np.random.choice([-1,0,1], len(action), p=[0.1, 0.8, 0.1])
+            p = np.random.choice(self.stoch_vals,
+                                 len(action),
+                                 p=self.stoch_prob)
             action += p
-            
+
+        # Take step
         self.X += action
+
         for i in range(len(self.X)):
             self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
                                 self.problem.vars[i].ub)
 
-
         return self.X.copy(), 1, False, 'INFO'
-
 
 
 class DiscreteVNS(OptSolver):
@@ -270,15 +282,9 @@ class DiscreteVNS(OptSolver):
 if __name__ == '__main__':
     from src.optimization.benchmarks import *
     
-    problem = FiftyTwoBarTruss('discrete')
-    solver = VNS(step_length=1, stochastic=True)
-    x0 = [var.ub -30 for var in problem.vars]
-    fopt, xopt = solver.solve(problem, maxiter=50, x0=x0)
-    print("XOPT: ", xopt)
+    problem = FifteenBarTruss('continuous')
+    solver = VNS(step_length=1, stochastic=False, stoch_prob=[0.05, 0.9, 0.05])
+    x0 = [var.ub for var in problem.vars]
+    fopt, xopt = solver.solve(problem, maxiter=300, x0=x0, verb=True)
     problem(xopt)
-    
-    
-    
-    
-    
-    
+    problem.structure.plot()

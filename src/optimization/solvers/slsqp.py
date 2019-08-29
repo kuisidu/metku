@@ -95,7 +95,8 @@ class SLSQP(OptSolver):
                 x0.append(var.ub)# * np.random.uniform())
 
         options = {'maxiter': maxiter,
-                   'disp': True}
+                   'disp': True,
+                   'iprint': 2}
 
         constraints = []
 
@@ -110,12 +111,11 @@ class SLSQP(OptSolver):
 
         out = minimize(self.problem.obj,
                         x0,
-                        method='trust-constr',
+                        method='slsqp',
                         bounds=bounds,
                         constraints=constraints,
                         options=options)
         print(out)
-        problem(out.x)
         return out.x, out.fun
 
 class COBYLA(SLSQP):
@@ -161,5 +161,17 @@ class COBYLA(SLSQP):
                         method='COBYLA',
                         constraints=constraints,
                         options=options)
-        print(out)
+        #print(out)
         return out
+
+
+if __name__ == '__main__':
+    from src.optimization.benchmarks import *
+
+    problem = TenBarTruss('continuous')
+    solver = SLSQP()
+    xopt, fopt = solver.solve(problem, maxiter=10)
+
+    problem(xopt)
+
+

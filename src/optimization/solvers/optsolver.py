@@ -20,6 +20,8 @@ class OptSolver:
         self.problem = None
         self.fvals = []
         self.xvals = []
+        self.best_f = np.inf
+        self.best_x = None
 
     def calc_constraints(self, x=[]):
         """
@@ -103,7 +105,7 @@ class OptSolver:
 
 
     def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=False,
-              min_diff=1e-2):
+              min_diff=1e-2, verb=False):
         """
         Solves given problem
 
@@ -138,6 +140,7 @@ class OptSolver:
         # Start iteration
         for i in range(maxiter):
             # Check time
+            start = time.time()
             if time.process_time() >= maxtime or done:
                 break
             # Save previous state
@@ -147,8 +150,8 @@ class OptSolver:
             # Take step
             state, reward, done, info = self.step(action)
             # If new state is almost same as previous
-            if np.linalg.norm(prev_state - state) <= min_diff or \
-                np.all(prev_state == state):
+            if (np.linalg.norm(prev_state - state) <= min_diff or \
+                np.all(prev_state == state)) and problem.feasible:
                 break
             # Change current state
             self.X = state
@@ -156,7 +159,22 @@ class OptSolver:
             problem.substitute_variables(state)
             # Calculate constraints
             self.calc_constraints(self.X)
-            print(state)
+            #print(state)
+            # Save best values
+
+            fval = problem.obj(state)
+            if verb:
+                print(
+                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval} Feasible: {problem.feasible} '\
+                    f'max g: {max(self.constr_vals):.4f}')
+            if fval < self.best_f and problem.feasible:
+                self.best_f = fval
+                self.best_x = state.copy()
+                print(self.best_x)
+                print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
+
+
+
             # Log objective vals per iteration
             if log:
                 problem.num_iters += 1
@@ -165,6 +183,10 @@ class OptSolver:
                 problem.gvals.append(list(self.constr_vals).copy())
                 self.fvals.append(problem.obj(self.X))
                 self.xvals.append(self.X)
+            end = time.time()
+            print(f"Iteration took: {end - start :.2f} s")
+
+        return self.best_f, self.best_x
 
 
 

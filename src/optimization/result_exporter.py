@@ -109,13 +109,17 @@ class ResultExporter:
                 self.solver).__name__ + '_' + self.problem.name + time + '.csv'
 
         # Optimal variable values
-        xopt = [round(var.value, 2) for var in self.problem.vars]
+        xopt = self.solver.best_x
 
         # Optimal result
-        fopt = self.problem.obj(xopt)
+        if np.any(xopt):
+            fopt = self.problem.obj(xopt)
 
-        # Constraints' values
-        con_vals = list(self.problem.eval_cons(xopt))
+            # Constraints' values
+            con_vals = list(self.problem.eval_cons(xopt))
+        else:
+            fopt = None
+            con_vals = None
 
         # Initial point, x0
         x0 = [round(var, 2) for var in self.problem.x0]
@@ -147,7 +151,10 @@ class ResultExporter:
         objects = [var.target['objects'] for var in self.problem.vars]
         for i, obj in enumerate(objects):
             for j, mem in enumerate(obj):
-                objects[i][j] = mem.mem_id
+                try:
+                    objects[i][j] = mem.mem_id
+                except:
+                    objects[i][j] = mem.nid
 
         # Profiles and values for each discrete variable
         disc_vars = [var for var in self.problem.vars

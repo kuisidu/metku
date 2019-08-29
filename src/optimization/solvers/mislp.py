@@ -103,22 +103,17 @@ class MISLP(OptSolver):
 
         return self.X.copy(), 1, False, 'INFO'
 
-    def solve(self, *args, **kwargs):
-        #if args[0].prob_type != 'discrete':
-        #    raise ValueError("MISLP only works for discrete problems")
-        super().solve(*args, **kwargs)
-
 if __name__ == '__main__':
     from src.optimization.benchmarks import *
     import matplotlib.pyplot as plt
 
     ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
     # [40  0 38 34  0  0 27 38 38  0] 2497.67
-    problem = TenBarTruss(prob_type='discrete')
+    problem = FifteenBarTruss(prob_type='discrete')
     solver = MISLP(move_limits=[0.5, 2], gamma=1e-3)
     x0 = [var.ub for var in problem.vars]
 
-    solver.solve(problem, x0=x0, maxiter=20, log=True)
+    solver.solve(problem, x0=x0, maxiter=200, log=True, verb=True)
     problem(solver.X)
 
     # plt.plot(solver.fvals)
