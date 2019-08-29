@@ -1,4 +1,4 @@
-from frame2d import Frame2D, SteelBeam, SteelColumn, PointLoad,\
+from src.frame2d.frame2d import Frame2D, SteelBeam, SteelColumn, PointLoad,\
      FixedSupport, XHingedSupport, LineLoad, YHingedSupport, XYHingedSupport,\
      Hinge
 
@@ -344,13 +344,16 @@ def test_all():
     test10()
 
 if __name__ == '__main__':
+    from time import time
 
-    frame = Frame2D(simple=[1,1, 5000, 5000], supports='fixed')
+    frame = Frame2D(simple=[1 ,1, 5000, 5000], supports='fixed', num_elements=10)
     frame.add(LineLoad(frame.members[2], [-10, -10], 'y'))
-    frame.generate()
-    frame.hinge_joints()
-    frame.calculate()
-    frame.bmd(10)
+    for i in range(10):
+        start = time()
+        frame.generate()
+        frame.calculate()
+        end = time()
+        print("Time elapsed: ", end - start)
 
     """
     for member in frame.members.values():

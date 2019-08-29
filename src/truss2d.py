@@ -1142,8 +1142,8 @@ class TrussJoint():
                     self.cnode = fem_model.nodes[idx]
                 if coord in self.chord.nodal_coordinates:
                     self.chord_nodes.append(fem_model.nodes[idx])
-        # sort chord nodes from leftmost to rightmost         
-        self.chord_nodes = sorted(self.chord_nodes, key= lambda node: node.x[0])
+        # sort chord nodes from leftmost to rightmost
+        self.chord_nodes = sorted(self.chord_nodes, key= lambda node: node.x)
                     
     def get_chord_elements(self):
         """
@@ -1191,8 +1191,8 @@ class TrussJoint():
             else:
                 web_nodes.append(node)
                 
-        web_nodes = sorted(web_nodes, key=lambda node: node.x[0])
-        chord_nodes = sorted(chord_nodes, key=lambda node: node.x[0])
+        web_nodes = sorted(web_nodes, key=lambda node: node.x)
+        chord_nodes = sorted(chord_nodes, key=lambda node: node.x)
 
         index = len(fem_model.elements)
         if self.joint_type == 'Y':

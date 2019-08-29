@@ -1,3 +1,5 @@
+import numpy as np
+
 class LineLoad(Load):
     """ Class for 2D line loads (forces and moments)
     """

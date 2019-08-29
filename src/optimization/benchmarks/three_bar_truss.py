@@ -46,8 +46,7 @@ class ThreeBarTruss(OptimizationProblem):
     def create_objective(self):
 
         def objective(X):
-            if np.any(self.X != X):
-                self.substitute_variables(X)
+            self.substitute_variables(X)
             weight = 0
             for mem in self.structure.members.values():
                 weight += self.rho * mem.A * mem.length  # mem.weight
@@ -225,12 +224,15 @@ if __name__ == '__main__':
     #      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     # problem(X)
     # problem.structure.plot()
-    solver = SLP(move_limits=[0.8, 1.2])
+
+
+
+
+    solver = SLP(move_limits=[0.95, 1.2])
     solver.problem = problem
     solver.random_feasible_point()
     x0 = [THREE_BAR_AREAS_mm2[-1], THREE_BAR_AREAS_mm2[-1]]
     solver.solve(problem,
-                 x0=x0,
                  maxiter=15,
                  maxtime=5,
                  log=True)

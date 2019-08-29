@@ -36,7 +36,6 @@ class FiftyTwoBarTruss(OptimizationProblem):
     sigma_max = 180  # MPa
 
     def __init__(self, prob_type='discrete'):
-
         super().__init__("FiftyTwoBarTruss")
         self.prob_type = prob_type
         self.structure = self.create_structure()
@@ -197,7 +196,6 @@ class FiftyTwoBarTruss(OptimizationProblem):
         frame.hinge_joints()
         # frame.add_self_weight()
         frame.generate()
-        frame.f.draw()
         return frame
 
     def create_variables(self):
@@ -206,6 +204,7 @@ class FiftyTwoBarTruss(OptimizationProblem):
 
         Appends each variable to 'vars' 'list from where they can be accessed
         """
+        self.vars = []
         groups = []
         for i in range(4):
             groups.append(self.vert_groups[i])
@@ -249,18 +248,17 @@ class FiftyTwoBarTruss(OptimizationProblem):
 if __name__ == '__main__':
     from src.optimization.solvers import *
     from src.optimization.solvers.optsolver import DiscreteVNS
-    from src.optimization.to_csv import to_csv
     from src.optimization.result_exporter import ResultExporter
     import matplotlib.pyplot as plt
 
-    problem = FiftyTwoBarTruss('continuous')
-    solver = SLP(move_limits=[0.15, 3], gamma=1e-3)
+    problem = FiftyTwoBarTruss('discrete')
+    solver = MISLP(move_limits=[0.1, 10], gamma=1e-2)
     #solver = DiscreteVNS(step_length=3)
     #x0 = [43, 18,  5, 42, 15,  5, 29, 16,  7, 19, 18,  9]
     x0 = [var.ub for var in problem.vars]
-    solver.solve(problem, x0=x0, maxiter=500, log=True)
+    solver.solve(problem, x0=x0, maxiter=5, log=True)
     problem(solver.X, prec=6)
+
     exporter = ResultExporter(problem, solver)
-    exporter.iteration_jpg(fopt=1897)
     exporter.to_csv()
     #to_csv(problem, solver)
