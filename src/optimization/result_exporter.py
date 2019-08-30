@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import MaxNLocator
+from src.frame2d.frame2d import *
+from src.framefem.framefem import *
+from src.sections.steel import *
 
 from src.optimization.structopt import DiscreteVariable
 
@@ -151,10 +154,20 @@ class ResultExporter:
         objects = [var.target['objects'] for var in self.problem.vars]
         for i, obj in enumerate(objects):
             for j, mem in enumerate(obj):
-                try:
+                if isinstance(mem, FrameMember)
                     objects[i][j] = mem.mem_id
-                except:
+                elif isinstance(mem, FEMNode):
                     objects[i][j] = mem.nid
+                
+                # Tähän joku tallennustapa poikkileikkaukselle
+                # memberillä ja nodella tallennetaan niiden id
+                # mikä kuvaisi hyvin poikkileikkausta?
+                elif isinstance(mem, SteelSection):
+                    # objects[i][j] = ???
+                    pass
+                
+                else:
+                    objects[i][j] = None
 
         # Profiles and values for each discrete variable
         disc_vars = [var for var in self.problem.vars
