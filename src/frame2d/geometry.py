@@ -13,6 +13,7 @@ class GeometryMember(Segment):
             return GeometryMember3D(p1, p2, **kwargs)
 
     def __init__(self, start_coord, end_coord):
+        super().__init__()
         self.c0 = start_coord
         self.c1 = end_coord
 
@@ -52,23 +53,18 @@ class GeometryMember(Segment):
     def coordinates(self):
         return np.asarray([self.start_coord, self.end_coord])
 
-    @property
-    def v(self):
-        """
-        Unit vector
-        :return: unit vector
-        """
-        v = np.array([np.cos(self.angle), np.sin(self.angle)])
-        return v
+
 
     @property
-    def u(self):
+    def angle(self):
         """
-        Vector perpendicular to member
-        :return:
+        Returns member's angle in radians
         """
-        u = np.array([-np.sin(self.angle), np.cos(self.angle)])
-        return u
+        if (self.x1 - self.x0) == 0:
+            angle = math.radians(90)
+        else:
+            angle = np.arctan((self.y1 - self.y0) / (self.x1 - self.x0))
+        return angle
 
 
     def to_global(self, loc_coord):
@@ -130,6 +126,24 @@ class GeometryMember2D(GeometryMember, Segment2D):
             angle = np.arctan((self.y1 - self.y0) / (self.x1 - self.x0))
         return angle
 
+    @property
+    def v(self):
+        """
+        Unit vector
+        :return: unit vector
+        """
+        v = np.array([np.cos(self.angle), np.sin(self.angle)])
+        return v
+
+    @property
+    def u(self):
+        """
+        Vector perpendicular to member
+        :return:
+        """
+        u = np.array([-np.sin(self.angle), np.cos(self.angle)])
+        return u
+
 
 class GeometryMember3D(GeometryMember, Segment3D):
 
@@ -149,8 +163,30 @@ class GeometryMember3D(GeometryMember, Segment3D):
         return self.end_coord[2]
 
 
-    def plot(self, show=True):
+    @property
+    def v(self):
+        """
+        Unit vector
+        :return: unit vector
+        """
+        v = (self.end_coord - self.start_coord) / self.length
+        return v
 
+    @property
+    def u(self):
+        """
+        Vector perpendicular to member
+        :return:
+        """
+        u = np.array([-np.sin(self.angle), np.cos(self.angle)])
+        return u
+
+
+    def plot(self, show=True):
+        """
+        Plots member
+        :param show:
+        """
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.plot([self.x0, self.x1],
