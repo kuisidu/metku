@@ -25,6 +25,7 @@ class GeometryMember(Segment):
     def start_coord(self, val):
         self.c0 = val
 
+
     @property
     def end_coord(self):
         return np.asarray(self.c1)
@@ -80,8 +81,9 @@ class GeometryMember(Segment):
         :rtype: np.array
         """
 
-        dist = loc_coord * self.length
-        return self.start_coord + dist * self.v
+        dist = loc_coord * self.length.evalf()
+        coord = self.start_coord + dist * np.asarray(self.direction.unit)
+        return coord
 
     def intersection(self, mem):
         """
@@ -94,10 +96,10 @@ class GeometryMember(Segment):
 
         source: https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
         """
-        print("HALOO")
         point = super().intersection(mem)
-        return np.asarray(point)[0]
-
+        if len(point):
+            return np.asarray(point)[0]
+        return point
 
 class GeometryMember2D(GeometryMember, Segment2D):
 
@@ -170,6 +172,7 @@ class GeometryMember3D(GeometryMember, Segment3D):
         :return: unit vector
         """
         v = (self.end_coord - self.start_coord) / self.length
+
         return v
 
     @property
