@@ -1,10 +1,9 @@
 from src.frame2d.frame2d import *
 from src.frame2d.geometry import *
+from src.frame2d.materials import MATERIALS
 from src.framefem.elements import *
 from src.framefem.framefem import *
-from src.frame2d.materials import MATERIALS
 from src.sections.steel import *
-from mpl_toolkits.mplot3d import Axes3D
 
 
 class FrameMember(GeometryMember):
@@ -14,15 +13,22 @@ class FrameMember(GeometryMember):
     num_members = 0
 
     def __new__(cls, p1, p2, **kwargs):
+        """
+        Checks whether the dimension of the coordinates is 2 or 3
+        :param p1: start coordinate
+        :param p2: end coordinate
+        :param kwargs: optional keyword arguments
+        :return: 2D or 3D FrameMember instance
+        """
         dim = len(p1)
         if dim == 2:
             return FrameMember2D(p1, p2, **kwargs)
         elif dim == 3:
             return FrameMember3D(p1, p2, **kwargs)
 
-
     def __init__(self, start_coord, end_coord, **kwargs):
         super().__init__(start_coord, end_coord)
+
         # Default values
         values = dict(
             profile='IPE 100',
@@ -41,11 +47,11 @@ class FrameMember(GeometryMember):
         # Initialize nodes and elements
         self.nodes = {}
         self.elements = {}
-        self.nels= values['num_elements']
+        self.nels = values['num_elements']
 
         # Initialize cross-sectional properties
         self.cross_section = None
-        self.steel_member = None # TODO: CHANGE THIS NAME TO A GENERAL ONE
+        self.steel_member = None  # TODO: CHANGE THIS NAME TO A GENERAL ONE
         self.material = MATERIALS[values['material']]
         self.profile = values['profile']
 
@@ -53,6 +59,13 @@ class FrameMember(GeometryMember):
         self.Sj1 = values['Sj1']
         self.Sj2 = values['Sj2']
 
+        # List of intersecting objects and nodes
+        self.intersecting_objs = []
+        self.intersecting_nodes = {}
+
+        # Create nodes and elements
+        self.generate_nodes()
+        self.generate_elements()
 
     @property
     def num_elements(self):
@@ -64,12 +77,20 @@ class FrameMember(GeometryMember):
         Change number of elements
         TODO!!
         """
-        self.nodes = {}
-        self.elements = {}
-        self.nels = val
+        self.update()
 
-        self.generate_nodes()
-        self.generate_elements()
+    @property
+    def nodal_coordinates(self):
+        """
+        Returns nodal coordinates as a list
+        :return: nodal coordinate list
+        """
+        coords = [list(node.coord) for node in self.nodes.values()]
+        intersect = [list(node.coord) for node in self.intersecting_nodes.values()]
+        if len(intersect):
+            for coord in intersect:
+                coords.append(coord)
+        return coords
 
     @property
     def fy(self):
@@ -167,55 +188,83 @@ class FrameMember(GeometryMember):
         if self.steel_member:
             self.steel_member.profile = self.cross_section
 
-
     @GeometryMember.start_coord.setter
     def start_coord(self, val):
         self.c0 = val
-        self.update_coordinates()
+        self.update()
+
 
     @GeometryMember.end_coord.setter
     def end_coord(self, val):
         self.c1 = val
+        self.update()
+
+    def update(self):
+        """
+        Updates nodal coordinates
+        """
         self.update_coordinates()
+        self.update_elements()
 
-
-    def update_coordinates(self):
+    @property
+    def locs(self):
         """
-        Updates nodes' coordinates
+        List of nodes' local coordinates
         """
-        locs = list(np.arange(0, 1, 1 / self.num_elements))
-        locs.append(1)
+        if len(self.nodes):
+            locs = [self.p1.distance(node.coord) / self.length for node in self.nodes.values()]
+            intersect_locs = [self.p1.distance(node.coord) / self.length for node in self.intersecting_nodes.values()]
+            if len(intersect_locs):
+                locs.extend(intersect_locs)
+        else:
+            locs = list(np.arange(0, 1, 1 / self.num_elements))
+            locs.append(1)
 
-        for i, loc in enumerate(locs):
-            x, y = self.to_global(loc)
-            node = self.nodes[i]
-            node.x = x
-            node.y = y
+        return sorted(set(locs))
 
     def generate_elements(self):
         """
         Generates elements
         """
-        for i in range(self.num_elements):
+        for i in range(len(self.locs) -1):
             n0 = self.nodes[i]
             n1 = self.nodes[i + 1]
             elem = EBSemiRigidBeam(n0, n1, self.cross_section, self.material)
             self.elements[i] = elem
 
+    def update_elements(self):
+        """
+        Updates elements
+        """
+        elements = self.elements.values()
+        nodes = self.nodes
+        nodes.update(self.intersecting_nodes)
+        nodes = list(nodes.values())
+        nodes.sort(key=lambda n: self.p1.distance(n.coord))
+        for i in range(len(self.locs) -1):
+            try:
+                elem = elements[i]
+                elem.n1 = nodes[i]
+                elem.n2 = nodes[i + 1]
+            except:
+                n0 = nodes[i]
+                n1 = nodes[i + 1]
+                elem = EBSemiRigidBeam(n0, n1, self.cross_section,
+                                       self.material)
+                self.elements[i] = elem
+
+
     def generate_nodes(self):
         """
         Generates nodes
         """
-        locs = list(np.arange(0, 1, 1 / self.num_elements))
-        locs.append(1)
-
-        for i, loc in enumerate(locs):
+        for i, loc in enumerate(self.locs):
             x, y = self.to_global(loc)
             nid = self.mem_id * 100 + i
             node = FEMNode(nid, x, y)
             self.nodes[i] = node
 
-    def plot_elements(self):
+    def plot_elements(self, show=True):
         """
         Plots elements and nodes
         """
@@ -227,7 +276,8 @@ class FrameMember(GeometryMember):
             plt.scatter(node.x, node.y)
             plt.text(node.x, node.y, node.nid)
         plt.plot(X, Y)
-        plt.show()
+        if show:
+            plt.show()
 
 
 class FrameMember2D(FrameMember, GeometryMember2D):
@@ -236,8 +286,23 @@ class FrameMember2D(FrameMember, GeometryMember2D):
         return GeometryMember2D.__new__(cls, p1, p2, **kwargs)
 
     def __init__(self, start_coord, end_coord, **kwargs):
-
         super().__init__(start_coord, end_coord, **kwargs)
+
+    def update_coordinates(self):
+        """
+        Updates nodes' coordinates
+        """
+        all_nodes = self.nodes
+        all_nodes.update(self.intersecting_nodes)
+        all_nodes = list(all_nodes.values())
+        all_nodes.sort(key=lambda n: self.p1.distance(n.coord))
+        for i, loc in enumerate(self.locs):
+            x, y = self.to_global(loc)
+            node = all_nodes[i]
+            node.x = x
+            node.y = y
+
+
 
 class FrameMember3D(FrameMember, GeometryMember3D):
 
@@ -260,7 +325,18 @@ class FrameMember3D(FrameMember, GeometryMember3D):
             node = FEMNode(nid, x, y, z)
             self.nodes[i] = node
 
-    def plot_elements(self):
+    def update_coordinates(self):
+        """
+        Updates nodes' coordinates
+        """
+        for i, loc in enumerate(self.locs):
+            x, y, z = self.to_global(loc)
+            node = self.nodes[i]
+            node.x = x
+            node.y = y
+            node.z = z
+
+    def plot_elements(self, show=True):
         """
         Plots elements and nodes
         """
@@ -271,17 +347,24 @@ class FrameMember3D(FrameMember, GeometryMember3D):
         fig = plt.figure()
         ax = fig.gca(projection='3d')
 
-        for node in self.nodes.values():
-            X.append(node.x)
-            Y.append(node.y)
-            Z.append(node.z)
-            ax.scatter(node.x, node.y, node.z)
-            ax.text(node.x, node.y, node.z, node.nid)
+        for elem in self.elements.values():
+            n1, n2 = elem.nodes
+            X.append(n1.x)
+            Y.append(n1.y)
+            Z.append(n1.z)
+            ax.scatter(n1.x, n1.y, n1.z)
+            ax.text(n1.x, n1.y, n1.z, n1.nid)
+        X.append(n2.x)
+        Y.append(n2.y)
+        Z.append(n2.z)
+        ax.scatter(n2.x, n2.y, n2.z)
+        ax.text(n2.x, n2.y, n2.z, n2.nid)
+
         ax.plot(X, Y, Z)
-        plt.show()
+        if show:
+            plt.show()
+
 
 if __name__ == '__main__':
-    mem = FrameMember([0, 1000], [1000, 0])
-    print(mem.coordinates)
-    mem.generate_nodes()
-    mem.plot()
+    mem = FrameMember([0, 0], [0, 1000], num_elements=5, number_elements=3)
+    print(mem.plot())
