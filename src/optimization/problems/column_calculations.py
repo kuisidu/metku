@@ -6,6 +6,7 @@ from src.frame2d.frame2d import *
 from src.optimization.structopt import *
 from src.optimization.problems.wi_column import WIColumn
 from src.optimization.solvers import *
+from src.optimization.result_exporter import *
 
 
 class ColumnCalculation(WIColumn):
@@ -26,6 +27,8 @@ class ColumnCalculation(WIColumn):
     Qy = 0
     Qx = q_wind * c
 
+    x0 = [800, 50, 500, 50]
+
     # for LT in LT_buckling:
     for buck_z in buckling_z:
         for cross_section_class in cross_section_class_list:
@@ -42,17 +45,25 @@ class ColumnCalculation(WIColumn):
                     Fx = phi * Fy
 
                     for lcr in lcr_list:
-                        # annettava syöte, jos kiepahduss mukana LT_buckling=LT
                         problem = WIColumn(
-                            Lpi, Fx, Fy, Qx, Qy, Mz, lcr,
+                            Lpi, Fx, Fy, Qx, Qy, Mz, lcr=lcr,
                             top_flange_class=cross_section_class,
                             bottom_flange_class=cross_section_class,
                             web_class=cross_section_class, symmetry="dual",
                             buckling_z=buck_z, LT_buckling=False)
-                        x0 = [800, 50, 500, 50]
+
+                        print("L={0}, Lpi={1}, Fx={2}, Fy={3}, Qx={4}, Qy={5},"
+                              "Mz={6}, lcr={7}, cross_section_class={8}, "
+                              "buckling_z={9}"
+                              .format(L, Lpi, Fx, Fy, Qx, Qy, Mz, lcr,
+                                      cross_section_class, buck_z))
+
                         solver = SLP(move_limits=[0.9, 6])
                         solver.solve(problem, maxiter=500, maxtime=20, x0=x0)
                         problem(solver.X, prec=5)
+                        ResultExporter(problem, solver).to_csv()
+                        print(solver.best_x)
+                        x0 = solver.best_x
 
                         #  wi.cross_section.draw()
 

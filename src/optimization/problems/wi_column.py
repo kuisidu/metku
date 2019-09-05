@@ -44,6 +44,7 @@ class WIColumn(OptimizationProblem):
         self.create_variables()
         self.create_constraints()
         self.create_objective()
+        self.prob_type = 'continuous'
 
     def create_objective(self):
         def obj(x):
@@ -429,7 +430,9 @@ if __name__ == "__main__":
     solver.solve(problem, maxiter=50000, maxtime=30, x0=x0)
     problem(solver.X, prec=5)
     from src.optimization.result_exporter import *
-    # ResultExporter(problem, solver).to_csv()
+    name = "WIColumn_buckling_z:{0}_LT_buckling:{1}"\
+        .format(problem.buckling_z, problem.LT_buckling)
+    ResultExporter(problem, solver).to_csv()
 
     # solver = SLSQP()
     # solver.solve(problem, maxiter=50000, x0=x0)
