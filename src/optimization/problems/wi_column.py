@@ -34,6 +34,7 @@ class WIColumn(OptimizationProblem):
                  top_flange_class=2, bottom_flange_class=2, web_class=2,
                  symmetry="dual", buckling_z=True, LT_buckling=False):
         super().__init__("WIColumn")
+        self.cons.clear()
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
         self.symmetry = symmetry

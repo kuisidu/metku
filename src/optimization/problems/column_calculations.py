@@ -18,7 +18,7 @@ class ColumnCalculation(WIColumn):
     L_list = [24000, 30000, 36000]  # mm
     Lpi_list = [6000, 8000, 10000]  # mm
     c = 6000  # mm
-    lcr_list = [2, 0.7]
+    lcr_list = [0.7, 2]
     buckling_z = [True, False]
     LT_buckling = [True, False]
     cross_section_class_list = [2, 3]
@@ -33,7 +33,7 @@ class ColumnCalculation(WIColumn):
     for buck_z in buckling_z:
         for cross_section_class in cross_section_class_list:
             for L in L_list:
-                Fy = (1.15 * (g_truss + g_roof * c)
+                Fy = -(1.15 * (g_truss + g_roof * c)
                       + (1.5 * q_snow * c)) * L / 2
 
                 for Lpi in Lpi_list:
@@ -51,6 +51,8 @@ class ColumnCalculation(WIColumn):
                             bottom_flange_class=cross_section_class,
                             web_class=cross_section_class, symmetry="dual",
                             buckling_z=buck_z, LT_buckling=False)
+                        print(problem.nnonlincons())
+                        breakpoint()
 
                         print("L={0}, Lpi={1}, Fx={2}, Fy={3}, Qx={4}, Qy={5},"
                               "Mz={6}, lcr={7}, cross_section_class={8}, "
@@ -59,11 +61,10 @@ class ColumnCalculation(WIColumn):
                                       cross_section_class, buck_z))
 
                         solver = SLP(move_limits=[0.9, 6])
-                        solver.solve(problem, maxiter=500, maxtime=20, x0=x0)
+                        solver.solve(problem, maxiter=500, maxtime=40, x0=x0)
                         problem(solver.X, prec=5)
                         ResultExporter(problem, solver).to_csv()
-                        print(solver.best_x)
-                        x0 = solver.best_x
+                        breakpoint()
 
                         #  wi.cross_section.draw()
 

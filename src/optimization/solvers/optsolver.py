@@ -138,10 +138,12 @@ class OptSolver:
         # Assing done
         done = False
         # Start iteration
+        t_total = 0
         for i in range(maxiter):
             # Check time
             start = time.time()
-            if time.process_time() >= maxtime or done:
+            t_0 = time.process_time()
+            if t_total >= maxtime or done:
                 break
             # Save previous state
             prev_state = self.X.copy()
@@ -163,6 +165,8 @@ class OptSolver:
             # Save best values
 
             fval = problem.obj(state)
+            t_1 = time.process_time()
+            t_total += t_1-t_0
             if verb:
                 print(
                     f'\r Iteration {i + 1} / {maxiter}: Obj: {fval} Feasible: {problem.feasible} '\
@@ -170,8 +174,9 @@ class OptSolver:
             if fval < self.best_f and problem.feasible:
                 self.best_f = fval
                 self.best_x = state.copy()
-                print(self.best_x)
-                print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
+                if verb:
+                    print(self.best_x)
+                    print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
 
 
 

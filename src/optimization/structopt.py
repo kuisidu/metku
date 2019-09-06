@@ -309,6 +309,7 @@ class OptimizationProblem:
                 :ivar profiles: list of available profiles (optional)
         """
 
+        self.con_tol = 1e-4
         self.name = name
         self.vars = variables
         self.cons = constraints
@@ -332,7 +333,7 @@ class OptimizationProblem:
         Returns problem's feasibility
         :return: True/False
         """
-        return np.all(self.eval_cons(self.X) <= 1e-6)
+        return np.all(self.eval_cons(self.X) <= self.con_tol)
 
     def linearize(self, x):
         """
