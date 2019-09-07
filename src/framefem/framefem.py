@@ -1,4 +1,3 @@
-#import pyximport; pyximport.install(pyimport=True)
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -287,6 +286,7 @@ class FrameFEM:
 
         return ndx
 
+
     def global_stiffness_matrix(self):
         """ Constructs the global stiffness matrix
 
@@ -415,7 +415,7 @@ class FrameFEM:
                     # Get the global degree of freedom of the supported
                     # node's degree of freedom.
                     i = node_dofs[dof]
-                    print(i)
+                    #  print(i)
                     if i > -1:
                         K[i,:] = 0
                         K[:,i] = 0
@@ -447,6 +447,7 @@ class FrameFEM:
         """ Calculate element internal forces """
         for el in self.elements:
             el.internal_forces()
+
 
         return u, K
 
@@ -857,26 +858,24 @@ class LineLoad(Load):
 
         """
 
-        """ Get load vector """
+        # Get load vector
         if self.dir == "x":
             q = np.array([self.qval[0], 0, 0])
         else:
             q = np.array([0, self.qval[0], 0])
 
-        """ Get equivalent nodal loads """
+        # Get equivalent nodal loads
         F = self.elem.equivalent_nodal_loads(q)
 
-        """ Number of degrees of freedom """
+        # Number of degrees of freedom
         dofs = np.array(self.elem.global_dofs())
 
-        """ Find free degrees of freedom (those with numbering
-                                          greater than -1) 
-        """
+        # Find free degrees of freedom (those with numbering greater than -1)
         nzero_dofs = dofs >= 0
 
-        """ Get free degrees of freedom and the corresponding part
-            of the load vector
-        """
+        # Get free degrees of freedom and the corresponding part
+        #    of the load vector
+
         d = dofs[nzero_dofs]
         Fnz = F[nzero_dofs]
 

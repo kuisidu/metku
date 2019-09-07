@@ -193,6 +193,7 @@ class DiscreteVariable(Variable):
 
         self.values = values
 
+
         if profiles:
             lb = 0
             ub = len(profiles) - 1
@@ -206,10 +207,15 @@ class DiscreteVariable(Variable):
 
         super().__init__(name, lb, ub, target=target, profiles=profiles)
 
-    def substitute(self, new_value):
 
-        if self.profiles and not isinstance(new_value, float):
-            new_value = self.profiles[new_value]
+    def substitute(self, new_value):
+        if self.profiles:
+            try:
+                new_value = self.profiles[int(new_value)]
+            except:
+                pass
+            #new_value = self.profiles[new_value]
+
         super().substitute(new_value)
 
 
@@ -303,6 +309,7 @@ class OptimizationProblem:
                 :ivar profiles: list of available profiles (optional)
         """
 
+        self.con_tol = 1e-4
         self.name = name
         self.vars = variables
         self.cons = constraints
@@ -318,8 +325,7 @@ class OptimizationProblem:
         self.num_fem_analyses = 0
         self.fvals = []
         self.states = []
-
-
+        self.gvals = []
 
     @property
     def feasible(self):
@@ -327,7 +333,7 @@ class OptimizationProblem:
         Returns problem's feasibility
         :return: True/False
         """
-        return np.all(self.eval_cons(self.X) <= 1e-6)
+        return np.all(self.eval_cons(self.X) <= self.con_tol)
 
     def linearize(self, x):
         """
@@ -338,6 +344,8 @@ class OptimizationProblem:
         :param x:
         :return:
         """
+        import time
+        start = time.time()
         x = np.asarray(x)
         self.substitute_variables(x)
         fx = self.obj(x)
@@ -353,7 +361,10 @@ class OptimizationProblem:
                 prev_val = var.value
                 h = max(0.01 * abs(prev_val), 1e-4)
                 var.substitute(prev_val + h)
-                self.fea()
+                fea_start = time.time()
+                if self.structure:
+                    self.fea()
+                fea_end = time.time()
                 xh = [var.value for var in self.vars]
                 f_val = self.obj(xh)
                 a = self.eval_nonlin_cons(xh)
@@ -362,6 +373,15 @@ class OptimizationProblem:
                 var.substitute(prev_val)
 
         B = A @ x.T - b
+
+        # Add linear constraints' values
+        for con in self.cons:
+            if isinstance(con, LinearConstraint):
+                A = np.vstack((A, con.a))
+                B = np.hstack((B, con.b))
+
+        end = time.time()
+        # print("Linearization took: ", end - start, " s")
 
         return A, B, df, fx
 
@@ -401,9 +421,11 @@ class OptimizationProblem:
         """ Call method evaluates the objective function and all constraints
             at x and returns their values
         """
+        self.substitute_variables(x)
         fx = self.obj(x)
         print("** {0} **".format(self.name))
         print(f'Solution is feasible: {self.feasible}')
+        print(f'X: {[round(val, prec) for val in x]}')
         if len(x) < 10:
             print("Variables:")
             print("----------")
@@ -549,6 +571,7 @@ class OptimizationProblem:
         #
         # for i in range(len(xvals)):
         #     self.substitute_variable(i, xvals[i])
+
 
     def solve(self, solver="slsqp", **kwargs):
         """ Solve the optimization problem

@@ -5,7 +5,7 @@ import math
 import numpy as np
 
 try:
-    from src.eurocodes.en1993 import constants
+    from src.eurocodes.en1993 import constants, en1993_1_1
 except:
     from eurocodes.en1993 import constants
 
@@ -279,59 +279,70 @@ class SteelMember:
 
         self.profile.Ned = NEd
         cross_section_class = self.profile.section_class()
+        slend = self.slenderness()
+        CmLT = 1  # Pitääkö käyttää jotakin kaavaa?
 
-        NRd = self.profile.A * self.fy()
+        # NRd = self.profile.A * self.fy()
         NbRd = self.buckling_strength()
+
+        UNy = abs(NEd) / NbRd[0]
+        UNz = abs(NEd) / NbRd[1]
+
+        kyy = en1993_1_1.kyy(UNy, slend[0], Cmy,
+                             section_class=cross_section_class)
+
+        kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=1.0,
+                             section_class=cross_section_class)
 
         MyEd1 = np.max(np.array(self.myed))
         MyEd2 = abs(np.min(np.array(self.myed)))
         MyEd = max(MyEd1, MyEd2)
-        MzEd1 = np.max(np.array(self.mzed))
-        MzEd2 = abs(np.min(np.array(self.mzed)))
-        MzEd = max(MzEd1, MzEd2)
+
+        # MzEd1 = np.max(np.array(self.mzed))
+        # MzEd2 = abs(np.min(np.array(self.mzed)))
+        # MzEd = max(MzEd1, MzEd2)
+
         MRd = self.profile.MRd
 
-        slend = self.slenderness()
-        CmLT = 1  # Pitääkö käyttää jotakin kaavaa?
 
-        phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
-                slend[0] - 0.2) + slend[0] ** 2)
-        chi_y = min(1 / (phi_y + math.sqrt(phi_y ** 2 - slend[0] ** 2)), 1.0)
-
-        phi_z = 0.5 * (1 + self.profile.imp_factor[1] * (
-                slend[1] - 0.2) + slend[1] ** 2)
-        chi_z = min(1 / (phi_z + math.sqrt(phi_z ** 2 - slend[1] ** 2)), 1.0)
-
-        if cross_section_class <= 2:
-            if not self.LT_B:
-                kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-                          Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-                kzy = 0.6 * kyy
-
-            elif self.LT_B:
-                kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-                          Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-                if slend[1] < 0.4:
-                    kzy = min(0.6 + slend[1], 1 - (0.1 * slend[1] / (
-                            CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-                else:
-                    kzy = max(1 - (0.1 * slend[1] / (CmLT - 0.25)) * (
-                            NEd / (chi_z * NRd)),
-                            1 - (0.1 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-
-        elif cross_section_class > 2:
-            if not self.LT_B:
-                kyy = min(Cmy * (1 + 0.6 * slend[0] * (NEd / (chi_y * NRd))),
-                          Cmy * (1 + 0.6 * (NEd / (chi_y * NRd))))
-                kzy = 0.8 * kyy
-
-            elif self.LT_B:
-                kzy = max(1 - (0.05 * slend[1] / (CmLT - 0.25)) * (
-                            NEd / (chi_z * NRd)),
-                          1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+        # phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
+        #         slend[0] - 0.2) + slend[0] ** 2)
+        # chi_y = min(1 / (phi_y + math.sqrt(phi_y ** 2 - slend[0] ** 2)), 1.0)
+        #
+        # phi_z = 0.5 * (1 + self.profile.imp_factor[1] * (
+        #         slend[1] - 0.2) + slend[1] ** 2)
+        # chi_z = min(1 / (phi_z + math.sqrt(phi_z ** 2 - slend[1] ** 2)), 1.0)
+        #
+        # if cross_section_class <= 2:
+        #     if not self.LT_B:
+        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
+        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
+        #         kzy = 0.6 * kyy
+        #
+        #     elif self.LT_B:
+        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
+        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
+        #         if slend[1] < 0.4:
+        #             kzy = min(0.6 + slend[1], 1 - (0.1 * slend[1] / (
+        #                     CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+        #         else:
+        #             kzy = max(1 - (0.1 * slend[1] / (CmLT - 0.25)) * (
+        #                     NEd / (chi_z * NRd)),
+        #                     1 - (0.1 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+        #
+        # elif cross_section_class > 2:
+        #     if not self.LT_B:
+        #         kyy = min(Cmy * (1 + 0.6 * slend[0] * (NEd / (chi_y * NRd))),
+        #                   Cmy * (1 + 0.6 * (NEd / (chi_y * NRd))))
+        #         kzy = 0.8 * kyy
+        #
+        #     elif self.LT_B:
+        #         kzy = max(1 - (0.05 * slend[1] / (CmLT - 0.25)) * (
+        #                     NEd / (chi_z * NRd)),
+        #                   1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
 
         com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd[0]
-        com_comp_bend_z = -NEd / NbRd[1] + kzy * MzEd / MRd[1]
+        com_comp_bend_z = -NEd / NbRd[1] + kzy * MyEd / MRd[0]
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
 

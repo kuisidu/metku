@@ -20,6 +20,8 @@ class OptSolver:
         self.problem = None
         self.fvals = []
         self.xvals = []
+        self.best_f = np.inf
+        self.best_x = None
 
     def calc_constraints(self, x=[]):
         """
@@ -103,7 +105,7 @@ class OptSolver:
 
 
     def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=False,
-              min_diff=1e-2):
+              min_diff=1e-2, verb=False):
         """
         Solves given problem
 
@@ -122,23 +124,26 @@ class OptSolver:
         elif maxtime == -1:
             maxtime = 1000000000
 
+
         # Assign problem
         self.problem = problem
-
         # If initial starting point is/isn't defined
         if x0:
             self.X = x0
+            problem.substitute_variables(x0)
         else:
             self.X = self.random_feasible_point()
+            problem.substitute_variables(self.X)
 
-        # Substitute initial starting values
-        problem.substitute_variables(self.X)
         # Assing done
         done = False
         # Start iteration
+        t_total = 0
         for i in range(maxiter):
             # Check time
-            if time.process_time() >= maxtime or done:
+            start = time.time()
+            t_0 = time.process_time()
+            if t_total >= maxtime or done:
                 break
             # Save previous state
             prev_state = self.X.copy()
@@ -147,8 +152,8 @@ class OptSolver:
             # Take step
             state, reward, done, info = self.step(action)
             # If new state is almost same as previous
-            if np.linalg.norm(prev_state - state) <= min_diff or \
-                np.all(prev_state == state):
+            if (np.linalg.norm(prev_state - state) <= min_diff or \
+                np.all(prev_state == state)) and problem.feasible:
                 break
             # Change current state
             self.X = state
@@ -156,14 +161,37 @@ class OptSolver:
             problem.substitute_variables(state)
             # Calculate constraints
             self.calc_constraints(self.X)
-            print(state)
+            #print(state)
+            # Save best values
+
+            fval = problem.obj(state)
+            t_1 = time.process_time()
+            t_total += t_1-t_0
+            if verb:
+                print(
+                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval} Feasible: {problem.feasible} '\
+                    f'max g: {max(self.constr_vals):.4f}')
+            if fval < self.best_f and problem.feasible:
+                self.best_f = fval
+                self.best_x = state.copy()
+                if verb:
+                    print(self.best_x)
+                    print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
+
+
+
             # Log objective vals per iteration
             if log:
                 problem.num_iters += 1
                 problem.fvals.append(problem.obj(self.X))
-                problem.states.append(state)
+                problem.states.append(list(state))
+                problem.gvals.append(list(self.constr_vals).copy())
                 self.fvals.append(problem.obj(self.X))
                 self.xvals.append(self.X)
+            end = time.time()
+            print(f"Iteration took: {end - start :.2f} s")
+
+        return self.best_f, self.best_x
 
 
 
