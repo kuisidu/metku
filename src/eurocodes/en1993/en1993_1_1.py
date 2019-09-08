@@ -17,6 +17,17 @@ except:
 #                 a0     a    b      c     d 
 buckling_curve = {"a0": 0.13, "a": 0.21, "b": 0.34, "c": 0.49, "d": 0.76}
 
+def sway_imperfection(h,m):
+    """ Global sway imperfection of 5.3.2 """
+    phi0 = 1/200
+    
+    alpha_h = min(max(2/3,2/math.sqrt(h)),1.0)
+    alpha_m = math.sqrt(0.5*(1+1/m))
+    
+    phi = phi0*alpha_h*alpha_m
+    
+    return phi
+
 def epsilon(fy):
     """ Computes the epsilon required in various design rules 
         input: fy -- yield strength in MPa
