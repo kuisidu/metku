@@ -373,6 +373,7 @@ class OptimizationProblem:
                 var.substitute(prev_val)
 
         B = A @ x.T - b
+        #B = -b
 
         # Add linear constraints' values
         for con in self.cons:

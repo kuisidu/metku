@@ -1,12 +1,18 @@
 
-from src.optimization.solvers.optsolver import OptSolver
-from src.optimization.structopt import *
-
 from scipy.optimize import linprog
 import numpy as np
 import time
 
-from src.optimization.benchmarks import *
+try:
+    from src.optimization.solvers.optsolver import OptSolver
+    from src.optimization.structopt import *
+    from src.optimization.benchmarks import *
+except:
+    from optimization.solvers.optsolver import OptSolver
+    from optimization.structopt import *
+    from optimization.benchmarks import *
+    
+
 from ortools.linear_solver import pywraplp
 
 class SLP(OptSolver):
@@ -15,6 +21,7 @@ class SLP(OptSolver):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
         self.gamma = gamma
+        self.alpha = 1.0
 
     def take_action(self):
         """
@@ -39,6 +46,8 @@ class SLP(OptSolver):
         x = {}
         # Variables
         for i, var in enumerate(self.problem.vars):
+            #lb = max(var.value - 0.5*self.alpha*(var.ub-var.lb),var.lb)
+            #ub = min(var.value + 0.5*self.alpha*(var.ub-var.lb),var.ub)
             lb, ub = self.move_limits * var.value
             x[i] = solver.NumVar(lb,
                                  ub,
@@ -76,6 +85,7 @@ class SLP(OptSolver):
     def step(self, action):
 
         self.move_limits += (1 - self.move_limits) * self.gamma
+        self.alpha = self.alpha/(1+self.alpha)
         self.X += action
         for i in range(len(self.X)):
             self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,

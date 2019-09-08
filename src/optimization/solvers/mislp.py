@@ -1,6 +1,13 @@
-from src.optimization.solvers.optsolver import OptSolver
-from src.optimization.structopt import *
+
 from ortools.linear_solver import pywraplp
+
+try:
+    from src.optimization.solvers.optsolver import OptSolver
+    from src.optimization.structopt import *
+except:
+    from optimization.solvers.optsolver import OptSolver
+    from optimization.structopt import *
+
 
 
 

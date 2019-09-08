@@ -1,5 +1,10 @@
-from src.optimization.solvers import OptSolver
 import numpy as np
+
+try:
+    from src.optimization.solvers import OptSolver
+except:
+    from optimization.solvers import OptSolver
+
 
 
 class TwoPhase:

@@ -5,7 +5,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from scipy.optimize import basinhopping
-from src.optimization.structopt import OptimizationProblem
+
+try:
+    from src.optimization.structopt import OptimizationProblem
+except:
+    from optimization.structopt import OptimizationProblem
 
 
 
@@ -135,7 +139,7 @@ class OptSolver:
             self.X = self.random_feasible_point()
             problem.substitute_variables(self.X)
 
-        # Assing done
+        # Assign done
         done = False
         # Start iteration
         t_total = 0
@@ -152,8 +156,9 @@ class OptSolver:
             # Take step
             state, reward, done, info = self.step(action)
             # If new state is almost same as previous
-            if (np.linalg.norm(prev_state - state) <= min_diff or \
+            if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff or \
                 np.all(prev_state == state)) and problem.feasible:
+                done = True
                 break
             # Change current state
             self.X = state

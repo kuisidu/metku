@@ -2,8 +2,13 @@
 @author: Victoria
 """
 
-from src.frame2d.frame2d import *
-from src.optimization.structopt import *
+try:
+    from src.frame2d.frame2d import *
+    from src.optimization.structopt import *
+except:
+    from frame2d.frame2d import *
+    from optimization.structopt import *
+        
 
 
 class WIColumn(OptimizationProblem):
@@ -49,6 +54,7 @@ class WIColumn(OptimizationProblem):
 
     def create_objective(self):
         def obj(x):
+            self.substitute_variables(x)
             return self.structure.weight
 
         self.obj = obj
@@ -267,18 +273,23 @@ class WIColumn(OptimizationProblem):
     def create_stability_constraints(self, mem):
 
         def buckling_y(x):
+            self.substitute_variables(x)
             return -mem.ned / mem.NbRd[0] - 1
 
         def buckling_z(x):
+            self.substitute_variables(x)
             return -mem.ned / mem.NbRd[1] - 1
 
         def com_compression_bending_y(x):
+            self.substitute_variables(x)
             return mem.steel_member.check_beamcolumn()[0] - 1
 
         def com_compression_bending_z(x):
+            self.substitute_variables(x)
             return mem.steel_member.check_beamcolumn()[1] - 1
 
         def lt_buckling(x):
+            self.substitute_variables(x)
             #  med = max(abs(np.min(np.array(mem.steel_member.myed))),
             #  np.max(np.array(mem.steel_member.myed)))
             return mem.med / mem.MbRd - 1
@@ -292,15 +303,19 @@ class WIColumn(OptimizationProblem):
         N, V, M = forces
 
         def compression(x):
+            self.substitute_variables(x)
             return -N / sect.NRd - 1
 
         def tension(x):
+            self.substitute_variables(x)
             return N / sect.NRd - 1
 
         def shear(x):
+            self.substitute_variables(x)
             return abs(V) / sect.VRd - 1
 
         def bending_moment(x):
+            self.substitute_variables(x)
             return abs(M) / sect.MRd[0] - 1
 
         return compression, tension, shear, bending_moment
@@ -317,6 +332,8 @@ class WIColumn(OptimizationProblem):
                                                       str(mem.mem_id),
                                                  parent=self)
             buckling_y_con.fea_required = True
+            
+            
             self.cons.append(buckling_y_con)
 
             if self.buckling_z:
@@ -350,7 +367,7 @@ class WIColumn(OptimizationProblem):
                                                       parent=self)
                 lt_buckling_con.fea_required = True
                 self.cons.append(lt_buckling_con)
-
+            
             for i, elem in enumerate(mem.elements.values()):
                 forces = [elem.axial_force[0], elem.shear_force[0],
                           elem.bending_moment[0]]
@@ -416,7 +433,7 @@ class WIColumn(OptimizationProblem):
 
                     self.cons.extend([compression_con, tension_con, shear_con,
                                       bending_moment_con])
-
+            
             self.cons.append(self.WIColumnWebClassCon(mem))
             self.cons.append(self.WIColumnTopFlangeClassCon(mem))
             if self.symmetry == "mono":
