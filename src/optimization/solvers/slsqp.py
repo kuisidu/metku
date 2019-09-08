@@ -1,8 +1,12 @@
 
-from src.optimization.solvers.optsolver import OptSolver
+import numpy as np
 from scipy.optimize import minimize
 
-import numpy as np
+try:
+    from src.optimization.solvers.optsolver import OptSolver
+except:
+    from optimization.solvers.optsolver import OptSolver
+
 
 class SLSQP(OptSolver):
 
@@ -116,7 +120,11 @@ class SLSQP(OptSolver):
                         constraints=constraints,
                         options=options)
         print(out)
-        return out.x, out.fun
+        
+        self.best_x = out.x
+        self.best_f = out.fun
+        self.X = out.x
+        return out.fun, out.x
 
 class COBYLA(SLSQP):
 
