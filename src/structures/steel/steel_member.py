@@ -7,7 +7,7 @@ import numpy as np
 try:
     from src.eurocodes.en1993 import constants, en1993_1_1
 except:
-    from eurocodes.en1993 import constants
+    from eurocodes.en1993 import constants, en1993_1_1
 
 
 class SteelMember:
