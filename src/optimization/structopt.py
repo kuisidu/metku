@@ -197,6 +197,10 @@ class DiscreteVariable(Variable):
         if profiles:
             lb = 0
             ub = len(profiles) - 1
+            if isinstance(profiles[0], float) or isinstance(profiles[0], int):
+                values = profiles
+
+
 
         elif values != None:
             lb = min(values)
@@ -233,8 +237,8 @@ class Constraint:
         Runs finite element analysis on problem's structure if needed
         """
         if self.fea_required and not self.parent.fea_done:
-            if np.any(self.parent.X != x): # Replace with norm
-                self.parent.substitute_variables(x)
+            #if np.any(self.parent.X != x): # Replace with norm
+            self.parent.substitute_variables(x)
             self.parent.fea()
 
     def neg_call(self, x):

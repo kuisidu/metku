@@ -29,7 +29,7 @@ class SLSQP(OptSolver):
 
         return np.asarray(constr_vals) * -1
 
-    def _create_eqcons(self):
+    def create_eqcons(self):
         """ Creates a list of equality constraints
 
         :return: constraints
@@ -42,7 +42,7 @@ class SLSQP(OptSolver):
 
         return eqcons
 
-    def _create_ieqcons(self):
+    def create_ieqcons(self):
         """ Creates a list of inequality constraints
 
         :return: list of equality constraint functions
@@ -58,7 +58,7 @@ class SLSQP(OptSolver):
         return ieqcons
 
 
-    def _create_bounds(self):
+    def create_bounds(self):
         """ Creates a list of optimization variables' bounds
 
         :return: list of boundaries (lb, ub)
@@ -84,9 +84,9 @@ class SLSQP(OptSolver):
         """
 
         self.problem = problem
-        bounds = self._create_bounds()
-        eqcons = self._create_eqcons()
-        ieqcons = self._create_ieqcons()
+        bounds = self.create_bounds()
+        eqcons = self.create_eqcons()
+        ieqcons = self.create_ieqcons()
 
         # Create initial guess if one isn't provided
         if not len(x0):
@@ -170,7 +170,7 @@ if __name__ == '__main__':
 
     problem = TenBarTruss('continuous')
     solver = SLSQP()
-    xopt, fopt = solver.solve(problem, maxiter=10)
+    xopt, fopt = solver.solve(problem, maxiter=100)
 
     problem(xopt)
 

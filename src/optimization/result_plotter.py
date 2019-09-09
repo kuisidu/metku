@@ -281,13 +281,13 @@ if __name__ == '__main__':
     #filename = "benchmarks/MISLP_FiftyTwoBarTruss_2019_08_21.csv"
 
     plotter = ResultPlotter(filename)
-    # plotter.optimal_results()
+    plotter.optimal_results()
     # plotter.iteration_gif(idx=3, scaler=10, save=False)
-    # plotter.table()
-    # from src.optimization.benchmarks import *
-    # problem = TenBarTruss()
-    # plotter.structure_gif(problem, idx=14, save=True)
-    print(plotter.df[['Feasible', 'f*']].to_latex())
+    plotter.table()
+    from src.optimization.benchmarks import *
+    problem = TenBarTruss()
+    plotter.structure_gif(problem, idx=14, save=False)
+    # print(plotter.df[['Feasible', 'f*']].to_latex())
     """
     HYVIÄ ESIMERKKEJÄ
     

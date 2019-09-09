@@ -46,11 +46,11 @@ class VNS(OptSolver):
         x = {}
         for i, var in enumerate(self.problem.vars):
             if isinstance(var, DiscreteVariable):
-                idx = var.profiles.index(var.value)
+                idx = var.values.index(var.value)
                 idx_lb = max(var.lb, idx - self.step_length)
                 idx_ub = min(var.ub, idx + self.step_length)
-                lb = var.profiles[idx_lb]
-                ub = var.profiles[idx_ub]
+                lb = var.values[idx_lb]
+                ub = var.values[idx_ub]
             else:
                 # This can be made into instance variable
                 steps = 100
@@ -83,7 +83,7 @@ class VNS(OptSolver):
                                            for j in range(var.ub)]) == 1)
             # Binary property constraint
             # Ai == sum(A[i][bin_idx])
-            solver.Add(solver.Sum([y[i, j] * var.profiles[j]
+            solver.Add(solver.Sum([y[i, j] * var.values[j]
                                            for j in range(var.ub)]) == x[i])
 
         # Objective
@@ -282,9 +282,10 @@ class DiscreteVNS(OptSolver):
 if __name__ == '__main__':
     from src.optimization.benchmarks import *
     
-    problem = FifteenBarTruss('continuous')
-    solver = VNS(step_length=1, stochastic=False, stoch_prob=[0.05, 0.9, 0.05])
+    problem = FiftyTwoBarTruss('discrete')
+    solver = VNS(step_length=1, stochastic=False, stoch_prob=[0.1, 0.8, 0.1])
     x0 = [var.ub for var in problem.vars]
-    fopt, xopt = solver.solve(problem, maxiter=300, x0=x0, verb=True)
+    fopt, xopt = solver.solve(problem, maxiter=100, x0=x0, verb=True
+                              )
     problem(xopt)
     problem.structure.plot()

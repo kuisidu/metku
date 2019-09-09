@@ -2,9 +2,9 @@ from src.optimization.benchmarks import *
 from src.optimization.solvers import *
 from src.optimization.grid_search import GridSearch
 
-solvers = [ MISLP]
+solvers = [MISLP, VNS]
 
-benchmarks = [FiftyTwoBarTruss]
+benchmarks = [TenBarTruss, FifteenBarTruss, FiftyTwoBarTruss]
 
 VNS_options = {
     'step_length': [1, 2],
@@ -17,7 +17,7 @@ VNS_options = {
 
 
 MISLP_options = {
-    'move_limits': [[0.4, 5], [0.6, 5]],
+    'move_limits': [[0.5, 2], [0.6, 5]],
     'gamma': [1e-2, 5e-3, 1e-3]
 }
 

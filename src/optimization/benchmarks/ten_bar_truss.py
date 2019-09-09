@@ -204,27 +204,14 @@ class TenBarTruss(OptimizationProblem):
 
 
 if __name__ == '__main__':
-    import time
-    sub_sizes = np.arange(2, 10)
-    step_lengths = np.arange(1, 5)
-
-    # for step_length in step_lengths:
-    #     for sub_size in sub_sizes:
+    from src.optimization.solvers import *
     problem = TenBarTruss()
-    problem.structure.plot()
-    # solver = DiscreteVNS(step_length=3)
-    # start = time.time()
-    # x, f, steps = solver.solve(problem,
-    #                          maxiter=1000,
-    #                          maxtime=300,
-    #                          subset_size=3)
-    # end = time.time()
-    # total_time = round(end - start, 2)
-    # with open("tenbartruss_results.csv", 'a') as f:
-    #     f.write(f'{x};'
-    #             f'{round(f,2)};'
-    #             f'{len(steps)};'
-    #             f'{step_length};'
-    #             f'{sub_size};'
-    #             f'{total_time}')
+
+    x0 = [var.ub for var in problem.vars]
+    problem.substitute_variables(x0)
+    problem.structure.plot_deflection()
+    problem.structure.to_robot("TENBARTRUSS")
+    solver = VNS()
+    problem(x0)
+    solver.solve(problem, x0=x0, maxiter=100, verb=True)
 

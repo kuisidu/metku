@@ -3,7 +3,6 @@ from src.optimization.structopt import *
 from ortools.linear_solver import pywraplp
 
 
-
 class MISLP(OptSolver):
 
     def __init__(self, move_limits=[0.9, 1.1], gamma=1e-3):

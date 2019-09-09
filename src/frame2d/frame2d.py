@@ -15,6 +15,9 @@ from src.sections.steel.catalogue import *
 from src.sections.steel.catalogue import mat as MATERIALS
 from src.structures.steel.steel_member import SteelMember
 
+from functools import lru_cache
+
+CACHE_BOUND = 32000
 
 # Eounding precision
 PREC = 3
@@ -347,6 +350,7 @@ class Frame2D:
                 if coordinate not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coordinate)
 
+    @lru_cache(CACHE_BOUND)
     def calc_nodal_forces(self):
         """ Calculates nodal forces and saves values to
             self.nodal_forces - dict       
@@ -358,6 +362,7 @@ class Frame2D:
             for node in member.nodal_forces:
                 self.nodal_forces[node] = member.nodal_forces[node]
 
+    @lru_cache(CACHE_BOUND)
     def calc_nodal_displacements(self):
         """ Calculates nodal displacements and saves values to
             self.nodal_displacements -dict
@@ -369,6 +374,7 @@ class Frame2D:
             for node in member.nodal_displacements.keys():
                 self.nodal_displacements[node] = member.nodal_displacements[node]
 
+    @lru_cache(CACHE_BOUND)
     def calculate(self, load_id=2):
         """ Calculates forces and displacements
             
@@ -1370,6 +1376,13 @@ class FrameMember:
         """
         return self.cross_section.NRd
 
+
+
+    @property
+    def NbRd(self):
+        return self.steel_member.NbRd
+
+
     @property
     def VRd(self):
         """ Returns shear force resistance
@@ -1383,8 +1396,7 @@ class FrameMember:
         Function that calculates member's weight
         :return weight: float, weight of the member
         """
-
-        weight = self.cross_section.A * self.length * self.rho
+        weight = self.A * self.length * self.rho
         return weight
 
     @property
@@ -1620,6 +1632,7 @@ class FrameMember:
             self.generate_elements(fem_model)
             self.is_generated = True
 
+    #@lru_cache(CACHE_BOUND)
     def calc_nodal_coordinates(self, num_elements=0):
         """
             Calculates node locations along member
@@ -1798,6 +1811,7 @@ class FrameMember:
             # rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[idx])
 
+    #@lru_cache(CACHE_BOUND)
     def calc_nodal_forces(self):
         """ Gets calculated nodal forces on member's elements and
             adds them to dict where node is the key and froces are value
@@ -1847,6 +1861,7 @@ class FrameMember:
                                               shear_force,
                                               bending_moment]
 
+   # @lru_cache(CACHE_BOUND)
     def calc_nodal_displacements(self, fem_model):
         """ Calculates nodal displacements and saves them to a dict
             :param fem_model: FrameFEM -object
@@ -1923,6 +1938,7 @@ class FrameMember:
         s = fem.BeamSection(self.cross_section.A, self.cross_section.I[0])
         fem_model.add_section(s)
 
+    #@lru_cache(CACHE_BOUND)
     def check_cross_section(self):
         """ Checks if cross-section is strong enough.
             Gives boolean value for self.is_strong_enough

@@ -355,7 +355,7 @@ if __name__ == '__main__':
         end = time()
         print("Time elapsed: ", end - start)
 
-    """
+
     for member in frame.members.values():
             if member.mtype == 'beam':
                 frame.add(LineLoad(member, [-50, -50], 'y'))
@@ -363,7 +363,7 @@ if __name__ == '__main__':
                 frame.add(PointLoad(member.coordinates[1], [50, 0, 0]))
     frame.generate()
     frame.calculate()
-    """
+
 
 
 

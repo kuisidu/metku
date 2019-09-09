@@ -252,11 +252,11 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     problem = FiftyTwoBarTruss('discrete')
-    solver = MISLP(move_limits=[0.1, 10], gamma=1e-2)
-    #solver = DiscreteVNS(step_length=3)
+    #solver = MISLP(move_limits=[0.1, 10], gamma=1e-2)
+    solver = VNS(step_length=1)
     #x0 = [43, 18,  5, 42, 15,  5, 29, 16,  7, 19, 18,  9]
     x0 = [var.ub for var in problem.vars]
-    solver.solve(problem, x0=x0, maxiter=5, log=True)
+    solver.solve(problem, x0=x0, maxiter=100, log=True)
     problem(solver.X, prec=6)
 
     exporter = ResultExporter(problem, solver)
