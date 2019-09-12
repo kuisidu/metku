@@ -98,9 +98,14 @@ class SLSQP(OptSolver):
             for var in problem.vars:
                 x0.append(var.ub)# * np.random.uniform())
 
+        """
+            'eps' is the step length in numerical differentiation
+        """
         options = {'maxiter': maxiter,
                    'disp': True,
-                   'iprint': 2}
+                   'iprint': 2,
+                   'eps': 1e-5,
+                   'ftol':1e-4}
 
         constraints = []
 
@@ -112,15 +117,17 @@ class SLSQP(OptSolver):
             con = {'type': 'ineq', 'fun': ineqcon}
             constraints.append(con)
 
-
         out = minimize(self.problem.obj,
                         x0,
                         method='slsqp',
+                        tol = 1e-5,
                         bounds=bounds,
                         constraints=constraints,
                         options=options)
+        
         print(out)
         
+        print(self.calc_constraints(out.x))
         self.best_x = out.x
         self.best_f = out.fun
         self.X = out.x

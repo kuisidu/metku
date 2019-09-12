@@ -348,28 +348,46 @@ class OptimizationProblem:
         start = time.time()
         x = np.asarray(x)
         self.substitute_variables(x)
+        
+        """ Evaluate objective function at x """
         fx = self.obj(x)
+        """ Evaluate nonlinear constraint functions at x """
         b = self.eval_nonlin_cons(x)
+        
+        """ Get number of nonlinear constraints """
         m = self.nnonlincons()
+        """ Number of variables """
         n = self.nvars()
+        """ Jacobian
+            Rows of A are the gradients (transposed) of constraints
+        """
         A = np.zeros((m, n))
         df = np.zeros(n)
         for i, var in enumerate(self.vars):
             if not isinstance(var, BinaryVariable):
                 if isinstance(var, DiscreteVariable):
                     x[i] = var.value
+                
+                """ Get current value of variable """
                 prev_val = var.value
+                
+                """ Step length """
                 h = max(0.01 * abs(prev_val), 1e-4)
                 var.substitute(prev_val + h)
+                """ Make finite element analysis """
                 fea_start = time.time()
                 if self.structure:
                     self.fea()
                 fea_end = time.time()
+                """ Get variable values """
                 xh = [var.value for var in self.vars]
+                """ Evaluate objective function at x + hi*ei """
                 f_val = self.obj(xh)
+                """ Evaluate constraint functions at x + hi*ei """
                 a = self.eval_nonlin_cons(xh)
                 A[:, i] = (a - b) / h
                 df[i] = (f_val - fx) / h
+                """ Substitute the original value x[i] to current variable """
                 var.substitute(prev_val)
 
         B = A @ x.T - b
