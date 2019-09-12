@@ -123,6 +123,7 @@ class ResultExporter:
         else:
             fopt = None
             con_vals = None
+        con_vals = [f'{val:f}' for val in con_vals]
 
         # Initial point, x0
         x0 = [round(var, 2) for var in self.problem.x0]
@@ -154,7 +155,7 @@ class ResultExporter:
         objects = [var.target['objects'] for var in self.problem.vars]
         for i, obj in enumerate(objects):
             for j, mem in enumerate(obj):
-                if isinstance(mem, FrameMember)
+                if isinstance(mem, FrameMember):
                     objects[i][j] = mem.mem_id
                 elif isinstance(mem, FEMNode):
                     objects[i][j] = mem.nid
@@ -178,12 +179,19 @@ class ResultExporter:
 
         # Solver parameters
         params = list(self.solver.__dict__.items())
+        problem_params = list(self.problem.__dict__.items())
         excluded_params = ['X',
                            'problem',
                            'fvals',
                            'constr_vals',
-                           'xvals']
+                           'xvals',
+                           'name', 'vars', 'cons', 'obj', 'grad', 'hess',
+                           'structure', 'profiles', 'fea_done', 'num_iters',
+                           'num_fem_analyses',
+                           'states', 'gvals']
         params = [param for param in params if param[0] not in excluded_params]
+        problem_params = [param for param in problem_params if param[0] not in
+                          excluded_params]
 
         results = {
             'Feasible': self.problem.feasible,
@@ -206,6 +214,9 @@ class ResultExporter:
         for param in params:
             results[param[0]] = param[1]
 
+        for param in problem_params:
+            results[param[0]] = param[1]
+
         write_header = not os.path.exists(name)
 
         with open(name, 'a', newline='') as csvfile:
@@ -215,6 +226,33 @@ class ResultExporter:
             if write_header:
                 writer.writeheader()
             writer.writerow(results)
+
+        name2 = type(
+                self.solver).__name__ + '_' + self.problem.name + time + \
+                '_specified_results.csv'
+
+        write_header = not os.path.exists(name2)
+
+        with open(name2, 'a', newline='') as csvfile:
+            fieldnames = ["Feasible", "Iterations", "f*", "Lpi", "Fy", "Fx",
+                          "lcr", "buckling_z", "LT_buckling", "symmetry",
+                          "top_flange_class", "bottom_flange_class",
+                          "web_class", "g*"]
+            h, tw, bf, tf = xopt
+            results2 = {}
+            for fieldname in fieldnames:
+                results2[fieldname] = results[fieldname]
+
+            results2["h"] = h
+            results2["tw"] = tw
+            results2["bf"] = bf
+            results2["tf"] = tf
+            fieldnames.extend(["h", "tw", "bf", "tf"])
+
+            writer = csv.DictWriter(csvfile, fieldnames, dialect='excel')
+            if write_header:
+                writer.writeheader()
+            writer.writerow(results2)
 
         # print(name, fopt, xopt, x0, iters, fem_analyses)
 

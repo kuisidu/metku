@@ -46,6 +46,11 @@ class WIColumn(OptimizationProblem):
         self.top_flange_class = top_flange_class
         self.bottom_flange_class = bottom_flange_class
         self.web_class = web_class
+        self.Lpi = Lpi
+        self.Fx = Fx
+        self.Fy = Fy
+        self.Qx = Qx
+        self.lcr = lcr
         self.create_structure(Lpi, Fx, Fy, Qx, Qy, Mz, lcr, LT_buckling)
         self.create_variables()
         self.create_constraints()
@@ -106,7 +111,7 @@ class WIColumn(OptimizationProblem):
             var_bb = Variable("bb", 100, 500,
                               target={"property": "BB", "objects": [col]})
 
-            self.vars = [var_h, var_tt, var_tb, var_tw, var_bt, var_bb]
+            self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
 
         elif self.symmetry == "dual":
             var_tf = Variable("tf", 5, 50,
@@ -166,7 +171,7 @@ class WIColumn(OptimizationProblem):
             """
             con_type = '>'
 
-        con_name = "Flange in class " + str(self.top_flange_class)
+        con_name = "Top flange in class " + str(self.top_flange_class)
         con = LinearConstraint(a, b, con_type, name=con_name)
 
         return con
@@ -209,7 +214,7 @@ class WIColumn(OptimizationProblem):
             """
             con_type = '>'
 
-        con_name = "Flange in class " + str(self.bottom_flange_class)
+        con_name = "Bottom flange in class " + str(self.bottom_flange_class)
         con = LinearConstraint(a, b, con_type, name=con_name)
 
         return con
@@ -444,22 +449,25 @@ if __name__ == "__main__":
     from src.optimization.solvers import *
     problem = WIColumn()
     x0 = [800, 50, 500, 50]
-    solver = SLP(move_limits=[0.9, 6])
-    solver.solve(problem, maxiter=50000, maxtime=30, x0=x0)
-    problem(solver.X, prec=5)
+
+    # solver = SLP(move_limits=[0.9, 6])
+    # solver.solve(problem, maxiter=50000, maxtime=30, x0=x0)
+    # problem(solver.X, prec=5)
+
+    solver = slsqp.SLSQP()
+    f_best, x_best = solver.solve(problem, maxiter=100, x0=x0)
+    problem(solver.best_x, prec=5)
+
     from src.optimization.result_exporter import *
     name = "WIColumn_buckling_z:{0}_LT_buckling:{1}"\
         .format(problem.buckling_z, problem.LT_buckling)
     ResultExporter(problem, solver).to_csv()
 
-    # solver = SLSQP()
-    # solver.solve(problem, maxiter=50000, x0=x0)
-    # problem(solver.X)
-
-    # r0 = problem.solve("slsqp", x0=x0)
-    # print(r0)
-
     # print(problem.structure.f.elements[0].bending_moment)
     # print(problem.structure.f.elements[0].axial_force)
     # print(problem.structure.f.loads[1].qval)
+
+    ResultExporter(problem, solver).to_csv()
+
+    #  wi.cross_section.draw()
 
