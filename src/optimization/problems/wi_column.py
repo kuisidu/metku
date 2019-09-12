@@ -340,7 +340,7 @@ class WIColumn(OptimizationProblem):
             
             
             self.cons.append(buckling_y_con)
-
+            
             if self.buckling_z:
 
                 buckling_z_con = NonLinearConstraint(con_fun=buckling_z,
@@ -349,21 +349,21 @@ class WIColumn(OptimizationProblem):
                                                      parent=self)
                 buckling_z_con.fea_required = True
                 self.cons.append(buckling_z_con)
-
+            
             com_compression_bending_con_y = NonLinearConstraint(
                 con_fun=com_compression_bending_y,
                 name="Com_compression_bending_y " + str(mem.mem_id),
                 parent=self)
             com_compression_bending_con_y.fea_required = True
             self.cons.append(com_compression_bending_con_y)
-
+            
             com_compression_bending_con_z = NonLinearConstraint(
                 con_fun=com_compression_bending_z,
                 name="Com_compression_bending_z " + str(mem.mem_id),
                 parent=self)
             com_compression_bending_con_z.fea_required = True
             self.cons.append(com_compression_bending_con_z)
-
+            
             if self.LT_buckling:
 
                 lt_buckling_con = NonLinearConstraint(con_fun=lt_buckling,
