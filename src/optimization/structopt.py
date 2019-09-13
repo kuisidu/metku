@@ -669,15 +669,22 @@ def NumGrad(fun, h, x):
     fx = fun(x)
     n = len(x)
 
+    """ if only a single value for step length 'h' is given,
+        transform it to a list
+    """
+    if isinstance(h,float):
+        h = h*np.ones(n)
+
     df = np.zeros(n)
+    
+    np.eye(3,1,-2)
     #
     for i in range(len(x)):
-        dx = np.zeros(n)
-        dx[i] = h[i]
-        print(x + dx)
-        fh = fun(x + h)
+        xh = x + h[i]*np.eye(1,n,i)        
+        print(xh)
+        fh = fun(xh)
     #     print(fx, fh)
-        df[i] = (fh - fx) / h
+        df[i] = (fh - fx) / h[i]
 
     return df
 
