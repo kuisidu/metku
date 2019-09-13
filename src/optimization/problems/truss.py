@@ -1,6 +1,61 @@
+"""
+IDEAS:
+-------
+
+General layout
+--------------
+- problem = TrussProblem(name='16-Bar-24m-KTruss',
+                prob_type='design',
+                var_type='continuous',
+                variables=['B', 'T'],
+                profiles=RHS_PROFILES,
+                groups=[[mem1, mem2], [mem3, mem4, mem5]],
+                objective='weight',
+                structure=truss)
+
+    Parameters:
+    ------------
+        - name: name of the problem
+            default: "TrussProblem"
+
+        - prob_type: 'design', 'geometry', 'topology'
+            default: 'design'
+
+        - var_type: 'continuous', 'discrete', 'binary'
+            default: 'continuous'
+
+        - variables: list of design variables
+            default: ['A']
+
+        - profiles: list of available profiles
+            default: RHS_PROFILES
+
+        - groups: list of groups, one variable is assigned to each group
+            default: None
+
+        - objective: 'cost', 'weight' or user given function
+            default: 'weight'
+
+        - structure: Truss2D object
+            default: None
+
+Constraints
+-----------
+- design standard
+- stability
+- deflection
+- stress
+
+Other
+-----
+- structure knows whether it's symmetrical or not
+    - it will automatically create grouping for symmetrical members
+"""
+
+
+from src.frame2d.frame2d import *
 from src.optimization.structopt import *
 from src.truss2d import *
-from src.frame2d.frame2d import *
 
 # Sorted by area
 RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',
@@ -41,7 +96,6 @@ RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',
                 'RHS 260X260X12.5', 'RHS 400X400X8.0', 'RHS 400X400X8.8',
                 'RHS 300X300X12.5', 'RHS 400X400X10.0', 'RHS 400X400X12.5']
 
-
 RHS_A = [293.6991118430775, 358.9048622548086, 373.6991118430775,
          420.8230016469244, 453.6991118430775, 458.9048622548086,
          533.6991118430775, 540.8230016469245, 558.9048622548087,
@@ -80,7 +134,56 @@ RHS_A = [293.6991118430775, 358.9048622548086, 373.6991118430775,
          11704.369260617026, 12324.247719318988, 13504.339740375975,
          13704.369260617026, 15256.637061435917, 18704.369260617026]
 
-class PlaneTruss(OptimizationProblem):
+
+class TrussProblem(OptimizationProblem):
+
+    def __init__(self, **kwargs):
+
+        # Default values
+        values = dict(
+            name='TrussProblem',
+            prob_type='design',
+            var_type='continuous',
+            variables=['A'],
+            profiles=RHS_PROFILES,
+            groups=None,
+            objective='weight',
+            structure=None
+        )
+        # Update values with user-given values
+        values.update(kwargs)
+        super().__init__(values['name'])
+
+        # Assign values
+        for key, value in values.items():
+            self.__dict__[key] = value
+
+        # Assign objective
+        if isinstance(self.objective, str):
+            if self.objective == 'weight':
+                self.obj = self.weight_fun
+            elif self.objective == 'cost':
+                self.obj = self.cost_fun
+            else:
+                raise ValueError("Objective must be either "
+                                 "'weight' or 'cost' or a function")
+        elif callable(self.objective):
+            self.obj = self.objective
+        else:
+            raise ValueError("Objective must be either "
+                             "'weight' or 'cost' or a function")
+
+        # Assign constraints
+        # TODO
+
+        # Assign variables
+        # TODO
+
+        # Assign Structure
+        # TODO
+
+
+class PlaneTrussProblem(OptimizationProblem):
 
     def __init__(self, **kwargs):
         super().__init__(name='PlaneTruss')
@@ -91,7 +194,6 @@ class PlaneTruss(OptimizationProblem):
         self.create_constraints()
         self.create_objective()
 
-
     def create_constraints(self):
         """
         Cretes constraints and saves them to self.cons
@@ -100,9 +202,11 @@ class PlaneTruss(OptimizationProblem):
         self.cons = []
         for mem in self.structure.members.values():
 
-            buckling_y, buckling_z, com_compression_bending_y, \
-            com_compression_bending_z = \
-                self.stability_constraints(mem)
+            # buckling_y, buckling_z, com_compression_bending_y, \
+            # com_compression_bending_z = \
+            #     self.stability_constraints(mem)
+
+            buckling_y, buckling_z, = self.stability_constraints(mem)
 
             # BUCKLING Y
             buckling_y_con = NonLinearConstraint(con_fun=buckling_y,
@@ -120,21 +224,21 @@ class PlaneTruss(OptimizationProblem):
             buckling_z_con.fea_required = True
             self.cons.append(buckling_z_con)
 
-            # BENDING + COMPRESSION Y
-            com_compression_bending_con_y = NonLinearConstraint(
-                con_fun=com_compression_bending_y,
-                name="Com_compression_bending_y " + str(mem.mem_id),
-                parent=self)
-            com_compression_bending_con_y.fea_required = True
-            self.cons.append(com_compression_bending_con_y)
-
-            # BENDING + COMPRESSION Z
-            com_compression_bending_con_z = NonLinearConstraint(
-                con_fun=com_compression_bending_z,
-                name="Com_compression_bending_z " + str(mem.mem_id),
-                parent=self)
-            com_compression_bending_con_z.fea_required = True
-            self.cons.append(com_compression_bending_con_z)
+            # # BENDING + COMPRESSION Y
+            # com_compression_bending_con_y = NonLinearConstraint(
+            #     con_fun=com_compression_bending_y,
+            #     name="Com_compression_bending_y " + str(mem.mem_id),
+            #     parent=self)
+            # com_compression_bending_con_y.fea_required = True
+            # self.cons.append(com_compression_bending_con_y)
+            #
+            # # BENDING + COMPRESSION Z
+            # com_compression_bending_con_z = NonLinearConstraint(
+            #     con_fun=com_compression_bending_z,
+            #     name="Com_compression_bending_z " + str(mem.mem_id),
+            #     parent=self)
+            # com_compression_bending_con_z.fea_required = True
+            # self.cons.append(com_compression_bending_con_z)
 
             for i, elem in enumerate(mem.elements.values()):
                 forces = [elem.axial_force[0], elem.shear_force[0],
@@ -207,8 +311,8 @@ class PlaneTruss(OptimizationProblem):
         """
         Creates the objective function
         """
-
         def objective(x):
+            self.substitute_variables(x)
             weight = 0
             for mem in self.structure.members.values():
                 weight += mem.weight
@@ -222,36 +326,44 @@ class PlaneTruss(OptimizationProblem):
         Creates truss
         :return:
         """
-        truss = Truss2D(simple=kwargs)
+        truss = PlaneTruss(**kwargs)
 
-        sup1 = XYHingedSupport(truss.top_chords[0].coordinates[0])
-        sup2 = YHingedSupport(truss.top_chords[-1].coordinates[1])
-
-        # Top chord load
+        # Loads
         for tc in truss.top_chords:
             truss.add(LineLoad(tc, kwargs['q'], kwargs['dir']))
 
-        truss.add(sup1)
-        truss.add(sup2)
+        # Supports
+        truss.add(XYHingedSupport([0, truss.H1]))
+        truss.add(YHingedSupport([truss.L1, truss.H1]))
+
         truss.generate()
+        truss.calculate()
 
         return truss
-
 
     def create_variables(self, profiles=RHS_PROFILES):
         """
         Creates optimization variables
         """
         self.vars = []
-        for i, mem in enumerate(self.structure.members.values()):
-            name = 'A' + str(i + 1)
+        chords = self.structure.bottom_chords.copy()
+        chords.extend(self.structure.top_chords)
+        TC = [mem for mem in self.structure.top_chords]
+        BC = [mem for mem in self.structure.bottom_chords]
+        TW = [mem for mem in self.structure.members.values() if mem not in chords and mem.ned >= 0]
+        CW = [mem for mem in self.structure.members.values() if mem not in chords and mem.ned < 0]
+
+        groups = [TC, BC, TW, CW]
+        names = ['TopChords', 'BottomChords', 'TensionWebs', 'CompressionWebs']
+        for i, group in enumerate(groups):
+            name = names[i]
             if self.prob_type == "discrete":
                 var = DiscreteVariable(name,
                                        profiles=profiles,
                                        # TODO: THIS IS A PARAMETER
                                        values=RHS_A,
-                                       target={"property": "PROFILE",
-                                               "objects": [mem]})
+                                       target={"property": "A",
+                                               "objects": group})
 
             elif self.prob_type == "continuous":
                 var = Variable(name,
@@ -266,6 +378,33 @@ class PlaneTruss(OptimizationProblem):
                                 "or 'continuous")
 
             self.vars.append(var)
+
+        #
+        # WEBS = [mem for mem in self.structure.members.values() if mem.mem_type == "W"]
+        # nodes = [w.n1 for w in WEBS]
+        # nodes = sorted(nodes, key=lambda n: n.x)
+        #
+        # for i, node in enumerate(nodes):
+        #     name = "Node " + str(node.nid)
+        #     if i == 0:
+        #         var = Variable(name,
+        #                        lb=0,
+        #                        ub=nodes[i+1].x,
+        #                        target={"property": "x",
+        #                                "objects": [node]})
+        #     elif i == len(nodes) -1:
+        #         var = Variable(name,
+        #                        lb=nodes[i-1].x,
+        #                        ub=self.structure.L1,
+        #                        target={"property": "x",
+        #                                "objects": [node]})
+        #     else:
+        #         var = Variable(name,
+        #                        lb=nodes[i - 1].x,
+        #                        ub=nodes[i+1].x,
+        #                        target={"property": "x",
+        #                                "objects": [node]})
+        #     self.vars.append(var)
 
 
     def cross_section_constraints(self, sect, forces):
@@ -307,18 +446,18 @@ class PlaneTruss(OptimizationProblem):
             self.substitute_variables(x)
             return -mem.ned / mem.NbRd[1] - 1
 
-        def com_compression_bending_y(x):
-            self.substitute_variables(x)
-            return mem.steel_member.check_beamcolumn()[0] - 1
+        # def com_compression_bending_y(x):
+        #     self.substitute_variables(x)
+        #     return mem.steel_member.check_beamcolumn()[0] - 1
+        #
+        # def com_compression_bending_z(x):
+        #     self.substitute_variables(x)
+        #     return mem.steel_member.check_beamcolumn()[1] - 1
 
-        def com_compression_bending_z(x):
-            self.substitute_variables(x)
-            return mem.steel_member.check_beamcolumn()[1] - 1
-
-        return buckling_y,\
-               buckling_z,\
-               com_compression_bending_y,\
-               com_compression_bending_z
+        return buckling_y, \
+               buckling_z, \
+            # com_compression_bending_y,\
+        # com_compression_bending_z
 
     def deflection_constraints(self, mem):
         """
@@ -339,21 +478,26 @@ class PlaneTruss(OptimizationProblem):
 
         return disp_fun
 
+
 if __name__ == '__main__':
+    # from src.optimization.solvers import *
+    # kwargs = {'H1': 1000,
+    #           'H2': 1500,
+    #           'L1': 24000,
+    #           'n': 8,
+    #           'dx': 1500,
+    #           'q': [-25, -25],
+    #           'dir': 'y',
+    #           'prob_type': 'discrete'}
+    #
+    # problem = PlaneTrussProblem(**kwargs)
+    # problem.structure.plot_normal_force()
+    # #x0 = [var.ub for var in problem.vars]
+    # x0 = [100] * len(problem.vars)
+    # solver = MISLP(move_limits=[0.85, 2])
+    # fopt, xopt = solver.solve(problem, maxiter=50, x0=x0, verb=True)
+    # problem(xopt)
+    # problem.structure.plot()
 
-    from src.optimization.solvers import *
-
-    kwargs = {'H1': 1000,
-              'H2': 2000,
-              'L1': 12500,
-              'n': 16,
-              'q': [-25, -25],
-              'dir': 'y',
-              'prob_type': 'discrete'}
-
-    problem = PlaneTruss(**kwargs)
-    x0 = [var.ub for var in problem.vars]
-    print(x0)
-    solver = VNS()
-    solver.solve(problem, maxiter=100, x0=x0)
-
+    p = TrussProblem(nimi="joku vaa", values=[1,2,3])
+    print(p.nimi, p.values)
