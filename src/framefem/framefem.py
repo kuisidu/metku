@@ -1,6 +1,6 @@
 
 import matplotlib.pyplot as plt
-
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 
@@ -39,25 +39,29 @@ class FrameFEM:
 
     def __init__(self):
 
-        self.nodes = []
         """ List containing all FEMNode -instances """
-        self.nodal_coords = []
+        self.nodes = []
         """ List of nodal coordinates """
-        self.elements = []
+        self.nodal_coords = []
         """ List of elements """
-        self.sections = []
+        self.elements = []
         """ List of sections """
-        self.materials = []
+        self.sections = []
         """ List of materials """
-        self.supports = []
+        self.materials = []
         """ List of supports """
-        self.loads = []
+        self.supports = []
         """ List of loads """
-        self.loadcases = []
+        self.loads = []
         """ List of load cases"""
-        self.dofs = 0
+        self.loadcases = []
         """ Number of degrees of freedom """
-
+        self.dofs = 0
+        """ Dimension of the problem (either 2 or 3) 
+            Problem is 3D if any node as three coordinates
+        """
+        self.dim = 2
+        
     def nels(self):
         """ Number of elements
 
@@ -110,7 +114,7 @@ class FrameFEM:
         """
         return len(self.loadcases)
 
-    def add_node(self, x, y):
+    def add_node(self, x, y, z=None):
         """ Adds node to fem model
 
         Parameters:
@@ -122,11 +126,21 @@ class FrameFEM:
         :type y: float
         """
 
-        newNode = FEMNode(x, y ,len(self.nodes))
-        self.nodal_coords.append([x, y])
+        newNode = FEMNode(len(self.nodes), x, y, z)
+        if z is None:
+            """ if z is 'None', there is no z-coordinate, and the problem
+                is 2D. Otherwise, the value of z-coordinate is given, and the problem
+                is 3D.
+            """
 
-        for i in range(self.nloadcases()):
-            newNode.u = np.vstack((newNode.u, [0.0, 0.0, 0.0]))
+            self.nodal_coords.append([x, y])            
+            for i in range(self.nloadcases()):
+                newNode.u = np.vstack((newNode.u, [0.0, 0.0, 0.0]))
+        else:
+            self.dim = 3
+            self.nodal_coords.append([x, y, z])
+            for i in range(self.nloadcases()):
+                newNode.u = np.vstack((newNode.u, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
 
         self.nodes.append(newNode)
         return newNode
@@ -219,9 +233,10 @@ class FrameFEM:
         for node in self.nodes:
             if len(node.u):
                 # node.u = [0.0, 0.0, 0.0]
-                node.u = np.vstack((node.u, [0.0, 0.0, 0.0]))
+                # node.u = np.vstack((node.u, [0.0, 0.0, 0.0]))
+                node.u = np.vstack(node.u,[0 for i in range(len(node.dofs))])
             else:
-                node.u = [0.0, 0.0, 0.0]
+                node.u = [0 for i in range(len(node.dofs))]
                 # node.u = np.vstack((node.u, [0.0, 0.0, 0.0]))
 
     def nodal_dofs(self):
@@ -292,6 +307,7 @@ class FrameFEM:
             # get element degrees of freedom
             # change the list to numpy array
             ve = np.array(elem.global_dofs())
+            
             # find non-zero dofs
             nz = ve >= 0
             q = ve[nz]
@@ -379,9 +395,37 @@ class FrameFEM:
 
         load_id = self.loadcases[lcase].load
         p = self.global_load_vector(load_id)
-
+        
+        
+        """ Take supports into account
+            The method is based on Filippa's Lecture Notes (3.5.2)
+            
+            The idea is that the rows and columns of the global stiffness
+            matrix corresponding to the supported degrees of freedom are
+            zeroed, and 1 is placed on the diagonal. Similarly, the
+            elements of the load vector corresponding to the supported
+            DOFs are zeroed.
+        """
+        supp_id = self.loadcases[lcase].support
+        
+        for supp in self.supports:
+            if supp.sid == supp_id:                
+                node_dofs = supp.node.dofs
+                for dof in supp.dof:
+                    # Get the global degree of freedom of the supported
+                    # node's degree of freedom.
+                    i = node_dofs[dof]
+                    print(i)
+                    if i > -1:
+                        K[i,:] = 0
+                        K[:,i] = 0
+                        K[i,i] = 1
+                        p[i] = 0
+                        
         """ Solve global displacement vector """
         u = np.linalg.solve(K, p)
+        
+        
         """ Distribute displacements to nodes """
         for node in self.nodes:
             # Get nodal dofs
@@ -456,20 +500,38 @@ class FrameFEM:
         """  Plots elements and nodes using matplotlib pyplot
         """
 
+        fig = plt.figure()
+        if self.dim == 3:
+            ax = plt.axes(projection='3d')
+        else:
+            ax = plt.axes()
+
         """ draw nodes """
         for n in self.nodes:
-            plt.plot(n.coord[0], n.coord[1], 'ro')
+            if self.dim == 2:
+                ax.plot(n.coord[0], n.coord[1], 'ro')
+            else:
+                ax.scatter3D(n.coord[0], n.coord[1], n.coord[2],'ro')
+                
 
         for i in range(self.nnodes()):
-            plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
+            if self.dim == 2:
+                plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
+            #else:
+                #plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], self.nodes[i].coord[2], str(i))
 
         """ draw members """
         for i in range(self.nels()):
             # X = self.member_coord(i)
             X = self.elements[i].coord()
-            plt.plot(X[:, 0], X[:, 1], 'b')
-            Xmid = X[0, :] + 0.5 * (X[1, :] - X[0, :])
-            plt.text(Xmid[0], Xmid[1], str(i))
+            Xmid = X[0, :] + 0.5 * (X[1, :] - X[0, :])            
+            
+            if self.dim == 2:
+                ax.plot(X[:, 0], X[:, 1], 'b')
+                ax.text(Xmid[0], Xmid[1], str(i))
+            else:
+                ax.plot3D(X[:, 0], X[:, 1], X[:,2], 'b')
+                ax.text(Xmid[0], Xmid[1], Xmid[2], str(i))
 
         plt.show()
 
@@ -493,32 +555,44 @@ class Material:
 
         Parameters:
         -----------
-        :param E: Young's modulus [Mpa]
+        :param E: Young's modulus [MPa]
         :param nu: Poisson's ratio
         :param rho: density [kg / mm^3]
+        :param G: shear modulus. If it is not given, it is calculated from
+                    E and nu
 
         :type E: float
         :type nu: float
         :type rho: float
+        :type G: float
 
         Variables:
         ----------
-        :ivar young: Young's modulus [Mpa]
+        :ivar young: Young's modulus [MPa]
         :ivar nu: Poisson's ratio
         :ivar density: density [kg / mm^3]
+        :ivar shear_modulus: Shear modulus [MPa]
 
         :vartype young: float
         :vartype nu: float
         :vartype density: float
+        :vartype shear_modulus: float
     """
 
-    def __init__(self, E, nu, rho):
-        self.young = E
+    def __init__(self, E, nu, rho, G=None):
         """ Young's modulus """
-        self.nu = nu
+        self.young = E
         """ Poisson ratio """
-        self.density = rho
+        self.nu = nu
         """ Density """
+        self.density = rho
+        
+        """ Shear modulus """
+        if G == None:
+            G = 0.5*E/(1+nu)
+        
+        self.shear_modulus = G
+        
 
 
 class Section:
@@ -552,10 +626,14 @@ class BeamSection(Section):
         Parameters:
         -----------
         :param A: cross-sectional area [mm^2]
-        :param Iy: second moment of area [mm^4]
+        :param Iy: second moment of area with respect to major axis [mm^4]
+        :param Iz: second moment of area with respect to minor axis [mm^4]
+        :param J: torsional constant [mm^4]
 
         :type A: float
         :type Iy: float
+        :type Iz: float
+        :type J: float
 
         Variables:
         ----------
@@ -564,10 +642,14 @@ class BeamSection(Section):
         :vartype Iy: float
     """
 
-    def __init__(self, A, Iy):
+    def __init__(self, A, Iy, Iz=None, J=None):
         Section.__init__(self, A)
-        self.Iy = Iy
         """ Second moment of area [mm^4]"""
+        self.Iy = Iy
+        self.Iz = Iz
+        """ Torsional constant """
+        self.J = J
+        
 
 
 class Support:
@@ -607,8 +689,16 @@ class Support:
         self.node = node
         """ supported node"""
         self.dof = dof
-        """ degrees of freedom"""
-        self.node.dofs = dof
+        """ degrees of freedom
+            Alt. 1: dof = [1, 0,0 1, 0, 1] with ones for supported dofs
+            Calling nodal_dofs() excludes the supported dofs
+            
+            Alt. 2: dof = [0, 3, 5] with indices of supported dofs
+            Calling nodal_dofs() does not exclude the supported dofs but this
+            is done in linear_statics()
+        """
+        
+        #self.node.dofs = dof
         self.val = val
         """ value for supports"""
 
@@ -701,6 +791,7 @@ class PointLoad(Load):
         """ Load vector """
         F = self.f * np.array(self.v)
 
+        
         """ Degrees of freedom """
         dofs = np.array(self.node.dofs)
 
@@ -796,8 +887,8 @@ class LoadCase:
 
         Parameters:
         -----------
-        :param support: Supports id, supports having this id are added to the calculation model
-        :param load: Loads id, loads having this id are added to the calculation model
+        :param support: Support id, supports having this id are added to the calculation model
+        :param load: Load id, loads having this id are added to the calculation model
 
         :type support: int
         :type load: int
@@ -822,16 +913,20 @@ class FEMNode:
 
         Parameters:
         -----------
+        :param nid: node id (integer)
         :param x: x-coordinate of the node
         :param y: y-coordinate of the node
+        :param z: z-coordinate of the node (optional)
 
         :type x: float
         :type y: float
+        :type z: float
 
         Variables:
         ----------
         :ivar x: Coordinates of the node
         :ivar dofs: Degrees of freedom for node [0, 1, 2] [Ux, Uy, Rz]
+                In 3D: [Ux, Uy, Uz, Rx, Ry, Rz]
         :ivar u: Nodal displacements due to linear static analysis
         :ivar v: Nodal displacements due to linear buckling analysis
 
@@ -843,19 +938,35 @@ class FEMNode:
 
     """
 
-    def __init__(self, x, y, nid):
+    def __init__(self, nid, x, y, z=None):
+        """ Constructor
+            If z-coordinate is given, then the problem becomes immediately 3D
+        """
 
-        self.coord = np.array([x, y])
-        """ Nodal coordinates"""
-        self.nid = nid
         """ Node id """
-        # For 3D frames, the order of dofs must be redefined
-        self.dofs = [0, 0, 0]
+        self.nid = nid
+        
+
         """ Node's degrees of freedom """
         # NOTE: for multiple load cases, the dimension of u must be increased for each load case
         self.u = np.array([])
-        """ Nodal displacement vector (linear statics)"""
-        self.v = [0,0,0]
+
+        """ Nodal coordinates"""
+        if z is not None:
+            self.coord = np.array([x, y, z])
+            # Degrees of freedom (integer values)
+            self.dofs = [0, 0, 0, 0, 0, 0]
+            
+            # Nodal displacements
+            # [Ux, Uy, Uz, Rx, Ry, Rz]
+            self.v = [0, 0, 0, 0, 0, 0]
+        else:
+            self.coord = np.array([x, y])
+            self.dofs = [0, 0, 0]
+            # [Ux, Uy, Uz]
+            self.v = [0,0,0]
+        
+            
         """ Nodal displacement vector (linear buckling)"""
         # List of FrameMember-type objects that are connected to this node
         self.parents = []
@@ -876,7 +987,13 @@ class FEMNode:
     def y(self, val):
         self.coord[1] = val
 
+    @property
+    def z(self):
+        return self.coord[2]
 
+    @z.setter
+    def z(self, val):
+        self.coord[2] = val
 
 class Element(metaclass=ABCMeta):
     """ Class for 1D finite elements: bars and beams
@@ -1045,6 +1162,9 @@ class Element(metaclass=ABCMeta):
         """
         T = self.transformation_matrix()
         q = self.nodal_displacements()
+        
+        #print(T)
+        #print(q)
         return T.dot(q)
 
     @abstractclassmethod

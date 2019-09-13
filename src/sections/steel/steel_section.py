@@ -16,10 +16,15 @@ Class for general steel cross sections
 """
 
 import numpy as np
-
-from src.eurocodes.en1993 import constants
-from src.eurocodes.en1993 import en1993_1_1
 from abc import abstractclassmethod, ABCMeta
+
+try:
+    from src.eurocodes.en1993 import constants
+    from src.eurocodes.en1993 import en1993_1_1
+except:
+    from eurocodes.en1993 import constants
+    from eurocodes.en1993 import en1993_1_1
+
 
 INFEASIBLE = 999
 
@@ -91,7 +96,7 @@ class SteelSection(metaclass=ABCMeta):
             return self.code.bending_resistance(self.Wel, self.fy)
         else:
 
-            print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
+            #  print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
             return self.code.bending_resistance(self.Wel, self.fy)
 
             #raise NotImplemented("Calculation of cross-section class 4 is not implemented yet")

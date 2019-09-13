@@ -37,7 +37,7 @@ class Truss2D(Frame2D):
                       'L1': 0,
                       'L2': 0,
                       'n': 0,
-                       'dx':0}
+                       'dx': 0}
         for key in simple:
             self.simple[key] = simple[key]
 
@@ -63,13 +63,12 @@ class Truss2D(Frame2D):
             self.generate_webs()
             
     def generate_chords(self):
-        #self.add(TopChord([[0,self.H0 + self.H1],[self.L,self.H0 + self.H1]]))
-        #self.add(BottomChord([[0,self.H0],[self.L,self.H0]]))
-
-
-
-
+        """
+        Generates chords
+        :return:
+        """
         x, y = self.origo
+
         if self.H2:
             self.add(TopChord([[x,y+self.H0 + self.H1],
                                [x+self.L1,y+self.H0 + self.H2]]))
@@ -85,23 +84,32 @@ class Truss2D(Frame2D):
 
                  
     def generate_webs(self):
-
+        """
+        Generates webs symmetrically
+        :return:
+        """
         c1 = 0.0
         c2 = 0.0
-        
+
+        # If true first web starts from top chord else from bottom
         if self.n // 2 % 2:
             flip = True
         else:
             flip = False
 
-        for i in range(1,int(self.n/2)+1):
+
+        for i in range(1, int(self.n/2)+1):
             if i%2 == 0:
                 c1 = round(i/self.n, 4)
                 if c1 > 1:
                     c1 = 1
                 if self.H2 and not flip:
                     c1 = min(0.99, c1*2)
-            elif i!=0:
+
+            elif i == 1 and self.dx:
+                c2 = 0
+
+            elif i:
                 c2 = round(i/self.n, 4)
                 if c2 > 1:
                     c2 = 1
@@ -116,7 +124,14 @@ class Truss2D(Frame2D):
                 self.add(TrussWeb(1-c2, 1-c1))
 
 
+
+
     def add(self, this):
+        """
+        Adds object to truss
+        :param this: object to be added
+        :return:
+        """
         # TOP CHORD
         if isinstance(this, TopChord):
             self.top_chords.append(this)
@@ -136,14 +151,14 @@ class Truss2D(Frame2D):
             if this.coord_type == "local":
                 # Calculate web's global coordinates
                 bottom_chord = self.bottom_chords[0]
-                c01 = self.bottom_chords[0].local(this.bot_loc)
+                c01 = bottom_chord.to_global(this.bot_loc)
                 for top_chord in self.top_chords:
                     if c01[0] <= top_chord.coordinates[1][0]:
                         c02 = top_chord.local(this.top_loc)
                         break
                 # Change web's coordinates to global coordinates
                 this.bot_coord = c01
-                this.top_coord =  c02
+                this.top_coord = c02
             else:
                 # Sort by y-coordinate
                 c01, c02 = sorted(this.coordinates, key=lambda x: x[1])
@@ -206,43 +221,7 @@ class Truss2D(Frame2D):
             self.webs[this.mem_id] = this
             self.members["W" + str(this.mem_id)] = this
 
-        # POINTLOADS
-        elif isinstance(this, PointLoad):
-            if this.name in self.point_loads.keys():
-                this.name += str(len(self.point_loads))
-            self.point_loads[this.name] = this
-
-            for member in self.members.values():
-                coord = member.point_intersection(this.coordinate)
-                if coord:
-                    member.add_node_coord(this.coordinate)
-
-
-        # LINELOADS
-        elif isinstance(this, LineLoad):
-            if this.name in self.line_loads.keys():
-                this.name += str(len(self.line_loads))
-            self.line_loads[this.name] = this
-
-        # SUPPORTS
-        elif isinstance(this, Support):
-            this.supp_id = len(self.supports)
-            self.supports[this.supp_id] = this
-            self.support_nodes.append(this.coordinate)
-
-            for member in self.members.values():
-                coord = member.point_intersection(this.coordinate)
-                if coord:
-                    member.add_node_coord(this.coordinate)
-
-        # TRUSS
-        elif isinstance(this, Truss2D):
-            self.truss = this
-
-
-        else:
-            print(type(this), " is not supported.")
-            raise TypeError
+        super().add(this)
 
 
 
@@ -469,6 +448,7 @@ class TrussMember(FrameMember):
         
         x0, y0 = start_node
         Lx = self.length * value
+
         return list(np.asarray(start_node) + Lx * v)
     
     
@@ -669,6 +649,7 @@ class TopChord(TrussMember):
 
 
 class BottomChord(TrussMember):
+
     def __init__(self,
                  coordinates,
                  mem_id="",
@@ -698,6 +679,7 @@ class TrussWeb(TrussMember):
                  num_elements=2,
                  Sj1=0,
                  Sj2=0):
+
         if coord_type == "global" or coord_type == "g":
             super().__init__([bot_loc, top_loc], profile=profile,
                  material=material, num_elements=num_elements)  
@@ -798,6 +780,16 @@ class TrussJoint():
     @loc.setter
     def loc(self, val):
         self.__loc = round(val, PREC)
+        if self.chord.mtype == 'top_chord':
+            for web in self.webs.values():
+                web.top_loc = self.loc
+        else:
+            for web in self.webs.values():
+                web.bot_loc = self.loc
+
+        self.calc_nodal_coordinates()
+
+
 
     @property
     def coordinate(self):     

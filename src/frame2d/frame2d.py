@@ -7,17 +7,21 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import src.framefem.framefem  as fem
 
-from src.framefem.elements import EBBeam, EBSemiRigidBeam
-from src.sections.steel import *
-from src.sections.steel.catalogue import *
-from src.sections.steel.catalogue import mat as MATERIALS
-from src.structures.steel.steel_member import SteelMember
-
-from functools import lru_cache
-
-CACHE_BOUND = 32000
+try:
+    import src.framefem.framefem  as fem
+    from src.framefem.elements import EBBeam, EBSemiRigidBeam
+    from src.sections.steel import *
+    from src.sections.steel.catalogue import *
+    from src.sections.steel.catalogue import mat as MATERIALS
+    from src.structures.steel.steel_member import SteelMember
+except:
+    import framefem.framefem  as fem
+    from framefem.elements import EBBeam, EBSemiRigidBeam
+    from sections.steel import *
+    from sections.steel.catalogue import *
+    from sections.steel.catalogue import mat as MATERIALS
+    from structures.steel.steel_member import SteelMember
 
 # Eounding precision
 PREC = 3
@@ -180,8 +184,10 @@ class Frame2D:
 
         # SUPPORTS
         elif isinstance(this, Support):
-            this.supp_id = len(self.supports)
-            self.supports[this.supp_id] = this
+            #this.supp_id = len(self.supports)
+            supp_label = len(self.supports)
+            self.supports[supp_label] = this
+            #self.supports[this.supp_id] = this
             self.support_nodes.append(this.coordinate)
 
             for member in self.members.values():
@@ -350,7 +356,7 @@ class Frame2D:
                 if coordinate not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coordinate)
 
-    @lru_cache(CACHE_BOUND)
+
     def calc_nodal_forces(self):
         """ Calculates nodal forces and saves values to
             self.nodal_forces - dict       
@@ -362,7 +368,7 @@ class Frame2D:
             for node in member.nodal_forces:
                 self.nodal_forces[node] = member.nodal_forces[node]
 
-    @lru_cache(CACHE_BOUND)
+
     def calc_nodal_displacements(self):
         """ Calculates nodal displacements and saves values to
             self.nodal_displacements -dict
@@ -374,7 +380,7 @@ class Frame2D:
             for node in member.nodal_displacements.keys():
                 self.nodal_displacements[node] = member.nodal_displacements[node]
 
-    @lru_cache(CACHE_BOUND)
+
     def calculate(self, load_id=2):
         """ Calculates forces and displacements
             
@@ -514,6 +520,7 @@ class Frame2D:
 
     def generate(self):
         """ Generates the frame and truss
+            FEM model
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
@@ -538,12 +545,16 @@ class Frame2D:
 
         # Remove duplicate nodes
         self.nodes = list(set(self.nodes))
+        
+        # Add supports
         for support in self.supports.values():
             support.add_support(self.f)
 
+        # Add point loads (if any)
         for pointLoad in self.point_loads.values():
             pointLoad.add_load(self.f)
 
+        # Add line loads (if any)
         for lineLoad in self.line_loads.values():
             member = lineLoad.member
             lineLoad.element_ids = member.lineload_elements(lineLoad.coordinates)
@@ -1245,7 +1256,7 @@ class FrameMember:
 
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
                  material="S355", num_elements=5,
-                 Sj1=np.inf, Sj2=np.inf, mtype=""):
+                 Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False):
 
         self.element_ids = []
         self.elements = {}
@@ -1370,6 +1381,13 @@ class FrameMember:
         return self.cross_section.MRd
 
     @property
+    def MbRd(self):
+        """ Returns LT buckling resistance
+            Units: Nmm
+        """
+        return self.steel_member.MbRd
+
+    @property
     def NRd(self):
         """ Returns axial force resistance
             Units: N
@@ -1382,6 +1400,13 @@ class FrameMember:
     def NbRd(self):
         return self.steel_member.NbRd
 
+
+    @property
+    def NbRd(self):
+        """ Returns buckling resistance
+            Units: N
+        """
+        return self.steel_member.NbRd
 
     @property
     def VRd(self):
@@ -1632,7 +1657,7 @@ class FrameMember:
             self.generate_elements(fem_model)
             self.is_generated = True
 
-    #@lru_cache(CACHE_BOUND)
+
     def calc_nodal_coordinates(self, num_elements=0):
         """
             Calculates node locations along member
@@ -1811,7 +1836,7 @@ class FrameMember:
             # rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[idx])
 
-    #@lru_cache(CACHE_BOUND)
+
     def calc_nodal_forces(self):
         """ Gets calculated nodal forces on member's elements and
             adds them to dict where node is the key and froces are value
@@ -1861,7 +1886,7 @@ class FrameMember:
                                               shear_force,
                                               bending_moment]
 
-   # @lru_cache(CACHE_BOUND)
+   #
     def calc_nodal_displacements(self, fem_model):
         """ Calculates nodal displacements and saves them to a dict
             :param fem_model: FrameFEM -object
@@ -1938,7 +1963,7 @@ class FrameMember:
         s = fem.BeamSection(self.cross_section.A, self.cross_section.I[0])
         fem_model.add_section(s)
 
-    #@lru_cache(CACHE_BOUND)
+
     def check_cross_section(self):
         """ Checks if cross-section is strong enough.
             Gives boolean value for self.is_strong_enough
@@ -2335,8 +2360,9 @@ class SteelBeam(FrameMember):
 
 class SteelColumn(FrameMember):
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
-                 material="S355", num_elements=4):
-        super().__init__(coordinates, mem_id, profile, material, num_elements)
+                 material="S355", num_elements=4, LT_buckling=False):
+        super().__init__(coordinates, mem_id, profile, material, num_elements,
+                         LT_buckling)
 
         self.mtype = 'column'
         self.check_mtype()
@@ -2444,7 +2470,10 @@ class LineLoad(Load):
 # --------------------------- SUPPORT CLASSES ----------------------------
 class Support:
     def __init__(self, coordinate, dofs, supp_id=1):
-
+        """ Constructor
+            coordinate .. nodal coordinates [list]
+            node_id .. 
+        """
         self.node = None
         self.node_id = None
         self.coordinate = coordinate
@@ -2476,22 +2505,23 @@ class Support:
 
 class FixedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [1, 1, 1], supp_id)
+        #super().__init__(coordinate, [1, 1, 1], supp_id)
+        super().__init__(coordinate, [0, 1, 2], supp_id)
 
 
 class XHingedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [1, 0, 0], supp_id)
+        super().__init__(coordinate, [0], supp_id)
 
 
 class YHingedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [0, 1, 0], supp_id)
+        super().__init__(coordinate, [1], supp_id)
 
 
 class XYHingedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [1, 1, 0], supp_id)
+        super().__init__(coordinate, [0, 1], supp_id)
 
 
 class Hinge(Support):
@@ -2502,11 +2532,17 @@ class Hinge(Support):
 if __name__ == '__main__':
 
     frame = Frame2D()
-    col = SteelColumn([[0,0], [0, 5000]])
-    beam = SteelBeam([[0, 5000], [5000, 8000]])
-    frame.add(col)
+    #col1 = SteelColumn([[0,0], [0, 1000]])
+    #col2 = SteelColumn([[2000,0], [2000, 1000]])
+    beam = SteelBeam([[0, 000], [2000, 000]])
+    #frame.add(col1)
+    #frame.add(col2)
     frame.add(beam)
-    frame.add(LineLoad(beam, [-10, -30], 'z'))
+    frame.add(LineLoad(beam, [-30, -30], 'y'))
+    frame.add(FixedSupport([0,000],supp_id=1))
+    frame.add(FixedSupport([2000,000],supp_id=1))
 
     frame.generate()
+    frame.calculate()
+    #frame.bmd(5)
     frame.plot()

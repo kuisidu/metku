@@ -2,4 +2,7 @@ site_name: Frame2D
 nav:
     - Home: index.md
     - Classes: hierarchy.md
+    - Examples:
+        - Simple Beam: examples/Simple Beam/Simple_Beam_Example.md
+        - Portal Frame: examples/Portal Frame/Portal Frame.md
 theme: readthedocs
