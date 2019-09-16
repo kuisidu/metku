@@ -6,6 +6,7 @@ from frame2d.frame2d import *
 from optimization.structopt import *
 from optimization.problems.wi_column import WIColumn
 from optimization.solvers import slsqp, slp, slqp
+from optimization.solvers.trust_region import TrustRegionConstr
 #from optimization.result_exporter import *
 from eurocodes.en1993 import en1993_1_1
 
@@ -16,7 +17,7 @@ g_roof = 0.0005  # N/mm2
 L_list = [30000]  # mm    
 Lpi_list = [8000]  # mm    
 c = 6000  # mm    
-lcr_list = [0.7]    
+lcr_list = [2]    
 buckling_z = [True]    
 LT_buckling = [False]    
 cross_section_class_list = [2]
@@ -24,7 +25,7 @@ cross_section_class_list = [2]
 Mz = 0    
 Qy = 0    
 Qx = q_wind * c    
-x0 = [400, 20, 200, 20]
+x0 = [300, 8, 200, 10]
     
 # for LT in LT_buckling:
     
@@ -56,7 +57,8 @@ for buck_z in buckling_z:
                                   cross_section_class, buck_z))
 
                     
-                    solver = slsqp.SLSQP()
+                    #solver = slsqp.SLSQP()
+                    solver = TrustRegionConstr()
                     f_best, x_best = solver.solve(problem, maxiter=200, x0=x0)
                     print(x_best)
                     #solver = slp.SLP(move_limits=[0.95, 1.05])

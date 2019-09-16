@@ -1,6 +1,8 @@
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import minimize, NonlinearConstraint, Bounds
+from scipy.optimize import LinearConstraint as LinCon
+import optimization.structopt as sopt
 
 try:
     from src.optimization.solvers.optsolver import OptSolver
@@ -8,8 +10,8 @@ except:
     from optimization.solvers.optsolver import OptSolver
 
 
-class SLSQP(OptSolver):
-
+class TrustRegionConstr(OptSolver):
+    """ Trust-region algorithm of scipy.optimize """
 
     def __init__(self):
         super().__init__()
@@ -31,7 +33,7 @@ class SLSQP(OptSolver):
         for i in range(len(self.problem.cons)):
             constr_vals.append(self.problem.cons[i](x))
 
-        return np.asarray(constr_vals) * -1
+        return np.asarray(constr_vals)
 
     def _create_eqcons(self):
         """ Creates a list of equality constraints
@@ -55,9 +57,9 @@ class SLSQP(OptSolver):
 
         for con in self.problem.cons:
             if con.type == "<" or con.type == "<=":
-                ieqcons.append(con.neg_call)
-            elif con.type == ">" or con.type == ">=":
                 ieqcons.append(con)
+            elif con.type == ">" or con.type == ">=":
+                ieqcons.append(con.neg_call)
 
         return ieqcons
 
@@ -67,10 +69,15 @@ class SLSQP(OptSolver):
 
         :return: list of boundaries (lb, ub)
         """
-        bounds = []
+        lb = []
+        ub = []
+        #bounds = []
         for var in self.problem.vars:
-            bound = (var.lb, var.ub)
-            bounds.append(bound)
+            lb.append(var.lb)
+            ub.append(var.ub)
+            #bound = (var.lb, var.ub)
+            #bounds.append(bound)
+            bounds = Bounds(lb,ub,keep_feasible=True)
 
         return bounds
 
@@ -88,9 +95,42 @@ class SLSQP(OptSolver):
         """
 
         self.problem = problem
+        
+        constraints = []
+        
+        for con in self.problem.cons:           
+            if isinstance(con,sopt.NonLinearConstraint):
+                lb = -np.inf
+                ub = np.inf
+                if con.type == "<" or con.type == "<=":                
+                    ub = 0
+                elif con.type == ">" or con.type == ">=":
+                    lb = 0
+                elif con.type == "=":
+                    lb = 0
+                    ub = 0
+                    
+                constraints.append(NonlinearConstraint(con,lb,ub,jac='2-point'))
+            elif isinstance(con,sopt.LinearConstraint):
+                lb = -np.inf
+                ub = np.inf
+                if con.type == "<" or con.type == "<=":                
+                    ub = con.b
+                elif con.type == ">" or con.type == ">=":
+                    lb = con.b
+                elif con.type == "=":
+                    lb = con.b
+                    ub = con.b
+                                    
+                
+                constraints.append(LinCon(con.a,lb,ub))
+            
+        
         bounds = self._create_bounds()
+        """
         eqcons = self._create_eqcons()
         ieqcons = self._create_ieqcons()
+        """
 
         # Create initial guess if one isn't provided
         if not len(x0):
@@ -99,16 +139,21 @@ class SLSQP(OptSolver):
                 x0.append(var.ub)# * np.random.uniform())
 
         """
-            'eps' is the step length in numerical differentiation
+        
+            
         """
+        #print(constraints[-3].ub)
+       
+        
         options = {'maxiter': maxiter,
-                   'disp': True,
-                   'iprint': 2,
-                   'eps': 1e-4,
-                   'ftol':1e-3}
+                   'verbose':2,                                      
+                   'xtol': 1e-6,
+                   'gtol': 1e-6,
+                   }
 
+        """
         constraints = []
-
+        
         for eqcon in eqcons:
             con = {'type': 'eq', 'fun': eqcon}
             constraints.append(con)
@@ -116,11 +161,11 @@ class SLSQP(OptSolver):
         for ineqcon in ieqcons:
             con = {'type': 'ineq', 'fun': ineqcon}
             constraints.append(con)
-
+        """
         out = minimize(self.problem.obj,
                         x0,
-                        method='slsqp',
-                        tol = 1e-3,
+                        method='trust-constr',
+                        tol = 1e-4,
                         bounds=bounds,
                         constraints=constraints,
                         options=options)
@@ -132,52 +177,6 @@ class SLSQP(OptSolver):
         self.best_f = out.fun
         self.X = out.x
         return out.fun, out.x
-
-class COBYLA(SLSQP):
-
-    def solve(self, problem, maxiter=100, x0=[]):
-        """
-        Solves given problem
-
-        :param problem: problem to be solved
-        :param maxiter: number of maximum iterations
-        :param x0: initial guess
-
-        :return: fopt, xopt
-        """
-
-        self.problem = problem
-        eqcons = self._create_eqcons()
-        ieqcons = self._create_ieqcons()
-
-        # Create initial guess if one isn't provided
-        if not len(x0):
-            x0 = []
-            for var in problem.vars:
-                x0.append(var.ub)
-
-        options = {'maxiter': maxiter,
-                   'disp': True,
-                   'rhobeg': 1e2}
-
-        constraints = []
-
-        for eqcon in eqcons:
-            con = {'type': 'eq', 'fun': eqcon}
-            constraints.append(con)
-
-        for ineqcon in ieqcons:
-            con = {'type': 'ineq', 'fun': ineqcon}
-            constraints.append(con)
-
-
-        out = minimize(self.problem.obj,
-                        x0,
-                        method='COBYLA',
-                        constraints=constraints,
-                        options=options)
-        #print(out)
-        return out
 
 
 if __name__ == '__main__':

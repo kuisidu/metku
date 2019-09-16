@@ -6,7 +6,7 @@ try:
 except:
     from optimization.structopt import *
     from frame2d.frame2d import *
-    from optimization.solvers import DiscreteVNS
+#    from optimization.solvers import DiscreteVNS
 
 import numpy as np
 
