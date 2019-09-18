@@ -97,7 +97,12 @@ class SteelMember:
     def slenderness(self,verb=False):
         """ Non-dimensional slenderness according to EN 1993-1-1 """
         NRd = self.profile.A * self.fy()
-        Ncr = self.ncrit(verb)
+        Ncr = self.ncrit(verb)        
+        if NRd <= 1e-6:
+            #print(self.profile.A)
+            #print(self.profile.h)
+            print(NRd, Ncr)            
+        
         slend = np.sqrt(NRd / Ncr)
         
         if verb:

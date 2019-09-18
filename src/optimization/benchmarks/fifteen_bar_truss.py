@@ -6,7 +6,7 @@ try:
 except:
     from frame2d.frame2d import *
     from optimization.structopt import *
-    from optimization.solvers import GA, DiscreteVNS
+#    from optimization.solvers import GA, DiscreteVNS
 
 FIFTEEN_BAR_AREAS_in2 = [0.111, 0.141, 0.174, 0.220, 0.270, 0.287, 0.347,
                          0.440, 0.539, 0.954, 1.081, 1.174, 1.333, 1.488,
