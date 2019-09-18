@@ -277,6 +277,8 @@ class WISection(SteelSection):
     
     def shear_area(self):
         """ Shear area """
+        # if self.hw < 1e-6 or self.tw < 1e-3:
+        #     print(self.hw, self.tw)
         return en1993_1_5.shear_eta(self.fy)*self.hw*self.tw
     
     def paint_area(self):
@@ -420,7 +422,7 @@ class WISection(SteelSection):
 
         return rho                
     
-    def draw(self):
+    def draw(self, name=""):
         """ Draw the profile """
         fig, ax = plt.subplots(1)
         
@@ -450,7 +452,12 @@ class WISection(SteelSection):
         
         ax.set_aspect('equal')
         
-        plt.show()
+        #  plt.show()
+        # results_dir = '/Users/Victoria/GoogleDrive/Koulu/Diplomityö/Koodi' \
+        #               '/frame2d/src/optimization/problems/Kuvat'
+        # figure_file_name = "sample"
+
+        plt.savefig('testi' + 'plot.png')
 
 
 def test_sym():

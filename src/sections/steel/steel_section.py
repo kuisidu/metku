@@ -85,6 +85,8 @@ class SteelSection(metaclass=ABCMeta):
 
     @property
     def VRd(self):
+        if abs(self.Ashear) < 1e-6 or self.fy < 1e-3:
+            print(self.Ashear)
         return self.code.shear_resistance(self.Ashear, self.fy)
 
 

@@ -29,8 +29,9 @@ class ColumnCalculation(WIColumn):
     Qx = q_wind * c
 
     #  x0 = [800, 50, 500, 50, 500, 50]
+    x0 = [300, 8, 200, 10]
     #  x0 = [400, 20, 200, 20]
-    x0 = [600, 30, 300, 30]
+    #  x0 = [600, 30, 300, 30]
     #  x0 = [700, 40, 400, 40]
     #  x0 = [800, 50, 500, 50]
 
@@ -54,6 +55,7 @@ class ColumnCalculation(WIColumn):
                     Fx = -phi * Fy
 
                     for lcr in lcr_list:
+                        problem = None
                         problem = WIColumn(
                             Lpi, Fx, Fy, Qx, Qy, Mz, lcr=lcr,
                             top_flange_class=cross_section_class,
@@ -72,7 +74,8 @@ class ColumnCalculation(WIColumn):
                         f_best, x_best = solver.solve(problem, maxiter=100,
                                                       x0=x0)
                         #  print(x_best)
-                        problem(solver.best_x, prec=5)
+                        problem(x_best, prec=5)
+                        #  problem(solver.best_x, prec=5)
 
                         # solver = SLP(move_limits=[0.9, 6])
                         # solver.solve(problem, maxiter=500, maxtime=40, x0=x0)

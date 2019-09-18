@@ -186,7 +186,7 @@ class ResultExporter:
                            'constr_vals',
                            'xvals',
                            'name', 'vars', 'cons', 'obj', 'grad', 'hess',
-                           'structure', 'profiles', 'fea_done', 'num_iters',
+                           'structure', 'profiles', 'fea_done',
                            'num_fem_analyses',
                            'states', 'gvals']
         params = [param for param in params if param[0] not in excluded_params]

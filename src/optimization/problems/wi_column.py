@@ -275,6 +275,35 @@ class WIColumn(OptimizationProblem):
 
         return con
 
+    def WebHeightCon(self, h_min=10):
+        """
+                Builds a constraint for cross-section class of a WI column
+                h - tt - tb - C1*e*tw <= 2*sqrt(2)*aw
+                """
+
+        a = np.zeros_like(self.vars)
+        con_type = '<'
+
+        for i in range(len(self.vars)):
+
+            if self.vars[i].target["property"] == "H":
+                a[i] = -1
+            elif self.vars[i].target["property"] == "TT":
+                a[i] = 1
+            elif self.vars[i].target["property"] == "TB":
+                a[i] = 1
+            elif self.vars[i].target["property"] == "TF":
+                a[i] = 2
+
+        b = -h_min
+
+        # print(a)
+
+        con_name = "Web height minimum " + str(h_min)
+        con = LinearConstraint(a, b, con_type, name=con_name)
+
+        return con
+
     def create_stability_constraints(self, mem):
 
         def buckling_y(x):
@@ -339,8 +368,15 @@ class WIColumn(OptimizationProblem):
             buckling_y_con.fea_required = True
             
             
-            self.cons.append(buckling_y_con)
-            
+            # self.cons.append(buckling_y_con)
+
+            com_compression_bending_con_y = NonLinearConstraint(
+                con_fun=com_compression_bending_y,
+                name="Com_compression_bending_y " + str(mem.mem_id),
+                parent=self)
+            com_compression_bending_con_y.fea_required = True
+            self.cons.append(com_compression_bending_con_y)
+
             if self.buckling_z:
 
                 buckling_z_con = NonLinearConstraint(con_fun=buckling_z,
@@ -348,21 +384,14 @@ class WIColumn(OptimizationProblem):
                                                           str(mem.mem_id),
                                                      parent=self)
                 buckling_z_con.fea_required = True
-                self.cons.append(buckling_z_con)
+                # self.cons.append(buckling_z_con)
             
-            com_compression_bending_con_y = NonLinearConstraint(
-                con_fun=com_compression_bending_y,
-                name="Com_compression_bending_y " + str(mem.mem_id),
-                parent=self)
-            com_compression_bending_con_y.fea_required = True
-            self.cons.append(com_compression_bending_con_y)
-            
-            com_compression_bending_con_z = NonLinearConstraint(
-                con_fun=com_compression_bending_z,
-                name="Com_compression_bending_z " + str(mem.mem_id),
-                parent=self)
-            com_compression_bending_con_z.fea_required = True
-            self.cons.append(com_compression_bending_con_z)
+                com_compression_bending_con_z = NonLinearConstraint(
+                    con_fun=com_compression_bending_z,
+                    name="Com_compression_bending_z " + str(mem.mem_id),
+                    parent=self)
+                com_compression_bending_con_z.fea_required = True
+                self.cons.append(com_compression_bending_con_z)
             
             if self.LT_buckling:
 
@@ -372,7 +401,8 @@ class WIColumn(OptimizationProblem):
                                                       parent=self)
                 lt_buckling_con.fea_required = True
                 self.cons.append(lt_buckling_con)
-            
+
+            """
             for i, elem in enumerate(mem.elements.values()):
                 forces = [elem.axial_force[0], elem.shear_force[0],
                           elem.bending_moment[0]]
@@ -438,11 +468,14 @@ class WIColumn(OptimizationProblem):
 
                     self.cons.extend([compression_con, tension_con, shear_con,
                                       bending_moment_con])
+            """
             
             self.cons.append(self.WIColumnWebClassCon(mem))
             self.cons.append(self.WIColumnTopFlangeClassCon(mem))
             if self.symmetry == "mono":
                 self.cons.append(self.WIColumnBottomFlangeClassCon(mem))
+
+            self.cons.append(self.WebHeightCon(h_min=10))
 
 
 if __name__ == "__main__":
@@ -459,15 +492,15 @@ if __name__ == "__main__":
     problem(solver.best_x, prec=5)
 
     from src.optimization.result_exporter import *
-    name = "WIColumn_buckling_z:{0}_LT_buckling:{1}"\
-        .format(problem.buckling_z, problem.LT_buckling)
-    ResultExporter(problem, solver).to_csv()
+    # name = "WIColumn_buckling_z:{0}_LT_buckling:{1}"\
+    #     .format(problem.buckling_z, problem.LT_buckling)
+    # ResultExporter(problem, solver).to_csv()
 
     # print(problem.structure.f.elements[0].bending_moment)
     # print(problem.structure.f.elements[0].axial_force)
     # print(problem.structure.f.loads[1].qval)
 
-    ResultExporter(problem, solver).to_csv()
+    #  ResultExporter(problem, solver).to_csv()
 
-    #  wi.cross_section.draw()
+    problem.structure.members[0].cross_section.draw()
 
