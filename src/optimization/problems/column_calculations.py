@@ -5,8 +5,10 @@
 from src.frame2d.frame2d import *
 from src.optimization.structopt import *
 from src.optimization.problems.wi_column import WIColumn
-from src.optimization.solvers import *
+from src.optimization.solvers import slsqp, slp, slqp
+from src.optimization.solvers.trust_region import TrustRegionConstr
 from src.optimization.result_exporter import *
+from src.eurocodes.en1993 import en1993_1_1
 
 
 class ColumnCalculation(WIColumn):
@@ -22,7 +24,8 @@ class ColumnCalculation(WIColumn):
     buckling_z = [True, False]
     LT_buckling = [True, False]
     cross_section_class_list = [2, 3]
-    sym = "dual"
+    sym = "dual"  # dual or mono
+    prob_type = "continuous"  # continuous or discrete
 
     Mz = 0
     Qy = 0
@@ -61,7 +64,8 @@ class ColumnCalculation(WIColumn):
                             top_flange_class=cross_section_class,
                             bottom_flange_class=cross_section_class,
                             web_class=cross_section_class, symmetry=sym,
-                            buckling_z=buck_z, LT_buckling=False)
+                            buckling_z=buck_z, LT_buckling=False,
+                            prob_type=prob_type)
 
                         #  print(problem.nnonlincons())
 
@@ -70,11 +74,19 @@ class ColumnCalculation(WIColumn):
                         #       "buckling_z={9}"
                         #       .format(L, Lpi, Fx, Fy, Qx, Qy, Mz, lcr,
                         #               cross_section_class, buck_z))
-                        solver = slsqp.SLSQP()
-                        f_best, x_best = solver.solve(problem, maxiter=100,
-                                                      x0=x0)
-                        #  print(x_best)
+
+                        solver = TrustRegionConstr()
+                        f_best, x_best, nit = solver.solve(
+                            problem, maxiter=200, x0=x0)
+
+                        problem.num_iters = nit
                         problem(x_best, prec=5)
+
+                        # solver = slsqp.SLSQP()
+                        # f_best, x_best = solver.solve(problem, maxiter=100,
+                        #                               x0=x0)
+                        #  print(x_best)
+                        #  problem(x_best, prec=5)
                         #  problem(solver.best_x, prec=5)
 
                         # solver = SLP(move_limits=[0.9, 6])
@@ -83,7 +95,9 @@ class ColumnCalculation(WIColumn):
 
                         ResultExporter(problem, solver).to_csv()
 
-                        breakpoint()
+                        #  ResultExporter(problem, solver).iteration_jpg()
+
+                        #  breakpoint()
 
                         #  wi.cross_section.draw()
 

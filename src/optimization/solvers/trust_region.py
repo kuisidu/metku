@@ -2,11 +2,12 @@
 import numpy as np
 from scipy.optimize import minimize, NonlinearConstraint, Bounds
 from scipy.optimize import LinearConstraint as LinCon
-import optimization.structopt as sopt
 
 try:
+    import src.optimization.structopt as sopt
     from src.optimization.solvers.optsolver import OptSolver
 except:
+    import optimization.structopt as sopt
     from optimization.solvers.optsolver import OptSolver
 
 
@@ -77,7 +78,7 @@ class TrustRegionConstr(OptSolver):
             ub.append(var.ub)
             #bound = (var.lb, var.ub)
             #bounds.append(bound)
-            bounds = Bounds(lb,ub,keep_feasible=True)
+            bounds = Bounds(lb, ub, keep_feasible=False)
 
         return bounds
 
@@ -110,7 +111,13 @@ class TrustRegionConstr(OptSolver):
                     lb = 0
                     ub = 0
                     
-                constraints.append(NonlinearConstraint(con,lb,ub,jac='2-point'))
+                constraints.append(NonlinearConstraint(
+                    con,
+                    lb,
+                    ub,
+                    jac='2-point',
+                    # finite_diff_rel_step=1e-6
+                    ))
             elif isinstance(con,sopt.LinearConstraint):
                 lb = -np.inf
                 ub = np.inf
@@ -146,9 +153,10 @@ class TrustRegionConstr(OptSolver):
        
         
         options = {'maxiter': maxiter,
-                   'verbose':2,                                      
+                   'verbose': 2,
                    'xtol': 1e-6,
                    'gtol': 1e-6,
+                   # 'finite_diff_rel_step': 1e-6
                    }
 
         """
@@ -176,7 +184,8 @@ class TrustRegionConstr(OptSolver):
         self.best_x = out.x
         self.best_f = out.fun
         self.X = out.x
-        return out.fun, out.x
+
+        return out.fun, out.x, out.nit
 
 
 if __name__ == '__main__':

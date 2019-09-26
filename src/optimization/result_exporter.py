@@ -11,6 +11,7 @@ from src.framefem.framefem import *
 from src.sections.steel import *
 
 from src.optimization.structopt import DiscreteVariable
+from src.optimization.solvers.trust_region import TrustRegionConstr
 
 
 class ResultExporter:
@@ -95,7 +96,7 @@ class ResultExporter:
         elif num_iters <= 100:
             plt.xticks(np.arange(0, num_iters, 5))
 
-        plt.savefig(name + '.jpg')
+        plt.savefig(name + '.png')
         plt.show()
 
     def to_csv(self, name=""):

@@ -5,9 +5,21 @@
 import numpy as np
 import math
 
+start_height = 100
+stop_height = 800
+step_height = 2
+start_width = 100
+stop_width = 500
+step_width = 2
+
+HEIGHTS = np.arange(start_height, stop_height+step_height, step_height)
+WIDTHS = np.arange(start_width, stop_width+step_width, step_width)
+THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
+
 try:
     from src.frame2d.frame2d import *
     from src.optimization.structopt import *
+    from src.optimization.solvers.trust_region import TrustRegionConstr
 except:
     from frame2d.frame2d import Frame2D, SteelColumn, XHingedSupport, FixedSupport, PointLoad, LineLoad
     from optimization.structopt import OptimizationProblem, Variable, LinearConstraint, NonLinearConstraint
@@ -40,8 +52,11 @@ class WIColumn(OptimizationProblem):
     """
     def __init__(self, Lpi=6000, Fx=800, Fy=-280e3, Qx=5.85, Qy=0, Mz=0, lcr=2,
                  top_flange_class=2, bottom_flange_class=2, web_class=2,
-                 symmetry="dual", buckling_z=True, LT_buckling=False):
+                 symmetry="dual", buckling_z=True, LT_buckling=True,
+                 prob_type='discrete'):
         super().__init__("WIColumn")
+
+        self.prob_type = prob_type
         self.cons.clear()
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
@@ -72,7 +87,10 @@ class WIColumn(OptimizationProblem):
         frame = Frame2D(num_elements=4)
         # Luo pilarin (koordinaatit, profile=vapaaehtoinen)
         col = SteelColumn([[0, 0], [0, Lpi]], LT_buckling,
-                          profile='WI 500-12-10X300-10X300')
+                          profile='WI 500-12-10X300-10X300',
+                          material='S355MC')
+        # Lisätään pilarille materiaali
+        col.material = "S355MC"
         # Lisätään nurjahduspituus (masto lcr[0]=2, muuten lcr[0]=0.7)
         col.steel_member.lcr[0] = lcr
         # Lisää pilarin kehälle
@@ -100,32 +118,71 @@ class WIColumn(OptimizationProblem):
 
         col = self.structure.members[0].cross_section
 
-        var_h = Variable("h", 100, 800,
-                         target={"property": "H", "objects": [col]})
-        var_tw = Variable("tw", 5, 50,
-                          target={"property": "TW", "objects": [col]})
-        if self.symmetry == "mono":
-            var_tt = Variable("tt", 5, 50,
-                             target={"property": "TT", "objects": [col]})
-            var_tb = Variable("tb", 5, 50,
-                             target={"property": "TB", "objects": [col]})
-            var_bt = Variable("bt", 100, 500,
-                              target={"property": "BT", "objects": [col]})
-            var_bb = Variable("bb", 100, 500,
-                              target={"property": "BB", "objects": [col]})
+        if self.prob_type == "continuous":
 
-            self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+            var_h = Variable("h", 100, 800,
+                             target={"property": "H", "objects": [col]})
+            var_tw = Variable("tw", 5, 50,
+                              target={"property": "TW", "objects": [col]})
+            if self.symmetry == "mono":
+                var_tt = Variable("tt", 5, 50,
+                                 target={"property": "TT", "objects": [col]})
+                var_tb = Variable("tb", 5, 50,
+                                 target={"property": "TB", "objects": [col]})
+                var_bt = Variable("bt", 100, 500,
+                                  target={"property": "BT", "objects": [col]})
+                var_bb = Variable("bb", 100, 500,
+                                  target={"property": "BB", "objects": [col]})
 
-        elif self.symmetry == "dual":
-            var_tf = Variable("tf", 5, 50,
-                              target={"property": "TF", "objects": [col]})
-            var_bf = Variable("bf", 100, 500,
-                              target={"property": "BF", "objects": [col]})
+                self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
 
-            self.vars = [var_h, var_tw, var_bf, var_tf]
+            elif self.symmetry == "dual":
+                var_tf = Variable("tf", 5, 50,
+                                  target={"property": "TF", "objects": [col]})
+                var_bf = Variable("bf", 100, 500,
+                                  target={"property": "BF", "objects": [col]})
 
-        else:
-            raise ValueError("Symmetry must be either dual or mono")
+                self.vars = [var_h, var_tw, var_bf, var_tf]
+
+            else:
+                raise ValueError("Symmetry must be either dual or mono")
+
+        elif self.prob_type == "discrete":
+            var_h = DiscreteVariable(
+                "h", values=HEIGHTS,
+                target={"property": "H", "objects": [col]})
+            var_tw = DiscreteVariable(
+                "tw", values=THICKNESSES,
+                target={"property": "TW", "objects": [col]})
+
+            if self.symmetry == "mono":
+                var_tt = DiscreteVariable(
+                    "tt", values=THICKNESSES,
+                    target={"property": "TT", "objects": [col]})
+                var_tb = DiscreteVariable(
+                    "tb", values=THICKNESSES,
+                    target={"property": "TB", "objects": [col]})
+                var_bt = DiscreteVariable(
+                    "bt", values=WIDTHS,
+                    target={"property": "BT", "objects": [col]})
+                var_bb = DiscreteVariable(
+                    "bb", values=WIDTHS,
+                    target={"property": "BB", "objects": [col]})
+
+                self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+
+            elif self.symmetry == "dual":
+                var_tf = DiscreteVariable(
+                    "tf", values=THICKNESSES,
+                    target={"property": "TF", "objects": [col]})
+                var_bf = DiscreteVariable(
+                    "bf", values=WIDTHS,
+                    target={"property": "BF", "objects": [col]})
+
+                self.vars = [var_h, var_tw, var_bf, var_tf]
+
+            else:
+                raise ValueError("Symmetry must be either dual or mono")
 
     # def section_class_constraint(self, mem):
     #
@@ -499,15 +556,26 @@ class WIColumn(OptimizationProblem):
 if __name__ == "__main__":
     from src.optimization.solvers import *
     problem = WIColumn()
-    x0 = [800, 50, 500, 50]
+    # x0 = [300, 8, 200, 10]
 
     # solver = SLP(move_limits=[0.9, 6])
     # solver.solve(problem, maxiter=50000, maxtime=30, x0=x0)
     # problem(solver.X, prec=5)
 
-    solver = slsqp.SLSQP()
-    f_best, x_best = solver.solve(problem, maxiter=100, x0=x0)
-    problem(solver.best_x, prec=5)
+    # solver = slsqp.SLSQP()
+    # f_best, x_best = solver.solve(problem, maxiter=100, x0=x0)
+    # problem(solver.best_x, prec=5)
+
+    # solver = TrustRegionConstr()
+    # f_best, x_best, nit = solver.solve(problem, maxiter=200, x0=x0)
+    # print(x_best)
+    # problem(x_best, prec=5)
+
+    x0 = [var.ub for var in problem.vars]
+    solver = MISLP(move_limits=[0.5, 5])
+    # problem(x0)
+    solver.solve(problem, maxiter=200, x0=x0)
+    problem(solver.X, prec=5)
 
     from src.optimization.result_exporter import *
     # name = "WIColumn_buckling_z:{0}_LT_buckling:{1}"\
@@ -520,5 +588,5 @@ if __name__ == "__main__":
 
     #  ResultExporter(problem, solver).to_csv()
 
-    problem.structure.members[0].cross_section.draw()
+    #  problem.structure.members[0].cross_section.draw()
 
