@@ -303,6 +303,7 @@ class TrussProblem(OptimizationProblem):
                     "objects": [mem],
                     "profiles": self.profiles,
                     "property": "A",
+                    "properties": self.variables,
                     "lb": self.lb,
                     "ub": self.ub
                 }
@@ -317,17 +318,33 @@ class TrussProblem(OptimizationProblem):
                             "objects": group["objects"]}
                 )
                 self.vars.append(var)
+                
         elif self.var_type == 'continuous':
-
             for i, group in enumerate(self.groups):
-                var = Variable(
-                    name=f"Var {i + 1}",
-                    lb=group['lb'],
-                    ub=group['ub'],
-                    target={"property": group["property"],
-                            "objects": group["objects"]}
-                )
-                self.vars.append(var)
+                if "properties" in group.keys():
+                    bounds = group["bounds"]
+                    if len(bounds) != len(group["properties"]):
+                        raise ValueError("There must be same number of bounds as properties!"
+                                         f"{group['bounds']} != {group['properties']}")
+                    for bounds, prop in zip(group["bounds"], group["properties"]):
+                        lb, ub = bounds
+                        var = Variable(
+                        name=f"Var {prop}{i + 1}",
+                        lb=lb,
+                        ub=ub,
+                        target={"property": prop,
+                                "objects": group["objects"]}
+                    )
+                        self.vars.append(var)
+                else:
+                    var = Variable(
+                        name=f"Var {i + 1}",
+                        lb=group['lb'],
+                        ub=group['ub'],
+                        target={"property": group["property"],
+                                "objects": group["objects"]}
+                    )
+                    self.vars.append(var)
 
         elif self.var_type == 'binary':
             pass
@@ -355,7 +372,8 @@ class TrussProblem(OptimizationProblem):
         def bending_moment(x):
             # Moment about y
             # TODO: Moment about z
-            return abs(M) / sect.MRd[0] - 1
+            return 0
+            #return abs(M) / sect.MRd[0] - 1
 
         return compression, tension, shear, bending_moment
 
@@ -823,23 +841,46 @@ if __name__ == '__main__':
     from src.frame2d.frame2d import *
     import matplotlib.pyplot as plt
 
-    frame = Frame2D(simple=[1,1, 5e3, 5e3], supports='fixed')
+    frame = Frame2D(simple=[1,2, 3e3, 3e3], supports='fixed')
+    beams = []
+    columns =[]
     for mem in frame.members.values():
+        mem.profile = RHS_PROFILES[0]
         if mem.mtype == "beam":
+            beams.append(mem.cross_section)
             frame.add(LineLoad(mem, [-20, -20], 'y'))
+        else:
+            columns.append(mem.cross_section)
 
     frame.generate()
     frame.calculate()
 
+
+    beam_group = {
+        "objects": beams,
+        "bounds" : [[50, 500], [50, 500], [1, 8]],
+        "properties": ["H", "B", "T"],
+        "profiles": RHS_PROFILES,
+    }
+    
+    column_group = {
+        "objects": columns,
+        "bounds" : [[50, 500], [50, 500], [1, 8]],
+        "properties": ["H", "B", "T"],
+        "profiles": RHS_PROFILES,
+    }
+
+
     problem = TrussProblem(
         name="FrameTest",
         structure=frame,
-        var_type='discrete',
-        profiles=RHS_A
+        var_type='continuous',
+        groups = [beam_group, column_group]
     )
 
-    solver = DiscreteVNS()
     x0 = [var.ub for var in problem.vars]
     problem(x0)
-    solver.solve(problem, x0=x0, maxtime=30)
-
+    solver = SLP()
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True)
+    problem(xopt)
+    problem.structure.plot()
