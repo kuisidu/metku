@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from ortools.linear_solver import pywraplp
 
 try:
@@ -216,7 +217,7 @@ class DiscreteVNS(OptSolver):
             var.substitute(x)
 
         # Calculate objective
-        fval = self.problem.obj(self.problem.vars)
+        fval = self.problem.obj(X)
         dfval = self.best_fval - fval
         self.fval = fval
 
@@ -230,6 +231,11 @@ class DiscreteVNS(OptSolver):
         if dfval > 0 and d_cons_vals >= 0 and np.all(self.constr_vals <= 0):
             self.best_fval = fval
             reward = 1
+            
+        elif d_cons_vals > 0 and np.all(self.constr_vals <= 0):
+            print(d_cons_vals)
+            reward = 1
+        
         else:
             reward = -1
 
@@ -238,7 +244,7 @@ class DiscreteVNS(OptSolver):
         return X, reward, done, 'INFO'
 
 
-    def solve(self, problem, maxiter=100, maxtime=100):
+    def solve(self, problem, x0=None, maxiter=None, maxtime=None, verb=None):
         """
         Solves given problem
 
@@ -251,21 +257,38 @@ class DiscreteVNS(OptSolver):
         :return: fopt, xopt
 
         """
+        if maxtime is not None:
+            maxiter = 10000000
+        elif maxiter is not None:
+            maxtime = 10000000
+        else:
+            maxiter = 100
+            maxtime = 100
+        
+        
+        
+        
         self.problem = problem
         # Srating point
-        self.X = np.zeros(len(problem.vars), dtype=int)
-        self.X += problem.vars[0].ub
+        if x0 is None:
+            self.X = np.zeros(len(problem.vars), dtype=int)
+            self.X += problem.vars[0].ub
+        else:
+            self.X = x0
+        problem.substitute_variables(self.X)
         self.constr_vals = np.zeros(len(self.problem.cons))
         self.calc_constraints()
 
-
+        start_time = time.time()
+        
         for i in range(maxiter):
             r = -1
             actions = []
             while r <= 0:
-                if time.process_time() >= maxtime:
+                if time.time() - start_time >= maxtime:
+                    print("MAXTIME")
                     i = maxiter
-                    break
+                    return self.X, problem.obj(self.X)
                 if r != 1:
                     action = np.random.randint(-self.step_length,
                                                self.step_length + 1,
@@ -275,13 +298,15 @@ class DiscreteVNS(OptSolver):
                     s, r, d, _ = self.step(action)
 
             self.X = s
-            print("New Best! ", self.best_fval)
-            print(self.X)
+            if verb:
+                print("New Best! ", self.best_fval)
+                print(self.X)
 
-        print("TIME: ", time.process_time(), " s")
+        print("TIME: ", time.time() - start_time, " s")
         print("X: ", list(self.X))
         print(f"Weight: {problem.obj(self.X):2f}")
         
+        return self.X, problem.obj(self.X)
 
         
 if __name__ == '__main__':

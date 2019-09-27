@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
     # [40  0 38 34  0  0 27 38 38  0] 2497.67
-    problem = FiftyTwoBarTruss(prob_type='discrete')
+    problem = TenBarTruss(prob_type='continuous')
     solver = MISLP(move_limits=[0.5, 3], gamma=1e-2)
     x0 = [var.ub for var in problem.vars]
 
