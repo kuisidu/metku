@@ -182,9 +182,6 @@ class OptSolver:
                 if verb:
                     print(self.best_x)
                     print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
-
-
-
             # Log objective vals per iteration
             if log:
                 problem.num_iters += 1
