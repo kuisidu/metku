@@ -193,14 +193,17 @@ class DiscreteVariable(Variable):
 
         self.values = values
 
-
         if profiles:
             lb = 0
             ub = len(profiles) - 1
 
-        elif values != None:
-            lb = min(values)
-            ub = max(values)
+        if values is not None:
+            lb = 0
+            ub = len(values) - 1
+
+        # elif values != None:
+        #     lb = min(values)
+        #     ub = max(values)
         else:
             lb = None
             ub = None

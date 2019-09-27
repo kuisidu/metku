@@ -24,7 +24,8 @@ class SteelMember:
 
     """
 
-    def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam", LT_buckling=False):
+    def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam",
+                 LT_buckling=False):
         """ Constructor
             
             profile -- member profile (of cross_section class)
@@ -63,8 +64,6 @@ class SteelMember:
         self.loc = []
         self.LT_B = LT_buckling
 
-
-
     @property
     def NbRd(self):
         return self.buckling_strength()
@@ -94,44 +93,44 @@ class SteelMember:
         """ Yield strength of the member """
         return self.profile.fy
 
-    def ncrit(self,verb=False):
+    def ncrit(self, verb=False):
         """ Buckling force according to Euler """
         C = math.pi ** 2 * self.profile.E
 
         ncrit = C * np.array(self.profile.I) / (self.length * self.lcr) ** 2
-        
+
         if verb:
-            print("Ncr,y = {0:4.2f} kN".format(ncrit[0]*1e-3))
-            print("Ncr,z = {0:4.2f} kN".format(ncrit[1]*1e-3))
-            
+            print("Ncr,y = {0:4.2f} kN".format(ncrit[0] * 1e-3))
+            print("Ncr,z = {0:4.2f} kN".format(ncrit[1] * 1e-3))
+
         return ncrit
 
-    def slenderness(self,verb=False):
+    def slenderness(self, verb=False):
         """ Non-dimensional slenderness according to EN 1993-1-1 """
         NRd = self.profile.A * self.fy()
-        Ncr = self.ncrit(verb)        
-        if NRd <= 1e-6:
-            #print(self.profile.A)
-            #print(self.profile.h)
-            print(NRd, Ncr)            
-        
+        Ncr = self.ncrit(verb)
+        # if NRd <= 1e-6:
+        # print(self.profile.A)
+        # print(self.profile.h)
+        # print(NRd, Ncr)
+
         slend = np.sqrt(NRd / Ncr)
-        
+
         if verb:
             print("lambda,y = {0:4.2f}".format(slend[0]))
             print("lambda,z = {0:4.2f}".format(slend[1]))
-        
+
         return slend
 
     def LT_slenderness(self, Mcr):
         """ Non-dimensional slenderness for lateral-torsional buckling.
         """
         MRd = self.profile.MRd
-        #print("MRd: {}, Mcr: {}".format(MRd, Mcr))
+        # print("MRd: {}, Mcr: {}".format(MRd, Mcr))
         lambdaLT = np.sqrt(MRd / Mcr)
         return lambdaLT
 
-    def buckling_strength(self,verb=False):
+    def buckling_strength(self, verb=False):
         """ Member buckling strength according to EN 1993-1-1 """
 
         if verb:
@@ -146,13 +145,14 @@ class SteelMember:
         # r = 1/(p+np.sqrt(p**2-slend**2))
 
         for i in range(len(slend)):
-            p = 0.5 * (1 + self.profile.imp_factor[i] * (slend[i] - 0.2) + slend[i] ** 2)
+            p = 0.5 * (1 + self.profile.imp_factor[i] * (slend[i] - 0.2) +
+                       slend[i] ** 2)
             r = min(1 / (p + math.sqrt(p ** 2 - slend[i] ** 2)), 1.0)
             if verb:
-                print("Psi,{0:1} = {1:4.2f}".format(i,p))
-                print("chi,{0:1} = {1:4.2f}".format(i,r))
-                print("NbRd,{0:1} = {1:4.2f}".format(i,NRd*r*1e-3))
-                
+                print("Psi,{0:1} = {1:4.2f}".format(i, p))
+                print("chi,{0:1} = {1:4.2f}".format(i, r))
+                print("NbRd,{0:1} = {1:4.2f}".format(i, NRd * r * 1e-3))
+
             NbRd.append(NRd * r)
 
         # NbRd = self.profile.A*self.fy()*r;
@@ -171,6 +171,7 @@ class SteelMember:
         
         # self.profile.define_imp_factor_LT()
         # alpha = self.profile.ImperfectionLT
+
         if method == 'general':
             alphaLT = self.profile.imp_factor_LT_gen
             lambdaLT0 = 0.2
@@ -196,6 +197,7 @@ class SteelMember:
             print("phi = {0:4.2f}".format(p))
             print("chi_LT = {0:4.2f}".format(chiLT))
             print("MbRd = {0:4.2f}".format(MbRd*1e-6))
+
         return MbRd
 
     def weight_per_length(self):
@@ -235,22 +237,22 @@ class SteelMember:
         G = constants.G
         L = self.length
         C1, C2 = C
-        part1 = C1 * (math.pi**2 * E * Iz) / (kz * L)**2
-        part2 = np.sqrt((kz / kw)**2 * Iw/Iz + (kz*L)**2 * G * It /
-                        (math.pi**2 * E * Iz) + (C2 * zg)**2)
-        part3 = C2*zg
+        part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
+        part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
+                        (math.pi ** 2 * E * Iz) + (C2 * zg) ** 2)
+        part3 = C2 * zg
 
         Mcr = part1 * (part2 - part3)
         """
-        Mcr = C[0] * math.pi ** 2 * E * Iz / ((kz * L) ** 2) * (math.sqrt((kz / kw) ** 2 * Iw / Iz +
-                                                                          (kz * L) ** 2 * G * It / (
-                                                                              math.pi ** 2 * E * Iz) + (
-                                                                          C[1] * zg) ** 2) -
-                                                                C[1] * zg)
+        Mcr = C[0] * math.pi ** 2 * E * Iz / (
+        (kz * L) ** 2) * (math.sqrt((kz / kw) ** 2 * Iw / Iz +(
+        kz * L) ** 2 * G * It / (math.pi ** 2 * E * Iz) + (
+        C[1] * zg) ** 2) -C[1] * zg)
         """
         return Mcr
 
-    def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0, ted=0.0, loc=0.0):
+    def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0,
+                    ted=0.0, loc=0.0):
         """ Adds new section with internal forces and location """
 
         self.ned.append(ned)
@@ -275,7 +277,7 @@ class SteelMember:
         r = np.zeros(len(self.check_section()))
         for n in range(self.nsect()):
             r = np.vstack((r, self.check_section(n)))
-            #r.append(self.check_section(n))
+            # r.append(self.check_section(n))
         return np.max(r, axis=0)
 
     def check_buckling(self):
@@ -345,7 +347,6 @@ class SteelMember:
         # MzEd = max(MzEd1, MzEd2)
 
         MRd = self.profile.MRd
-
 
         # phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
         #         slend[0] - 0.2) + slend[0] ** 2)
