@@ -252,15 +252,15 @@ if __name__ == '__main__':
     flange_con = IBeamFlangeClassCon(p,flange_class)
     web_con = IBeamWebClassCon(p,web_class)
     
-    prob.add_constraints(flange_con)
-    prob.add_constraints(web_con)
+    prob.add_constraint(flange_con)
+    prob.add_constraint(web_con)
     
     bending_con_fun = partial(IBeamBendingCon,p,dvars,sec_class)
     bending_con = sop.NonLinearConstraint(bending_con_fun,'<',\
                                       "Bending resistance (mid-span)")
         
 
-    prob.add_constraints(bending_con)
+    prob.add_constraint(bending_con)
     
     x = [300,10,150,12]
     #prob(x)

@@ -232,6 +232,7 @@ class DiscreteVariable(Variable):
         if values is not None:
             lb = min(values)
             ub = max(values)
+
         else:
             lb = None
             ub = None
@@ -398,6 +399,7 @@ class OptimizationProblem:
                     """ Step length """
                     h = max(0.01 * abs(prev_val), 1e-4)
                     var.substitute(prev_val + h)
+
                 """ Make finite element analysis """
                 fea_start = time.time()
                 if self.structure:
@@ -691,6 +693,7 @@ def NumGrad(fun, h, x):
     """ if only a single value for step length 'h' is given,
         transform it to a list
     """
+
     if isinstance(h, float):
         h = h * np.ones(n)
 
@@ -703,6 +706,7 @@ def NumGrad(fun, h, x):
         print(xh)
         fh = fun(xh)
         #     print(fx, fh)
+
         df[i] = (fh - fx) / h[i]
 
     return df

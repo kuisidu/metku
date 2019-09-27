@@ -5,9 +5,9 @@ import math
 import numpy as np
 
 try:
-    from src.eurocodes.en1993 import constants
+    from src.eurocodes.en1993 import constants, en1993_1_1
 except:
-    from eurocodes.en1993 import constants
+    from eurocodes.en1993 import constants, en1993_1_1
 
 
 class SteelMember:
@@ -24,7 +24,8 @@ class SteelMember:
 
     """
 
-    def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam", LT_buckling=False):
+    def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam",
+                 LT_buckling=False):
         """ Constructor
             
             profile -- member profile (of cross_section class)
@@ -63,8 +64,6 @@ class SteelMember:
         self.loc = []
         self.LT_B = LT_buckling
 
-
-
     @property
     def NbRd(self):
         return self.buckling_strength()
@@ -73,6 +72,18 @@ class SteelMember:
     def MbRd(self):
         Mcr = self.mcrit()
         return self.LT_buckling_strength(Mcr)
+    
+    @property
+    def MEdY(self):
+        return max(abs(np.array(self.myed)))
+    
+    @property
+    def MEdZ(self):
+        return max(abs(np.array(self.mzed)))
+
+    @property
+    def NEd(self):
+        return max(abs(np.array(self.ned)))
 
     def nsect(self):
         """ Number of sections """
@@ -82,39 +93,44 @@ class SteelMember:
         """ Yield strength of the member """
         return self.profile.fy
 
-    def ncrit(self,verb=False):
+    def ncrit(self, verb=False):
         """ Buckling force according to Euler """
         C = math.pi ** 2 * self.profile.E
 
         ncrit = C * np.array(self.profile.I) / (self.length * self.lcr) ** 2
-        
+
         if verb:
-            print("Ncr,y = {0:4.2f} kN".format(ncrit[0]*1e-3))
-            print("Ncr,z = {0:4.2f} kN".format(ncrit[1]*1e-3))
-            
+            print("Ncr,y = {0:4.2f} kN".format(ncrit[0] * 1e-3))
+            print("Ncr,z = {0:4.2f} kN".format(ncrit[1] * 1e-3))
+
         return ncrit
 
-    def slenderness(self,verb=False):
+    def slenderness(self, verb=False):
         """ Non-dimensional slenderness according to EN 1993-1-1 """
         NRd = self.profile.A * self.fy()
         Ncr = self.ncrit(verb)
+        # if NRd <= 1e-6:
+        # print(self.profile.A)
+        # print(self.profile.h)
+        # print(NRd, Ncr)
+
         slend = np.sqrt(NRd / Ncr)
-        
+
         if verb:
             print("lambda,y = {0:4.2f}".format(slend[0]))
             print("lambda,z = {0:4.2f}".format(slend[1]))
-        
+
         return slend
 
     def LT_slenderness(self, Mcr):
         """ Non-dimensional slenderness for lateral-torsional buckling.
         """
         MRd = self.profile.MRd
-        #print("MRd: {}, Mcr: {}".format(MRd, Mcr))
+        # print("MRd: {}, Mcr: {}".format(MRd, Mcr))
         lambdaLT = np.sqrt(MRd / Mcr)
         return lambdaLT
 
-    def buckling_strength(self,verb=False):
+    def buckling_strength(self, verb=False):
         """ Member buckling strength according to EN 1993-1-1 """
 
         if verb:
@@ -129,33 +145,59 @@ class SteelMember:
         # r = 1/(p+np.sqrt(p**2-slend**2))
 
         for i in range(len(slend)):
-            p = 0.5 * (1 + self.profile.imp_factor[i] * (slend[i] - 0.2) + slend[i] ** 2)
+            p = 0.5 * (1 + self.profile.imp_factor[i] * (slend[i] - 0.2) +
+                       slend[i] ** 2)
             r = min(1 / (p + math.sqrt(p ** 2 - slend[i] ** 2)), 1.0)
             if verb:
-                print("Psi,{0:1} = {1:4.2f}".format(i,p))
-                print("chi,{0:1} = {1:4.2f}".format(i,r))
-                print("NbRd,{0:1} = {1:4.2f}".format(i,NRd*r*1e-3))
-                
+                print("Psi,{0:1} = {1:4.2f}".format(i, p))
+                print("chi,{0:1} = {1:4.2f}".format(i, r))
+                print("NbRd,{0:1} = {1:4.2f}".format(i, NRd * r * 1e-3))
+
             NbRd.append(NRd * r)
 
         # NbRd = self.profile.A*self.fy()*r;
         return NbRd
 
-    def LT_buckling_strength(self, Mcr, axis='y'):
+    def LT_buckling_strength(self, Mcr, axis='y', method='general',verb=False):
         """ Member lateral-torsional bending strength """
 
+
+        MRd = self.profile.bending_resistance()[0]
         if axis == 'y':
             idx = 0
         else:
             idx = 1
         lambdaLT = self.LT_slenderness(Mcr)[idx]
+        
         # self.profile.define_imp_factor_LT()
         # alpha = self.profile.ImperfectionLT
-        alpha = self.profile.imp_factor
-        # alpha[0] is the imperfection factor about y-axis
-        p = 0.5 * (1 + alpha[0] * (lambdaLT - 0.2) + lambdaLT ** 2)
-        chiLT = min(1. / (p + math.sqrt(p ** 2 - lambdaLT ** 2)), 1.0)
-        MbRd = chiLT * self.profile.bending_resistance()[0]
+
+        if method == 'general':
+            alphaLT = self.profile.imp_factor_LT_gen
+            lambdaLT0 = 0.2
+            beta = 1.0
+            chiLTmax = 1.0
+        else:
+            alphaLT = self.profile.imp_factor_LT
+            lambdaLT0 = 0.4
+            beta = 0.75
+            chiLTmax = min(1.0,1/lambdaLT**2)
+        
+        if lambdaLT <= lambdaLT0 or self.MEdY/Mcr <= lambdaLT0**2:
+            chiLT = 1.0
+        else:
+            p = 0.5 * (1 + alphaLT * (lambdaLT - lambdaLT0) + beta*lambdaLT ** 2)
+            chiLT = min(1. / (p + math.sqrt(p ** 2 - beta*lambdaLT ** 2)), chiLTmax
+                        )
+        MbRd = chiLT * MRd
+        
+        if verb:
+            print("lambdaLT = {0:4.2f}".format(lambdaLT))
+            print("alphaLT = {0:4.2f}".format(alphaLT))
+            print("phi = {0:4.2f}".format(p))
+            print("chi_LT = {0:4.2f}".format(chiLT))
+            print("MbRd = {0:4.2f}".format(MbRd*1e-6))
+
         return MbRd
 
     def weight_per_length(self):
@@ -174,6 +216,8 @@ class SteelMember:
     def mcrit(self, C=[1.12, 0.45], za=0, k=[1, 1]):
         """ Critical moment for lateral-torsional buckling
             
+            NOTE! Only works for double symmetric sections!
+        
             For double-symmetric profiles
             C(1), C(2) -- coefficients
             za -- position of application of load
@@ -191,24 +235,24 @@ class SteelMember:
         It = self.profile.It
         E = constants.E
         G = constants.G
-        L = self.length*1e3
+        L = self.length
         C1, C2 = C
-        part1 = C1 * (math.pi**2 * E * Iz) / (kz * L)**2
-        part2 = np.sqrt((kz / kw)**2 * Iw/Iz + (kz*L)**2 * G * It /
-                        (math.pi**2 * E * Iz) + (C2 * zg)**2)
-        part3 = C2*zg
+        part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
+        part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
+                        (math.pi ** 2 * E * Iz) + (C2 * zg) ** 2)
+        part3 = C2 * zg
 
         Mcr = part1 * (part2 - part3)
         """
-        Mcr = C[0] * math.pi ** 2 * E * Iz / ((kz * L) ** 2) * (math.sqrt((kz / kw) ** 2 * Iw / Iz +
-                                                                          (kz * L) ** 2 * G * It / (
-                                                                              math.pi ** 2 * E * Iz) + (
-                                                                          C[1] * zg) ** 2) -
-                                                                C[1] * zg)
+        Mcr = C[0] * math.pi ** 2 * E * Iz / (
+        (kz * L) ** 2) * (math.sqrt((kz / kw) ** 2 * Iw / Iz +(
+        kz * L) ** 2 * G * It / (math.pi ** 2 * E * Iz) + (
+        C[1] * zg) ** 2) -C[1] * zg)
         """
         return Mcr
 
-    def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0, ted=0.0, loc=0.0):
+    def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0,
+                    ted=0.0, loc=0.0):
         """ Adds new section with internal forces and location """
 
         self.ned.append(ned)
@@ -233,7 +277,7 @@ class SteelMember:
         r = np.zeros(len(self.check_section()))
         for n in range(self.nsect()):
             r = np.vstack((r, self.check_section(n)))
-            #r.append(self.check_section(n))
+            # r.append(self.check_section(n))
         return np.max(r, axis=0)
 
     def check_buckling(self):
@@ -279,59 +323,69 @@ class SteelMember:
 
         self.profile.Ned = NEd
         cross_section_class = self.profile.section_class()
+        slend = self.slenderness()
+        CmLT = 1  # Pitääkö käyttää jotakin kaavaa?
 
-        NRd = self.profile.A * self.fy()
+        # NRd = self.profile.A * self.fy()
         NbRd = self.buckling_strength()
+
+        UNy = abs(NEd) / NbRd[0]
+        UNz = abs(NEd) / NbRd[1]
+
+        kyy = en1993_1_1.kyy(UNy, slend[0], Cmy,
+                             section_class=cross_section_class)
+
+        kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=1.0,
+                             section_class=cross_section_class)
 
         MyEd1 = np.max(np.array(self.myed))
         MyEd2 = abs(np.min(np.array(self.myed)))
         MyEd = max(MyEd1, MyEd2)
-        MzEd1 = np.max(np.array(self.mzed))
-        MzEd2 = abs(np.min(np.array(self.mzed)))
-        MzEd = max(MzEd1, MzEd2)
+
+        # MzEd1 = np.max(np.array(self.mzed))
+        # MzEd2 = abs(np.min(np.array(self.mzed)))
+        # MzEd = max(MzEd1, MzEd2)
+
         MRd = self.profile.MRd
 
-        slend = self.slenderness()
-        CmLT = 1  # Pitääkö käyttää jotakin kaavaa?
-
-        phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
-                slend[0] - 0.2) + slend[0] ** 2)
-        chi_y = min(1 / (phi_y + math.sqrt(phi_y ** 2 - slend[0] ** 2)), 1.0)
-
-        phi_z = 0.5 * (1 + self.profile.imp_factor[1] * (
-                slend[1] - 0.2) + slend[1] ** 2)
-        chi_z = min(1 / (phi_z + math.sqrt(phi_z ** 2 - slend[1] ** 2)), 1.0)
-
-        if cross_section_class <= 2:
-            if not self.LT_B:
-                kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-                          Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-                kzy = 0.6 * kyy
-
-            elif self.LT_B:
-                kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-                          Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-                if slend[1] < 0.4:
-                    kzy = min(0.6 + slend[1], 1 - (0.1 * slend[1] / (
-                            CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-                else:
-                    kzy = max(1 - (0.1 * slend[1] / (CmLT - 0.25)) * (
-                            NEd / (chi_z * NRd)),
-                            1 - (0.1 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-
-        elif cross_section_class > 2:
-            if not self.LT_B:
-                kyy = min(Cmy * (1 + 0.6 * slend[0] * (NEd / (chi_y * NRd))),
-                          Cmy * (1 + 0.6 * (NEd / (chi_y * NRd))))
-                kzy = 0.8 * kyy
-
-            elif self.LT_B:
-                kzy = max(1 - (0.05 * slend[1] / (CmLT - 0.25)) * (
-                            NEd / (chi_z * NRd)),
-                          1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+        # phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
+        #         slend[0] - 0.2) + slend[0] ** 2)
+        # chi_y = min(1 / (phi_y + math.sqrt(phi_y ** 2 - slend[0] ** 2)), 1.0)
+        #
+        # phi_z = 0.5 * (1 + self.profile.imp_factor[1] * (
+        #         slend[1] - 0.2) + slend[1] ** 2)
+        # chi_z = min(1 / (phi_z + math.sqrt(phi_z ** 2 - slend[1] ** 2)), 1.0)
+        #
+        # if cross_section_class <= 2:
+        #     if not self.LT_B:
+        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
+        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
+        #         kzy = 0.6 * kyy
+        #
+        #     elif self.LT_B:
+        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
+        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
+        #         if slend[1] < 0.4:
+        #             kzy = min(0.6 + slend[1], 1 - (0.1 * slend[1] / (
+        #                     CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+        #         else:
+        #             kzy = max(1 - (0.1 * slend[1] / (CmLT - 0.25)) * (
+        #                     NEd / (chi_z * NRd)),
+        #                     1 - (0.1 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+        #
+        # elif cross_section_class > 2:
+        #     if not self.LT_B:
+        #         kyy = min(Cmy * (1 + 0.6 * slend[0] * (NEd / (chi_y * NRd))),
+        #                   Cmy * (1 + 0.6 * (NEd / (chi_y * NRd))))
+        #         kzy = 0.8 * kyy
+        #
+        #     elif self.LT_B:
+        #         kzy = max(1 - (0.05 * slend[1] / (CmLT - 0.25)) * (
+        #                     NEd / (chi_z * NRd)),
+        #                   1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
 
         com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd[0]
-        com_comp_bend_z = -NEd / NbRd[1] + kzy * MzEd / MRd[1]
+        com_comp_bend_z = -NEd / NbRd[1] + kzy * MyEd / MRd[0]
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
 

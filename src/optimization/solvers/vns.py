@@ -1,7 +1,12 @@
 import numpy as np
-from src.optimization.solvers import OptSolver
 from ortools.linear_solver import pywraplp
-from src.optimization.structopt import DiscreteVariable
+
+try:
+    from src.optimization.solvers import OptSolver
+    from src.optimization.structopt import DiscreteVariable
+except:
+    from optimization.solvers import OptSolver
+    from optimization.structopt import DiscreteVariable
 
 
 class VNS(OptSolver):

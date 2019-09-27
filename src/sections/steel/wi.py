@@ -65,9 +65,21 @@ class WISection(SteelSection):
         super().__init__(fy, A, I, Au, Wpl, Wel, Ashear, It, Iw)
 
 
-        """ Determine buckling curve: EN 1993-1-1, Table 6.2 """        
-        self.imp_factor = [en1993_1_1.buckling_curve["b"],
-                           en1993_1_1.buckling_curve["b"]]
+        """ Determine buckling curve: EN 1993-1-1, Table 6.2 """ 
+        if max(tf) <= 40:
+            self.imp_factor = [en1993_1_1.buckling_curve["b"],
+                               en1993_1_1.buckling_curve["c"]]
+        else:
+            self.imp_factor = [en1993_1_1.buckling_curve["c"],
+                               en1993_1_1.buckling_curve["d"]]
+        
+        
+        if h/b <= 2.0:
+            self.imp_factor_LT_gen = en1993_1_1.buckling_curve["c"]
+            self.imp_factor_LT = en1993_1_1.buckling_curve["c"]
+        else:
+            self.imp_factor_LT_gen = en1993_1_1.buckling_curve["d"]
+            self.imp_factor_LT = en1993_1_1.buckling_curve["d"]
             
     def __getattribute__(self, name):
         """ override the attribute access for those attributes
@@ -75,8 +87,14 @@ class WISection(SteelSection):
             constant for rolled sections
         """
         if name == "A":
+            if self.area() < 0:
+                print(self.h,self.b,self.tt,self.tb,self.tw)
+                
             return self.area()
         elif name == "I":
+            I = self.second_moment()
+            if I[1] < 0:
+                print(self.h,self.b,self.tt,self.tb,self.tw)
             return self.second_moment()
         elif name == "Wel":
             return self.section_modulus()
@@ -98,12 +116,16 @@ class WISection(SteelSection):
             return super().__getattribute__(name)
 
     def __setattr__(self, key, value):
-        if key == "b":
+        if key == "b":        
             self.bt = value
             self.bb = value
         elif key == "tf":
             self.tt = value
             self.tb = value
+        #elif key == "bt":
+        #    self.b[0] = value
+        #elif key == "bb":
+        #    self.b[1] = value
         else:
             super().__setattr__(key, value)
 
@@ -277,6 +299,8 @@ class WISection(SteelSection):
     
     def shear_area(self):
         """ Shear area """
+        # if self.hw < 1e-6 or self.tw < 1e-3:
+        #     print(self.hw, self.tw)
         return en1993_1_5.shear_eta(self.fy)*self.hw*self.tw
     
     def paint_area(self):
@@ -314,7 +338,7 @@ class WISection(SteelSection):
                 
         # with respect to z axis
         Iy = 1/12*self.bb*self.tb**3 + (zel-self.zb)**2*self.Ab + \
-                1/12*self.tw*self.h**3 + (zel-self.zw)**2*self.Aw + \
+                1/12*self.tw*self.hw**3 + (zel-self.zw)**2*self.Aw + \
                 1/12*self.bt*self.tt**3 + (zel-self.zt)**2*self.At
 
         # with respect to z axis        
@@ -383,7 +407,15 @@ class WISection(SteelSection):
         """ Torsional constant """
 
         It = 1/3 * (self.bt * pow(self.tt, 3) + self.bb *
-                    pow(self.tb, 3) + self.h * pow(self.tw, 3))
+                    pow(self.tb, 3) + self.hw * pow(self.tw, 3))
+
+        # Tarkempi kaava (hidastaa laskentaa) ja lisätermit lähellä arvoa 1
+        # It = 1/3 * (self.bt * pow(self.tt, 3) * (1 - 0.63 * (
+        #         self.tt / self.bt) * (1 - pow(self.tt, 4) / (12 * pow(
+        #             self.bt, 4)))) + self.bb * pow(self.tb, 3) * (1 - 0.63 * (
+        #                 self.tb / self.bb) * (1 - pow(self.tb, 4) / (12 * pow(
+        #                     self.bb, 4)))) + self.hw * pow(self.tw, 3))
+
         return It
 
     def warping_constant(self):
@@ -412,7 +444,7 @@ class WISection(SteelSection):
 
         return rho                
     
-    def draw(self):
+    def draw(self, name=""):
         """ Draw the profile """
         fig, ax = plt.subplots(1)
         
@@ -442,7 +474,12 @@ class WISection(SteelSection):
         
         ax.set_aspect('equal')
         
-        plt.show()
+        #  plt.show()
+        # results_dir = '/Users/Victoria/GoogleDrive/Koulu/Diplomityö/Koodi' \
+        #               '/frame2d/src/optimization/problems/Kuvat'
+        # figure_file_name = "sample"
+
+        plt.savefig('testi' + 'plot.png')
 
 
 def test_sym():
@@ -463,18 +500,18 @@ def test_non_sym():
 if __name__ == '__main__':
 
     #test_non_sym()
-    from src.frame2d.frame2d import *
-    frame = Frame2D()
-    col = SteelColumn([[0, 0], [0, 5000]])
-    frame.add(col)
-    col.cross_section = WISection(200, 5, [100, 100], [5, 5])
-    col.profile = "WI 200-5-200-8-100-5"
+    #from frame2d.frame2d import *
+    #frame = Frame2D()
+    #col = SteelColumn([[0, 0], [0, 5000]])
+    #frame.add(col)
+    p = WISection(200, 5, [100, 100], [5, 5])
+    #profile = "WI 200-5-200-8-100-5"
     # frame.plot()
-    print(col.cross_section.b)
-    print(col.cross_section.tf)
-    col.cross_section.b = 150
-    col.cross_section.tf = 6
-    print(col.cross_section.b)
-    print(col.cross_section.tf)
+    #print(col.cross_section.b)
+    #print(col.cross_section.tf)
+    #col.cross_section.b = 150
+    #col.cross_section.tf = 6
+    #print(col.cross_section.b)
+    #print(col.cross_section.tf)
     # col.cross_section.draw()
 

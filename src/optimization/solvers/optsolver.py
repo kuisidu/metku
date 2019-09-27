@@ -5,7 +5,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from scipy.optimize import basinhopping
-from src.optimization.structopt import OptimizationProblem
+
+try:
+    from src.optimization.structopt import OptimizationProblem
+except:
+    from optimization.structopt import OptimizationProblem
 
 
 
@@ -105,7 +109,7 @@ class OptSolver:
 
 
     def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=False,
-              min_diff=1e-2, verb=False):
+              min_diff=1e-5, verb=False):
         """
         Solves given problem
 
@@ -135,13 +139,15 @@ class OptSolver:
             self.X = self.random_feasible_point()
             problem.substitute_variables(self.X)
 
-        # Assing done
+        # Assign done
         done = False
         # Start iteration
+        t_total = 0
         for i in range(maxiter):
             # Check time
             start = time.time()
-            if time.process_time() >= maxtime or done:
+            t_0 = time.process_time()
+            if t_total >= maxtime or done:
                 break
             # Save previous state
             prev_state = self.X.copy()
@@ -150,8 +156,9 @@ class OptSolver:
             # Take step
             state, reward, done, info = self.step(action)
             # If new state is almost same as previous
-            if (np.linalg.norm(prev_state - state) <= min_diff or \
+            if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff or \
                 np.all(prev_state == state)) and problem.feasible:
+                done = True
                 break
             # Change current state
             self.X = state
@@ -163,6 +170,8 @@ class OptSolver:
             # Save best values
 
             fval = problem.obj(state)
+            t_1 = time.process_time()
+            t_total += t_1-t_0
             if verb:
                 print(
                     f'\r Iteration {i + 1} / {maxiter}: Obj: {fval} Feasible: {problem.feasible} '\
@@ -170,8 +179,9 @@ class OptSolver:
             if fval < self.best_f and problem.feasible:
                 self.best_f = fval
                 self.best_x = state.copy()
-                print(self.best_x)
-                print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
+                if verb:
+                    print(self.best_x)
+                    print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
 
 
 
@@ -187,10 +197,6 @@ class OptSolver:
             print(f"Iteration took: {end - start :.2f} s")
 
         return self.best_f, self.best_x
-
-
-
-
 
     def random_feasible_point(self):
         """
@@ -220,186 +226,4 @@ class OptSolver:
         print("Starting point created!")
 
         return np.asarray(X)
-
-class DiscreteVNS(OptSolver):
-    """
-        Variable Neighborhood Search (VNS) solver for discrete optimization problems
-    """
-
-    def __init__(self, step_length=1):
-        super().__init__()
-        self.step_length = int(step_length)
-        self.X = None
-        self.problem = None
-        self.constr_vals = None
-        self.fval = 10e3
-        self.best_fval = 10e10
-
-    def shake(self):
-        action = np.random.randint(-self.step_length, self.step_length + 1,
-                                   len(self.X))
-        x = np.clip(self.X.copy() + action, 0, self.problem.vars[0].ub)
-        return x
-
-    def first_improvement(self, x):
-        actions = []
-        r = -1
-        while r <= 0:
-            action = np.random.randint(-self.step_length, self.step_length + 1,
-                                       len(x))
-            if list(action) not in actions:
-                actions.append(list(action))
-                s, r, d, _ = self.step(action, x)
-
-        if d:
-            print(f"DONE! Obj.val: {self.best_fval}")
-            print(x)
-
-        return x
-
-    def neighbourhood_change(self, x):
-        self.X = x
-
-    def step(self, action, X=[]):
-
-        if not len(X):
-            X = self.X.copy()
-
-        prev_cons_vals = self.constr_vals.copy()
-        X += action
-
-        for i in range(len(X)):
-            X[i] = np.clip(X[i], self.problem.vars[i].lb,
-                           self.problem.vars[i].ub)
-
-        self.problem.substitute_variables(X)
-
-        # Calculate objective
-        fval = self.problem.obj(X)
-        dfval = self.best_fval - fval
-        self.fval = fval
-
-        self.calc_constraints(X)
-
-        prev_val = sum(np.clip(prev_cons_vals, 0, 100))
-        cur_val = sum(np.clip(self.constr_vals, 0, 100))
-
-        d_cons_vals = prev_val - cur_val
-
-        if dfval > 0 and d_cons_vals >= 0 and np.all(self.constr_vals <= 0):
-            self.best_fval = fval
-            reward = 1
-        else:
-            reward = -1
-
-        done = np.all(
-            self.X == np.asarray([41, 0, 38, 31, 0, 0, 27, 38, 37, 0]))
-
-        return X, reward, done, 'INFO'
-
-    def worker(self):
-        r = -1
-        actions = []
-        while r <= 0:
-
-            action = np.random.randint(-self.step_length, self.step_length + 1,
-                                       len(self.X))
-            if list(action) not in actions:
-                actions.append(list(action))
-                s, r, d, _ = self.step(action)
-
-        self.X = s
-        if d:
-            print("X: ", list(self.X))
-            print(f"Weight: {self.problem.obj(self.X):2f}")
-
-    def solve(self, problem, x0=[], maxiter=100, maxtime=60, subset_size=-1):
-        """
-        Solves given problem
-
-        :param problem: problem to be solved
-        :param maxiter: maximum number of iterations
-
-        :type problem: OptimizationProblem
-        :type maxiter: int
-
-        :return: fopt, xopt
-
-        """
-        self.problem = problem
-        # Srating point
-        if not len(x0):
-            self.X = np.zeros(len(problem.vars), dtype=int)
-            self.X += int(problem.vars[0].ub)
-        else:
-            self.X = x0
-        if subset_size == -1:
-            subset_size = len(self.X)
-        self.constr_vals = np.zeros(len(self.problem.cons))
-        self.calc_constraints()
-
-        X_vals = []
-
-        for i in range(maxiter):
-            r = -1
-            actions = []
-            d = False
-            while r <= 0 and not d:
-                if time.process_time() >= maxtime or d:
-                    i = maxiter
-                    break
-
-                if len(actions) or i == 0:
-                    action = np.random.randint(-self.step_length,
-                                               self.step_length + 1,
-                                               len(self.X))
-
-                    # Choose random subset to stay still
-                    subset = np.random.choice(len(self.X),
-                                              len(self.X) - subset_size,
-                                              replace=False)
-                    action[subset] = 0
-
-                if list(action) not in actions:
-                    actions.append(list(action))
-                    s, r, d, _ = self.step(action)
-
-            if (time.process_time() < maxtime or i < maxiter) and not d:
-                X_vals.append(s)
-                self.X = s
-                print("New Best! ", self.best_fval)
-                self.best_X = s.copy()
-                print(self.X)
-
-        print("TIME: ", time.process_time(), " s")
-        print("X: ", list(self.best_X))
-        print(f"Weight: {problem.obj(self.best_X):2f}")
-
-        return self.best_X.copy(), self.best_fval, X_vals
-
-
-class Basinhopping(OptSolver):
-
-    def __init__(self, step_length=1):
-        self.step_length = step_length
-
-    def step(self, x):
-        print(x)
-        self.X += x
-        self.calc_constraints()
-
-    def solve(self, problem, x0=[]):
-        self.problem = problem
-        # Srating point
-        self.X = np.zeros(len(problem.vars), dtype=int)
-        # self.X += problem.vars[0].ub
-        self.constr_vals = np.zeros(len(self.problem.cons))
-        self.calc_constraints()
-
-        if not len(x0):
-            x0 = self.X.copy()
-
-        return basinhopping(problem.obj,
-                            x0,
-                            stepsize=self.step_length,
-                            take_step=self.step)
+        

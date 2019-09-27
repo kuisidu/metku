@@ -73,6 +73,14 @@ class ISection(SteelSection):
 
         self.imp_factor = [en1993_1_1.buckling_curve[buck_y],
                            en1993_1_1.buckling_curve[buck_z]]
+        
+        
+        if H/B <= 2.0:
+            self.imp_factor_LT_gen = en1993_1_1.buckling_curve["a"]
+            self.imp_factor_LT = en1993_1_1.buckling_curve["b"]
+        else:
+            self.imp_factor_LT_gen = en1993_1_1.buckling_curve["b"]
+            self.imp_factor_LT = en1993_1_1.buckling_curve["c"]
 
     @property
     def hw(self):
@@ -167,7 +175,7 @@ class IPE(ISection):
         Subclass of ISection
     """
 
-    def __init__(self, height=100, fy=355, catalogue=False):
+    def __init__(self, height=100, fy=355, catalogue=True):
         name = 'IPE ' + str(height)
         # H,B,tf,tb,r,fy=355
         if catalogue or name in profile.keys():
@@ -392,9 +400,13 @@ def cross_section_properties(b, h, tf, tw, r):
                                                                                                                    tw + 0.4468 * r) ** 2.0
 
     # Torsional constant [mm^4]
-    It = 2.0 / 3.0 * (b - 0.63 * tf) * tf ** 3.0 + 1.0 / 3.0 * (h - 2.0 * tf) * tw ** 3.0
-    + 2.0 * (tw / tf) * (0.145 + 0.1 * r / tf) * (((r + tw / 2.0) ** 2.0 + (r + tf) ** 2.0 - r ** 2.0) / (
-    2.0 * r + tf)) ** 4
+    #It = 2.0 / 3.0 * (b - 0.63 * tf) * tf ** 3.0 + 1.0 / 3.0 * (h - 2.0 * tf) * tw ** 3.0 + 2.0 * (tw / tf) * (0.145 + 0.1 * r / tf) * (((r + tw / 2.0) ** 2.0 + (r + tf) ** 2.0 - r ** 2.0) / (2.0 * r + tf)) ** 4
+            
+    It = 2.0/3.0*(b - 0.63*tf)*tf**3.0 + \
+         + 1.0/3.0*(h-2.0*tf)*tw**3.0 + \
+         + (0.042 + 0.2204*(tw / tf)+0.1355*(r/tf)-0.0865*(r*tw/tf**2) -0.0725*(tw/tf)**2) * (((r + tw/2.0)**2.0 + (r + tf)**2.0 - r**2.0)/(2.0*r + tf))**4.0
+
+    print(tf,tw,b,h,It)
 
     # Warping constant [mm^6]
     Iw = (tf * b ** 3.0) / 24.0 * (h - tf) ** 2.0

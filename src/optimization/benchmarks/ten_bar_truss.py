@@ -1,8 +1,15 @@
 
-from src.optimization.structopt import *
-from src.frame2d.frame2d import *
+try:
+    from src.optimization.structopt import *
+    from src.frame2d.frame2d import *
+    from src.optimization.solvers import DiscreteVNS
+except:
+    from optimization.structopt import *
+    from frame2d.frame2d import *
+#    from optimization.solvers import DiscreteVNS
+
 import numpy as np
-from src.optimization.solvers import DiscreteVNS
+
 
 ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
 ten_bar_PSO = [40, 0, 38, 29, 0, 0, 27, 39, 37, 1]

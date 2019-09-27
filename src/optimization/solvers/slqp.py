@@ -1,7 +1,25 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue May 21 11:00:48 2019
+
+Sequential programming with quadratic objective function.
+
+At each iteration, the problem
+
+min grad f(x_k)'*(x-xk) + 0.5*||x-x_k||**2
+such that grad g_j(x_k)'*(x-xk) + g_j(x_k) <= 0
+
+is solved.
+
+@author: kmela
+"""
+
 
 from scipy.optimize import linprog
 import numpy as np
 import time
+
+import gurobipy as grb
 
 try:
     from src.optimization.solvers.optsolver import OptSolver
@@ -13,15 +31,12 @@ except:
     from optimization.benchmarks import *
     
 
-from ortools.linear_solver import pywraplp
+#from ortools.linear_solver import pywraplp
 
-class SLP(OptSolver):
+class SLQP(OptSolver):
 
-    def __init__(self, move_limits=[0.75, 1.25], gamma=1e-2):
+    def __init__(self):
         super().__init__()
-        self.move_limits = np.asarray(move_limits)
-        self.gamma = gamma
-        self.alpha = 1.0
 
     def take_action(self):
         """
@@ -29,39 +44,74 @@ class SLP(OptSolver):
         :return:
         """
 
+        """ linearize problem at X
+            A .. Jacobian matrix of the constraints
+            B .. RHS of the linearized constraints
+            df .. gradient of the objective function
+            fx .. f(x_k)
+        """
         A, B, df, fx = self.problem.linearize(self.X)
 
         # bounds = [x*self.move_limits for x in self.X]
         #
         # res = linprog(df, A, B, bounds=bounds)
 
-        solver = pywraplp.Solver('SLP',
-                                 pywraplp.Solver.CLP_LINEAR_PROGRAMMING)
-
+        qp = grb.Model("qp")
+        
         # Number of constraints
         n = A.shape[0]
         # Number of variables
         m = A.shape[1]
 
         x = {}
+        #d = {}
         # Variables
+        qpvars = []
+        qpobj = []
         for i, var in enumerate(self.problem.vars):
-            #lb = max(var.value - 0.5*self.alpha*(var.ub-var.lb),var.lb)
-            #ub = min(var.value + 0.5*self.alpha*(var.ub-var.lb),var.ub)
-            lb, ub = self.move_limits * var.value
-            x[i] = solver.NumVar(lb,
-                                 ub,
-                                 var.name)
+            # create variable
+            x[i] = qp.addVar(var.lb,var.ub)
+            #d[i] = qp.addVar(lb=-200,ub=200)
+            # add terms to the objective function
+            qpobj.append(0.5*(x[i]-self.X[i])*(x[i]-self.X[i])+df[i]*x[i])
+            #qpobj.append(0.5*d[i]*d[i]+df[i]*d[i])
+            
+        """ Prepare quadratic part of the objective function:
+            square terms
+        """
+        #qpobj = [0.5*va*va for va in qpvars]
+        
 
+        qp.setObjective(grb.quicksum(qpobj))
+        
         # Constraints
         for i in range(n):
-            solver.Add(solver.Sum([A[i, j] * x[j] for j in range(m)]) <= B[i])
+            qp.addConstr(grb.quicksum([A[i,j]*x[j] for j in range(m)]) <= B[i])
+            #qp.addConstr(grb.quicksum([A[i,j]*d[j] for j in range(m)]) <= B[i])
 
-        # Objective
-        solver.Minimize(solver.Sum([df[j] * x[j] for j in range(m)]))
+        
+        qp.setParam("LogToConsole",0)
+        #qp.update()
+        qp.optimize()
+        
 
+        X = []
+        for v in qp.getVars():
+            print('%s %g' % (v.varName, v.x))
+            X.append(v.x)
+        
+        #time.sleep(10)
 
-        sol = solver.Solve()
+        X = np.asarray(X)
+        
+        self.qp = qp
+        
+        #d = X-self.X
+        #print(d)
+        #return X
+        return X-self.X
+
+        """
         # If solution if infeasible
         if sol == 2:
             print("Solution found was infeasible!")
@@ -81,11 +131,9 @@ class SLP(OptSolver):
 
             return X - self.X
         # return res.x - self.X
-
+        """
     def step(self, action):
-
-        self.move_limits += (1 - self.move_limits) * self.gamma
-        self.alpha = self.alpha/(1+self.alpha)
+        
         self.X += action
         for i in range(len(self.X)):
             self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
@@ -99,10 +147,15 @@ if __name__ == '__main__':
 
     problem = FifteenBarTruss(prob_type='continuous')
     x0 = [var.ub for var in problem.vars]
-    solver = SLP(move_limits=[0.85, 5], gamma=1e-3)
+    solver = SLQP()
     solver.solve(problem, x0=x0, maxiter=100, log=True, verb=True)
     problem(solver.X)
     problem.structure.plot()
+    
+    
+    
+    
+    
     # #
     # # import matplotlib.pyplot as plt
     # #

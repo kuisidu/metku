@@ -415,7 +415,7 @@ class FrameFEM:
                     # Get the global degree of freedom of the supported
                     # node's degree of freedom.
                     i = node_dofs[dof]
-                    print(i)
+                    #  print(i)
                     if i > -1:
                         K[i,:] = 0
                         K[:,i] = 0
