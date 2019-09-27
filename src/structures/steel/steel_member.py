@@ -73,6 +73,18 @@ class SteelMember:
     def MbRd(self):
         Mcr = self.mcrit()
         return self.LT_buckling_strength(Mcr)
+    
+    @property
+    def MEdY(self):
+        return max(abs(np.array(self.myed)))
+    
+    @property
+    def MEdZ(self):
+        return max(abs(np.array(self.mzed)))
+
+    @property
+    def NEd(self):
+        return max(abs(np.array(self.ned)))
 
     def nsect(self):
         """ Number of sections """
@@ -146,21 +158,44 @@ class SteelMember:
         # NbRd = self.profile.A*self.fy()*r;
         return NbRd
 
-    def LT_buckling_strength(self, Mcr, axis='y'):
+    def LT_buckling_strength(self, Mcr, axis='y', method='general',verb=False):
         """ Member lateral-torsional bending strength """
 
+
+        MRd = self.profile.bending_resistance()[0]
         if axis == 'y':
             idx = 0
         else:
             idx = 1
         lambdaLT = self.LT_slenderness(Mcr)[idx]
+        
         # self.profile.define_imp_factor_LT()
         # alpha = self.profile.ImperfectionLT
-        alpha = self.profile.imp_factor
-        # alpha[0] is the imperfection factor about y-axis
-        p = 0.5 * (1 + alpha[0] * (lambdaLT - 0.2) + lambdaLT ** 2)
-        chiLT = min(1. / (p + math.sqrt(p ** 2 - lambdaLT ** 2)), 1.0)
-        MbRd = chiLT * self.profile.bending_resistance()[0]
+        if method == 'general':
+            alphaLT = self.profile.imp_factor_LT_gen
+            lambdaLT0 = 0.2
+            beta = 1.0
+            chiLTmax = 1.0
+        else:
+            alphaLT = self.profile.imp_factor_LT
+            lambdaLT0 = 0.4
+            beta = 0.75
+            chiLTmax = min(1.0,1/lambdaLT**2)
+        
+        if lambdaLT <= lambdaLT0 or self.MEdY/Mcr <= lambdaLT0**2:
+            chiLT = 1.0
+        else:
+            p = 0.5 * (1 + alphaLT * (lambdaLT - lambdaLT0) + beta*lambdaLT ** 2)
+            chiLT = min(1. / (p + math.sqrt(p ** 2 - beta*lambdaLT ** 2)), chiLTmax
+                        )
+        MbRd = chiLT * MRd
+        
+        if verb:
+            print("lambdaLT = {0:4.2f}".format(lambdaLT))
+            print("alphaLT = {0:4.2f}".format(alphaLT))
+            print("phi = {0:4.2f}".format(p))
+            print("chi_LT = {0:4.2f}".format(chiLT))
+            print("MbRd = {0:4.2f}".format(MbRd*1e-6))
         return MbRd
 
     def weight_per_length(self):
@@ -179,6 +214,8 @@ class SteelMember:
     def mcrit(self, C=[1.12, 0.45], za=0, k=[1, 1]):
         """ Critical moment for lateral-torsional buckling
             
+            NOTE! Only works for double symmetric sections!
+        
             For double-symmetric profiles
             C(1), C(2) -- coefficients
             za -- position of application of load
@@ -196,7 +233,7 @@ class SteelMember:
         It = self.profile.It
         E = constants.E
         G = constants.G
-        L = self.length*1e3
+        L = self.length
         C1, C2 = C
         part1 = C1 * (math.pi**2 * E * Iz) / (kz * L)**2
         part2 = np.sqrt((kz / kw)**2 * Iw/Iz + (kz*L)**2 * G * It /
