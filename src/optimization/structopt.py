@@ -174,10 +174,46 @@ class BinaryVariable(IntegerVariable):
         IntegerVariable.__init__(self, name, 0, 1)
 
 
+class IndexVariable(Variable):
+
+    def __init__(self, name="", values=None, target=None):
+        super().__init__(name=name, target=target)
+
+        self.values = values
+
+        if values is not None:
+            lb = 0
+            ub = len(values) - 1
+        else:
+            lb = None
+            ub = None
+
+        super().__init__(name, lb, ub, target=target)
+
+    def substitute(self, new_value):
+
+        if new_value not in self.values:
+            try:
+                new_value = self.values[new_value]
+            except:
+                raise ValueError(
+                    f"Input {new_value} is erroneous"
+                    "IndexVariable's value must be either"
+                    " index or a value from the given list!")
+
+        super().substitute(new_value)
+
+    @property
+    def idx(self):
+        if self.value in self.values:
+            return self.values.index(self.value)
+        return self.value
+
+
 class DiscreteVariable(Variable):
     """ Class for general discrete variables """
 
-    def __init__(self, name="", values=None, target=None, profiles=None):
+    def __init__(self, name="", values=None, target=None):
         """ Constructor
 
             Parameters:
@@ -193,30 +229,14 @@ class DiscreteVariable(Variable):
 
         self.values = values
 
-
-        if profiles:
-            lb = 0
-            ub = len(profiles) - 1
-
-        elif values != None:
+        if values is not None:
             lb = min(values)
             ub = max(values)
         else:
             lb = None
             ub = None
 
-        super().__init__(name, lb, ub, target=target, profiles=profiles)
-
-
-    def substitute(self, new_value):
-        if self.profiles:
-            try:
-                new_value = self.profiles[int(new_value)]
-            except:
-                pass
-            #new_value = self.profiles[new_value]
-
-        super().substitute(new_value)
+        super().__init__(name, lb, ub, target=target)
 
 
 class Constraint:
@@ -233,7 +253,7 @@ class Constraint:
         Runs finite element analysis on problem's structure if needed
         """
         if self.fea_required and not self.parent.fea_done:
-            if np.any(self.parent.X != x): # Replace with norm
+            if np.any(self.parent.X != x):  # Replace with norm
                 self.parent.substitute_variables(x)
             self.parent.fea()
 
@@ -309,6 +329,7 @@ class OptimizationProblem:
                 :ivar profiles: list of available profiles (optional)
         """
 
+        self.con_tol = 1e-4
         self.name = name
         self.vars = variables
         self.cons = constraints
@@ -332,7 +353,7 @@ class OptimizationProblem:
         Returns problem's feasibility
         :return: True/False
         """
-        return np.all(self.eval_cons(self.X) <= 1e-6)
+        return np.all(self.eval_cons(self.X) <= self.con_tol)
 
     def linearize(self, x):
         """
@@ -347,31 +368,54 @@ class OptimizationProblem:
         start = time.time()
         x = np.asarray(x)
         self.substitute_variables(x)
+
+        """ Evaluate objective function at x """
         fx = self.obj(x)
+        """ Evaluate nonlinear constraint functions at x """
         b = self.eval_nonlin_cons(x)
+
+        """ Get number of nonlinear constraints """
         m = self.nnonlincons()
+        """ Number of variables """
         n = self.nvars()
+        """ Jacobian
+            Rows of A are the gradients (transposed) of constraints
+        """
         A = np.zeros((m, n))
         df = np.zeros(n)
         for i, var in enumerate(self.vars):
             if not isinstance(var, BinaryVariable):
-                if isinstance(var, DiscreteVariable):
+                if isinstance(var, IndexVariable):
+                    h = 1
+                    prev_val = var.value
+                    if var.idx + h > var.ub:
+                        h = -1
+                    var.substitute(var.idx + h)
+                else:
                     x[i] = var.value
-                prev_val = var.value
-                h = max(0.01 * abs(prev_val), 1e-4)
-                var.substitute(prev_val + h)
+                    """ Get current value of variable """
+                    prev_val = var.value
+                    """ Step length """
+                    h = max(0.01 * abs(prev_val), 1e-4)
+                    var.substitute(prev_val + h)
+                """ Make finite element analysis """
                 fea_start = time.time()
                 if self.structure:
                     self.fea()
                 fea_end = time.time()
+                """ Get variable values """
                 xh = [var.value for var in self.vars]
+                """ Evaluate objective function at x + hi*ei """
                 f_val = self.obj(xh)
+                """ Evaluate constraint functions at x + hi*ei """
                 a = self.eval_nonlin_cons(xh)
                 A[:, i] = (a - b) / h
                 df[i] = (f_val - fx) / h
+                """ Substitute the original value x[i] to current variable """
                 var.substitute(prev_val)
 
         B = A @ x.T - b
+        # B = -b
 
         # Add linear constraints' values
         for con in self.cons:
@@ -384,13 +428,11 @@ class OptimizationProblem:
 
         return A, B, df, fx
 
-
     def nnonlincons(self):
         """ Returns number of non linear constraints"""
         non_lin_cons = [con for con in self.cons if
                         isinstance(con, NonLinearConstraint)]
         return len(non_lin_cons)
-
 
     def eval_nonlin_cons(self, X):
         """
@@ -406,7 +448,6 @@ class OptimizationProblem:
             g.append(con(X))
 
         return np.asarray(g)
-
 
     def fea(self):
         """
@@ -498,7 +539,6 @@ class OptimizationProblem:
         for var in variables:
             self.vars.append(var)
 
-
     def add_constraint(self, con):
         """ Adds new constraint to the problem """
         self.cons.append(con)
@@ -571,7 +611,6 @@ class OptimizationProblem:
         # for i in range(len(xvals)):
         #     self.substitute_variable(i, xvals[i])
 
-
     def solve(self, solver="slsqp", **kwargs):
         """ Solve the optimization problem
             input:
@@ -597,11 +636,11 @@ class OptimizationProblem:
                 type: str
 
                 Constraint type: ‘eq’ for equality, ‘ineq’ for inequality.
-                
+
                 fun: callable The function defining the constraint.
-    
+
                 jac: callable, optional. The Jacobian of fun (only for SLSQP).
-    
+
                 args: sequence, optional
 
                     Extra arguments to be passed to the function and Jacobian.
@@ -649,15 +688,22 @@ def NumGrad(fun, h, x):
     fx = fun(x)
     n = len(x)
 
+    """ if only a single value for step length 'h' is given,
+        transform it to a list
+    """
+    if isinstance(h, float):
+        h = h * np.ones(n)
+
     df = np.zeros(n)
+
+    np.eye(3, 1, -2)
     #
     for i in range(len(x)):
-        dx = np.zeros(n)
-        dx[i] = h[i]
-        print(x + dx)
-        fh = fun(x + h)
-    #     print(fx, fh)
-        df[i] = (fh - fx) / h
+        xh = x + h[i] * np.eye(1, n, i)
+        print(xh)
+        fh = fun(xh)
+        #     print(fx, fh)
+        df[i] = (fh - fx) / h[i]
 
     return df
 
@@ -702,6 +748,7 @@ if __name__ == '__main__':
     # variables=dvars)
 
     def fun(x):
-        return x**3
+        return x ** 3
+
 
     print(Linearize(fun, np.array([3, 2])))
