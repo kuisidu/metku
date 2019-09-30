@@ -70,7 +70,7 @@ class MISLP(OptSolver):
             # Binary property constraint
             # Ai == sum(A[i][bin_idx])
             idx = discrete_ids[i]
-            CBC_solver.Add(CBC_solver.Sum([y[i, j] * var.profiles[j]
+            CBC_solver.Add(CBC_solver.Sum([y[i, j] * var.values[j]
                                            for j in range(var.ub)]) == x[idx])
 
         # Objective
