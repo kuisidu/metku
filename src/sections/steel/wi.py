@@ -138,6 +138,11 @@ class WISection(SteelSection):
         return self.hw * self.tw
     
     @property
+    def Izw(self):
+        """ Second moment of area of web with respect to its own major axis """
+        return self.hw * self.tw**3/12
+    
+    @property
     def zw(self):
         """ Distance of centroid of web from bottom of section """
         return self.tb + 0.5 * self.hw
@@ -156,6 +161,11 @@ class WISection(SteelSection):
     def Ab(self):
         """ Area of bottom flange """
         return self.bb * self.tb
+    
+    @property
+    def Izb(self):
+        """ Second moment of area of bottom flange with respect to its own major axis """
+        return self.tb * self.bb**3/12
     
     @property
     def zb(self):
@@ -178,6 +188,11 @@ class WISection(SteelSection):
         return self.bt * self.tt
     
     @property
+    def Izt(self):
+        """ Second moment of area of bottom flange with respect to its own major axis """
+        return self.tt * self.bt**3/12
+    
+    @property
     def zt(self):
         """ Distance of centroid of top flange from bottom of section """
         return self.h - 0.5 * self.tt
@@ -197,6 +212,24 @@ class WISection(SteelSection):
         """ Straight part of the web """
         return self.hw - 2*math.sqrt(2)*self.weld_throat
    
+    def shear_centre(self):
+        """ Position of the shear centre S from centroid G
+            Source: Maquoi et al. (2003)
+            Lateral torsional buckling in steel and composite beams,
+            Book 2, 7.1.2 Mono-symmetrical I cross-sections
+            
+        """
+        
+        """ Position of the centroids of the different plates
+            with respect to centroid of the cross-section
+        """
+        zG = self.elastic_neutral_axis()
+        zft = self.zt-zG
+        zfb = self.zb-zG
+        zwS = self.zw-zG
+        
+        return (self.Izt*zft + self.Izb*zfb + self.Izw*zwS)/self.I[1]
+    
     def flange_class(self, verb=False):
         """ Determine class of compressed flange """
         # cf = 0.5*(self.b - self.tw) - self.r

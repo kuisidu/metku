@@ -36,7 +36,7 @@ General layout
         - objective: 'cost', 'weight' or user given function
             default: 'weight'
 
-        - structure: Truss2D object
+        - structure: Truss2D/ Fram2D object
             default: None
 
 Constraints
@@ -50,12 +50,33 @@ Other
 -----
 - structure knows whether it's symmetrical or not
     - it will automatically create grouping for symmetrical members
+
+
+# Groups could be list of dicts
+
+groups = [
+    {"objects": [mem1, mem2, mem3],
+    "lb": 0,
+    "ub": 100,
+    "property": "A",
+    "profiles": RHS_PROFILES[10:30],
+    },
+    {"objects": [mem4, mem5],
+    "lb": 10,
+    "ub": 300,
+    "property": "IZ",
+    "profiles": RHS_PROFILES[:10],
+    },
+    {"objects": [mem6, mem7, mem8],
+    "lb": 500,
+    "ub": 10000,
+    "property": "A",
+    "profiles": RHS_PROFILES[100:130],
+    }
+]
 """
 
-
-from src.frame2d.frame2d import *
 from src.optimization.structopt import *
-from src.truss2d import *
 
 # Sorted by area
 RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',
@@ -134,36 +155,115 @@ RHS_A = [293.6991118430775, 358.9048622548086, 373.6991118430775,
          11704.369260617026, 12324.247719318988, 13504.339740375975,
          13704.369260617026, 15256.637061435917, 18704.369260617026]
 
+RHS_IY = [69402.1348577099, 82151.28824369762, 141469.80388201258,
+          93235.56709132508, 251422.42849846912, 169438.8058049558,
+          407260.0087070795, 194671.3623630676, 303421.5664789544,
+          616982.5445078439, 494099.5702656935, 351348.30771715636,
+          237358.76890471048, 751472.8171651728, 575266.4031535913,
+          435510.7428089776, 1085541.3071773928, 878425.6486723726,
+          1506305.0403023532, 721202.5390818602, 1272826.0442734999,
+          504944.22072287824, 1770467.5899569737, 2647918.2358904947,
+          1110434.1577233584, 846291.9300855394, 1619205.598733472,
+          4256312.403929599, 3123474.1315709595, 1314420.611899162,
+          5260552.35261826, 2263516.8621122013, 5033445.27351433,
+          1929330.2661637464, 6227292.569609535, 4022758.855975506,
+          2711020.892879293, 7596381.015787086, 6516160.139313272,
+          3114741.7978090816, 4854745.06366327, 8078170.514535079,
+          9871720.712125503, 7905593.124251096, 5621572.923474502,
+          14217440.574412191, 9821188.61322145, 6235230.294796982,
+          12023565.074642764, 19681319.726173345, 9204262.450457461,
+          11459054.114443017, 6768760.707404428, 17368660.914838284,
+          14054810.378757961, 7198754.151445843, 19184945.76423401,
+          24100880.64483765, 12896997.263231725, 7768082.442480799,
+          20365216.708375998, 15874082.660310294, 32380224.26464086,
+          14118333.707433986, 28327481.43931158, 17412349.479375735,
+          15131229.417059045, 23133398.0658679, 48050096.98772789,
+          38133604.5715647, 18695912.47963438, 16525294.695811596,
+          25458618.181157082, 32322239.619959485, 20476695.81973211,
+          27417265.565841436, 56720023.77241476, 84168837.64189216,
+          43667807.32258503, 35662536.426802225, 64045426.04002355,
+          30167993.626788545, 38495934.600123696, 48280104.21631118,
+          65227020.405024536, 99636681.11375256, 73737921.17343803,
+          52213519.582481146, 42510618.84613217, 72292048.7953192,
+          34064339.66473276, 81780188.42692047, 57824571.47776296,
+          115161339.61842687, 78353864.45865832, 88691837.39142165,
+          48594155.981109016, 128006870.81298491, 87066739.32324764,
+          241042340.82113203, 98646458.97788613, 139105018.9926629,
+          280318593.3302435, 101613144.87508953, 155193656.12715802,
+          115478848.04297818, 312692443.7957626, 340887002.087082,
+          183481345.34484133, 382159878.71536344, 458765381.0116587]
+
+RHS_IZ = [69402.1348577099, 82151.28824369762, 141469.80388201258,
+          93235.56709132508, 251422.42849846912, 169438.8058049558,
+          407260.0087070795, 194671.3623630676, 303421.5664789544,
+          616982.5445078439, 494099.5702656935, 351348.30771715636,
+          237358.76890471048, 751472.8171651728, 575266.4031535913,
+          435510.7428089776, 1085541.3071773928, 878425.6486723726,
+          1506305.0403023532, 721202.5390818602, 1272826.0442734999,
+          504944.22072287824, 1770467.5899569737, 2647918.2358904947,
+          1110434.1577233584, 846291.9300855394, 1619205.598733472,
+          4256312.403929599, 3123474.1315709595, 1314420.611899162,
+          5260552.35261826, 2263516.8621122013, 5033445.27351433,
+          1929330.2661637464, 6227292.569609535, 4022758.855975506,
+          2711020.892879293, 7596381.015787086, 6516160.139313272,
+          3114741.7978090816, 4854745.06366327, 8078170.514535079,
+          9871720.712125503, 7905593.124251096, 5621572.923474502,
+          14217440.574412191, 9821188.61322145, 6235230.294796982,
+          12023565.074642764, 19681319.726173345, 9204262.450457461,
+          11459054.114443017, 6768760.707404428, 17368660.914838284,
+          14054810.378757961, 7198754.151445843, 19184945.76423401,
+          24100880.64483765, 12896997.263231725, 7768082.442480799,
+          20365216.708375998, 15874082.660310294, 32380224.26464086,
+          14118333.707433986, 28327481.43931158, 17412349.479375735,
+          15131229.417059045, 23133398.0658679, 48050096.98772789,
+          38133604.5715647, 18695912.47963438, 16525294.695811596,
+          25458618.181157082, 32322239.619959485, 20476695.81973211,
+          27417265.565841436, 56720023.77241476, 84168837.64189216,
+          43667807.32258503, 35662536.426802225, 64045426.04002355,
+          30167993.626788545, 38495934.600123696, 48280104.21631118,
+          65227020.405024536, 99636681.11375256, 73737921.17343803,
+          52213519.582481146, 42510618.84613217, 72292048.7953192,
+          34064339.66473276, 81780188.42692047, 57824571.47776296,
+          115161339.61842687, 78353864.45865832, 88691837.39142165,
+          48594155.981109016, 128006870.81298491, 87066739.32324764,
+          241042340.82113203, 98646458.97788613, 139105018.9926629,
+          280318593.3302435, 101613144.87508953, 155193656.12715802,
+          115478848.04297818, 312692443.7957626, 340887002.087082,
+          183481345.34484133, 382159878.71536344, 458765381.0116587]
+
 
 class TrussProblem(OptimizationProblem):
 
-    def __init__(self, **kwargs):
+    def __init__(self,
+                 name='TrussProblem',
+                 prob_type='design',
+                 var_type='continuous',
+                 variables=['A'],
+                 profiles=RHS_PROFILES,
+                 groups=None,
+                 objective='weight',
+                 structure=None,
+                 lb=0,
+                 ub=1e5):
 
-        # Default values
-        values = dict(
-            name='TrussProblem',
-            prob_type='design',
-            var_type='continuous',
-            variables=['A'],
-            profiles=RHS_PROFILES,
-            groups=None,
-            objective='weight',
-            structure=None
-        )
-        # Update values with user-given values
-        values.update(kwargs)
-        super().__init__(values['name'])
+        super().__init__(name, structure=structure)
 
-        # Assign values
-        for key, value in values.items():
-            self.__dict__[key] = value
+        self.prob_type = prob_type
+        self.var_type = var_type
+        self.variables = variables
+        self.profiles = profiles
+        self.groups = groups
+        self.objective = objective
+        self.lb = lb
+        self.ub = ub
 
         # Assign objective
         if isinstance(self.objective, str):
             if self.objective == 'weight':
                 self.obj = self.weight_fun
             elif self.objective == 'cost':
-                self.obj = self.cost_fun
+                pass
+                # TODO self.obj = self.cost_fun
             else:
                 raise ValueError("Objective must be either "
                                  "'weight' or 'cost' or a function")
@@ -173,14 +273,269 @@ class TrussProblem(OptimizationProblem):
             raise ValueError("Objective must be either "
                              "'weight' or 'cost' or a function")
 
-        # Assign constraints
-        # TODO
+        # Create variables
+        self.create_variables()
 
-        # Assign variables
-        # TODO
+        # Create constraints
+        self.create_constraints()
 
-        # Assign Structure
-        # TODO
+    @property
+    def weight_fun(self):
+        if self.structure is not None:
+            def obj(x):
+                self.substitute_variables(x)
+                return self.structure.weight
+
+            return obj
+        else:
+            raise ValueError("Structure is not defined!")
+
+    def create_variables(self):
+        """
+        Creates design variables
+        """
+        self.vars = []
+
+        if self.groups is None:
+            self.groups = []
+            for mem in self.structure.members.values():
+                group = {
+                    "objects": [mem],
+                    "profiles": self.profiles,
+                    "property": "A",
+                    "properties": self.variables,
+                    "lb": self.lb,
+                    "ub": self.ub
+                }
+                self.groups.append(group)
+
+        if self.var_type == 'discrete':
+            for i, group in enumerate(self.groups):
+                var = DiscreteVariable(
+                    name=f"Var {i + 1}",
+                    profiles=group['profiles'],
+                    target={"property": group["property"],
+                            "objects": group["objects"]}
+                )
+                self.vars.append(var)
+                
+        elif self.var_type == 'continuous':
+            for i, group in enumerate(self.groups):
+                if "properties" in group.keys():
+                    bounds = group["bounds"]
+                    if len(bounds) != len(group["properties"]):
+                        raise ValueError("There must be same number of bounds as properties!"
+                                         f"{group['bounds']} != {group['properties']}")
+                    for bounds, prop in zip(group["bounds"], group["properties"]):
+                        lb, ub = bounds
+                        var = Variable(
+                        name=f"Var {prop}{i + 1}",
+                        lb=lb,
+                        ub=ub,
+                        target={"property": prop,
+                                "objects": group["objects"]}
+                    )
+                        self.vars.append(var)
+                else:
+                    var = Variable(
+                        name=f"Var {i + 1}",
+                        lb=group['lb'],
+                        ub=group['ub'],
+                        target={"property": group["property"],
+                                "objects": group["objects"]}
+                    )
+                    self.vars.append(var)
+
+        elif self.var_type == 'binary':
+            pass
+        else:
+            raise ValueError("var_type must be either 'discrete',"
+                             " 'continuous' or 'binary")
+
+    def cross_section_constraints(self, sect, forces):
+        """
+        Creates cross-section constraints
+        :return:
+        """
+
+        N, V, M = forces
+
+        def compression(x):
+            return -N / sect.NRd - 1
+
+        def tension(x):
+            return N / sect.NRd - 1
+
+        def shear(x):
+            return abs(V) / sect.VRd - 1
+
+        def bending_moment(x):
+            # Moment about y
+            # TODO: Moment about z
+            return 0
+            #return abs(M) / sect.MRd[0] - 1
+
+        return compression, tension, shear, bending_moment
+
+    def stability_constraints(self, mem):
+        """
+        Creates stability constraint functions
+
+        :return:
+        """
+
+        def buckling_y(x):
+            self.substitute_variables(x)
+            return -mem.ned / mem.NbRd[0] - 1
+
+        def buckling_z(x):
+            self.substitute_variables(x)
+            return -mem.ned / mem.NbRd[1] - 1
+
+        # def com_compression_bending_y(x):
+        #     self.substitute_variables(x)
+        #     return mem.steel_member.check_beamcolumn()[0] - 1
+        #
+        # def com_compression_bending_z(x):
+        #     self.substitute_variables(x)
+        #     return mem.steel_member.check_beamcolumn()[1] - 1
+
+        return buckling_y, \
+               buckling_z, \
+            # com_compression_bending_y,\
+        # com_compression_bending_z
+
+    def deflection_constraints(self, mem):
+        """
+        Creates deflection constraint functions
+        :param mem:
+        :return:
+        """
+        self.delta_max = self.structure.L / 300
+
+        def disp_fun(x):
+            displacements = mem.nodal_displacements.values()
+            max_vals = [max(l[0:2]) for l in displacements]
+            min_vals = [min(l[0:2]) for l in displacements]
+            max_val = max(max_vals)
+            min_val = min(min_vals)
+            abs_max = max(max_val, abs(min_val))
+            return abs_max / self.delta_max - 1
+
+        return disp_fun
+
+    def create_constraints(self):
+        """
+        Cretes constraints and saves them to self.cons
+        """
+        # Initialize cons as an empty list
+        self.cons = []
+        for mem in self.structure.members.values():
+
+            # buckling_y, buckling_z, com_compression_bending_y, \
+            # com_compression_bending_z = \
+            #     self.stability_constraints(mem)
+
+            buckling_y, buckling_z, = self.stability_constraints(mem)
+
+            # BUCKLING Y
+            buckling_y_con = NonLinearConstraint(con_fun=buckling_y,
+                                                 name="Buckling_y " +
+                                                      str(mem.mem_id),
+                                                 parent=self)
+            buckling_y_con.fea_required = True
+            self.cons.append(buckling_y_con)
+
+            # BUCKLING Z
+            buckling_z_con = NonLinearConstraint(con_fun=buckling_z,
+                                                 name="Buckling_z " +
+                                                      str(mem.mem_id),
+                                                 parent=self)
+            buckling_z_con.fea_required = True
+            self.cons.append(buckling_z_con)
+
+            # # BENDING + COMPRESSION Y
+            # com_compression_bending_con_y = NonLinearConstraint(
+            #     con_fun=com_compression_bending_y,
+            #     name="Com_compression_bending_y " + str(mem.mem_id),
+            #     parent=self)
+            # com_compression_bending_con_y.fea_required = True
+            # self.cons.append(com_compression_bending_con_y)
+            #
+            # # BENDING + COMPRESSION Z
+            # com_compression_bending_con_z = NonLinearConstraint(
+            #     con_fun=com_compression_bending_z,
+            #     name="Com_compression_bending_z " + str(mem.mem_id),
+            #     parent=self)
+            # com_compression_bending_con_z.fea_required = True
+            # self.cons.append(com_compression_bending_con_z)
+
+            for i, elem in enumerate(mem.elements.values()):
+                forces = [elem.axial_force[0], elem.shear_force[0],
+                          elem.bending_moment[0]]
+                compression, tension, shear, bending_moment = \
+                    self.cross_section_constraints(mem, forces)
+
+                compression_con = NonLinearConstraint(con_fun=compression,
+                                                      name="Compression " +
+                                                           str(mem.mem_id) +
+                                                           str(i), parent=self)
+                compression_con.fea_required = True
+
+                tension_con = NonLinearConstraint(con_fun=tension,
+                                                  name="Tension " +
+                                                       str(mem.mem_id) +
+                                                       str(i), parent=self)
+                tension_con.fea_required = True
+
+                shear_con = NonLinearConstraint(con_fun=shear,
+                                                name="Shear " + str(mem.mem_id)
+                                                     + str(i), parent=self)
+                shear_con.fea_required = True
+
+                bending_moment_con = NonLinearConstraint(
+                    con_fun=bending_moment, name="Bending_moment " +
+                                                 str(mem.mem_id) +
+                                                 str(i), parent=self)
+                bending_moment_con.fea_required = True
+
+                self.cons.extend([compression_con, tension_con, shear_con,
+                                  bending_moment_con])
+
+                # Last element's end node
+                if i == len(mem.elements) - 1:
+                    forces = [elem.axial_force[1], elem.shear_force[1],
+                              elem.bending_moment[1]]
+                    compression, tension, shear, bending_moment = \
+                        self.cross_section_constraints(mem, forces)
+
+                    compression_con = NonLinearConstraint(con_fun=compression,
+                                                          name="Compression " +
+                                                               str(mem.mem_id)
+                                                               + str(i + 1),
+                                                          parent=self)
+                    compression_con.fea_required = True
+                    tension_con = NonLinearConstraint(con_fun=tension,
+                                                      name="Tension " +
+                                                           str(mem.mem_id) +
+                                                           str(i + 1),
+                                                      parent=self)
+                    tension_con.fea_required = True
+                    shear_con = NonLinearConstraint(con_fun=shear,
+                                                    name="Shear " +
+                                                         str(mem.mem_id) +
+                                                         str(i + 1),
+                                                    parent=self)
+                    shear_con.fea_required = True
+
+                    bending_moment_con = NonLinearConstraint(
+                        con_fun=bending_moment, name="Bending_moment " +
+                                                     str(mem.mem_id) +
+                                                     str(i + 1), parent=self)
+                    bending_moment_con.fea_required = True
+
+                    self.cons.extend([compression_con, tension_con, shear_con,
+                                      bending_moment_con])
 
 
 class PlaneTrussProblem(OptimizationProblem):
@@ -311,6 +666,7 @@ class PlaneTrussProblem(OptimizationProblem):
         """
         Creates the objective function
         """
+
         def objective(x):
             self.substitute_variables(x)
             weight = 0
@@ -350,8 +706,10 @@ class PlaneTrussProblem(OptimizationProblem):
         chords.extend(self.structure.top_chords)
         TC = [mem for mem in self.structure.top_chords]
         BC = [mem for mem in self.structure.bottom_chords]
-        TW = [mem for mem in self.structure.members.values() if mem not in chords and mem.ned >= 0]
-        CW = [mem for mem in self.structure.members.values() if mem not in chords and mem.ned < 0]
+        TW = [mem for mem in self.structure.members.values() if
+              mem not in chords and mem.ned >= 0]
+        CW = [mem for mem in self.structure.members.values() if
+              mem not in chords and mem.ned < 0]
 
         groups = [TC, BC, TW, CW]
         names = ['TopChords', 'BottomChords', 'TensionWebs', 'CompressionWebs']
@@ -405,7 +763,6 @@ class PlaneTrussProblem(OptimizationProblem):
         #                        target={"property": "x",
         #                                "objects": [node]})
         #     self.vars.append(var)
-
 
     def cross_section_constraints(self, sect, forces):
         """
@@ -480,24 +837,50 @@ class PlaneTrussProblem(OptimizationProblem):
 
 
 if __name__ == '__main__':
-    # from src.optimization.solvers import *
-    # kwargs = {'H1': 1000,
-    #           'H2': 1500,
-    #           'L1': 24000,
-    #           'n': 8,
-    #           'dx': 1500,
-    #           'q': [-25, -25],
-    #           'dir': 'y',
-    #           'prob_type': 'discrete'}
-    #
-    # problem = PlaneTrussProblem(**kwargs)
-    # problem.structure.plot_normal_force()
-    # #x0 = [var.ub for var in problem.vars]
-    # x0 = [100] * len(problem.vars)
-    # solver = MISLP(move_limits=[0.85, 2])
-    # fopt, xopt = solver.solve(problem, maxiter=50, x0=x0, verb=True)
-    # problem(xopt)
-    # problem.structure.plot()
+    from src.optimization.solvers import *
+    from src.frame2d.frame2d import *
+    import matplotlib.pyplot as plt
 
-    p = TrussProblem(nimi="joku vaa", values=[1,2,3])
-    print(p.nimi, p.values)
+    frame = Frame2D(simple=[1,2, 3e3, 3e3], supports='fixed')
+    beams = []
+    columns =[]
+    for mem in frame.members.values():
+        mem.profile = RHS_PROFILES[0]
+        if mem.mtype == "beam":
+            beams.append(mem.cross_section)
+            frame.add(LineLoad(mem, [-20, -20], 'y'))
+        else:
+            columns.append(mem.cross_section)
+
+    frame.generate()
+    frame.calculate()
+
+
+    beam_group = {
+        "objects": beams,
+        "bounds" : [[50, 500], [50, 500], [1, 8]],
+        "properties": ["H", "B", "T"],
+        "profiles": RHS_PROFILES,
+    }
+    
+    column_group = {
+        "objects": columns,
+        "bounds" : [[50, 500], [50, 500], [1, 8]],
+        "properties": ["H", "B", "T"],
+        "profiles": RHS_PROFILES,
+    }
+
+
+    problem = TrussProblem(
+        name="FrameTest",
+        structure=frame,
+        var_type='continuous',
+        groups = [beam_group, column_group]
+    )
+
+    x0 = [var.ub for var in problem.vars]
+    problem(x0)
+    solver = SLP()
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True)
+    problem(xopt)
+    problem.structure.plot()
