@@ -49,7 +49,7 @@ class WISection(SteelSection):
         self.tb = tf[1]
         self.tw = tw
         self.weld_throat = weld_throat
-        
+
         self.fy = fy
         
         A = self.area()
@@ -64,7 +64,6 @@ class WISection(SteelSection):
 
         super().__init__(fy, A, I, Au, Wpl, Wel, Ashear, It, Iw)
 
-
         """ Determine buckling curve: EN 1993-1-1, Table 6.2 """ 
         if max(tf) <= 40:
             self.imp_factor = [en1993_1_1.buckling_curve["b"],
@@ -72,9 +71,8 @@ class WISection(SteelSection):
         else:
             self.imp_factor = [en1993_1_1.buckling_curve["c"],
                                en1993_1_1.buckling_curve["d"]]
-        
-        
-        if h/max(b) <= 2.0:
+
+        if h/min(b) <= 2.0:
             self.imp_factor_LT_gen = en1993_1_1.buckling_curve["c"]
             self.imp_factor_LT = en1993_1_1.buckling_curve["c"]
         else:
@@ -363,6 +361,7 @@ class WISection(SteelSection):
         else:
             dpl = (self.A / 2 - self.Ab) / self.tw + self.tb
 
+        #  print(dpl)
         return dpl
     
     def second_moment(self):

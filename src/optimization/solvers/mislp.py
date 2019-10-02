@@ -82,7 +82,9 @@ class MISLP(OptSolver):
             # Ai == sum(A[i][bin_idx])
             idx = discrete_ids[i]
             CBC_solver.Add(CBC_solver.Sum([y[i, j] * var.values[j]
-                                           for j in range(len(var.values))]) == x[idx])
+                                           for j in range(var.ub)]) == x[idx])
+
+                                           # for j in range(len(var.values))]) == x[idx])
 
         # Objective
         CBC_solver.Minimize(CBC_solver.Sum(df[i] * x[i] for i in range(m)))

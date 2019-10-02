@@ -25,7 +25,7 @@ class SteelMember:
     """
 
     def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam",
-                 LT_buckling=False):
+                 LT_buckling=False, symmetry='dual'):
         """ Constructor
             
             profile -- member profile (of cross_section class)
@@ -63,6 +63,7 @@ class SteelMember:
         self.ted = []
         self.loc = []
         self.LT_B = LT_buckling
+        self.symmetry = symmetry
 
     @property
     def NbRd(self):
@@ -122,12 +123,18 @@ class SteelMember:
 
         return slend
 
-    def LT_slenderness(self, Mcr):
+    def LT_slenderness(self, Mcr, verb=False):
         """ Non-dimensional slenderness for lateral-torsional buckling.
         """
         MRd = self.profile.MRd
-        # print("MRd: {}, Mcr: {}".format(MRd, Mcr))
-        lambdaLT = np.sqrt(MRd / Mcr)
+        lambdaLT = np.sqrt(MRd[0] / Mcr)
+        if verb:
+            # print("MRd: {}, Mcr: {}".format(MRd, Mcr))
+            # print("MRd0 = {0:4.2f}".format(MRd[0] * 1e-6))
+            if MRd[0] < 0:
+                print(self.profile.h, self.profile.tw, self.profile.tf, self.profile.b)
+            # print("MRd1 = {0:4.2f}".format(MRd[1] * 1e-6))
+            # print("Mcr = {0:4.2f}".format(Mcr * 1e-6))
         return lambdaLT
 
     def buckling_strength(self, verb=False):
@@ -158,16 +165,15 @@ class SteelMember:
         # NbRd = self.profile.A*self.fy()*r;
         return NbRd
 
-    def LT_buckling_strength(self, Mcr, axis='y', method='general',verb=False):
+    def LT_buckling_strength(self, Mcr, axis='y', method='specific', verb=False):
         """ Member lateral-torsional bending strength """
-
 
         MRd = self.profile.bending_resistance()[0]
         if axis == 'y':
             idx = 0
         else:
             idx = 1
-        lambdaLT = self.LT_slenderness(Mcr)[idx]
+        lambdaLT = self.LT_slenderness(Mcr) # [idx]
         
         # self.profile.define_imp_factor_LT()
         # alpha = self.profile.ImperfectionLT
@@ -181,7 +187,7 @@ class SteelMember:
             alphaLT = self.profile.imp_factor_LT
             lambdaLT0 = 0.4
             beta = 0.75
-            chiLTmax = min(1.0,1/lambdaLT**2)
+            chiLTmax = min(1.0, 1/lambdaLT**2)
         
         if lambdaLT <= lambdaLT0 or self.MEdY/Mcr <= lambdaLT0**2:
             chiLT = 1.0
@@ -194,9 +200,10 @@ class SteelMember:
         if verb:
             print("lambdaLT = {0:4.2f}".format(lambdaLT))
             print("alphaLT = {0:4.2f}".format(alphaLT))
-            print("phi = {0:4.2f}".format(p))
+            # print("phi = {0:4.2f}".format(p))
             print("chi_LT = {0:4.2f}".format(chiLT))
             print("MbRd = {0:4.2f}".format(MbRd*1e-6))
+            print("MRd = {0:4.2f}".format(MRd * 1e-6))
 
         return MbRd
 
@@ -213,7 +220,7 @@ class SteelMember:
         w = self.weight_per_length * self.length
         return w
 
-    def mcrit(self, C=[1.12, 0.45], za=0, k=[1, 1]):
+    def mcrit(self, C=[1.12, 0.45, 0.52], k=[1, 1]):
         """ Critical moment for lateral-torsional buckling
             
             NOTE! Only works for double symmetric sections!
@@ -223,10 +230,9 @@ class SteelMember:
             za -- position of application of load
             k(1) -- kz
             k(2) -- kw
+            HUOM! MUOKATAAN TOIMIMAAN MYÖS MONOSYMMETRISILLE, KORJAA TEKSTI.
         """
 
-        zs = 0.0
-        zg = za - zs
         kz = k[0]
         kw = k[1]
 
@@ -236,19 +242,41 @@ class SteelMember:
         E = constants.E
         G = constants.G
         L = self.length
-        C1, C2 = C
-        part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
-        part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
-                        (math.pi ** 2 * E * Iz) + (C2 * zg) ** 2)
-        part3 = C2 * zg
+        C1, C2, C3 = C
 
-        Mcr = part1 * (part2 - part3)
+        if self.symmetry == 'dual':
+            za = 0
+            zs = 0.0
+            zg = za - zs
+            part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
+            part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
+                            (math.pi ** 2 * E * Iz) + (C2 * zg) ** 2)
+            part3 = C2 * zg
+
+            Mcr = part1 * (part2 - part3)
+
+        elif self.symmetry == 'mono':
+            za = 0
+            zs = 0.0
+            zg = za - zs
+            part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
+            part2 = C3 * zj - C2 * zg
+            part3 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
+                            (math.pi ** 2 * E * Iz) + (C2 * zg - C3 * zj) ** 2)
+
+            Mcr = part1 * (part2 + part3)
         """
         Mcr = C[0] * math.pi ** 2 * E * Iz / (
         (kz * L) ** 2) * (math.sqrt((kz / kw) ** 2 * Iw / Iz +(
         kz * L) ** 2 * G * It / (math.pi ** 2 * E * Iz) + (
         C[1] * zg) ** 2) -C[1] * zg)
         """
+        # print("Iz = {0:4.2f}".format(Iz*1e-4))
+        # print("Iw = {0:4.2f}".format(Iw*1e-6))
+        # print("It = {0:4.2f}".format(It*1e-4))
+        # print("Mcr = {0:4.2f}".format(Mcr*1e-6))
+        # print("kz =", kz, "kw =", kw, "L =", L, "part3 =", part3))
+
         return Mcr
 
     def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0,
