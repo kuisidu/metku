@@ -2,14 +2,22 @@
 @author: Victoria
 """
 
-from src.frame2d.frame2d import *
-from src.optimization.structopt import *
-from src.optimization.problems.wi_column import WIColumn
-from src.optimization.solvers import slsqp, slp, slqp
-from src.optimization.solvers.trust_region import TrustRegionConstr
-from src.optimization.result_exporter import *
-from src.eurocodes.en1993 import en1993_1_1
-
+try:
+    from src.frame2d.frame2d import *
+    from src.optimization.structopt import *
+    from src.optimization.problems.wi_column import WIColumn
+    from src.optimization.solvers import slsqp, slp, slqp
+    from src.optimization.solvers.trust_region import TrustRegionConstr
+    from src.optimization.result_exporter import *
+    from src.eurocodes.en1993 import en1993_1_1
+except:
+    from frame2d.frame2d import *
+    from optimization.structopt import *
+    from optimization.problems.wi_column import WIColumn
+    from optimization.solvers import slsqp, slp, slqp
+    from optimization.solvers.trust_region import TrustRegionConstr
+    from optimization.result_exporter import *
+    from eurocodes.en1993 import en1993_1_1
 
 class ColumnCalculation(WIColumn):
 
@@ -55,7 +63,7 @@ class ColumnCalculation(WIColumn):
 
                         phi = en1993_1_1.sway_imperfection(Lpi, m=2)
 
-                        Fx = -phi * Fy
+                        Fx = phi * Fy
 
                         for lcr in lcr_list:
                             problem = WIColumn(
