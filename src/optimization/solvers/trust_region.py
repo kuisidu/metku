@@ -78,7 +78,8 @@ class TrustRegionConstr(OptSolver):
             ub.append(var.ub)
             #bound = (var.lb, var.ub)
             #bounds.append(bound)
-            bounds = Bounds(lb, ub, keep_feasible=False)
+        
+        bounds = Bounds(lb, ub, keep_feasible=False)
 
         return bounds
 
@@ -138,6 +139,10 @@ class TrustRegionConstr(OptSolver):
         eqcons = self._create_eqcons()
         ieqcons = self._create_ieqcons()
         """
+        
+        bnd_cons = LinCon( A=np.eye(problem.nvars()), lb=bounds.lb, ub=bounds.ub )
+
+        constraints.append(bnd_cons)
 
         # Create initial guess if one isn't provided
         if not len(x0):
@@ -149,12 +154,16 @@ class TrustRegionConstr(OptSolver):
         
             
         """
+        
+        
+        print(bounds.lb,bounds.ub)
+        
         #print(constraints[-3].ub)
        
         
         options = {'maxiter': maxiter,
                    'verbose': 2,
-                   'xtol': 1e-6,
+                   'xtol': 1e-4,
                    'gtol': 1e-6,
                    # 'finite_diff_rel_step': 1e-6
                    }
@@ -170,15 +179,17 @@ class TrustRegionConstr(OptSolver):
             con = {'type': 'ineq', 'fun': ineqcon}
             constraints.append(con)
         """
+        
         out = minimize(self.problem.obj,
-                        x0,
-                        method='trust-constr',
-                        tol = 1e-4,
-                        bounds=bounds,
-                        constraints=constraints,
-                        options=options,
+                       x0,
+                       method='trust-constr',
+                       #tol = 1e-6,
+                       bounds=bounds,
+                       constraints=constraints,
+                       options=options,
                        callback=self.callback
                        )
+        
         
         print(out)
         
