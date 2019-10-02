@@ -6,12 +6,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import MaxNLocator
-from src.frame2d.frame2d import *
-from src.framefem.framefem import *
-from src.sections.steel import *
 
-from src.optimization.structopt import DiscreteVariable
-from src.optimization.solvers.trust_region import TrustRegionConstr
+try:
+    from src.frame2d.frame2d import *
+    from src.framefem.framefem import *
+    from src.sections.steel import *
+    
+    from src.optimization.structopt import DiscreteVariable
+    from src.optimization.solvers.trust_region import TrustRegionConstr
+except:
+    from frame2d.frame2d import *
+    from framefem.framefem import *
+    from sections.steel import *
+    
+    from optimization.structopt import DiscreteVariable
+    from optimization.solvers.trust_region import TrustRegionConstr
 
 
 class ResultExporter:
@@ -235,8 +244,8 @@ class ResultExporter:
         write_header = not os.path.exists(name2)
 
         with open(name2, 'a', newline='') as csvfile:
-            fieldnames = ["Feasible", "Iterations", "f*", "Lpi", "Fy", "Fx",
-                          "lcr", "buckling_z", "LT_buckling", "symmetry",
+            fieldnames = ["Feasible", "Iterations", "f*", "L", "Lpi", "Fy",
+                          "Fx", "lcr", "buckling_z", "LT_buckling", "symmetry",
                           "top_flange_class", "bottom_flange_class",
                           "web_class", "g*"]
             h, tw, bf, tf = xopt

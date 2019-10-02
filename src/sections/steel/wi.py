@@ -49,7 +49,7 @@ class WISection(SteelSection):
         self.tb = tf[1]
         self.tw = tw
         self.weld_throat = weld_throat
-        
+
         self.fy = fy
         
         A = self.area()
@@ -361,6 +361,7 @@ class WISection(SteelSection):
         else:
             dpl = (self.A / 2 - self.Ab) / self.tw + self.tb
 
+        #  print(dpl)
         return dpl
     
     def second_moment(self):
@@ -535,7 +536,9 @@ if __name__ == '__main__':
     #frame = Frame2D()
     #col = SteelColumn([[0, 0], [0, 5000]])
     #frame.add(col)
-    p = WISection(200, 5, [100, 100], [5, 5])
+    p = WISection(152.34, 5.01, [180.41, 180.41], [11.76, 11.76])
+    p.fy = 500.0
+    print(p.MRd)
     #profile = "WI 200-5-200-8-100-5"
     # frame.plot()
     #print(col.cross_section.b)

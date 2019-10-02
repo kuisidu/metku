@@ -14,12 +14,12 @@ q_wind = 0.00065  # N/mm2
 q_snow = 0.002  # N/mm2    
 g_truss = 1  # N/mm    
 g_roof = 0.0005  # N/mm2    
-L_list = [30000]  # mm    
+L_list = [24000]  # mm    
 Lpi_list = [8000]  # mm    
 c = 6000  # mm    
-lcr_list = [2]    
+lcr_list = [0.7]    
 buckling_z = [True]    
-LT_buckling = [False]    
+LT_buckling = [True]    
 cross_section_class_list = [2]
     
 Mz = 0    
@@ -59,7 +59,7 @@ for buck_z in buckling_z:
                     
                     #solver = slsqp.SLSQP()
                     solver = TrustRegionConstr()
-                    f_best, x_best = solver.solve(problem, maxiter=200, x0=x0)
+                    f_best, x_best, nit = solver.solve(problem, maxiter=200, x0=x0)
                     print(x_best)
                     #solver = slp.SLP(move_limits=[0.95, 1.05])
                     #solver.solve(problem, maxiter=100, maxtime=400, x0=x0,verb=True)

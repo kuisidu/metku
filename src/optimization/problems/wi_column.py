@@ -22,7 +22,7 @@ try:
     from src.optimization.solvers.trust_region import TrustRegionConstr
 except:
     from frame2d.frame2d import Frame2D, SteelColumn, XHingedSupport, FixedSupport, PointLoad, LineLoad
-    from optimization.structopt import OptimizationProblem, Variable, LinearConstraint, NonLinearConstraint
+    from optimization.structopt import OptimizationProblem, Variable, DiscreteVariable, LinearConstraint, NonLinearConstraint
         
 
 
@@ -50,10 +50,11 @@ class WIColumn(OptimizationProblem):
                     True .. rajoitusehto huomioidaan
                     False .. rajoitusehtoa ei huomioida
     """
-    def __init__(self, Lpi=6000, Fx=800, Fy=-280e3, Qx=5.85, Qy=0, Mz=0, lcr=2,
+    def __init__(self, L=24000, Lpi=6000, Fx=800, Fy=-280e3, Qx=5.85, Qy=0,
+                 Mz=0, lcr=2,
                  top_flange_class=2, bottom_flange_class=2, web_class=2,
                  symmetry="dual", buckling_z=True, LT_buckling=True,
-                 prob_type='discrete'):
+                 prob_type='continuous'):
         super().__init__("WIColumn")
 
         self.prob_type = prob_type
@@ -64,6 +65,7 @@ class WIColumn(OptimizationProblem):
         self.top_flange_class = top_flange_class
         self.bottom_flange_class = bottom_flange_class
         self.web_class = web_class
+        self.L = L
         self.Lpi = Lpi
         self.Fx = Fx
         self.Fy = Fy
@@ -88,9 +90,9 @@ class WIColumn(OptimizationProblem):
         # Luo pilarin (koordinaatit, profile=vapaaehtoinen)
         col = SteelColumn([[0, 0], [0, Lpi]], LT_buckling,
                           profile='WI 500-12-10X300-10X300',
-                          material='S355MC')
+                          material='S500MC')
         # Lisätään pilarille materiaali
-        col.material = "S355MC"
+        col.material = "S500MC"
         # Lisätään nurjahduspituus (masto lcr[0]=2, muuten lcr[0]=0.7)
         col.steel_member.lcr[0] = lcr
         # Lisää pilarin kehälle
@@ -399,7 +401,11 @@ class WIColumn(OptimizationProblem):
             self.substitute_variables(x)
             #  med = max(abs(np.min(np.array(mem.steel_member.myed))),
             #  np.max(np.array(mem.steel_member.myed)))
-            return mem.med / mem.MbRd - 1
+            # print("mem.med = {0:4.2f}".format(mem.med*1e-6),
+            #       "mem.MbRd = {0:4.2f}".format(mem.MbRd*1e-6))
+            if x[0] < 0:
+                print(x)
+            return abs(mem.med) / mem.MbRd - 1
 
         return \
             buckling_y, buckling_z, com_compression_bending_y, \
@@ -555,8 +561,7 @@ class WIColumn(OptimizationProblem):
 
 if __name__ == "__main__":
     from src.optimization.solvers import *
-    problem = WIColumn()
-    # x0 = [300, 8, 200, 10]
+    problem = WIColumn(prob_type='discrete')
 
     # solver = SLP(move_limits=[0.9, 6])
     # solver.solve(problem, maxiter=50000, maxtime=30, x0=x0)
@@ -566,16 +571,17 @@ if __name__ == "__main__":
     # f_best, x_best = solver.solve(problem, maxiter=100, x0=x0)
     # problem(solver.best_x, prec=5)
 
-    # solver = TrustRegionConstr()
-    # f_best, x_best, nit = solver.solve(problem, maxiter=200, x0=x0)
-    # print(x_best)
-    # problem(x_best, prec=5)
+    x0 = [300, 8, 200, 10]
+    solver = TrustRegionConstr()
+    f_best, x_best, nit = solver.solve(problem, maxiter=200, x0=x0)
+    print(x_best)
+    problem(x_best, prec=5)
 
-    x0 = [var.ub for var in problem.vars]
-    solver = MISLP(move_limits=[0.5, 5])
-    # problem(x0)
-    solver.solve(problem, maxiter=200, x0=x0)
-    problem(solver.X, prec=5)
+    # x0 = [var.ub for var in problem.vars]
+    # solver = MISLP(move_limits=[0.5, 5])
+    # # problem(x0)
+    # solver.solve(problem, maxiter=100, x0=x0, min_diff=1e-2, verb=True)
+    # problem(solver.X, prec=5)
 
     from src.optimization.result_exporter import *
     # name = "WIColumn_buckling_z:{0}_LT_buckling:{1}"\
@@ -586,7 +592,7 @@ if __name__ == "__main__":
     # print(problem.structure.f.elements[0].axial_force)
     # print(problem.structure.f.loads[1].qval)
 
-    #  ResultExporter(problem, solver).to_csv()
+    ResultExporter(problem, solver).to_csv()
 
     #  problem.structure.members[0].cross_section.draw()
 
