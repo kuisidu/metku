@@ -49,7 +49,7 @@ class WISection(SteelSection):
         self.tb = tf[1]
         self.tw = tw
         self.weld_throat = weld_throat
-        
+
         self.fy = fy
         
         A = self.area()
@@ -361,6 +361,7 @@ class WISection(SteelSection):
         else:
             dpl = (self.A / 2 - self.Ab) / self.tw + self.tb
 
+        #  print(dpl)
         return dpl
     
     def second_moment(self):

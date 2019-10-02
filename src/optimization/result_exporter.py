@@ -235,8 +235,8 @@ class ResultExporter:
         write_header = not os.path.exists(name2)
 
         with open(name2, 'a', newline='') as csvfile:
-            fieldnames = ["Feasible", "Iterations", "f*", "Lpi", "Fy", "Fx",
-                          "lcr", "buckling_z", "LT_buckling", "symmetry",
+            fieldnames = ["Feasible", "Iterations", "f*", "L", "Lpi", "Fy",
+                          "Fx", "lcr", "buckling_z", "LT_buckling", "symmetry",
                           "top_flange_class", "bottom_flange_class",
                           "web_class", "g*"]
             h, tw, bf, tf = xopt

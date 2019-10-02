@@ -176,7 +176,9 @@ class TrustRegionConstr(OptSolver):
                         tol = 1e-4,
                         bounds=bounds,
                         constraints=constraints,
-                        options=options)
+                        options=options,
+                       callback=self.callback
+                       )
         
         print(out)
         
@@ -186,6 +188,9 @@ class TrustRegionConstr(OptSolver):
         self.X = out.x
 
         return out.fun, out.x, out.nit
+
+    def callback(self, xk, state):
+        return print('CALLBACK', xk)
 
 
 if __name__ == '__main__':
