@@ -22,7 +22,7 @@ try:
     from src.optimization.solvers.trust_region import TrustRegionConstr
 except:
     from frame2d.frame2d import Frame2D, SteelColumn, XHingedSupport, FixedSupport, PointLoad, LineLoad
-    from optimization.structopt import OptimizationProblem, Variable, LinearConstraint, NonLinearConstraint
+    from optimization.structopt import OptimizationProblem, Variable, DiscreteVariable, LinearConstraint, NonLinearConstraint
         
 
 
@@ -88,9 +88,9 @@ class WIColumn(OptimizationProblem):
         # Luo pilarin (koordinaatit, profile=vapaaehtoinen)
         col = SteelColumn([[0, 0], [0, Lpi]], LT_buckling,
                           profile='WI 500-12-10X300-10X300',
-                          material='S355MC')
+                          material='S500MC')
         # Lisätään pilarille materiaali
-        col.material = "S355MC"
+        col.material = "S500MC"
         # Lisätään nurjahduspituus (masto lcr[0]=2, muuten lcr[0]=0.7)
         col.steel_member.lcr[0] = lcr
         # Lisää pilarin kehälle

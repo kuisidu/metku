@@ -537,7 +537,9 @@ if __name__ == '__main__':
     #frame = Frame2D()
     #col = SteelColumn([[0, 0], [0, 5000]])
     #frame.add(col)
-    p = WISection(200, 5, [100, 100], [5, 5])
+    p = WISection(152.34, 5.01, [180.41, 180.41], [11.76, 11.76])
+    p.fy = 500.0
+    print(p.MRd)
     #profile = "WI 200-5-200-8-100-5"
     # frame.plot()
     #print(col.cross_section.b)
