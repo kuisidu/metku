@@ -19,7 +19,7 @@ from scipy.optimize import linprog
 import numpy as np
 import time
 
-import gurobipy as grb
+#  import gurobipy as grb
 
 try:
     from src.optimization.solvers.optsolver import OptSolver

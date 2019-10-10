@@ -1,5 +1,6 @@
 import csv
 import os
+import xlsxwriter
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -267,3 +268,75 @@ class ResultExporter:
         # print(name, fopt, xopt, x0, iters, fem_analyses)
 
         print(f'{name} file created to {os.getcwd()}')
+
+
+    def to_excel(self, name=""):
+        """
+        Saves self.problem's results as a csv file
+
+        :param self.problem: optimized self.problem
+        :type self.problem: OptimizationProblem
+        :return:
+        """
+        if not name:
+            time = datetime.now().strftime('_%Y_%m_%d')
+            filename = type(
+                self.solver
+            ).__name__ + '_' + self.problem.name + time + '.xlsx'
+
+        workbook = xlsxwriter.Workbook(filename, {
+            'tmpdir': 'C:/Users/Victoria/Google Drive/Koulu/Diplomityö/Tuloksia',
+            'strings_to_numbers': True,
+            'strings_to_formulas': True,
+            'strings_to_urls': True,
+            'nan_inf_to_errors': True})
+
+        worksheet = workbook.add_worksheet()
+
+        # Add a bold format to use to highlight cells.
+        bold = workbook.add_format({'bold': True})
+
+        # Add a number format for cells with constraints.
+        con_format = workbook.add_format({'num_format': '0.000'})
+
+        worksheet.conditional_format('B3:K12', {'type': 'cell',
+                                                'criteria': '>=',
+                                                'value': 0,
+                                                'format': con_format})
+
+        # Add an Excel date format.
+        date_format = workbook.add_format({'num_format': 'mmmm d yyyy'})
+
+        # Adjust the column width.
+        worksheet.set_column(1, 1, 15)
+
+        # Write some data headers.
+        worksheet.write('A1', 'Feasible', bold)
+        worksheet.write('B1', 'Iterations', bold)
+        worksheet.write('C1', 'f*', bold)
+        worksheet.write('D1', 'L', bold)
+
+        # Some data we want to write to the worksheet.
+        expenses = (
+            ['Rent', '2013-01-13', 1000],
+            ['Gas', '2013-01-14', 100],
+            ['Food', '2013-01-16', 300],
+            ['Gym', '2013-01-20', 50],
+        )
+
+        # Start from the first cell below the headers.
+        row = 1
+        col = 0
+
+        for item, date_str, cost in (expenses):
+            # Convert the date string into a datetime object.
+            date = datetime.strptime(date_str, "%Y-%m-%d")
+
+            worksheet.write_string(row, col, item)
+            worksheet.write_datetime(row, col + 1, date, date_format)
+            worksheet.write_number(row, col + 2, cost, money_format)
+            row += 1
+
+
+
+        workbook.close()

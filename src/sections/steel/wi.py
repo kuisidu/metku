@@ -59,10 +59,7 @@ class WISection(SteelSection):
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()
 
-        It = self.torsional_constant()
-        Iw = self.warping_constant()
-
-        super().__init__(fy, A, I, Au, Wpl, Wel, Ashear, It, Iw)
+        super().__init__(fy, A, I, Au, Wpl, Wel, Ashear)
 
         """ Determine buckling curve: EN 1993-1-1, Table 6.2 """ 
         if max(tf) <= 40:
@@ -86,13 +83,13 @@ class WISection(SteelSection):
         """
         if name == "A":
             if self.area() < 0:
-                print(self.h,self.b,self.tt,self.tb,self.tw)
+                print(self.h, self.b, self.tt, self.tb, self.tw)
                 
             return self.area()
         elif name == "I":
             I = self.second_moment()
             if I[1] < 0:
-                print(self.h,self.b,self.tt,self.tb,self.tw)
+                print(self.h, self.b, self.tt, self.tb, self.tw)
             return self.second_moment()
         elif name == "Wel":
             return self.section_modulus()
@@ -106,6 +103,10 @@ class WISection(SteelSection):
             return self.torsional_constant()
         elif name == "Iw":
             return self.warping_constant()
+        elif name == "zs":
+            return self.shear_centre()
+        elif name == "zj":
+            return self.wagners_factor()
         elif name == "b":
             return np.array([self.bt, self.bb])
         elif name == "tf":
@@ -141,6 +142,11 @@ class WISection(SteelSection):
     def Izw(self):
         """ Second moment of area of web with respect to its own major axis """
         return self.hw * self.tw**3/12
+
+    @property
+    def Iyw(self):
+        """ Second moment of area of web with respect to its own major axis """
+        return self.tw * self.hw ** 3 / 12
     
     @property
     def zw(self):
@@ -164,8 +170,17 @@ class WISection(SteelSection):
     
     @property
     def Izb(self):
-        """ Second moment of area of bottom flange with respect to its own major axis """
+        """ Second moment of area of bottom flange with respect to its own
+            major axis
+        """
         return self.tb * self.bb**3/12
+
+    @property
+    def Iyb(self):
+        """ Second moment of area of bottom flange with respect to its own
+            major axis
+        """
+        return self.bb * self.tb ** 3 / 12
     
     @property
     def zb(self):
@@ -189,8 +204,17 @@ class WISection(SteelSection):
     
     @property
     def Izt(self):
-        """ Second moment of area of bottom flange with respect to its own major axis """
+        """ Second moment of area of top flange with respect to its own major
+            axis
+        """
         return self.tt * self.bt**3/12
+
+    @property
+    def Iyt(self):
+        """ Second moment of area of top flange with respect to its own major
+            axis
+        """
+        return self.bt * self.tt ** 3 / 12
     
     @property
     def zt(self):
@@ -217,7 +241,6 @@ class WISection(SteelSection):
             Source: Maquoi et al. (2003)
             Lateral torsional buckling in steel and composite beams,
             Book 2, 7.1.2 Mono-symmetrical I cross-sections
-            
         """
         
         """ Position of the centroids of the different plates
@@ -229,6 +252,34 @@ class WISection(SteelSection):
         zwS = self.zw-zG
         
         return (self.Izt*zft + self.Izb*zfb + self.Izw*zwS)/self.I[1]
+
+    def wagners_factor(self):
+        """ Source: Maquoi et al. (2003)
+            Lateral torsional buckling in steel and composite beams,
+            Book 2, 7.1.2 Mono-symmetrical I cross-sections
+        """
+
+        zf1 = self.zt
+        zf2 = self.zb
+        zw = self.zw
+        Izf1 = self.Izt
+        Izf2 = self.Izb
+        Izw = self.Izw
+        Iyf1 = self.Iyt
+        Iyf2 = self.Iyb
+        Iyw = self.Iyw
+        Af1 = self.At
+        Af2 = self.Ab
+        Aw = self.Aw
+
+        zs = self.zs
+
+        zj = zs - (1 / (2 * self.I[0])) * (
+                zf1 * (Izf1 + Af1 * zf1 ** 2 + 3 * Iyf1)
+                + (zf2 * (Izf2 + Af2 * zf2 ** 2 + 3 * Iyf2))
+                + (zw * (Izw + Aw * zw ** 2 + 3 * Iyw)))
+
+        return zj
     
     def flange_class(self, verb=False):
         """ Determine class of compressed flange """
@@ -517,15 +568,17 @@ class WISection(SteelSection):
 def test_sym():
     """ symmetric I-beam """
     p = WISection(500, 8, [250, 250], [12, 12])
-    p.draw()
+    print(p.MRd)
+    print("Done.")
+    # p.draw()
 
 
 def test_non_sym():
     """ symmetric I-beam """
     print("Create section")
     p = WISection(500, 8, [300, 250], [10, 15])
+    print(p.MRd)
     print("Done.")
-    print(p.I)
     # p.draw()
 
 

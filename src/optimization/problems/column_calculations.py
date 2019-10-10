@@ -6,7 +6,7 @@ try:
     from src.frame2d.frame2d import *
     from src.optimization.structopt import *
     from src.optimization.problems.wi_column import WIColumn
-    from src.optimization.solvers import slsqp, slp, slqp
+    from src.optimization.solvers import slsqp, slp, slqp, mislp
     from src.optimization.solvers.trust_region import TrustRegionConstr
     from src.optimization.result_exporter import *
     from src.eurocodes.en1993 import en1993_1_1
@@ -14,7 +14,7 @@ except:
     from frame2d.frame2d import *
     from optimization.structopt import *
     from optimization.problems.wi_column import WIColumn
-    from optimization.solvers import slsqp, slp, slqp
+    from optimization.solvers import slsqp, slp, slqp, mislp
     from optimization.solvers.trust_region import TrustRegionConstr
     from optimization.result_exporter import *
     from eurocodes.en1993 import en1993_1_1
@@ -92,12 +92,19 @@ class ColumnCalculation(WIColumn):
                             # solver = slsqp.SLSQP()
                             # f_best, x_best = solver.solve(problem, maxiter=100,
                             #                               x0=x0)
-                            #  print(x_best)
-                            #  problem(x_best, prec=5)
-                            #  problem(solver.best_x, prec=5)
+                            # print(x_best)
+                            # problem(x_best, prec=5)
+                            # problem(solver.best_x, prec=5)
 
                             # solver = SLP(move_limits=[0.9, 6])
                             # solver.solve(problem, maxiter=500, maxtime=40, x0=x0)
+                            # problem(solver.X, prec=5)
+
+                            # x0 = [var.ub for var in problem.vars]
+                            # solver = mislp.MISLP(move_limits=[0.5, 5])
+                            # # problem(x0)
+                            # solver.solve(problem, maxiter=150, x0=x0,
+                            #              min_diff=1e-2, verb=True)
                             # problem(solver.X, prec=5)
 
                             ResultExporter(problem, solver).to_csv()
