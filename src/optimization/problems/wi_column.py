@@ -4,6 +4,7 @@
 
 import numpy as np
 import math
+import time
 
 start_height = 100
 stop_height = 500
@@ -18,6 +19,7 @@ THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
 
 try:
     from src.frame2d.frame2d import *
+    import src.frame2d.frame2d as f2d
     from src.optimization.structopt import *
     from src.optimization.solvers.trust_region import TrustRegionConstr
 except:
@@ -50,11 +52,11 @@ class WIColumn(OptimizationProblem):
                     True .. rajoitusehto huomioidaan
                     False .. rajoitusehtoa ei huomioida
     """
-    def __init__(self, L=24000, Lpi=6000, Fx=800, Fy=-280e3, Qx=5.85, Qy=0,
+    def __init__(self, L=24000, Lpi=6000, Fx=783, Fy=-271e3, Qx=5.85, Qy=0,
                  Mz=0, lcr=2,
                  top_flange_class=3, bottom_flange_class=3, web_class=3,
                  symmetry="dual", buckling_z=True, LT_buckling=True,
-                 prob_type='continuous'):
+                 prob_type="continuous"):
         super().__init__("WIColumn")
 
         self.prob_type = prob_type
@@ -104,13 +106,12 @@ class WIColumn(OptimizationProblem):
         # Lisää jäykän tuen pisteeseen (0,0)
         frame.add(FixedSupport([0, 0]))
         # Lisää pistekuorman pilarin yläpäähän
-        frame.add(PointLoad([0, Lpi], [Fx, Fy, Mz]))
+        frame.add(f2d.PointLoad([0, Lpi], [Fx, Fy, Mz]))
         # Lisää tasaisen kuorman rakenneosalle
-        frame.add(LineLoad(col, [Qx, Qx], "x"))
+        frame.add(f2d.LineLoad(col, [Qx, Qx], "x"))
         # Luo kehän fem -mallin
         frame.generate()
         # Laskee
-
         frame.calculate()
         # Piirtää kehän (pilarin) näytölle
         # frame.plot()
@@ -118,6 +119,9 @@ class WIColumn(OptimizationProblem):
         self.structure = frame
 
     def create_variables(self):
+        """
+        Creates design variables
+        """
 
         col = self.structure.members[0].cross_section
 
@@ -223,13 +227,6 @@ class WIColumn(OptimizationProblem):
 
             else:
                 raise ValueError("Symmetry must be either dual or mono")
-
-    # def section_class_constraint(self, mem):
-    #
-    #     def class_constraint(x):
-    #         return mem.cross_section.C - 3
-    #
-    #     return class_constraint
 
     def WIColumnTopFlangeClassCon(self, mem):
         """
@@ -364,7 +361,7 @@ class WIColumn(OptimizationProblem):
 
         b = 2 * math.sqrt(2) * mem.cross_section.weld_throat
 
-        # print(a)
+        # print("PRINT", a)
 
         if self.web_class > 3:
             """ if class 4 is required, the cw/tw ratio needs to
@@ -377,14 +374,6 @@ class WIColumn(OptimizationProblem):
         con = LinearConstraint(a, b, con_type, name=con_name)
 
         return con
-
-    # def WebHeightCon(self, h_min=10):
-    #     """
-    #             Builds a constraint for cross-section class of a WI column
-    #             h - tt - tb - C1*e*tw <= 2*sqrt(2)*aw
-    #             """
-    #
-    #     a = np.zeros_like(self.vars)
 
     def WIColumnWebHeightCon(self, h_min=50):
         """
@@ -417,7 +406,69 @@ class WIColumn(OptimizationProblem):
 
         return con
 
+    # def ShearBucklingCon(self, mem):
+    #     """
+    #     Builds a constraint for shear buckling resistance
+    #     0.5 * max(bt, bb) - 0.5 * tw - Lpi/50 <= sqrt(2)*aw
+    #     """
+    #
+    #     a = np.zeros(self.nvars())
+    #     con_type = '<'
+    #
+    #     for i in range(len(self.vars)):
+    #
+    #         if self.vars[i].target["property"] == "BT":
+    #             a[i] = +0.5
+    #         elif self.vars[i].target["property"] == "BB":
+    #             a[i] = +0.5
+    #         elif self.vars[i].target["property"] == "TW":
+    #             a[i] = -0.5
+    #
+    #     b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
+    #
+    #     con_name = "Shear buckling "
+    #
+    #     con = LinearConstraint(a, b, con_type, name=con_name)
+    #
+    #     return con
+    #
+    # def ShearLagCon(self, mem):
+    #     """
+    #     Builds a constraint for shear lag
+    #     hw / (tw * e) > ny
+    #     """
+    #
+    #     a = np.zeros(self.nvars())
+    #     con_type = '<'
+    #
+    #     e = mem.cross_section.eps
+    #
+    #     fy =
+    #     if fy > 460:
+    #         ny = 1
+    #     else:
+    #         ny = 1.2
+    #
+    #     for i in range(len(self.vars)):
+    #
+    #         if self.vars[i].target["property"] == "HW":
+    #             a[i] = +1
+    #         elif self.vars[i].target["property"] == "TW":
+    #             a[i] = -0.5
+    #
+    #     b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
+    #
+    #     con_name = "Shear lag "
+    #
+    #     con = LinearConstraint(a, b, con_type, name=con_name)
+    #
+    #     return con
+
     def create_stability_constraints(self, mem):
+        """
+        Creates stability constraint functions
+        :return:
+        """
 
         def buckling_y(x):
             self.substitute_variables(x)
@@ -449,24 +500,26 @@ class WIColumn(OptimizationProblem):
             buckling_y, buckling_z, com_compression_bending_y, \
             com_compression_bending_z, lt_buckling
 
-    def create_section_constraints(self, sect, forces):
-
-        N, V, M = forces
+    def create_section_constraints(self, sect, elem):
+        """
+        Creates cross-section constraints
+        :return:
+        """
 
         def compression(x):
-            self.substitute_variables(x)
+            N = elem.axial_force[0]
             return -N / sect.NRd - 1
 
         def tension(x):
-            self.substitute_variables(x)
+            N = elem.axial_force[0]
             return N / sect.NRd - 1
 
         def shear(x):
-            self.substitute_variables(x)
+            V = elem.shear_force[0]
             return abs(V) / sect.VRd - 1
 
         def bending_moment(x):
-            self.substitute_variables(x)
+            M = elem.bending_moment[0]
             return abs(M) / sect.MRd[0] - 1
 
         return compression, tension, shear, bending_moment
@@ -524,7 +577,7 @@ class WIColumn(OptimizationProblem):
                 forces = [elem.axial_force[0], elem.shear_force[0],
                           elem.bending_moment[0]]
                 compression, tension, shear, bending_moment = \
-                    self.create_section_constraints(mem, forces)
+                    self.create_section_constraints(mem, elem)
 
                 compression_con = NonLinearConstraint(con_fun=compression,
                                                       name="Compression " +
@@ -556,7 +609,7 @@ class WIColumn(OptimizationProblem):
                     forces = [elem.axial_force[1], elem.shear_force[1],
                               elem.bending_moment[1]]
                     compression, tension, shear, bending_moment = \
-                        self.create_section_constraints(mem, forces)
+                        self.create_section_constraints(mem, elem)
 
                     compression_con = NonLinearConstraint(con_fun=compression,
                                                           name="Compression " +
@@ -594,46 +647,91 @@ class WIColumn(OptimizationProblem):
                 
             self.cons.append(self.WIColumnWebHeightCon(h_min=50))
 
-            #  self.cons.append(self.WebHeightCon(h_min=10))
+            # self.cons.append(self.ShearBucklingCon(mem))
+            # self.cons.append(self.ShearLagCon(mem))
 
 
 if __name__ == "__main__":
     from src.optimization.solvers import *
+    from src.optimization.result_exporter import *
 
     problem = WIColumn(prob_type='discrete')
 
     # x0 = [300, 8, 200, 10, 200, 10]
-    # x0 = [300, 8, 200, 10]
+    x0 = [300, 8, 200, 10]
 
     # x0 = [var.ub for var in problem.vars]
 
+    # TrustRegionConstr
+    solver = TrustRegionConstr()
+    f_best, x_best, nit = solver.solve(problem,
+                                       maxiter=200,
+                                       x0=x0)
+    # print(x_best)
+    problem.num_iters = nit
+    problem(x_best, prec=5)
+
     # SLP
     # solver = SLP(move_limits=[0.9, 6])
-    # solver.solve(problem, maxiter=50000, maxtime=30, x0=x0)
+    # solver.solve(problem,
+    #              maxiter=50000,
+    #              maxtime=30,
+    #              x0=x0)
     # problem(solver.X, prec=5)
 
     # SLSQP
     # solver = slsqp.SLSQP()
-    # f_best, x_best = solver.solve(problem, maxiter=100, x0=x0)
+    # f_best, x_best = solver.solve(problem,
+    #                               maxiter=100,
+    #                               x0=x0)
     # problem(solver.best_x, prec=5)
 
-    # TrustRegionConstr
-    # solver = TrustRegionConstr()
-    # f_best, x_best, nit = solver.solve(problem, maxiter=200, x0=x0)
-    # print(x_best)
-    # problem(x_best, prec=5)
-
     # MISLP
-    solver = MISLP(move_limits=[0.5, 5])
-    # problem(x0)
-    solver.solve(problem, maxiter=100, x0=x0, min_diff=1e-2, verb=True)
-    problem(solver.X, prec=5)
+    # solver = MISLP(move_limits=[0.5, 5])
+    # # problem(x0)
+    # solver.solve(problem,
+    #              maxiter=100,
+    #              x0=x0,
+    #              min_diff=1e-2,
+    #              verb=True)
+    # problem(solver.X, prec=5)
 
-    from src.optimization.result_exporter import *
+    # 2-vaihetekniikalla
+    # solver1 = SLP(move_limits=[0.9, 4])
+    # solver1 = TrustRegionConstr()
+    # solver2 = MISLP(move_limits=[0.85, 1.5])
+    # solver = TwoPhase(solver1, solver2, limits=[3, 3])
+    # fopt, xopt = solver.solve(problem,
+    #                           x0=x0,
+    #                           maxiter=50,
+    #                           # min_diff=1e-6,
+    #                           # verb=True
+    #                           )
+    # problem(xopt)
 
-    # ResultExporter(problem, solver).to_csv()
+    import matplotlib.pyplot as plt
+
+    """
+    fvals = problem.fvals
+    X = np.arange(len(fvals))
+    plt.plot(X, fvals)
+    plt.show()
+    """
+
+    ResultExporter(problem, solver).to_csv()
+    ResultExporter(problem, solver).csv_to_excel()
+
+    seconds = time.process_time()
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    print("Process time:", "%d:%02d:%02d" % (h, m, s))
 
     # problem.structure.members[0].cross_section.draw()
+
+    # G = {}
+    # for con in problem.cons:
+    #     name = con.name
+    #     G[name] = 0
 
     # print(problem.structure.f.elements[0].bending_moment)
     # print(problem.structure.f.elements[0].axial_force)

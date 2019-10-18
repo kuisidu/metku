@@ -150,17 +150,10 @@ class TrustRegionConstr(OptSolver):
             for var in problem.vars:
                 x0.append(var.ub)  # * np.random.uniform())
 
-        """
-        
-            
-        """
-        
-        
         print(bounds.lb,bounds.ub)
         
         #print(constraints[-3].ub)
-       
-        
+
         options = {'maxiter': maxiter,
                    'verbose': 2,
                    'xtol': 1e-8,
@@ -188,7 +181,7 @@ class TrustRegionConstr(OptSolver):
                            bounds=bounds,
                            constraints=constraints,
                            options=options,
-                           callback=self.callback
+                           # callback=self.callback
                            )
 
             print(out)
@@ -205,8 +198,9 @@ class TrustRegionConstr(OptSolver):
             self.best_f = -np.inf
             return -np.inf, x0, 0
 
-
     def callback(self, xk, state):
+        fval = self.problem.obj(xk)
+        self.problem.fvals.append(fval)
         return print('CALLBACK', xk)
 
 
