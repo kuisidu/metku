@@ -165,7 +165,8 @@ class SteelMember:
         # NbRd = self.profile.A*self.fy()*r;
         return NbRd
 
-    def LT_buckling_strength(self, Mcr, axis='y', method='specific', verb=False):
+    def LT_buckling_strength(self, Mcr, axis='y', method='specific',
+                             verb=False):
         """ Member lateral-torsional bending strength """
 
         MRd = self.profile.bending_resistance()[0]
@@ -220,17 +221,16 @@ class SteelMember:
         w = self.weight_per_length * self.length
         return w
 
-    def mcrit(self, C=[1.12, 0.45, 0.52], k=[1, 1]):
+    def mcrit(self, C=[1.12, 0.45, 0.525], k=[1, 1]):
         """ Critical moment for lateral-torsional buckling
-            
-            NOTE! Only works for double symmetric sections!
-        
-            For double-symmetric profiles
-            C(1), C(2) -- coefficients
+
+            For mono- and double-symmetric profiles
+            C(1), C(2), C(3) -- coefficients
             za -- position of application of load
+            zs -- position of the shear centre S from centroid G
+            zj -- ??
             k(1) -- kz
             k(2) -- kw
-            HUOM! MUOKATAAN TOIMIMAAN MYÖS MONOSYMMETRISILLE, KORJAA TEKSTI.
         """
 
         kz = k[0]
@@ -239,6 +239,7 @@ class SteelMember:
         Iz = self.profile.I[1]
         Iw = self.profile.Iw
         It = self.profile.It
+
         E = constants.E
         G = constants.G
         L = self.length
@@ -246,7 +247,7 @@ class SteelMember:
 
         if self.symmetry == 'dual':
             za = 0
-            zs = 0.0
+            zs = 0
             zg = za - zs
             part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
             part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
@@ -257,20 +258,18 @@ class SteelMember:
 
         elif self.symmetry == 'mono':
             za = 0
-            zs = 0.0
+            zs = self.profile.zs
             zg = za - zs
+
+            zj = self.profile.zj
+
             part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
             part2 = C3 * zj - C2 * zg
             part3 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
                             (math.pi ** 2 * E * Iz) + (C2 * zg - C3 * zj) ** 2)
 
             Mcr = part1 * (part2 + part3)
-        """
-        Mcr = C[0] * math.pi ** 2 * E * Iz / (
-        (kz * L) ** 2) * (math.sqrt((kz / kw) ** 2 * Iw / Iz +(
-        kz * L) ** 2 * G * It / (math.pi ** 2 * E * Iz) + (
-        C[1] * zg) ** 2) -C[1] * zg)
-        """
+
         # print("Iz = {0:4.2f}".format(Iz*1e-4))
         # print("Iw = {0:4.2f}".format(Iw*1e-6))
         # print("It = {0:4.2f}".format(It*1e-4))
