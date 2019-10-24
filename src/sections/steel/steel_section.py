@@ -221,9 +221,9 @@ class SteelSection(metaclass=ABCMeta):
 
     def axial_force_resistance(self,verb=False):
         if self.Ned >= 0:
-            NRd = en1993_1_1.tension_resistance(self.A, self.fy)
+            NRd = self.code.tension_resistance(self.A, self.fy)
         else:
-            NRd = en1993_1_1.compression_resistance(self.A, self.fy)
+            NRd = self.code.compression_resistance(self.A, self.fy)
 
         if verb:
             print("NRd = {0:4.2f} kN".format(NRd*1e-3))
@@ -247,7 +247,7 @@ class SteelSection(metaclass=ABCMeta):
         else:
             WRd = self.Wel[n]
 
-        MRd = en1993_1_1.bending_resistance(WRd, self.fy)
+        MRd = self.code.bending_resistance(WRd, self.fy)
         
         if verb:
             print("MRd = {0:4.2f} kNm".format(MRd*1e-6))
@@ -260,7 +260,7 @@ class SteelSection(metaclass=ABCMeta):
             n = 0
         else:
             n = 1
-        return en1993_1_1.bending_resistance(self.Wel[n], self.fy)
+        return self.code.bending_resistance(self.Wel[n], self.fy)
 
     def plastic_bending_resistance(self, axis="y"):
         """ Plastic bending resistance """
@@ -268,18 +268,18 @@ class SteelSection(metaclass=ABCMeta):
             n = 0
         else:
             n = 1
-        return en1993_1_1.bending_resistance(self.Wpl[n], self.fy)
+        return self.code.bending_resistance(self.Wpl[n], self.fy)
 
     def shear_force_resistance(self, C=0, verb=False):
         if C == 0:
             C = self.section_class()
 
         if C < 3:
-            VRd = en1993_1_1.shear_resistance(self.Ashear, self.fy)
+            VRd = self.code.shear_resistance(self.Ashear, self.fy)
         elif C == 3:
-            VRd = en1993_1_1.shear_resistance(self.Ashear, self.fy)
+            VRd = self.code.shear_resistance(self.Ashear, self.fy)
         else:
-            VRd = en1993_1_1.shear_resistance(self.Ashear, self.fy)
+            VRd = self.code.shear_resistance(self.Ashear, self.fy)
 
         if verb:
             print("Shear area = {0:4.2f} mm2".format(self.Ashear))

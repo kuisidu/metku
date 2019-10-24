@@ -55,9 +55,10 @@ class MISLP(OptSolver):
                 lb, ub = var.value * self.move_limits
             lb = max(lb, var.lb)
             ub = min(ub, var.ub)
-            x[i] = CBC_solver.NumVar(lb,
-                                     ub,
-                                     str(var.target['property']) + str(i))
+            name = str(var.target['property']) + str(i)
+            x[i] = CBC_solver.NumVar(float(lb),
+                                     float(ub),
+                                     name)
         # Linear Constraints
         # Ax <= B
         for i in range(n):
@@ -82,9 +83,7 @@ class MISLP(OptSolver):
             # Ai == sum(A[i][bin_idx])
             idx = discrete_ids[i]
             CBC_solver.Add(CBC_solver.Sum([y[i, j] * var.values[j]
-                                           for j in range(var.ub)]) == x[idx])
-
-                                           # for j in range(len(var.values))]) == x[idx])
+                                           for j in range(len(var.values))]) == x[idx])
 
         # Objective
         CBC_solver.Minimize(CBC_solver.Sum(df[i] * x[i] for i in range(m)))

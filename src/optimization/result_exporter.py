@@ -1,5 +1,6 @@
 import csv
 import os
+import xlsxwriter
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -229,17 +230,17 @@ class ResultExporter:
 
         write_header = not os.path.exists(name)
 
-        with open(name, 'a', newline='') as csvfile:
-            fieldnames = list(results.keys())
-
-            writer = csv.DictWriter(csvfile, fieldnames, dialect='excel')
-            if write_header:
-                writer.writeheader()
-            writer.writerow(results)
+        # with open(name, 'a', newline='') as csvfile:
+        #     fieldnames = list(results.keys())
+        #
+        #     writer = csv.DictWriter(csvfile, fieldnames, dialect='excel')
+        #     if write_header:
+        #         writer.writeheader()
+        #     writer.writerow(results)
 
         name2 = type(
                 self.solver).__name__ + '_' + self.problem.name + time + \
-                '_specified_results.csv'
+                '_results.csv'
 
         write_header = not os.path.exists(name2)
 
@@ -247,7 +248,7 @@ class ResultExporter:
             fieldnames = ["Feasible", "Iterations", "f*", "L", "Lpi", "Fy",
                           "Fx", "lcr", "buckling_z", "LT_buckling", "symmetry",
                           "top_flange_class", "bottom_flange_class",
-                          "web_class", "g*"]
+                          "web_class"]
             h, tw, bf, tf = xopt
             results2 = {}
             for fieldname in fieldnames:
@@ -259,6 +260,24 @@ class ResultExporter:
             results2["tf"] = tf
             fieldnames.extend(["h", "tw", "bf", "tf"])
 
+            all_cons = {
+                # 'Buckling_z 0': '',
+                'Com_compression_bending_y 0': '',
+                # 'Buckling_y 0': '',
+                'Com_compression_bending_z 0': '',
+                'LT_buckling 0': '',
+                'Web in class 3': '',
+                'Top flange in class 3': '',
+                'Web in class 2': '',
+                'Top flange in class 2': '',
+                'Web height at least 50': ''
+            }
+
+            for con, g in zip(self.problem.cons, con_vals):
+                all_cons[con.name] = g
+            fieldnames.extend(list(all_cons.keys()))
+            results2.update(all_cons)
+
             writer = csv.DictWriter(csvfile, fieldnames, dialect='excel')
             if write_header:
                 writer.writeheader()
@@ -266,4 +285,111 @@ class ResultExporter:
 
         # print(name, fopt, xopt, x0, iters, fem_analyses)
 
-        print(f'{name} file created to {os.getcwd()}')
+        print(f'{name2} file created to {os.getcwd()}')
+
+
+    def csv_to_excel(self):
+        """
+        Saves self.problem's results as an excel file
+
+        :param self.problem: optimized self.problem
+        :type self.problem: OptimizationProblem
+        :return:
+        """
+
+        time = datetime.now().strftime('_%Y_%m_%d')
+
+        csvfile = type(
+            self.solver).__name__ + '_' + self.problem.name + time + \
+                '_results.csv'
+
+        workbook = xlsxwriter.Workbook(csvfile[:-4] + '.xlsx', {
+            'tmpdir': 'C:/Users/Victoria/Google Drive/Koulu/Diplomityö/Tuloksia',
+            'strings_to_numbers': True,
+            'strings_to_formulas': True,
+            'strings_to_urls': True,
+            'nan_inf_to_errors': True})
+
+        worksheet = workbook.add_worksheet()
+        worksheet.freeze_panes(1, 0)  # Freeze the first row.
+
+        with open(csvfile, 'rt', encoding='utf8') as f:
+            reader = csv.reader(f)
+            for r, row in enumerate(reader):
+                for c, col in enumerate(row):
+                    worksheet.write(r, c, col)
+
+        # Add a bold format to use to highlight cells.
+        bold = workbook.add_format({'bold': True})
+
+        # Add a number format for cells with results
+        # (weight/cross section measures).
+        result_format = workbook.add_format({'num_format': '0.00'})
+        worksheet.set_column('C:C', None, result_format)
+        worksheet.set_column('O:R', None, result_format)
+
+        # Add a number format for cells with constraints.
+        con_format = workbook.add_format({'num_format': '0.000'})
+        worksheet.set_column('S:Z', None, con_format)
+
+        # Add a number format for cells with inputs/source.
+        input_format = workbook.add_format({'num_format': '0'})
+        worksheet.set_column('D:G', None, input_format)
+
+        # Add a colour format for cells.
+        purple_color_format = workbook.add_format({'bg_color': '#CCCCFF'})
+        yellow_color_format = workbook.add_format({'bg_color': '#FFFF99'})
+        red_color_format = workbook.add_format({'bg_color': '#FF8080'})
+        green_color_format = workbook.add_format({'bg_color': '#CCFFCC'})
+        grey_color_format = workbook.add_format({'bg_color': '#C0C0C0'})
+
+        worksheet.conditional_format('A2:A145', {
+            'type': 'text',
+            'criteria': 'containing',
+            'value': 'False',
+            'format': red_color_format
+        })
+        worksheet.conditional_format('A2:A145', {
+            'type': 'text',
+            'criteria': 'containing',
+            'value': 'True',
+            'format': green_color_format
+        })
+        worksheet.conditional_format('C2:C145', {
+            'type': 'no_blanks',
+            'format': purple_color_format
+        })
+        worksheet.conditional_format('O2:R145', {
+            'type': 'no_blanks',
+            'format': purple_color_format
+        })
+        worksheet.conditional_format('S2:Z145', {
+            'type': 'blanks',
+            'format': grey_color_format
+        })
+        worksheet.conditional_format('S2:Z145', {
+            'type': 'cell',
+            'criteria': '>',
+            'value': 0,
+            'format': red_color_format
+        })
+        worksheet.conditional_format('S2:Z145', {
+            'type': 'cell',
+            'criteria': 'between',
+            'minimum': -0.01,
+            'maximum': 0,
+            'format': yellow_color_format
+        })
+        worksheet.conditional_format('S2:Z145', {
+            'type': 'cell',
+            'criteria': '<',
+            'value': -0.01,
+            'format': green_color_format
+        })
+
+        """
+        # Adjust the column width.
+        worksheet.set_column(1, 1, 15)
+        """
+
+        workbook.close()
