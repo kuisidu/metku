@@ -11,11 +11,15 @@ except:
     from optimization.solvers.optsolver import OptSolver
 
 
+VAR_TOL = 1e-8
+CON_TOL = 1e-8
+
 class TrustRegionConstr(OptSolver):
     """ Trust-region algorithm of scipy.optimize """
 
     def __init__(self):
         super().__init__()
+        self.result = None
 
 
     def calc_constraints(self, x=[]):
@@ -85,7 +89,7 @@ class TrustRegionConstr(OptSolver):
 
 
 
-    def solve(self, problem, maxiter=100, x0=[]):
+    def solve(self, problem, maxiter=200, x0=[]):
         """
         Solves given problem
 
@@ -163,8 +167,8 @@ class TrustRegionConstr(OptSolver):
         
         options = {'maxiter': maxiter,
                    'verbose': 2,
-                   'xtol': 1e-4,
-                   'gtol': 1e-6,
+                   'xtol': VAR_TOL,
+                   'gtol': CON_TOL,
                    # 'finite_diff_rel_step': 1e-6
                    }
 
@@ -183,21 +187,31 @@ class TrustRegionConstr(OptSolver):
         out = minimize(self.problem.obj,
                        x0,
                        method='trust-constr',
-                       #tol = 1e-6,
+                       tol = 1e-10,
                        bounds=bounds,
                        constraints=constraints,
                        options=options,
-                       callback=self.callback
+                       #callback=self.callback
                        )
         
         
-        print(out)
+        #print(out)
         
-        print(self.calc_constraints(out.x))
+        #print(self.calc_constraints(out.x))
         self.best_x = out.x
         self.best_f = out.fun
         self.X = out.x
-
+        self.result = out
+        
+        #print(out.constr_violation)
+        
+        #print("Exiting Trust-Region method..")
+        
+        if out.constr_violation > CON_TOL:
+            self.feasible = False
+        else:
+            self.feasible = True
+                                
         return out.fun, out.x, out.nit
 
     def callback(self, xk, state):
