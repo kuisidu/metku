@@ -18,8 +18,10 @@ except:
     from optimization.problems.wi_column import WIColumn
     from optimization.solvers import slsqp, slp, slqp, mislp
     from optimization.solvers.trust_region import TrustRegionConstr
+    from optimization.solvers.bnb import BnB
     from optimization.result_exporter import *
     from eurocodes.en1993 import en1993_1_1
+    from copy import deepcopy
 
 class ColumnCalculation(WIColumn):
 
@@ -41,7 +43,10 @@ class ColumnCalculation(WIColumn):
     Qy = 0
     Qx = 1.5 * q_wind * c
 
-    x0 = [300, 8, 200, 10]
+
+    #  x0 = [800, 50, 500, 50, 500, 50]
+    x0 = [250, 8, 150, 10]
+
     #  x0 = [400, 20, 200, 20]
     #  x0 = [300, 8, 200, 10, 200, 10]
     #  x0 = [var.ub for var in problem.vars]
@@ -94,6 +99,19 @@ class ColumnCalculation(WIColumn):
                             #               cross_section_class, sym, buck_z,
                             #               LT, prob_type))
 
+                            #vnew = deepcopy(problem.vars[0])
+                            #solver = TrustRegionConstr()
+                            #f_best, x_best, nit = solver.solve(
+                            #    problem, maxiter=200, x0=x0)
+
+                            #problem.num_iters = nit
+                            #problem(x_best, prec=5)
+
+                            lb_solver = TrustRegionConstr()
+                            solver = BnB(problem,lb_solver)
+                            solver.solve()
+
+                            """
                             # TrustRegionConstr
                             solver = TrustRegionConstr()
                             f_best, x_best, nit = solver.solve(
@@ -102,6 +120,7 @@ class ColumnCalculation(WIColumn):
                                 x0=x0)
                             problem.num_iters = nit
                             problem(x_best, prec=5)
+                            """
 
                             # SLP
                             # solver = slp.SLP(move_limits=[0.9, 6])
@@ -143,6 +162,7 @@ class ColumnCalculation(WIColumn):
                             # problem(xopt)
 
                             ResultExporter(problem, solver).to_csv()
+
 
                             ResultExporter(problem, solver).csv_to_excel()
 

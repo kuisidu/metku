@@ -165,6 +165,43 @@ class Bolt:
         
         return FbRd
 
+class BoltRow:
+    """ Class for bolt rows """
+    
+    def __init__(self,bolt,p,z):
+        """ Constructor
+            input:
+                bolt .. Bolt class object defining the bolt
+                p .. array of distances between adjacent bolt centroids
+                z .. position of bolt row
+        """
+        
+        self.bolt = bolt
+        self.p = p
+        self.z = z
+        self.bolts = len(p)+1
+        
+        
+class BoltRowGroup:
+    """ Class for group of bolt rows """
+    
+    def __init__(self,bolt_rows):
+        """ Constructor
+            input:
+                bolt_rows .. array of BoltRow objects
+        """
+        
+        self.rows = bolt_rows
+        self.nrows = len(bolt_rows)
+        self.p = []
+        
+        """ Evaluate distance between adjacent groups
+            it is assumed that the rows as inserted in ordered list
+        """
+        for i in range(len(bolt_rows)-1):
+            self.p.append(bolt_rows[i+1].z-bolt_rows[i].z)
+    
+
 def block_tearing(fy,fu,Ant,Anv,concentric_load=True,verb=False):
     """ Check block tearing resistance 
         fy .. yield strength of the plate [MPa]

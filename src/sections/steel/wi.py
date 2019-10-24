@@ -49,8 +49,15 @@ class WISection(SteelSection):
         self.tb = tf[1]
         self.tw = tw
         self.weld_throat = weld_throat
-
+        
         self.fy = fy
+        
+        # Reduction factors for effective width of parts
+        self.rho_web = 1.0
+        self.rho_top = 1.0
+        self.rho_bottom = 1.0
+        
+        
         
         A = self.area()
         Au = self.paint_area()
@@ -58,6 +65,9 @@ class WISection(SteelSection):
         Ashear = self.shear_area()
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()
+
+        self.It = self.torsional_constant()
+        self.Iw = self.warping_constant()
 
         super().__init__(fy, A, I, Au, Wpl, Wel, Ashear)
 
@@ -236,6 +246,35 @@ class WISection(SteelSection):
         """ Straight part of the web """
         return self.hw - 2*math.sqrt(2)*self.weld_throat
    
+    @property
+    def MfRd(self):
+        """ Plastic bending resistanc of flanges only
+            Commentary and Worked Examples to EN 1993-1-5, pp.70, Fig. 5.11
+        """
+        
+        # Distance between center lines of flanges
+        hf = self.h-0.5*(self.tb+self.tt)
+        Af1 = self.At
+        Af2 = self.Ab
+        return min(hf*Af1*self.fy,hf*Af2*self.fy)
+    
+    @property
+    def NtopRd(self):
+        """ Axial resistance of top flange
+        """
+        return self.At*self.fy
+    
+    @property
+    def NbottomRd(self):
+        """ Axial resistance of bottom flange
+        """
+        return self.Ab*self.fy
+    
+    
+    def Aeff(self):
+        """ Effective area of the section """
+        
+    
     def shear_centre(self):
         """ Position of the shear centre S from centroid G
             Source: Maquoi et al. (2003)
@@ -302,8 +341,8 @@ class WISection(SteelSection):
 
         if verb:
             print("Web classification (internal part in compression):")
-            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.cw, self.tw))
-            print("hw/tw = {0:4.2f}".format(rw))
+            print("cw = {0:4.2f}, tw = {1:4.2f}".format(self.cw, self.tw))
+            print("cw/tw = {0:4.2f}".format(rw))
             print("Web class = {0}".format(cWeb))
 
         return cWeb
@@ -313,7 +352,7 @@ class WISection(SteelSection):
         zel = self.elastic_neutral_axis()
         dpl = self.plastic_neutral_axis()
         rw = self.cw / self.tw
-        psi = zel/(self.h-zel)
+        psi = (-zel+self.tb)/(self.h-zel-self.tt)
 
         if dpl <= self.tb + math.sqrt(2) * self.weld_throat:
             alpha = 1
@@ -328,8 +367,8 @@ class WISection(SteelSection):
         if verb:
             print("Web classification (internal part in compression and "
                   "bending):")
-            print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw, self.tw))
-            print("hw/tw = {0:4.2f}".format(rw))
+            print("cw = {0:4.2f}, tw = {1:4.2f}".format(self.cw, self.tw))
+            print("cw/tw = {0:4.2f}".format(rw))
             print("alpha = {0:4.2f}".format(alpha))
             print("psi = {0:4.2f}".format(psi))
             print("Web class = {0}".format(cWeb))
@@ -525,7 +564,89 @@ class WISection(SteelSection):
         lp = en1993_1_5.lambda_p(c, t, self.eps, ksigma)
         rho = en1993_1_5.reduction_factor_outstand(lp)
 
-        return rho                
+        return rho
+    
+    def effective_web(self,psi=None,verb=False):
+        """ Effective web of the cross-section """
+        
+        cw = self.cw
+        
+        """ If stress ratio is not provided, calculate it """
+        if psi == None:
+            zel = self.elastic_neutral_axis()
+            psi = (-zel+self.tb)/(self.h-zel-self.tt)
+        
+        ksigma = en1993_1_5.buckling_factor_internal(psi)
+        lp = en1993_1_5.lambda_p(cw, self.tw, self.eps, ksigma)
+        rho = en1993_1_5.reduction_factor_internal(lp,psi)
+        
+        beff, be = en1993_1_5.effective_width_internal(cw,psi,rho)
+        
+        if verb:
+            print("Effective Web:")
+            print("psi = {0:4.2f}".format(psi))
+            print("k_sigma = {0:4.3f}".format(ksigma))
+            print("lambda_p = {0:4.3f}".format(lp))
+            print("rho = {0:4.3f}".format(rho))
+            print("beff = {0:4.3f}".format(beff))
+            print("be1 = {0:4.3f}, be2 = {1:4.3f} ".format(be[0],be[1]))
+        
+        
+
+    
+    def shear_buckling_resistance(self,stiffener_spacing=10e5,end_post="non-rigid"):
+        """ Shear buckling resistance according to EN 1993-1-5, Clause 5 
+            input:
+                stiffener_spacing .. spacing between adjacent stiffeners
+                end_post .. "non-rigid" or "rigid"
+            
+        """
+    
+        hw = self.hw
+        tw = self.tw
+        b = self.bt
+        a = stiffener_spacing
+        rw = hw/tw
+        fyw = self.fy
+        eta = en1993_1_5.shear_eta(fyw)
+    
+        if rw < 72*self.eps/eta:
+            """ No need for shear buckling:
+                return shear resistance of section
+            """
+            VbRd = self.VRd
+        else:           
+            """ Contribution from the web """
+            tau_cr = en1993_1_5.tau_crit(hw,a,tw,b)            
+            slend_w = en1993_1_5.shear_buckling_slenderness(fyw,tau_cr)
+            chi_w = en1993_1_5.shear_buckling_reduction_factor(slend_w,eta,end_post)
+            Vbw_Rd = en1993_1_5.shear_buckling_web(chi_w,fyw,hw,t)
+            
+            """ Contribution from the flange """
+            NEd = abs(self.Ned)
+            
+            """ If axial force is present, the resistance MfRd must
+                be reduced by the factor (1-rN). (EN 1993-1-5, 5.4(2))
+            """
+            if NEd > 1e-6:
+                rN = NEd/((self.At+self.Ab)*fy)
+            else:
+                rN = 0
+            
+            rM = abs(self.Med)/((1-rN)*self.MfRd)
+            
+            if rM < 1.0:
+                if self.NtopRd <= self.NbottomRd:
+                    bf = self.bt
+                    tf = self.tt
+                else:
+                    bf = self.bb
+                    tf = self.tb
+                
+                bf = min(bf,30*e*tf+tw)
+                
+                Vbf_Rd = en1993_1_5.shear_buckling_flanges(bf,tf,fy,a,hw,t,fy,rM)
+            
     
     def draw(self, name=""):
         """ Draw the profile """
@@ -589,9 +710,13 @@ if __name__ == '__main__':
     #frame = Frame2D()
     #col = SteelColumn([[0, 0], [0, 5000]])
     #frame.add(col)
-    p = WISection(152.34, 5.01, [180.41, 180.41], [11.76, 11.76])
-    p.fy = 500.0
-    print(p.MRd)
+    
+    #p = WISection(1594, 7.0, [300.0, 300.0], [22.0, 22.0],fy=235,weld_throat=3.5)    
+    p = WISection(1000, 6.0, [300.0, 300.0], [15.0, 15.0],fy=355,weld_throat=4)    
+    p.Med = 2.228e6    
+    p.section_class(verb=True)
+    p.effective_web(verb=True)
+    p.draw()
     #profile = "WI 200-5-200-8-100-5"
     # frame.plot()
     #print(col.cross_section.b)

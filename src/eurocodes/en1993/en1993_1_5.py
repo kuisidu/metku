@@ -113,6 +113,51 @@ def buckling_factor_outstand(psi=1.0,sigma1="tip"):
     
     return ksigma
 
+def effective_width_internal(b,psi,rho):
+    """ EN 1993-1-5 Table 4.1
+        Input:
+            b .. width of the original plate
+            psi .. stress ratio
+            rho .. reduction factor for plate buckling
+        
+        Output:
+            beff .. effective width
+            be .. be[0] = b_e1, be[1] = b_e2
+    """
+    be = [0,0]
+    
+    if abs(psi-1.0) < 1e-6:
+        # Psi = 1.0
+        beff = rho*b
+        be[0] = 0.5*beff
+        be[1] = 0.5*beff
+    elif psi > 0.0:
+        beff = rho*b
+        be[0] = 2/(5-psi)*beff
+        be[1] = beff-be[0]
+    else:
+        # psi < 0
+        beff = b*rho/(1-psi)
+        be[0] = 0.4*beff
+        be[1] = 0.6*beff
+    
+    return beff, be
+
+def effective_width_outstand(b,psi,rho):
+    """ EN 1993-1-5 Table 4.2
+        Input:
+            b .. width of the original plate
+            psi .. stress ratio
+            rho .. reduction factor for plate buckling            
+    """
+    
+    if psi < 0.0:
+        beff = b*rho/(1-psi)
+    else:
+        beff = rho*b
+    
+    return beff    
+
 def transverse_force_resistance(fyw,hw,tw,fyf,bf,tf,ss,a=0,type="a",c=0):
     """ Clause 6 
         input:
@@ -179,3 +224,73 @@ def transverse_force_resistance(fyw,hw,tw,fyf,bf,tf,ss,a=0,type="a",c=0):
     FRd = fyw*Leff*tw/gammaM1
     
     return FRd
+
+def shear_buckling_reduction_factor(slend_w,eta,end_post="non-rigid"):
+    """ EN 1993-1-5, Table 5.1 """
+    
+    if slend_w < 0.83/eta:        
+        chiW = eta
+    elif slend_w < 1.08:
+        chiW = 0.83/slend_w
+    else:
+        if end_post == "non-rigid":
+            chiW = 0.83/slend_w
+        elif end_post == "rigid":
+            chiW = 1.37/(0.7+slend_w)
+        else:
+            raise ValueError("en1993_1_5.shear_buckling_reduction_factor: bad end_post argument value.")
+            
+        
+    return chiW
+
+def shear_buckling_coefficient(hw,a):
+    """ EN 1993-1-5, A.3
+        input: 
+            hw .. height of web
+            a .. distance between transverse stiffeners
+            
+        It is assumed that there are no longitudinal stiffeners.
+        This has to be modified, if longitudinal stiffeners are included!
+    """
+    rw = a/hw
+    
+    if rw >= 1.0:
+        ktau = 5.34 + 4.0/(rw**2)
+    else:
+        ktau = 4.0 + 5.34/(rw**2)
+        
+    return ktau
+
+def sigma_E(t,b):
+    """ Critical stress of plate
+        EN 1993-1-5, A.1
+    """
+    
+    return 190000*(t/b)**2
+
+def tau_crit(hw,a,t,b):
+    """ Critical shear stress for shear buckling
+        EN 1993-1-5, Eq. (5.4)
+    """
+    return shear_buckling_coefficient(hw,a)*sigma_E(t,b)
+
+def shear_buckling_slenderness(fyw,tau_cr):
+    """ Slenderness for shear buckling
+        EN 1993-1-5, Eq. (5.3)
+    """
+    return 0.76*math.sqrt(fyw/tau_cr)
+
+def shear_buckling_web(chi_w,fyw,hw,t):
+    """ Shear buckling: contribution from the web
+        EN 1993-1-5, Eq. (5.2)
+    """
+    return chi_w*fyw*hw*t/gammaM1
+
+def shear_buckling_flanges(bf,tf,fyf,a,hw,t,fyw,rM):
+    """ Shear buckling: contribution from the flanges
+        EN 1993-1-5, Eq. (5.2)
+    """
+    
+    c = a*(0.25+1.6*bf*tf**2*fyf/t/(hw**2)/fyw)
+        
+    return bf*tf**2*fyf/c/gammaM1*(1-rM**2)
