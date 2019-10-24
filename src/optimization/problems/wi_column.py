@@ -14,7 +14,7 @@ step_width = 2
 
 HEIGHTS = np.arange(start_height, stop_height+step_height, step_height)
 WIDTHS = np.arange(start_width, stop_width+step_width, step_width)
-THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
+THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
 
 try:
     from src.frame2d.frame2d import *
