@@ -26,6 +26,7 @@ class OptSolver:
         self.xvals = []
         self.best_f = np.inf
         self.best_x = None
+        self.feasible = False
 
     def calc_constraints(self, x=[]):
         """
