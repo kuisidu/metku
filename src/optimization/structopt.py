@@ -12,8 +12,11 @@ a form suitable for each solver.
 @author: kmela
 """
 
+import math
 import numpy as np
 import scipy.optimize as sciop
+
+INT_TOL = 1e-4
 
 
 class Variable:
@@ -138,6 +141,26 @@ class Variable:
                 elif self.target['property'] == 'loc':
                     obj.loc = new_value
 
+    def is_allowed_value(self,x):
+        """ Returns True, if 'x' is an allowed value for the variable
+            and False otherise.
+            
+            This method is implemented separately for different variable types.
+        """
+        
+        # For continuous variable, and a value is allowable, if it is
+        # Between the lower and upper bounds
+        if x < self.lb or x > self.ub:
+            return False
+        else:
+            return True
+    
+    def discrete_violation(self,x):
+        """ Identify the violation of value 'x' from allowable (Discrete)
+            value. Returns 0 for continous variables
+        """
+        
+        return 0
 
 class IntegerVariable(Variable):
     """ Class for integer variables
@@ -155,6 +178,27 @@ class IntegerVariable(Variable):
         """
 
         Variable.__init__(self, name, lb, ub)
+
+    def is_allowed_value(self,x):
+        """ Check if 'x' is an integer within the range of the variable """
+        
+        if x >= self.lb and x <= self.ub:
+            """ If x is within INT_TOL of its rounded integer value,
+                it is deemed integer
+            """
+            if math.isclose(x,round(x,0),abs_tol=INT_TOL):
+                return True
+            else:
+                return False
+        else:
+            return False
+    
+    def discrete_violation(self,x):
+        """ Identify the violation of value 'x' from allowable (Discrete)
+            value. Returns 0 for continous variables
+        """
+        
+        return abs(x-round(x,0))
 
 
 class BinaryVariable(IntegerVariable):
@@ -239,7 +283,46 @@ class DiscreteVariable(Variable):
 
         super().__init__(name, lb, ub, target=target)
 
+    def is_allowed_value(self,x):
+        """ Check if 'x' is one of the values listed in 
+            self.values
+        """
+        
+        if x >= self.lb and x <= self.ub:
+            """ If x is within INT_TOL of any of the allowed values,
+                it is deemed allowed
+            """
+            if min([abs(val-x) for val in self.values]) < INT_TOL:
+                return True
+            
+            """
+            for val in self.values:
+                if abs(x-val) < INT_TOL:            
+                    return True        
+            """
+            return False
+        else:
+            return False
 
+    def discrete_violation(self,x):
+        """ Identify the violation of value 'x' from allowable (Discrete)
+            value. 
+        """
+        
+        return min([abs(val-x) for val in self.values])
+    
+    def smaller_discrete_value(self,x):
+        """ Returns discrete value smaller than 'x' and closest to it  """
+        
+        return max(list(filter(lambda val: (val-x<0),self.values)))
+        
+        #diff = [val-x for val in self.values]
+    
+    def larger_discrete_value(self,x):
+        """ Returns discrete value smaller than 'x' and closest to it  """
+        
+        return min(list(filter(lambda val: (val-x>0),self.values)))
+    
 class Constraint:
     """ General class for constraints """
 
@@ -751,8 +834,12 @@ if __name__ == '__main__':
     # p = OptimizationProblem(name="I-Beam Weight Minimization",
     # variables=dvars)
 
-    def fun(x):
-        return x ** 3
+    from copy import deepcopy
 
+    v = DiscreteVariable(name="Var", values=[4,5,6])
+    var = [v]
+    v2 = DiscreteVariable(name="Var", values=[6,8,10])
+    var.append(v2)
+    a = deepcopy(var)
 
-    print(Linearize(fun, np.array([3, 2])))
+    b = deepcopy(a)
