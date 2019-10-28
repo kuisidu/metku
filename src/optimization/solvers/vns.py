@@ -10,6 +10,7 @@ except:
     from optimization.structopt import DiscreteVariable
 
 
+
 class VNS(OptSolver):
     
     def __init__(self, step_length=1, stochastic=False, stoch_vals=[-1, 0, 1],

@@ -17,7 +17,8 @@ HEIGHTS = np.arange(start_height, stop_height+step_height, step_height)
 WIDTHS = np.arange(start_width, stop_width+step_width, step_width)
 #THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
 THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
-
+MAX_THICK = max(THICKNESSES)
+MIN_THICK = min(THICKNESSES)
 
 try:
     from src.frame2d.frame2d import *
@@ -25,8 +26,13 @@ try:
     from src.optimization.structopt import *
     from src.optimization.solvers.trust_region import TrustRegionConstr
 except:
-    from frame2d.frame2d import Frame2D, SteelColumn, XHingedSupport, FixedSupport, PointLoad, LineLoad
-    from optimization.structopt import OptimizationProblem, Variable, DiscreteVariable, LinearConstraint, NonLinearConstraint
+    from frame2d.frame2d import *
+    import frame2d.frame2d as f2d
+    from optimization.structopt import *
+    from optimization.solvers.trust_region import TrustRegionConstr
+    
+    #from frame2d.frame2d import Frame2D, SteelColumn, XHingedSupport, FixedSupport, PointLoad, LineLoad
+    #from optimization.structopt import OptimizationProblem, Variable, DiscreteVariable, LinearConstraint, NonLinearConstraint
         
 
 

@@ -159,7 +159,7 @@ class TrustRegionConstr(OptSolver):
         #print(constraints[-3].ub)
 
         options = {'maxiter': maxiter,
-                   'verbose': 2,
+                   'verbose': 0,
                    'xtol': VAR_TOL,
                    'gtol': CON_TOL,
                    # 'finite_diff_rel_step': 1e-6
