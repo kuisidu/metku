@@ -17,7 +17,7 @@ from ortools.linear_solver import pywraplp
 
 class SLP(OptSolver):
 
-    def __init__(self, move_limits=[0.75, 1.25], gamma=1e-2):
+    def __init__(self, move_limits=(0.05, 0.05), gamma=1e-2):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
         self.gamma = gamma
@@ -28,9 +28,7 @@ class SLP(OptSolver):
         Defines action to take
         :return:
         """
-
-        A, B, df, fx = self.problem.linearize(self.X)
-
+        A, B, df, fx = self.problem.linearize(*self.X)
         # bounds = [x*self.move_limits for x in self.X]
         #
         # res = linprog(df, A, B, bounds=bounds)
@@ -48,7 +46,11 @@ class SLP(OptSolver):
         for i, var in enumerate(self.problem.vars):
             #lb = max(var.value - 0.5*self.alpha*(var.ub-var.lb),var.lb)
             #ub = min(var.value + 0.5*self.alpha*(var.ub-var.lb),var.ub)
-            lb, ub = self.move_limits * var.value
+            delta = var.ub - var.lb
+
+            lb, ub = self.move_limits * delta
+            lb = max(var.lb, var.value - lb)
+            ub = min(var.ub, var.value + ub)
             x[i] = solver.NumVar(lb,
                                  ub,
                                  var.name)
@@ -84,7 +86,7 @@ class SLP(OptSolver):
 
     def step(self, action):
 
-        self.move_limits += (1 - self.move_limits) * self.gamma
+        self.move_limits -= self.move_limits * self.gamma
         self.alpha = self.alpha/(1+self.alpha)
         self.X += action
         for i in range(len(self.X)):
@@ -99,10 +101,9 @@ if __name__ == '__main__':
 
     problem = FifteenBarTruss(prob_type='continuous')
     x0 = [var.ub for var in problem.vars]
-    solver = SLP(move_limits=[0.85, 5], gamma=1e-3)
-    solver.solve(problem, x0=x0, maxiter=100, log=True, verb=True)
-    problem(solver.X)
-    problem.structure.plot()
+    solver = SLP(move_limits=[0.1, 0.1], gamma=1e-3)
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=100, log=True, verb=True, plot=True)
+    problem(xopt)
     # #
     # # import matplotlib.pyplot as plt
     # #
