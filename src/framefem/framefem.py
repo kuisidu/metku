@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import time
 
 
 from abc import ABCMeta, abstractclassmethod
@@ -314,7 +315,12 @@ class FrameFEM:
             """ extract the submatrix of the element
                 and add it to the global stiffness matrix
             """
+            # a = np.arange(len(q))
+            # row = np.vstack(a[nz])
+            # col = a[nz]
+            # K[np.vstack(q), q] += ke[row, col]
             K[np.ix_(q, q)] += ke[np.ix_(nz, nz)]
+
 
         return K
 
@@ -391,11 +397,14 @@ class FrameFEM:
         if not self.dofs:
             self.nodal_dofs()
 
+        start = time.time()
         K = self.global_stiffness_matrix()
+
 
         load_id = self.loadcases[lcase].load
         p = self.global_load_vector(load_id)
-        
+
+
         
         """ Take supports into account
             The method is based on Filippa's Lecture Notes (3.5.2)
@@ -423,9 +432,10 @@ class FrameFEM:
                         p[i] = 0
                         
         """ Solve global displacement vector """
+
         u = np.linalg.solve(K, p)
-        
-        
+
+
         """ Distribute displacements to nodes """
         for node in self.nodes:
             # Get nodal dofs
@@ -433,10 +443,9 @@ class FrameFEM:
 
             # Find free dofs
             free_dofs = dofs >= 0
-
             # Substitute free dofs from global displacement vector                        
-            for i in range(len(free_dofs)):
-                if free_dofs[i]:
+            for i, free_dof in enumerate(free_dofs):
+                if free_dof:
                     node.u[i] = u[dofs[i]]
 
             """
@@ -447,8 +456,8 @@ class FrameFEM:
         """ Calculate element internal forces """
         for el in self.elements:
             el.internal_forces()
-
-
+        end = time.time()
+        # print("FRAMEFEM TIME: ", end - start)
         return u, K
 
     def linear_buckling(self, lcase=0, k=4):
@@ -496,7 +505,7 @@ class FrameFEM:
         
         return w, v
 
-    def draw(self):
+    def draw(self, show=True):
         """  Plots elements and nodes using matplotlib pyplot
         """
 
@@ -532,8 +541,8 @@ class FrameFEM:
             else:
                 ax.plot3D(X[:, 0], X[:, 1], X[:,2], 'b')
                 ax.text(Xmid[0], Xmid[1], Xmid[2], str(i))
-
-        plt.show()
+        if show:
+            plt.show()
 
     def print_displacements(self):
         """ Prints nodal displacements
@@ -989,11 +998,16 @@ class FEMNode:
 
     @property
     def z(self):
+        if len(self.coord) == 2:
+            return None
         return self.coord[2]
 
     @z.setter
     def z(self, val):
         self.coord[2] = val
+
+    def __repr__(self):
+        return f'FEMNode(nid={self.nid}, x={self.x}, y={self.y}, z={self.z})'
 
 class Element(metaclass=ABCMeta):
     """ Class for 1D finite elements: bars and beams
@@ -1089,7 +1103,7 @@ class Element(metaclass=ABCMeta):
         return round(L, 3)
 
     @abstractclassmethod
-    def local_stiffness_matrix(self):
+    def local_stiffness_matrix(self, E, A, I, L):
         """ Generates stiffness matrix in local coordinates
 
             Returns:
@@ -1162,9 +1176,7 @@ class Element(metaclass=ABCMeta):
         """
         T = self.transformation_matrix()
         q = self.nodal_displacements()
-        
-        #print(T)
-        #print(q)
+
         return T.dot(q)
 
     @abstractclassmethod
