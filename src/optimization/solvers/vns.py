@@ -1,13 +1,15 @@
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 from ortools.linear_solver import pywraplp
 
+
 try:
-    from src.optimization.solvers import OptSolver
-    from src.optimization.structopt import DiscreteVariable
+    from src.optimization.solvers import *
+    from src.optimization.structopt import DiscreteVariable, IndexVariable, IntegerVariable
 except:
-    from optimization.solvers import OptSolver
-    from optimization.structopt import DiscreteVariable
+    from optimization.solvers import *
+    from optimization.structopt import DiscreteVariable, IndexVariable
 
 
 
@@ -22,114 +24,64 @@ class VNS(OptSolver):
         self.stoch_vals = stoch_vals
         self.stoch_prob = stoch_prob
         self.temp_X = np.array([])
+        self.fopt = 1e100
+        self.prev_x = []
         if sum(stoch_prob) != 1:
             raise ValueError(f"Sum of stoch_prob must be 1.0 !")
         
-    def take_action(self, linearized=[], X=[]):
+    def take_action(self, recursive=False):
         """
         Defines action to take
+        :return:
         """
-        if len(linearized):
-            A, B, df, fx = linearized
-        else:
-            if not len(X):
-                X = self.X
-            # Linearize problem
-            A, B, df, fx = self.problem.linearize(X)
-        
-        if self.problem.prob_type == 'discrete':
-            # Create CBC solver
-            solver = pywraplp.Solver('MIP',
-                               pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
-        else:
-            solver = pywraplp.Solver('LP',
-                                 pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
-        # Number of constraints
-        n = A.shape[0]
-        # Number of variables
-        m = A.shape[1]
 
-        # Create continuous variables
-        x = {}
-        for i, var in enumerate(self.problem.vars):
+
+        bounds = [(var.lb, var.ub) for var in self.problem.vars]
+
+        for var in self.problem.vars:
             if isinstance(var, DiscreteVariable):
-                idx = var.profiles.index(var.value)
-                idx_lb = max(var.lb, idx - self.step_length)
-                idx_ub = min(var.ub, idx + self.step_length)
-                lb = var.profiles[idx_lb]
-                ub = var.profiles[idx_ub]
+                pass
+            elif isinstance(var, IndexVariable):
+
+                var.lb = max(0, var.idx - self.step_length)
+                var.ub = min(var.ub, var.idx + self.step_length)
+                if not recursive:
+                    self.prev_x.append(var.idx)
+
             else:
-                # This can be made into instance variable
-                steps = 100
-                step_length = (var.ub - var.lb) / steps * self.step_length
-                lb, ub = var.value + np.array([-step_length, step_length])
-                
-            x[i] = solver.NumVar(lb,
-                                    ub,
-                                     str(var.target['property']) + str(i))
-        # Linear Constraints
-        # Ax <= B
-        for i in range(n):
-            solver.Add(solver.Sum([A[i, j] * x[j]
-                                           for j in range(m)]) <= B[i])
 
-        
-        # Create binary variables
-        discrete_vars = [var for var in
-                         self.problem.vars if isinstance(var, DiscreteVariable)]
-        y = {}
-        for i, var in enumerate(discrete_vars):
-            for j in range(var.ub):
-                y[i, j] = solver.BoolVar(f'y{i},{j}')
+                delta = (var.ub - var.lb) / 50
 
-        # Create binary constraints
-        for i, var in enumerate(discrete_vars):
-            # Binary constraint
-            # sum(bin_vars) == 1
-            solver.Add(solver.Sum([y[i, j]
-                                           for j in range(var.ub)]) == 1)
-            # Binary property constraint
-            # Ai == sum(A[i][bin_idx])
-            solver.Add(solver.Sum([y[i, j] * var.profiles[j]
-                                           for j in range(var.ub)]) == x[i])
+                var.lb = max(var.lb, var.value - delta * self.step_length)
+                var.ub = min(var.ub, var.value + delta * self.step_length)
 
-        # Objective
-        solver.Minimize(solver.Sum(df[i] * x[i] for i in range(m)))
+                if not recursive:
+                    self.prev_x.append(var.value)
 
-        # Solve
-        sol = solver.Solve()
 
-        # If solution is infeasible
-        if sol == 2:
-            print("Expanding search space!")
-            self.step_length += 1
-            return self.take_action(linearized=[A, B, df, fx])
+        fopt, xopt = self.solver.solve(self.problem, maxiter=3, plot=True)
+        if fopt < self.fopt:
+            self.fopt = fopt
+            for var, bound in zip(self.problem.vars, bounds):
+                var.lb, var.ub = bound
+            return np.asarray(xopt) - np.asarray(self.prev_x)
 
         else:
-            X = [j for i, var in enumerate(discrete_vars)
-                 for j in range(var.ub) if y[i, j].solution_value() == 1.0]
-    
-            for i in range(len(X), len(x)):
-                X.append(x[i].solution_value())
-    
-            X = np.asarray(X)
+            print("EXPANDING SEARCH SPACE")
+            for var, bound in zip(self.problem.vars, bounds):
+                var.lb, var.ub = bound
+            self.step_length += self.initial_step_length
 
-            return X - self.X
-    
-    
+            return self.take_action(recursive=True)
+
     def step(self, action):
         """
         Takes step
         """
+        print(action)
+        self.prev_x = []
         # Reset step_length
         self.step_length = self.initial_step_length
-        # Stochastic push
-        if self.stochastic:
-            p = np.random.choice(self.stoch_vals,
-                                 len(action),
-                                 p=self.stoch_prob)
-            action += p
-
         # Take step
         self.X += action
 
@@ -138,6 +90,41 @@ class VNS(OptSolver):
                                 self.problem.vars[i].ub)
 
         return self.X.copy(), 1, False, 'INFO'
+
+
+    def solve(self, *args, **kwargs):
+
+        self.plot = kwargs['plot']
+
+        def mutate(individual, prob=0.01, stepsize=1, multiplier=0.1):
+            """
+            Mutates individual
+            :param individual:
+            :param prob:
+            :return: mutated individual
+            """
+            for i in range(len(individual)):
+                var = self.problem.vars[i]
+                if isinstance(var, (IndexVariable, IntegerVariable)):
+                    step = min(var.ub - var.lb, stepsize)
+                    val = np.random.randint(0, step)
+
+                else:
+                    val = np.random.uniform(var.lb, var.ub)
+
+                if np.random.rand() < prob:
+                    if np.random.rand() < 0.5:
+                        val *= -1
+                    individual[i] += val
+
+            return individual
+
+
+        self.solver = GA(pop_size=5,
+                    mut_fun=mutate,
+                    mutation_kwargs={'prob': 0.5, "stepsize": 10,
+                                     "multiplier": self.step_length})
+        super().solve(*args, **kwargs)
 
 
 class DiscreteVNS(OptSolver):
@@ -215,7 +202,7 @@ class DiscreteVNS(OptSolver):
         X = np.clip(X, 0, self.problem.vars[0].ub)
 
         for x, var in zip(X, self.problem.vars):
-            var.substitute(x)
+            var.substitute(int(x))
 
         # Calculate objective
         fval = self.problem.obj(X)
@@ -245,7 +232,7 @@ class DiscreteVNS(OptSolver):
         return X, reward, done, 'INFO'
 
 
-    def solve(self, problem, x0=None, maxiter=None, maxtime=None, verb=None):
+    def solve(self, problem, x0=None, maxiter=None, maxtime=None, verb=None, plot=False):
         """
         Solves given problem
 
@@ -266,7 +253,11 @@ class DiscreteVNS(OptSolver):
             maxiter = 100
             maxtime = 100
         
-        
+        if plot:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            plt.ion()
+            plt.show()
         
         
         self.problem = problem
@@ -286,6 +277,7 @@ class DiscreteVNS(OptSolver):
             r = -1
             actions = []
             while r <= 0:
+
                 if time.time() - start_time >= maxtime:
                     print("MAXTIME")
                     i = maxiter
@@ -297,7 +289,8 @@ class DiscreteVNS(OptSolver):
                 if list(action) not in actions:
                     actions.append(list(action))
                     s, r, d, _ = self.step(action)
-
+            if plot:
+                self.update_plot(fig, ax)
             self.X = s
             if verb:
                 print("New Best! ", self.best_fval)
