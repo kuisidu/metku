@@ -117,6 +117,31 @@ RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',
                 'RHS 260X260X12.5', 'RHS 400X400X8.0', 'RHS 400X400X8.8',
                 'RHS 300X300X12.5', 'RHS 400X400X10.0', 'RHS 400X400X12.5']
 
+RHS_COMP = ['RHS 40X40X3.0', 'RHS 50X50X3.0', 'RHS 50X50X4.0', 'RHS 60X60X3.0',
+            'RHS 60X60X4.0', 'RHS 60X60X5.0', 'RHS 70X70X3.0', 'RHS 70X70X4.0',
+            'RHS 70X70X5.0', 'RHS 80X80X3.0', 'RHS 80X80X4.0', 'RHS 80X80X5.0',
+            'RHS 90X90X3.0', 'RHS 90X90X4.0', 'RHS 90X90X5.0',
+            'RHS 100X100X3.0', 'RHS 100X100X4.0', 'RHS 100X100X5.0',
+            'RHS 100X100X6.0', 'RHS 120X120X4.0', 'RHS 120X120X5.0',
+            'RHS 120X120X6.0', 'RHS 120X120X7.1', 'RHS 120X120X8.0',
+            'RHS 120X120X8.8', 'RHS 120X120X10.0', 'RHS 140X140X4.0',
+            'RHS 140X140X5.0', 'RHS 140X140X6.0', 'RHS 150X150X5.0',
+            'RHS 150X150X6.0', 'RHS 150X150X7.1', 'RHS 150X150X8.0',
+            'RHS 150X150X8.8', 'RHS 150X150X10.0', 'RHS 160X160X5.0',
+            'RHS 160X160X6.0', 'RHS 160X160X8.0', 'RHS 160X160X7.1',
+            'RHS 160X160X8.8', 'RHS 160X160X10.0', 'RHS 180X180X5.0',
+            'RHS 180X180X5.6', 'RHS 180X180X6.0', 'RHS 180X180X7.1',
+            'RHS 180X180X8.0', 'RHS 180X180X8.8', 'RHS 180X180X10.0',
+            'RHS 180X180X12.5', 'RHS 200X200X6.0', 'RHS 200X200X7.1',
+            'RHS 200X200X8.0', 'RHS 200X200X8.8', 'RHS 200X200X10.0',
+            'RHS 200X200X12.5', 'RHS 220X220X6.0', 'RHS 220X220X7.1',
+            'RHS 220X220X8.0', 'RHS 220X220X8.8', 'RHS 220X220X10.0',
+            'RHS 250X250X8.0', 'RHS 250X250X10.0', 'RHS 250X250X7.1',
+            'RHS 250X250X8.8', 'RHS 250X250X12.5', 'RHS 260X260X7.1',
+            'RHS 260X260X8.0', 'RHS 260X260X8.8', 'RHS 260X260X10.0',
+            'RHS 260X260X12.5', 'RHS 300X300X8.0', 'RHS 300X300X8.8',
+            'RHS 300X300X10.0', 'RHS 300X300X12.5', 'RHS 400X400X12.5']
+
 RHS_A = [293.6991118430775, 358.9048622548086, 373.6991118430775,
          420.8230016469244, 453.6991118430775, 458.9048622548086,
          533.6991118430775, 540.8230016469245, 558.9048622548087,
@@ -282,11 +307,15 @@ class TrussProblem(OptimizationProblem):
     @property
     def weight_fun(self):
         if self.structure is not None:
-            def obj(x):
-                self.substitute_variables(x)
+            def obj_fun(x):
                 return self.structure.weight
 
+            obj = ObjectiveFunction(name="Objective ",
+                                    obj_fun=obj_fun)
+            obj.problem = self
+
             return obj
+
         else:
             raise ValueError("Structure is not defined!")
 
@@ -300,490 +329,361 @@ class TrussProblem(OptimizationProblem):
             self.groups = []
             for mem in self.structure.members.values():
                 group = {
+                    "name": "var name",
                     "objects": [mem],
                     "profiles": self.profiles,
                     "property": "A",
                     "properties": self.variables,
+                    "var_type": 'continuous',
                     "lb": self.lb,
                     "ub": self.ub
                 }
                 self.groups.append(group)
 
-        if self.var_type == 'discrete':
-            for i, group in enumerate(self.groups):
+        for i, group in enumerate(self.groups):
+
+            if group["var_type"] == 'discrete':
                 var = DiscreteVariable(
-                    name=f"Var {i + 1}",
-                    profiles=group['profiles'],
+                    name=group['name'],
+                    values=group['profiles'],
                     target={"property": group["property"],
                             "objects": group["objects"]}
                 )
-                self.vars.append(var)
-                
-        elif self.var_type == 'continuous':
-            for i, group in enumerate(self.groups):
+                self.add(var)
+
+            elif group["var_type"] == 'continuous':
+                # Multiple properties
                 if "properties" in group.keys():
                     bounds = group["bounds"]
                     if len(bounds) != len(group["properties"]):
-                        raise ValueError("There must be same number of bounds as properties!"
-                                         f"{group['bounds']} != {group['properties']}")
-                    for bounds, prop in zip(group["bounds"], group["properties"]):
+                        raise ValueError(
+                            "There must be same number of bounds as properties!"
+                            f"{group['bounds']} != {group['properties']}")
+                    for bounds, prop, value in zip(group["bounds"],
+                                                   group["properties"],
+                                                   group["values"]):
                         lb, ub = bounds
                         var = Variable(
-                        name=f"Var {prop}{i + 1}",
-                        lb=lb,
-                        ub=ub,
-                        target={"property": prop,
-                                "objects": group["objects"]}
-                    )
-                        self.vars.append(var)
+                            name=group['name'],
+                            lb=lb,
+                            ub=ub,
+                            value=value,
+                            target={"property": prop,
+                                    "objects": group["objects"]}
+                        )
+                        self.add(var)
+
+                # Single property
                 else:
                     var = Variable(
-                        name=f"Var {i + 1}",
+                        name=group['name'],
                         lb=group['lb'],
                         ub=group['ub'],
+                        value=group['value'],
                         target={"property": group["property"],
                                 "objects": group["objects"]}
                     )
-                    self.vars.append(var)
-
-        elif self.var_type == 'binary':
-            pass
-        else:
-            raise ValueError("var_type must be either 'discrete',"
-                             " 'continuous' or 'binary")
-
-    def cross_section_constraints(self, sect, forces):
-        """
-        Creates cross-section constraints
-        :return:
-        """
-
-        N, V, M = forces
-
-        def compression(x):
-            return -N / sect.NRd - 1
-
-        def tension(x):
-            return N / sect.NRd - 1
-
-        def shear(x):
-            return abs(V) / sect.VRd - 1
-
-        def bending_moment(x):
-            # Moment about y
-            # TODO: Moment about z
-            return 0
-            #return abs(M) / sect.MRd[0] - 1
-
-        return compression, tension, shear, bending_moment
-
-    def stability_constraints(self, mem):
-        """
-        Creates stability constraint functions
-
-        :return:
-        """
-
-        def buckling_y(x):
-            self.substitute_variables(x)
-            return -mem.ned / mem.NbRd[0] - 1
-
-        def buckling_z(x):
-            self.substitute_variables(x)
-            return -mem.ned / mem.NbRd[1] - 1
-
-        # def com_compression_bending_y(x):
-        #     self.substitute_variables(x)
-        #     return mem.steel_member.check_beamcolumn()[0] - 1
-        #
-        # def com_compression_bending_z(x):
-        #     self.substitute_variables(x)
-        #     return mem.steel_member.check_beamcolumn()[1] - 1
-
-        return buckling_y, \
-               buckling_z, \
-            # com_compression_bending_y,\
-        # com_compression_bending_z
-
-    def deflection_constraints(self, mem):
-        """
-        Creates deflection constraint functions
-        :param mem:
-        :return:
-        """
-        self.delta_max = self.structure.L / 300
-
-        def disp_fun(x):
-            displacements = mem.nodal_displacements.values()
-            max_vals = [max(l[0:2]) for l in displacements]
-            min_vals = [min(l[0:2]) for l in displacements]
-            max_val = max(max_vals)
-            min_val = min(min_vals)
-            abs_max = max(max_val, abs(min_val))
-            return abs_max / self.delta_max - 1
-
-        return disp_fun
-
-    def create_constraints(self):
-        """
-        Cretes constraints and saves them to self.cons
-        """
-        # Initialize cons as an empty list
-        self.cons = []
-        for mem in self.structure.members.values():
-
-            # buckling_y, buckling_z, com_compression_bending_y, \
-            # com_compression_bending_z = \
-            #     self.stability_constraints(mem)
-
-            buckling_y, buckling_z, = self.stability_constraints(mem)
-
-            # BUCKLING Y
-            buckling_y_con = NonLinearConstraint(con_fun=buckling_y,
-                                                 name="Buckling_y " +
-                                                      str(mem.mem_id),
-                                                 parent=self)
-            buckling_y_con.fea_required = True
-            self.cons.append(buckling_y_con)
-
-            # BUCKLING Z
-            buckling_z_con = NonLinearConstraint(con_fun=buckling_z,
-                                                 name="Buckling_z " +
-                                                      str(mem.mem_id),
-                                                 parent=self)
-            buckling_z_con.fea_required = True
-            self.cons.append(buckling_z_con)
-
-            # # BENDING + COMPRESSION Y
-            # com_compression_bending_con_y = NonLinearConstraint(
-            #     con_fun=com_compression_bending_y,
-            #     name="Com_compression_bending_y " + str(mem.mem_id),
-            #     parent=self)
-            # com_compression_bending_con_y.fea_required = True
-            # self.cons.append(com_compression_bending_con_y)
-            #
-            # # BENDING + COMPRESSION Z
-            # com_compression_bending_con_z = NonLinearConstraint(
-            #     con_fun=com_compression_bending_z,
-            #     name="Com_compression_bending_z " + str(mem.mem_id),
-            #     parent=self)
-            # com_compression_bending_con_z.fea_required = True
-            # self.cons.append(com_compression_bending_con_z)
-
-            for i, elem in enumerate(mem.elements.values()):
-                forces = [elem.axial_force[0], elem.shear_force[0],
-                          elem.bending_moment[0]]
-                compression, tension, shear, bending_moment = \
-                    self.cross_section_constraints(mem, forces)
-
-                compression_con = NonLinearConstraint(con_fun=compression,
-                                                      name="Compression " +
-                                                           str(mem.mem_id) +
-                                                           str(i), parent=self)
-                compression_con.fea_required = True
-
-                tension_con = NonLinearConstraint(con_fun=tension,
-                                                  name="Tension " +
-                                                       str(mem.mem_id) +
-                                                       str(i), parent=self)
-                tension_con.fea_required = True
-
-                shear_con = NonLinearConstraint(con_fun=shear,
-                                                name="Shear " + str(mem.mem_id)
-                                                     + str(i), parent=self)
-                shear_con.fea_required = True
-
-                bending_moment_con = NonLinearConstraint(
-                    con_fun=bending_moment, name="Bending_moment " +
-                                                 str(mem.mem_id) +
-                                                 str(i), parent=self)
-                bending_moment_con.fea_required = True
-
-                self.cons.extend([compression_con, tension_con, shear_con,
-                                  bending_moment_con])
-
-                # Last element's end node
-                if i == len(mem.elements) - 1:
-                    forces = [elem.axial_force[1], elem.shear_force[1],
-                              elem.bending_moment[1]]
-                    compression, tension, shear, bending_moment = \
-                        self.cross_section_constraints(mem, forces)
-
-                    compression_con = NonLinearConstraint(con_fun=compression,
-                                                          name="Compression " +
-                                                               str(mem.mem_id)
-                                                               + str(i + 1),
-                                                          parent=self)
-                    compression_con.fea_required = True
-                    tension_con = NonLinearConstraint(con_fun=tension,
-                                                      name="Tension " +
-                                                           str(mem.mem_id) +
-                                                           str(i + 1),
-                                                      parent=self)
-                    tension_con.fea_required = True
-                    shear_con = NonLinearConstraint(con_fun=shear,
-                                                    name="Shear " +
-                                                         str(mem.mem_id) +
-                                                         str(i + 1),
-                                                    parent=self)
-                    shear_con.fea_required = True
-
-                    bending_moment_con = NonLinearConstraint(
-                        con_fun=bending_moment, name="Bending_moment " +
-                                                     str(mem.mem_id) +
-                                                     str(i + 1), parent=self)
-                    bending_moment_con.fea_required = True
-
-                    self.cons.extend([compression_con, tension_con, shear_con,
-                                      bending_moment_con])
-
-
-class PlaneTrussProblem(OptimizationProblem):
-
-    def __init__(self, **kwargs):
-        super().__init__(name='PlaneTruss')
-        self.prob_type = kwargs['prob_type']
-
-        self.structure = self.create_structure(**kwargs)
-        self.create_variables()
-        self.create_constraints()
-        self.create_objective()
-
-    def create_constraints(self):
-        """
-        Cretes constraints and saves them to self.cons
-        """
-        # Initialize cons as an empty list
-        self.cons = []
-        for mem in self.structure.members.values():
-
-            # buckling_y, buckling_z, com_compression_bending_y, \
-            # com_compression_bending_z = \
-            #     self.stability_constraints(mem)
-
-            buckling_y, buckling_z, = self.stability_constraints(mem)
-
-            # BUCKLING Y
-            buckling_y_con = NonLinearConstraint(con_fun=buckling_y,
-                                                 name="Buckling_y " +
-                                                      str(mem.mem_id),
-                                                 parent=self)
-            buckling_y_con.fea_required = True
-            self.cons.append(buckling_y_con)
-
-            # BUCKLING Z
-            buckling_z_con = NonLinearConstraint(con_fun=buckling_z,
-                                                 name="Buckling_z " +
-                                                      str(mem.mem_id),
-                                                 parent=self)
-            buckling_z_con.fea_required = True
-            self.cons.append(buckling_z_con)
-
-            # # BENDING + COMPRESSION Y
-            # com_compression_bending_con_y = NonLinearConstraint(
-            #     con_fun=com_compression_bending_y,
-            #     name="Com_compression_bending_y " + str(mem.mem_id),
-            #     parent=self)
-            # com_compression_bending_con_y.fea_required = True
-            # self.cons.append(com_compression_bending_con_y)
-            #
-            # # BENDING + COMPRESSION Z
-            # com_compression_bending_con_z = NonLinearConstraint(
-            #     con_fun=com_compression_bending_z,
-            #     name="Com_compression_bending_z " + str(mem.mem_id),
-            #     parent=self)
-            # com_compression_bending_con_z.fea_required = True
-            # self.cons.append(com_compression_bending_con_z)
-
-            for i, elem in enumerate(mem.elements.values()):
-                forces = [elem.axial_force[0], elem.shear_force[0],
-                          elem.bending_moment[0]]
-                compression, tension, shear, bending_moment = \
-                    self.cross_section_constraints(mem, forces)
-
-                compression_con = NonLinearConstraint(con_fun=compression,
-                                                      name="Compression " +
-                                                           str(mem.mem_id) +
-                                                           str(i), parent=self)
-                compression_con.fea_required = True
-
-                tension_con = NonLinearConstraint(con_fun=tension,
-                                                  name="Tension " +
-                                                       str(mem.mem_id) +
-                                                       str(i), parent=self)
-                tension_con.fea_required = True
-
-                shear_con = NonLinearConstraint(con_fun=shear,
-                                                name="Shear " + str(mem.mem_id)
-                                                     + str(i), parent=self)
-                shear_con.fea_required = True
-
-                bending_moment_con = NonLinearConstraint(
-                    con_fun=bending_moment, name="Bending_moment " +
-                                                 str(mem.mem_id) +
-                                                 str(i), parent=self)
-                bending_moment_con.fea_required = True
-
-                self.cons.extend([compression_con, tension_con, shear_con,
-                                  bending_moment_con])
-
-                # Last element's end node
-                if i == len(mem.elements) - 1:
-                    forces = [elem.axial_force[1], elem.shear_force[1],
-                              elem.bending_moment[1]]
-                    compression, tension, shear, bending_moment = \
-                        self.cross_section_constraints(mem, forces)
-
-                    compression_con = NonLinearConstraint(con_fun=compression,
-                                                          name="Compression " +
-                                                               str(mem.mem_id)
-                                                               + str(i + 1),
-                                                          parent=self)
-                    compression_con.fea_required = True
-                    tension_con = NonLinearConstraint(con_fun=tension,
-                                                      name="Tension " +
-                                                           str(mem.mem_id) +
-                                                           str(i + 1),
-                                                      parent=self)
-                    tension_con.fea_required = True
-                    shear_con = NonLinearConstraint(con_fun=shear,
-                                                    name="Shear " +
-                                                         str(mem.mem_id) +
-                                                         str(i + 1),
-                                                    parent=self)
-                    shear_con.fea_required = True
-
-                    bending_moment_con = NonLinearConstraint(
-                        con_fun=bending_moment, name="Bending_moment " +
-                                                     str(mem.mem_id) +
-                                                     str(i + 1), parent=self)
-                    bending_moment_con.fea_required = True
-
-                    self.cons.extend([compression_con, tension_con, shear_con,
-                                      bending_moment_con])
-
-    def create_objective(self):
-        """
-        Creates the objective function
-        """
-
-        def objective(x):
-            self.substitute_variables(x)
-            weight = 0
-            for mem in self.structure.members.values():
-                weight += mem.weight
-
-            return weight
-
-        self.obj = objective
-
-    def create_structure(self, **kwargs):
-        """
-        Creates truss
-        :return:
-        """
-        truss = PlaneTruss(**kwargs)
-
-        # Loads
-        for tc in truss.top_chords:
-            truss.add(LineLoad(tc, kwargs['q'], kwargs['dir']))
-
-        # Supports
-        truss.add(XYHingedSupport([0, truss.H1]))
-        truss.add(YHingedSupport([truss.L1, truss.H1]))
-
-        truss.generate()
-        truss.calculate()
-
-        return truss
-
-    def create_variables(self, profiles=RHS_PROFILES):
-        """
-        Creates optimization variables
-        """
-        self.vars = []
-        chords = self.structure.bottom_chords.copy()
-        chords.extend(self.structure.top_chords)
-        TC = [mem for mem in self.structure.top_chords]
-        BC = [mem for mem in self.structure.bottom_chords]
-        TW = [mem for mem in self.structure.members.values() if
-              mem not in chords and mem.ned >= 0]
-        CW = [mem for mem in self.structure.members.values() if
-              mem not in chords and mem.ned < 0]
-
-        groups = [TC, BC, TW, CW]
-        names = ['TopChords', 'BottomChords', 'TensionWebs', 'CompressionWebs']
-        for i, group in enumerate(groups):
-            name = names[i]
-            if self.prob_type == "discrete":
-                var = DiscreteVariable(name,
-                                       profiles=profiles,
-                                       # TODO: THIS IS A PARAMETER
-                                       values=RHS_A,
-                                       target={"property": "A",
-                                               "objects": group})
-
-            elif self.prob_type == "continuous":
-                var = Variable(name,
-                               lb=profiles[0],
-                               ub=profiles[-1],
-                               target={"property": "A",
-                                       "objects": [mem]})
-
+                    self.add(var)
+
+            elif group["var_type"] == 'index':
+                var = IndexVariable(
+                    name=group['name'],
+                    values=group['profiles'],
+                    target={"property": group["property"],
+                            "objects": group["objects"]}
+                )
+                self.add(var)
+
+            elif group["var_type"] == 'binary':
+                pass
             else:
+                raise ValueError("var_type must be either 'discrete',"
+                                 " 'continuous', 'index' or 'binary")
 
-                raise TypeError("Problem type must be either 'discrete' "
-                                "or 'continuous")
 
-            self.vars.append(var)
+    def index_to_binary(self):
+        """
+        Creates binary variables and continuous variables
+        :return:
+        """
+        idx_vars = [var for var in self.vars if isinstance(var, IndexVariable)]
 
-        #
-        # WEBS = [mem for mem in self.structure.members.values() if mem.mem_type == "W"]
-        # nodes = [w.n1 for w in WEBS]
-        # nodes = sorted(nodes, key=lambda n: n.x)
-        #
-        # for i, node in enumerate(nodes):
-        #     name = "Node " + str(node.nid)
-        #     if i == 0:
-        #         var = Variable(name,
-        #                        lb=0,
-        #                        ub=nodes[i+1].x,
-        #                        target={"property": "x",
-        #                                "objects": [node]})
-        #     elif i == len(nodes) -1:
-        #         var = Variable(name,
-        #                        lb=nodes[i-1].x,
-        #                        ub=self.structure.L1,
-        #                        target={"property": "x",
-        #                                "objects": [node]})
-        #     else:
-        #         var = Variable(name,
-        #                        lb=nodes[i - 1].x,
-        #                        ub=nodes[i+1].x,
-        #                        target={"property": "x",
-        #                                "objects": [node]})
-        #     self.vars.append(var)
+        # Temp member instance to get needed values
+        mem = SteelBeam([[0, 0], [1000, 0]])
+        vars = {}
+        for i, idx_var in enumerate(idx_vars):
+            A_list = []
+            Iy_list = []
+            Iz_list = []
+            Wply_list = []
+            Wplz_list = []
+            bin_vars = []
+            for j, profile in enumerate(idx_var.values):
+                # Get attributes
+                mem.profile = profile
+                A = mem.cross_section.A
+                Iy, Iz = mem.cross_section.I
+                Wply, Wplz = mem.cross_section.Wpl
 
-    def cross_section_constraints(self, sect, forces):
+                # Append attributes
+                A_list.append(A)
+                Iy_list.append(Iy)
+                Iz_list.append(Iz)
+                Wply_list.append(Wply)
+                Wplz_list.append(Wplz)
+
+                bin_var = BinaryVariable(name=f"BinVar{i}{j}")
+                bin_vars.append(bin_var)
+
+            # Create continuous variables
+            # A
+            A_var = Variable(name=f"Continuous A{i}",
+                             lb=min(A_list),
+                             ub=max(A_list),
+                             target={
+                                 "objects": idx_var.target["objects"],
+                                 "property": "A"
+                             })
+            # Iy
+            Iy_var = Variable(name=f"Continuous Iy{i}",
+                              lb=min(Iy_list),
+                              ub=max(Iy_list),
+                              target={
+                                  "objects": idx_var.target["objects"],
+                                  "property": "Iy"
+                              })
+            # Iz
+            Iz_var = Variable(name=f"Continuous Iz{i}",
+                              lb=min(Iz_list),
+                              ub=max(Iz_list),
+                              target={
+                                  "objects": idx_var.target["objects"],
+                                  "property": "Iz"
+                              })
+            # Wply
+            Wply_var = Variable(name=f"Continuous Wply{i}",
+                                lb=min(Wply_list),
+                                ub=max(Wply_list),
+                                target={
+                                    "objects": idx_var.target["objects"],
+                                    "property": "Wply"
+                                })
+            # Wplz
+            Wplz_var = Variable(name=f"Continuous Wplz{i}",
+                                lb=min(Wplz_list),
+                                ub=max(Wplz_list),
+                                target={
+                                    "objects": idx_var.target["objects"],
+                                    "property": "Wplz"
+                                })
+
+            cont_vars = [A_var, Iy_var, Iz_var, Wply_var, Wplz_var]
+            lists = [A_list, Iy_list, Iz_list, Wply_list, Wplz_list]
+
+            vars[i] = {'bin_vars': bin_vars, 'cont_vars': cont_vars,
+                       'lists': lists}
+            self.vars.remove(idx_var)
+            self.vars.extend(bin_vars)
+            self.vars.extend(cont_vars)
+
+        # Create linear constraints
+        for i, vars_dict in enumerate(vars.values()):
+            bin_vars = vars_dict['bin_vars']
+            cont_vars = vars_dict['cont_vars']
+            lists = vars_dict['lists']
+            A_var, Iy_var, Iz_var, Wply_var, Wplz_var = cont_vars
+            A_list, Iy_list, Iz_list, Wply_list, Wplz_list = lists
+            # Binary constraint sum(bin_vars) == 1
+            bin_idx = [self.vars.index(bvar) for bvar in bin_vars]
+            a = np.zeros(len(self.vars))
+            a[bin_idx] = 1
+            bin_con = LinearConstraint(a=a, b=1, con_type="=",
+                                       name="Binary Constraint "
+                                            + str(i))
+            # A con; sum(Â*bin_vars) == A
+            a_A = np.zeros(len(self.vars))
+            a_A[bin_idx] = A_list
+            b = A_var
+            A_con = LinearConstraint(a=a_A,
+                                     b=b,
+                                     name=f"A Constraint {i}")
+            # Iy con; sum(Îy*bin_vars) == Iy
+            a_Iy = np.zeros(len(self.vars))
+            a_Iy[bin_idx] = Iy_list
+            b = Iy_var
+            Iy_con = LinearConstraint(a=a_Iy,
+                                      b=b,
+                                      name=f"Iy Constraint {i}")
+            # Iz con; sum(Îz*bin_vars) == Iz
+            a_Iz = np.zeros(len(self.vars))
+            a_Iz[bin_idx] = Iz_list
+            b = Iz_var
+            Iz_con = LinearConstraint(a=a_Iz,
+                                      b=b,
+                                      name=f"Iz Constraint {i}")
+            # Wply con; sum(Wply*bin_vars) == Wply
+            a_Wply = np.zeros(len(self.vars))
+            a_Wply[bin_idx] = Wply_list
+            b = Wply_var
+            Wply_con = LinearConstraint(a=a_Wply,
+                                        b=b,
+                                        name=f"Wply Constraint {i}")
+            # Wplz con; sum(Wplz*bin_vars) == Wplz
+            a_Wplz = np.zeros(len(self.vars))
+            a_Wplz[bin_idx] = Wplz_list
+            b = Wplz_var
+            Wplz_con = LinearConstraint(a=a_Wplz,
+                                        b=b,
+                                        name=f"Wplz Constraint {i}")
+
+            self.cons.extend([bin_con, A_con, Iy_con,
+                              Iz_con, Wply_con, Wplz_con])
+
+    def joint_geometry_constraints(self, joint):
+
+
+
+        if joint.joint_type == 'Y':
+            pass
+
+
+
+        elif joint.joint_type == 'K':
+            w1, w2 = joint.webs.values()
+
+            def g_min(x):
+                gap = w1.cross_section.T + w2.cross_section.T
+                val = gap / joint.g1 - 1
+                return val
+
+            def g_min_beta(x):
+                beta = joint.rhs_joint.beta()
+                val = 0.5 * (1 - beta) * joint.chord.cross_section.B
+                val -= joint.g1
+                return val
+
+            def g_max_beta(x):
+                beta = joint.rhs_joint.beta()
+                val = - 1.5 * (1 - beta) * joint.chord.cross_section.B
+                val += joint.g1
+                return val
+
+            def b1_min(x):
+                val = 0.35 * joint.chord.cross_section.B
+                val -= w1.cross_section.B
+                return val
+
+            def b1_max(x):
+                val = -0.85 * joint.chord.cross_section.B
+                val += w1.cross_section.B
+                return val
+
+            def b2_min(x):
+                val = 0.35 * joint.chord.cross_section.B
+                val -= w2.cross_section.B
+                return val
+
+            def b2_max(x):
+                val = -0.85 * joint.chord.cross_section.B
+                val += w2.cross_section.B
+                return val
+
+            def theta1(x):
+                val = 30 - np.degrees(w1.angle - joint.chord.angle)
+                return val
+
+            def theta2(x):
+                val = 30 - np.degrees(w2.angle - joint.chord.angle)
+                return val
+
+            def e_pos(x):
+                return joint.e / ((0.25 * joint.chord.cross_section.H)) - 1
+
+            def e_neg(x):
+                return -0.55 * joint.chord.cross_section.H / joint.e - 1
+
+            con_funs = {f'Joint {joint.jid} g_min': g_min,
+                        f'Joint {joint.jid} g_min_beta': g_min_beta,
+                        f'Joint {joint.jid} g_max_beta': g_max_beta,
+                        f'Joint {joint.jid} b1_min': b1_min,
+                        f'Joint {joint.jid} b1_max': b1_max,
+                        f'Joint {joint.jid} b2_min': b2_min,
+                        f'Joint {joint.jid} b2_max': b2_max,
+                        f'Joint {joint.jid}theta1': theta1,
+                        f'Joint {joint.jid}theta2': theta2,
+                        f'Joint {joint.jid}e_pos': e_pos,
+                        f'Joint {joint.jid}e_neg': e_neg}
+
+            return con_funs
+
+        elif joint.joint_type == 'KT':
+            pass
+
+        return {}
+
+    def joint_strength_constraints(self, joint):
+        """
+        Creates joint strength costraint functions
+
+        :param joint: joint to be calculated
+        :return: constraint functions in a dict
+        """
+
+        if joint.joint_type == 'Y':
+            pass
+
+        elif joint.joint_type == 'K':
+            w1, w2 = joint.webs.values()
+
+            def chord_face_failure_1(x):
+                NRd1, NRd2 = joint.rhs_joint.chord_face_failure()
+                return w1.ned / NRd1 - 1
+
+            def chord_face_failure_2(x):
+                NRd1, NRd2 = joint.rhs_joint.chord_face_failure()
+                return w2.ned / NRd2 - 1
+
+            def punching_shear(x):
+                NRd = joint.rhs_joint.punching_shear()
+                return joint.N0 / NRd - 1
+
+            def chord_shear(x):
+                pass
+
+            def brace_failure(x):
+                pass
+
+        elif joint.joint_type == 'KT':
+            pass
+
+        return {}
+
+
+
+
+
+    def cross_section_constraints(self, sect, elem):
         """
         Creates cross-section constraints
         :return:
         """
 
-        N, V, M = forces
-
         def compression(x):
+            N = elem.axial_force[0]
             return -N / sect.NRd - 1
 
         def tension(x):
+            N = elem.axial_force[0]
             return N / sect.NRd - 1
 
         def shear(x):
+            V = elem.shear_force[0]
             return abs(V) / sect.VRd - 1
 
         def bending_moment(x):
             # Moment about y
             # TODO: Moment about z
+            M = elem.bending_moment[0]
             return abs(M) / sect.MRd[0] - 1
 
         return compression, tension, shear, bending_moment
@@ -796,25 +696,21 @@ class PlaneTrussProblem(OptimizationProblem):
         """
 
         def buckling_y(x):
-            self.substitute_variables(x)
-            return -mem.ned / mem.NbRd[0] - 1
+            return -mem.NEd / mem.NbRd[0] - 1
 
         def buckling_z(x):
-            self.substitute_variables(x)
-            return -mem.ned / mem.NbRd[1] - 1
+            return -mem.NEd / mem.NbRd[1] - 1
 
-        # def com_compression_bending_y(x):
-        #     self.substitute_variables(x)
-        #     return mem.steel_member.check_beamcolumn()[0] - 1
-        #
-        # def com_compression_bending_z(x):
-        #     self.substitute_variables(x)
-        #     return mem.steel_member.check_beamcolumn()[1] - 1
+        def com_compression_bending_y(x):
+            return mem.check_beamcolumn()[0] - 1
+
+        def com_compression_bending_z(x):
+            return mem.check_beamcolumn()[1] - 1
 
         return buckling_y, \
                buckling_z, \
-            # com_compression_bending_y,\
-        # com_compression_bending_z
+               com_compression_bending_y, \
+               com_compression_bending_z
 
     def deflection_constraints(self, mem):
         """
@@ -835,52 +731,516 @@ class PlaneTrussProblem(OptimizationProblem):
 
         return disp_fun
 
+    def create_constraints(self):
+        """
+        Cretes constraints and saves them to self.cons
+        """
+        # Initialize cons as an empty list
+        self.cons = []
+        for mem in self.structure.members.values():
+            for j, smem in enumerate(mem.steel_members):
+                buckling_y, buckling_z, com_compression_bending_y, \
+                com_compression_bending_z = \
+                    self.stability_constraints(smem)
+
+                # buckling_y, buckling_z, = self.stability_constraints(mem)
+
+                # BUCKLING Y
+                buckling_y_con = self.non_linear_constraint(con_fun=buckling_y,
+                                                            name="Buckling_y " +
+                                                                 str(
+                                                                     mem.mem_id) +
+                                                                 str(j))
+                buckling_y_con.fea_required = True
+
+                # BUCKLING Z
+                buckling_z_con = self.non_linear_constraint(con_fun=buckling_z,
+                                                            name="Buckling_z " +
+                                                                 str(
+                                                                     mem.mem_id) + str(
+                                                                j),
+                                                            )
+                buckling_z_con.fea_required = True
+
+            # # BENDING + COMPRESSION Y
+            # com_compression_bending_con_y = self.non_linear_constraint()(
+            #     con_fun=com_compression_bending_y,
+            #     name="Com_compression_bending_y " + str(mem.mem_id),
+            #     )
+            # com_compression_bending_con_y.fea_required = True
+            # self.cons.append(com_compression_bending_con_y)
+            #
+            # # BENDING + COMPRESSION Z
+            # com_compression_bending_con_z = self.non_linear_constraint()(
+            #     con_fun=com_compression_bending_z,
+            #     name="Com_compression_bending_z " + str(mem.mem_id),
+            #     )
+            # com_compression_bending_con_z.fea_required = True
+            # self.cons.append(com_compression_bending_con_z)
+
+            # CROSS-SECTION STRENGTH
+            for i, elem in enumerate(mem.elements.values()):
+                compression, tension, shear, bending_moment = \
+                    self.cross_section_constraints(mem, elem)
+
+                compression_con = self.non_linear_constraint(
+                    con_fun=compression,
+                    name="Compression " +
+                         str(mem.mem_id) +
+                         str(i), )
+                compression_con.fea_required = True
+
+                tension_con = self.non_linear_constraint(con_fun=tension,
+                                                         name="Tension " +
+                                                              str(mem.mem_id) +
+                                                              str(i), )
+                tension_con.fea_required = True
+
+                shear_con = self.non_linear_constraint(con_fun=shear,
+                                                       name="Shear " + str(
+                                                           mem.mem_id)
+                                                            + str(i), )
+                shear_con.fea_required = True
+
+                bending_moment_con = self.non_linear_constraint(
+                    con_fun=bending_moment, name="Bending_moment " +
+                                                 str(mem.mem_id) +
+                                                 str(i), )
+                bending_moment_con.fea_required = True
+
+                # Last element's end node
+                if i == len(mem.elements) - 1 and mem.mtype != 'web':
+                    compression, tension, shear, bending_moment = \
+                        self.cross_section_constraints(mem, elem)
+
+                    compression_con = self.non_linear_constraint(
+                        con_fun=compression,
+                        name="Compression " +
+                             str(mem.mem_id)
+                             + str(i + 1),
+                    )
+                    compression_con.fea_required = True
+                    tension_con = self.non_linear_constraint(con_fun=tension,
+                                                             name="Tension " +
+                                                                  str(
+                                                                      mem.mem_id) +
+                                                                  str(i + 1),
+                                                             )
+                    tension_con.fea_required = True
+                    shear_con = self.non_linear_constraint(con_fun=shear,
+                                                           name="Shear " +
+                                                                str(
+                                                                    mem.mem_id) +
+                                                                str(i + 1),
+                                                           )
+                    shear_con.fea_required = True
+
+                    bending_moment_con = self.non_linear_constraint(
+                        con_fun=bending_moment, name="Bending_moment " +
+                                                     str(mem.mem_id) +
+                                                     str(i + 1), )
+                    bending_moment_con.fea_required = True
+
+        # JOINT CONS
+        for joint in self.structure.joints.values():
+
+            con_funs = self.joint_geometry_constraints(joint)
+            for name, con_fun in con_funs.items():
+                self.non_linear_constraint(con_fun=con_fun,
+                                           name=name)
+
+
+class Joint:
+
+    def __init__(self, loc, chord):
+        self.chord = chord
+        self.node = None
+        self._loc = loc
+
+    def __repr__(self):
+        return type(self).__name__ + str(self.loc)
+
+    @property
+    def coord(self):
+        return self.chord.to_global(self.loc)
+
+    @property
+    def loc(self):
+        return self._loc
+
+    @loc.setter
+    def loc(self, val):
+        val = min(max(0, val), 1)
+        self._loc = val
+        x, y = self.coord
+        self.node.x = x
+        self.node.y = y
+        self.chord.calc_nodal_coordinates()
+
+    def generate(self, fem_model):
+        coord = [round(c, 3) for c in self.coord]
+        idx = fem_model.nodal_coords.index(coord)
+        self.node = fem_model.nodes[idx]
+
+    def plot(self, color=None):
+        pass
+
+
+def create_planetruss(L=25000, H1=1500, H2=2000, n=16, dx=0):
+    truss = Frame2D(num_elements=2)
+
+    # Top Chords
+    helper = SteelBeam([[0, H1], [L / 2, H2]])
+    helper.mtype = "top_chord"
+    helper2 = SteelBeam([[L, H1], [L / 2, H2]])
+    helper2.mtype = "top_chord"
+    # Bottom Chords
+    bc_helper = SteelBeam([[dx, 0], [L / 2, 0]])
+    bc_helper.mtype = "bottom_chord"
+    bc_helper2 = SteelBeam([[L - dx, 0], [L / 2, 0]])
+    bc_helper2.mtype = "bottom_chord"
+
+    sep = 1 / (n / 4)
+    tc_locs = np.arange(0, 1 + sep, sep)
+    tc_coords = []
+    for loc in tc_locs:
+        tc_coords.append(list(helper.to_global(loc)))
+
+    # Left side
+    for i in range(int(n / 4)):
+        c0 = list(tc_coords[i])
+        c1 = list(tc_coords[i + 1])
+        tc = SteelBeam([c0, c1])
+        truss.add(tc)
+        tc.mtype = "top_chord"
+
+    # Right side
+    for i in range(int(n / 4)):
+        c0 = list(tc_coords[i])
+        c0[0] = L - c0[0]
+        c1 = list(tc_coords[i + 1])
+        c1[0] = L - c1[0]
+        tc = SteelBeam([c0, c1])
+        truss.add(tc)
+        tc_coords.append(c0)
+        tc.mtype = "top_chord"
+    # Bottom Chords
+    bc_split = (L - 2 * dx) / (n / 2 - 1)
+    bc_coords = []
+    sep = 1 / (int((n - 2) / 2))
+    bc_locs = np.arange(0, 1 + sep, sep)
+    for i in range(int((n - 2) / 2)):
+        c0 = [i * bc_split + dx, 0]
+        c1 = [(i + 1) * bc_split + dx, 0]
+        bc = SteelBeam([c0, c1])
+        truss.add(bc)
+        bc.mtype = "BC"
+        bc_coords.append(c0)
+    bc_coords.append(c1)
+    # Webs
+    tc_coords.sort()
+    bc_coords.sort()
+
+    for i, bcoord in enumerate(bc_coords):
+        tc0 = tc_coords[i]
+        tc1 = tc_coords[i + 1]
+
+        w0 = SteelBeam([bcoord, tc0], Sj1=0, Sj2=0)
+        w1 = SteelBeam([bcoord, tc1], Sj1=0, Sj2=0)
+
+        truss.add(w0)
+        truss.add(w1)
+        w0.mtype = "W"
+        w1.mtype = "W"
+
+    # Joints
+    # TC joints
+    for loc in tc_locs:
+        jid = len(truss.joints)
+        truss.joints[jid] = Joint(loc, helper)
+        jid = len(truss.joints)
+        truss.joints[jid] = Joint(loc, helper2)
+
+    # BC joints
+    for loc in bc_locs:
+        if loc < 0.5:
+            jid = len(truss.joints)
+            truss.joints[jid] = Joint(loc, bc_helper)
+        else:
+            jid = len(truss.joints)
+            loc = 1 - loc
+            truss.joints[jid] = Joint(loc, bc_helper2)
+
+    # Supports
+    truss.add(XYHingedSupport([0, H1]))
+    truss.add(YHingedSupport([L, H1]))
+
+    return truss
+
 
 if __name__ == '__main__':
     from src.optimization.solvers import *
     from src.frame2d.frame2d import *
+    from src.truss2d import *
+
     import matplotlib.pyplot as plt
 
-    frame = Frame2D(simple=[1,2, 3e3, 3e3], supports='fixed')
-    beams = []
-    columns =[]
-    for mem in frame.members.values():
-        mem.profile = RHS_PROFILES[0]
-        if mem.mtype == "beam":
-            beams.append(mem.cross_section)
-            frame.add(LineLoad(mem, [-20, -20], 'y'))
+    n = 20
+
+    truss = Truss2D(simple=dict(
+        H0=0,
+        H1=1000,
+        H2=2000,
+        L1=12500,
+        dx=500,
+        n=n
+    ))
+    truss.add(XYHingedSupport([0, truss.H0 + truss.H1]))
+    truss.add(YHingedSupport([truss.L1 + truss.L2, truss.H0 + truss.H3]))
+
+    for mem in truss.members.values():
+        mem.profile = "RHS 300X300X5"
+        if mem.mtype == "top_chord":
+            truss.add(LineLoad(mem, [-30, -30], 'y'))
+
+    truss.generate()
+    truss.calculate()
+
+    top_chords = []
+    bot_chords = []
+    webs_tension = []
+    webs_compression = []
+    webs = []
+    bot_nodes = []
+    for mem in truss.members.values():
+        mem.material = "S420"
+        if mem.mtype == "top_chord":
+            top_chords.append(mem)
+        elif mem.mtype == "bottom_chord":
+            bot_chords.append(mem)
+            for node in mem.nodes.values():
+                if node not in bot_nodes:
+                    bot_nodes.append(node)
         else:
-            columns.append(mem.cross_section)
+            webs.append(mem)
+            if mem.ned > 0:
+                webs_tension.append(mem)
+            else:
+                webs_compression.append(mem)
 
-    frame.generate()
-    frame.calculate()
-
-
-    beam_group = {
-        "objects": beams,
-        "bounds" : [[50, 500], [50, 500], [1, 8]],
-        "properties": ["H", "B", "T"],
-        "profiles": RHS_PROFILES,
-    }
-    
-    column_group = {
-        "objects": columns,
-        "bounds" : [[50, 500], [50, 500], [1, 8]],
-        "properties": ["H", "B", "T"],
-        "profiles": RHS_PROFILES,
+    TC_group = {
+        "objects": top_chords,
+        "name": "TC index",
+        # "values": [500, 500, 5],
+        # "bounds": [[50, 800], [50, 800], [1, 8]],
+        # "properties": ["H", "B", "T"],
+        # "var_type": 'continuous',
+        "var_type": 'index',
+        'property': 'profile',
+        "profiles": RHS_COMP,
     }
 
+    BC_group = {
+        "objects": bot_chords,
+        "name": "BC index",
+        # "values": [500, 500, 5],
+        # "bounds": [[50, 800], [50, 800], [1, 8]],
+        # "properties": ["H", "B", "T"],
+        # "var_type": 'continuous',
+        "var_type": 'index',
+        'property': 'profile',
+        "profiles": RHS_COMP,
+    }
+
+    WT_group = {
+        "objects": webs_tension,
+        "name": "W Tension index",
+        # "values": [500, 500, 5],
+        # "bounds": [[50, 500], [50, 500], [1, 8]],
+        # "properties": ["H", "B", "T"],
+        "var_type": 'index',
+        # "var_type": 'continuous',
+        'property': 'profile',
+        "profiles": RHS_COMP,
+    }
+
+    WC_group = {
+        "objects": webs_compression,
+        "name": "W Compression index",
+        # "values": [500, 500, 5],
+        # "bounds": [[50, 500], [50, 500], [1, 8]],
+        # "properties": ["H", "B", "T"],
+        "var_type": 'index',
+        # "var_type": 'continuous',
+        'property': 'profile',
+        "profiles": RHS_COMP,
+    }
+
+    bnode_group = {
+        "name": "BC Y-loc",
+        "value": 0,
+        "objects": bot_nodes,
+        "lb": -500,
+        "ub": 500,
+        "var_type": 'continuous',
+        'property': 'y',
+    }
+
+    groups = [TC_group, BC_group]  # , WT_group, WC_group]
+
+    for i in range(int(len(webs) / 2)):
+        w = webs[i * 2: i * 2 + 2]
+        W_group = {
+            "objects": [web for web in w],
+            "name": "W " + str(i),
+            # "values": [500, 500, 5],
+            # "bounds": [[50, 500], [50, 500], [1, 8]],
+            # "properties": ["H", "B", "T"],
+            "var_type": 'index',
+            # "var_type": 'continuous',
+            'property': 'profile',
+            "profiles": RHS_COMP,
+        }
+        groups.append(W_group)
+
+    tc_joints = [j for j in truss.joints.values() if
+                 j.chord.mtype == "top_chord" and 0.1 < j.loc < 0.9]
+    bc_joints = [j for j in truss.joints.values() if
+                 j.chord.mtype == "bottom_chord"]
+
+    # Top Joints
+    m = int(len(tc_joints) / 2)
+    for i in range(m):
+        joint = tc_joints[2 * i]
+        sym_joint = tc_joints[2 * i + 1]
+        j_group = {
+            "value": joint.loc,
+            "name": f"TopJoint {i} loc",
+            "objects": [joint, sym_joint],
+            "lb": max(0, joint.loc - 2 / n),
+            "ub": min(1, joint.loc + 2 / n),
+            "var_type": 'continuous',
+            'property': 'loc'
+        }
+        groups.append(j_group)
+        je_group = {
+            "value": joint.e,
+            "name": f"TopJoint {i} e",
+            "objects": [joint, sym_joint],
+            "lb": -50,
+            "ub": 50,
+            "var_type": 'continuous',
+            'property': 'e'
+        }
+        groups.append(je_group)
+
+    # Bottom joints
+    n = int(len(bc_joints) / 2)
+    for i in range(m):
+        joint = bc_joints[2 * i]
+        sym_joint = bc_joints[2 * i + 1]
+        sym_joint.reverse = True
+
+        j_group = {
+            "value": joint.loc,
+            "name": f"BottomJoint {i} loc",
+            "objects": [joint, sym_joint],
+            "lb": max(0, joint.loc - 0.1 / n),
+            "ub": min(1, joint.loc + 0.1 / n),
+            "var_type": 'continuous',
+            'property': 'loc'
+        }
+        groups.append(j_group)
+        je_group = {
+            "value": joint.e,
+            "name": f"BottomJoint {i} e",
+            "objects": [joint, sym_joint],
+            "lb": -50,
+            "ub": 50,
+            "var_type": 'continuous',
+            'property': 'e'
+        }
+        groups.append(je_group)
 
     problem = TrussProblem(
         name="FrameTest",
-        structure=frame,
-        var_type='continuous',
-        groups = [beam_group, column_group]
+        structure=truss,
+        groups=groups
     )
 
+    tjoint_vars = [var for var in problem.vars if "TopJoint" in var.name]
+    bjoint_vars = [var for var in problem.vars if "BottomJoint" in var.name]
+
+    # Joint loc constraints
+    for i, jvar in enumerate(tjoint_vars):
+        if i < len(tjoint_vars) - 1:
+            a = np.zeros_like(problem.vars)
+            idx = problem.vars.index(jvar)
+            a[idx] = 1
+            con = LinearConstraint(a=a, b=tjoint_vars[i + 1],
+                                   name="Joint constraint")
+            problem.add(con)
+
+    # Joint loc constraints
+    for i, jvar in enumerate(bjoint_vars):
+        if i < len(bjoint_vars) - 1:
+            a = np.zeros_like(problem.vars)
+            idx = problem.vars.index(jvar)
+            a[idx] = 1
+            con = LinearConstraint(a=a, b=bjoint_vars[i + 1],
+                                   name="Joint constraint")
+            problem.add(con)
+
+        else:
+            a = np.zeros_like(problem.vars)
+            idx = problem.vars.index(jvar)
+            a[idx] = 1
+            con = LinearConstraint(a=a, b=0.5,
+                                   name="Joint constraint")
+            problem.add(con)
+
+
+    def mutate(individual, prob=0.01, stepsize=1, multiplier=0.1):
+        """
+        Mutates individual
+        :param individual:
+        :param prob:
+        :return: mutated individual
+        """
+        for var in problem.vars:
+            i = problem.all_vars.index(var)
+
+            if isinstance(var, (IndexVariable, IntegerVariable)):
+                val = np.random.randint(0, stepsize)
+
+            else:
+                val = np.random.uniform(0, multiplier * (var.ub - var.lb))
+
+            if np.random.rand() < prob:
+                if np.random.rand() < 0.5:
+                    val *= -1
+                individual[i] += val
+
+        return individual
+
+
+    # problem.index_to_binary()
+
+    def cx_fun(A, B):
+
+        C = np.arange(len(A))
+        C = np.random.choice(C, 3, replace=False)
+        for val in C:
+            A[val], B[val] = B[val], A[val]
+        return A, B
+
+
+    solver = GA(pop_size=20,
+                mut_fun=mutate,
+                mutation_kwargs={'prob': 0.5, "stepsize": 5,
+                                 "multiplier": 0.25})
+
+    solver = VNS(step_length=3)
     x0 = [var.ub for var in problem.vars]
-    problem(x0)
-    solver = SLP()
-    fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True)
-    problem(xopt)
-    problem.structure.plot()
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True, plot=True)
+
