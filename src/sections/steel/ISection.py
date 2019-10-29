@@ -2,7 +2,7 @@
 """
 Created on Wed Mar 14 23:12:31 2018
 
-Rectangular hollow sections
+Hot-rolled I- and H-section
 
 @author: kmela
 """
@@ -203,7 +203,7 @@ class HEA(ISection):
         Subclass of ISection        
     """
 
-    def __init__(self, height=100, fy=355, catalogue=False):
+    def __init__(self, height=100, fy=355, catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'A'
         # HEIGHT =! TO PROFILE NUMBER
 
@@ -406,7 +406,7 @@ def cross_section_properties(b, h, tf, tw, r):
          + 1.0/3.0*(h-2.0*tf)*tw**3.0 + \
          + (0.042 + 0.2204*(tw / tf)+0.1355*(r/tf)-0.0865*(r*tw/tf**2) -0.0725*(tw/tf)**2) * (((r + tw/2.0)**2.0 + (r + tf)**2.0 - r**2.0)/(2.0*r + tf))**4.0
 
-    print(tf,tw,b,h,It)
+    #print(tf,tw,b,h,It)
 
     # Warping constant [mm^6]
     Iw = (tf * b ** 3.0) / 24.0 * (h - tf) ** 2.0

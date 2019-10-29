@@ -189,16 +189,18 @@ class SteelSection(metaclass=ABCMeta):
         C = 1
         # Pure bending
         if abs(self.Ned) < 1e-4 and abs(self.Med) > 1e-4:
-            Cweb = self.web_class_bend(verb)
+            if verb:
+                print("Pure bending")
             Cflange = self.flange_class(verb)
+            Cweb = self.web_class_bend(verb)            
             C = max(Cweb, Cflange)
 
         # Compression
         elif self.Ned < 0.0:
             # Pure compression
             if abs(self.Med) < 1e-4:
-                Cweb = self.web_class_comp(verb)
                 Cflange = self.flange_class(verb)
+                Cweb = self.web_class_comp(verb)                
                 C = max(Cweb, Cflange)
             # Bending and compression
             else:

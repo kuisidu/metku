@@ -7,6 +7,7 @@ Created on Fri Oct 26 10:11:35 2018
 from src.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, Support
 from src.framefem.elements import EBBeam, EBSemiRigidBeam
 #from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
+from src.sections.steel import HEA
 
 from src.framefem import FrameFEM, BeamSection
 from src.structures.steel.steel_member import SteelMember
@@ -104,7 +105,7 @@ class Truss2D(Frame2D):
                 if c1 > 1:
                     c1 = 1
                 if self.H2 and not flip:
-                    c1 = min(0.99, c1*2)
+                    c1 = min(1, c1*2)
 
             elif i == 1 and self.dx:
                 c2 = 0
@@ -114,7 +115,7 @@ class Truss2D(Frame2D):
                 if c2 > 1:
                     c2 = 1
                 if flip:
-                    c2 = min(0.99, c2*2)
+                    c2 = min(1, c2*2)
 
             if flip:
                 self.add(TrussWeb(c1, c2))
@@ -154,7 +155,7 @@ class Truss2D(Frame2D):
                 c01 = bottom_chord.to_global(this.bot_loc)
                 for top_chord in self.top_chords:
                     if c01[0] <= top_chord.coordinates[1][0]:
-                        c02 = top_chord.local(this.top_loc)
+                        c02 = top_chord.to_global(this.top_loc)
                         break
                 # Change web's coordinates to global coordinates
                 this.bot_coord = c01
@@ -221,14 +222,15 @@ class Truss2D(Frame2D):
             self.webs[this.mem_id] = this
             self.members["W" + str(this.mem_id)] = this
 
-        super().add(this)
+        else:
+            super().add(this)
 
 
 
     def calculate(self, load_id=2):
         super().calculate(load_id)
-        for joint in self.joints.values():
-            joint.calculate()
+        #for joint in self.joints.values():
+        #    joint.calculate()
 
     def generate(self):
         """ Generates the truss
@@ -236,11 +238,29 @@ class Truss2D(Frame2D):
         if not self.is_generated:
             self.is_generated = True
         # Generate members' nodes and elements
+
+        for tc in self.top_chords:
+            tc.calc_nodal_coordinates()
+            tc.round_coordinates()
+            tc.generate(self.f)
+
+        for bc in self.bottom_chords:
+            bc.calc_nodal_coordinates()
+            bc.round_coordinates()
+            bc.generate(self.f)
+
+        for w in self.webs.values():
+            w.calc_nodal_coordinates()
+            w.round_coordinates()
+            w.generate(self.f)
+
+
         for member in self.members.values():
-            if member.mtype != "web":
-                member.calc_nodal_coordinates()
-            member.round_coordinates()
-            member.generate(self.f)
+            # if member.mtype != "web":
+            #     member.calc_nodal_coordinates()
+            # member.round_coordinates()
+            # member.generate(self.f)
+            # # Save coordinates to truss' list
             for coord in member.nodal_coordinates:
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
@@ -297,119 +317,172 @@ class TrussMember(FrameMember):
         # List of chords' members between joints
         self.steel_members = []
 
-    
-    def add_node_coord(self, coord):
-        """
-        Adds coordinate to memeber's coordinates and
-        calculates new coordinates local location
-        If coordinate is not between member's coordinates, reject it
-        :param coord: array of two float values, node's coordinates
-        """
-        #if self.shape(coord[0]) == coord[1]:
-        if coord not in self.added_coordinates and self.point_intersection(coord):
-            self.added_coordinates.append(coord)
-            self.nodal_coordinates.append(coord)
-            self.nodal_coordinates.sort()
-            x, y = coord
-            x1, y1 = self.coordinates[0]
-            dx = x - x1
-            dy = y - y1
-            dz = math.sqrt((dx ** 2 + dy ** 2))
-            z = dz / self.length
-            self.loc.append(z)
-            self.loc.sort()
+
+    # def add_node_coord(self, coord):
+    #     """
+    #     Adds coordinate to memeber's coordinates and
+    #     calculates new coordinates local location
+    #     If coordinate is not between member's coordinates, reject it
+    #     :param coord: array of two float values, node's coordinates
+    #     """
+    #
+    #     #if self.shape(coord[0]) == coord[1]:
+    #     if list(coord) not in self.added_coordinates and self.point_intersection(coord):
+    #
+    #         self.added_coordinates.append(coord)
+    #         self.nodal_coordinates.append(coord)
+    #         c0, c1 = self.coordinates
+    #         self.nodal_coordinates.sort(
+    #             key=lambda c: np.linalg.norm(np.asarray(c0) - np.asarray(c)))
+    #         x, y = coord
+    #         x1, y1 = self.coordinates[0]
+    #         dx = x - x1
+    #         dy = y - y1
+    #         dz = math.sqrt((dx ** 2 + dy ** 2))
+    #         z = dz / self.length
+    #         self.loc.append(z)
+    #         self.loc.sort()
     
     def calc_nodal_coordinates(self, num_elements=0):
         """
             Calculates node locations along member
-            Coordinates used are global coordinates
+            Coordinates are global coordinates
             Adds locations to a list where they can be accessed later
             :param num_elements: int, number of elements to be created
         """
+        # if num_elements:
+        #     self.num_elements = num_elements
+        #
+        # self.nodal_coordinates = []
+        # coords = [list(c) for c in self.coordinates]
+        # start_node, end_node = sorted(coords)
+        # x0, y0 = start_node
+        # v = np.array([math.cos(self.angle), math.sin(self.angle)])
+        #
+        # for joint in self.joints:
+        #         joint.coordinate = joint.loc
+        #         #joint.calc_nodal_coordinates()
+        #
+        # joint_coords = [joint.coordinate for joint in self.joints]
+        # joint_coords.sort()
+        #
+        # # calculate nodal coordinates between joints
+        # if self.mtype != 'web' and len(self.joints) >= 1:
+        #     for coord in joint_coords:
+        #         x, y = coord
+        #         # Calculate distance between joints
+        #         L = np.sqrt((x - x0)**2 + (y - y0)**2)
+        #         # Calculate nodal coordinates between joints
+        #         for i in range(self.num_elements):
+        #             node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
+        #             node = list(node)
+        #             loc = self.global_coord(node)
+        #             if node not in self.nodal_coordinates:
+        #                 self.nodal_coordinates.append(node)
+        #             if loc not in self.loc:
+        #                 self.loc.append(loc)
+        #         x0, y0 = x, y
+        #     x, y = end_node
+        #     # Distance between joints
+        #     L = np.sqrt((x - x0)**2 + (y - y0)**2)
+        #
+        #     for i in range(self.num_elements):
+        #             node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
+        #             node = list(node)
+        #
+        #             loc = self.global_coord(node)
+        #             if node not in self.nodal_coordinates:
+        #                 self.nodal_coordinates.append(node)
+        #             if loc not in self.loc:
+        #                 self.loc.append(loc)
+        #     if [end_node[0], end_node[1]] not in self.nodal_coordinates:
+        #         self.nodal_coordinates.append([end_node[0], end_node[1]])
+        #
+        #     if 1 not in self.loc:
+        #         self.loc.append(1)
+        #
+        # # Calculate nodal coordinates along member
+        # else:
+        #     for i in range(self.num_elements):
+        #
+        #         x, y = np.asarray([x0, y0]) + (i*self.length) / self.num_elements * v
+        #         loc = i / self.num_elements
+        #         node = [x, y]
+        #         if node not in self.nodal_coordinates:
+        #             self.nodal_coordinates.append(node)
+        #         if loc not in self.loc:
+        #             self.loc.append(loc)
+        #     if [end_node[0], end_node[1]] not in self.nodal_coordinates:
+        #         self.nodal_coordinates.append(end_node)
+        #     if 1 not in self.loc:
+        #         self.loc.append(1)
+        # # move previously created nodes
+        # if self.is_generated:
+        #     #for joint in self.joints:
+        #     #     joint.coordinate = joint.loc
+        #     for j, node in enumerate(self.nodes.values()):
+        #         node.coord = np.array(self.nodal_coordinates[j])
+        #
+        # else:
+        #     for joint in self.joints:
+        #         joint.coordinate = joint.loc
+        #         #joint.calc_nodal_coordinates()
+        #
+        # #self.nodal_coordinates.extend(self.added_coordinates)
+        # #self.nodal_coordinates.sort()
+        #
+        self.nodal_coordinates = []
+        self.nodal_coordinates.extend(self.added_coordinates)
         if num_elements:
             self.num_elements = num_elements
 
-        self.nodal_coordinates = []
-        start_node, end_node = sorted(self.coordinates)
-        x0, y0 = start_node
-        v = np.array([math.cos(self.angle), math.sin(self.angle)])
-        
-        for joint in self.joints:
-                joint.coordinate = joint.loc
-                #joint.calc_nodal_coordinates()
-        
-        joint_coords = [joint.coordinate for joint in self.joints]
-        joint_coords.sort()
-        # calculate nodal coordinates between joints
-        if self.mtype != 'web' and len(self.joints) >= 1:
-            for coord in joint_coords:
-                x, y = coord
-                # Calculate distance between joints
-                L = np.sqrt((x - x0)**2 + (y - y0)**2)
-                # Calculate nodal coordinates between joints
-                for i in range(self.num_elements):
-                    node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
-                    node = list(node)
-                    loc = self.global_coord(node)
-                    if node not in self.nodal_coordinates:
-                        self.nodal_coordinates.append(node)
-                    if loc not in self.loc:
-                        self.loc.append(loc)
-                x0, y0 = x, y
-            x, y = end_node
-            # Distance between joints
-            L = np.sqrt((x - x0)**2 + (y - y0)**2)
+        joint_locs = [j.loc for j in self.joints]
 
-            for i in range(self.num_elements):
-                    node = np.asarray([x0, y0]) + (i*L) / self.num_elements * v
-                    node = list(node)
+        if len(joint_locs):
+            if 0 not in joint_locs:
+                joint_locs.append(0)
+            if 1 not in joint_locs:
+                joint_locs.append(1)
+            joint_locs.sort()
+            for i in range(len(joint_locs) -1):
 
-                    loc = self.global_coord(node)
-                    if node not in self.nodal_coordinates:
-                        self.nodal_coordinates.append(node)
-                    if loc not in self.loc:
-                        self.loc.append(loc)
-            if [end_node[0], end_node[1]] not in self.nodal_coordinates:
-                self.nodal_coordinates.append([end_node[0], end_node[1]])
-                
-            if 1 not in self.loc:
-                self.loc.append(1)
-                
-        # Calculate nodal coordinates along member
+                j_loc_0 = joint_locs[i]
+                j_loc_1 = joint_locs[i + 1]
+
+                d_loc = j_loc_1 - j_loc_0
+                d_loc /= self.num_elements
+
+                for j in range(self.num_elements):
+                    loc = j_loc_0 + d_loc * j
+                    coord = list(self.to_global(loc))
+                    if loc <= 1 and coord not in self.nodal_coordinates:
+                        self.nodal_coordinates.append(coord)
+            last_joint_coord = list(self.to_global(joint_locs[-1]))
+            if last_joint_coord not in self.nodal_coordinates:
+                self.nodal_coordinates.append(last_joint_coord)
+            if list(self.to_global(1)) not in self.nodal_coordinates:
+                self.nodal_coordinates.append(list(self.to_global(1)))
+
+            c0, c1 = self.coordinates
+            self.nodal_coordinates.sort(key=lambda c: np.linalg.norm(np.asarray(c0) - np.asarray(c)))
         else:
-            for i in range(self.num_elements):
-                
-                x, y = np.asarray([x0, y0]) + (i*self.length) / self.num_elements * v
-                loc = i / self.num_elements
-                node = [x, y]
-                if node not in self.nodal_coordinates:
-                    self.nodal_coordinates.append(node)
-                if loc not in self.loc:
-                    self.loc.append(loc)
-            if [end_node[0], end_node[1]] not in self.nodal_coordinates:
-                self.nodal_coordinates.append(end_node)
-            if 1 not in self.loc:
-                self.loc.append(1)
-        # move previously created nodes
+            super().calc_nodal_coordinates(num_elements)
+
         if self.is_generated:
-            #for joint in self.joints:
-            #     joint.coordinate = joint.loc
-            for j, node in enumerate(self.nodes.values()):
-                node.x = np.array(self.nodal_coordinates[j])
-               
-        else:
-            for joint in self.joints:
-                joint.coordinate = joint.loc
-                #joint.calc_nodal_coordinates()
-        
-        #self.nodal_coordinates.sort()
+            nodes = list(self.nodes.values())
+            c0, c1 = self.coordinates
+            nodes = sorted(nodes, key= lambda n: np.linalg.norm(np.asarray(c0) - np.asarray(n.coord)))
+            for j, node in enumerate(nodes):
+                node.coord = np.array(self.nodal_coordinates[j])
+
 
 
 
 
     def check_cross_section(self):
         super().check_cross_section()
-        if self.mtype != 'web':
+        self.steel_members = []
+        if self.mtype != 'web':  # If member is chord
             # Sort joints using joints' local coordinate
             self.joints.sort(key=lambda x: x.loc)
             for i in range(len(self.joints) -1):
@@ -425,6 +498,9 @@ class TrussMember(FrameMember):
                 self.steel_members.append(steel_mem)
 
             for steel_member in self.steel_members:
+                for id in range(j0.cnode.nid, j1.cnode.nid):
+                    N, V, M = self.nodal_forces[id]
+                    steel_member.add_section(ned=N, myed=M, vyed=V)
                 r = []
                 r_sect = steel_member.check_sections()
                 r_buckling = steel_member.check_buckling()
@@ -513,22 +589,22 @@ class TrussMember(FrameMember):
             if i == 0:
                 self.elements[index] = \
                     EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                    fem_model.sections[self.mem_id], \
-                                    fem_model.materials[self.mem_id], \
+                                    self.cross_section, \
+                                    self.material, \
                                     rot_stiff=[self.Sj1, np.inf])
             # EBSemiRigid -element, last element
             elif i == (len(self.nodes) - 2):
                 self.elements[index] = \
                     EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                    fem_model.sections[self.mem_id], \
-                                    fem_model.materials[self.mem_id], \
+                                    self.cross_section, \
+                                    self.material, \
                                     rot_stiff=[np.inf, self.Sj2])
             # EBBeam -elements
             else:              
                 self.elements[index] = \
                     EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                           fem_model.sections[self.mem_id], \
-                           fem_model.materials[self.mem_id])
+                           self.cross_section, \
+                           self.material)
         
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
@@ -626,47 +702,66 @@ class TrussMember(FrameMember):
         X.append(self.nodal_coordinates[i][0])
         Y.append(self.nodal_coordinates[i][1])
         plt.plot(X, Y, color='gray')
-        
+
+
+
+
+class Chord(FrameMember):
+
+    def __init__(self, coordinates, **kwargs):
+        super().__init__(coordinates, **kwargs)
+
+        self.members = []
+        self.joints = []
+
+
+    def generate(self, fem_model):
+
+        locs = [0, 1]
+        for joint in self.joints:
+            if joint.loc not in locs:
+                locs.append(joint.loc)
+
+        locs.sort()
+        for i in range(len(locs) -1):
+            c0 = self.to_global(locs[i])
+            c1 = self.to_global(locs[i+1])
+            mem = FrameMember([c0, c1])
+            self.members.append(mem)
+            mem.generate(fem_model)
+
+
+
+
+
+    def check_cross_section(self):
+        for mem in self.members:
+            mem.check_cross_section()
 
 class TopChord(TrussMember):
     def __init__(self,
                  coordinates,
-                 mem_id="",
-                 profile="SHS 100x5",
-                 material="S355",
-                 num_elements=2,
-                 Sj1=np.inf,
-                 Sj2=np.inf):
+                 **kwargs):
         super().__init__(coordinates,
-                         mem_id,
-                         profile,
-                         material,
-                         num_elements,
-                         Sj1,
-                         Sj2)
+                         **kwargs)
 
         self.mtype = 'top_chord'
+
+
 
 
 class BottomChord(TrussMember):
 
     def __init__(self,
                  coordinates,
-                 mem_id="",
-                 profile="SHS 100x5",
-                 material="S355",
-                 num_elements=2,
-                 Sj1=np.inf,
-                 Sj2=np.inf):
+                 **kwargs):
         super().__init__(coordinates,
-                         mem_id,
-                         profile,
-                         material,
-                         num_elements,
-                         Sj1,
-                         Sj2)
+                         **kwargs)
         self.mtype = 'bottom_chord'
 
+    @property
+    def perpendicular(self):
+        return -1 * super().perpendicular
 
 class TrussWeb(TrussMember):
     def __init__(self,
@@ -721,7 +816,7 @@ class TrussWeb(TrussMember):
     def bot_coord(self, val):
         self.__bot_coord = val
         if self.n1:
-            self.n1.x = val
+            self.n1.coord = val
         self.coordinates = [val, self.top_coord]
         
         
@@ -733,26 +828,24 @@ class TrussWeb(TrussMember):
     def top_coord(self, val):
         self.__top_coord = val
         if self.n2:
-            self.n2.x = val
+            self.n2.coord = val
         self.coordinates = [self.bot_coord, val]
-        
-        
-    
 
-class TrussJoint():
+
+class TrussJoint:
     def __init__(self, chord, loc, joint_type="N", g1=30, g2=30):
 
         self.chord = chord
         self.chord_elements = {}
         self.jid = None
         self.__loc = loc
-        self.__coordinate = chord.local(loc)
+        self.__coordinate = chord.to_global(loc)
         self.cnode = None # central node
         self.chord_nodes = []
         self.joint_type = joint_type
         self.__g1 = g1
         self.__g2 = g2
-        self.nodal_coordinates = []
+        self.nodal_coordinates = {}
         self.nodes = {}
         self.elements = {}
         self.element_ids = []
@@ -779,6 +872,7 @@ class TrussJoint():
     
     @loc.setter
     def loc(self, val):
+        val = max(min(val, 1), 0)
         self.__loc = round(val, PREC)
         if self.chord.mtype == 'top_chord':
             for web in self.webs.values():
@@ -793,7 +887,7 @@ class TrussJoint():
 
     @property
     def coordinate(self):     
-        return [round(c, PREC) for c in self.chord.local(self.loc)]
+        return [round(c, PREC) for c in self.chord.to_global(self.loc)]
 
     @coordinate.setter
     def coordinate(self, val):
@@ -806,7 +900,52 @@ class TrussJoint():
             if 0 <= val <= 1:
                 self.loc = val
                 self.calc_nodal_coordinates()
-                        
+
+
+    @property
+    def e(self):
+        if self.joint_type == 'K':
+            w1, w2 = list(self.webs.values())
+            h1 = w1.h
+            h2 = w2.h
+            h0 = self.chord.h
+
+            theta1 = min(abs(w1.angle - self.chord.angle),
+                         abs(np.pi - w1.angle - self.chord.angle))
+            theta2 = min(abs(w2.angle - self.chord.angle),
+                         abs(np.pi - w2.angle - self.chord.angle))
+
+            e = h1/(2*np.sin(theta1)) + h2/(2*np.sin(theta2)) + self.g1
+            e *= (np.sin(theta1) * np.sin(theta2)) / np.sin(theta1 + theta2)
+            e -= h0/2
+
+            return e
+
+        return 0
+
+
+    @e.setter
+    def e(self, val):
+
+        if self.joint_type == 'K':
+            w1, w2 = self.webs.values()
+            h1 = w1.h
+            h2 = w2.h
+            h0 = self.chord.h
+
+            theta1 = min(abs(w1.angle - self.chord.angle),
+                         abs(np.pi - w1.angle - self.chord.angle))
+            theta2 = min(abs(w2.angle - self.chord.angle),
+                         abs(np.pi - w2.angle - self.chord.angle))
+
+            g = val + h0/2
+            g *= np.sin(theta1 + theta2) / (np.sin(theta1) * np.sin(theta2))
+            g -= h1 / (2*np.sin(theta1))
+            g -= h2 / (2 * np.sin(theta2))
+            self.g1 = g
+
+
+
     @property
     def g1(self):
         return self.__g1
@@ -1003,7 +1142,7 @@ class TrussJoint():
             # Calculate coordinates n-times because web's angle changes
             n = 10
             for i in range(n):                
-                # Iterate trhough every web member in the joint
+                # Iterate through every web member in the joint
                 for web in self.webs.values():
                     # angle between chord and web
                     theta = abs(self.chord.angle - web.angle)
@@ -1081,7 +1220,7 @@ class TrussJoint():
         # Move existing nodes
         if len(self.nodes):
             for i, node in enumerate(self.nodes.values()):
-                node.x = self.nodal_coordinates[i]
+                node.coord = self.nodal_coordinates[i]
           
         # Set joint type
         if len(self.nodal_coordinates) == 0:
@@ -1113,10 +1252,117 @@ class TrussJoint():
         else:
             raise ValueError('Too many nodes for one joint')
             
-            
-    def round_coordinates(self, prec=PREC):       
-        for i, coord in enumerate(self.nodal_coordinates):
-            self.nodal_coordinates[i] = [round(c, prec) for c in coord]         
+
+
+    def calc_nodal_coordinates(self):
+        """
+
+        :return:
+        """
+        coords = []
+
+        if len(self.webs) == 1:
+            self.joint_type = "Y"
+            w1 = list(self.webs.values())[0]
+            c0 = self.chord.to_global(self.loc)
+            c1 = c0 + self.chord.h / 2 * self.chord.perpendicular
+            if self.chord.mtype == 'top_chord':
+                w1.top_coord = c1
+            else:
+                w1.bot_coord = c1
+
+            coords = [c0, c1]
+
+            self.nodal_coordinates['c0'] = c0
+            self.nodal_coordinates['c1'] = c1
+
+        elif len(self.webs) == 2:
+            self.joint_type = 'K'
+            c0 = self.chord.to_global(self.loc)
+            ec = c0 - self.e * self.chord.perpendicular
+
+            if self.chord.mtype == 'top_chord':
+                w1, w2 = sorted(self.webs.values(), key= lambda w: w.bot_loc)
+                c01 = self.chord.line_intersection([w1.bot_coord, ec])
+                c02 = self.chord.line_intersection([w2.bot_coord, ec])
+
+            else:
+                w1, w2 = sorted(self.webs.values(), key=lambda w: w.top_loc)
+                c01 = self.chord.line_intersection([w1.top_coord, ec])
+                c02 = self.chord.line_intersection([w2.top_coord, ec])
+
+            theta1 = w1.angle - self.chord.angle
+            d1 = abs(self.chord.h / 2   / np.tan(theta1))
+            c01 -= self.chord.unit * d1
+
+            theta2 = w2.angle - self.chord.angle
+            d2 = abs(self.chord.h / 2 / np.tan(theta2))
+            c02 += self.chord.unit * d2
+
+            if self.chord.mtype == 'top_chord':
+                c1 = np.asarray(c01) + self.chord.h / 2 * self.chord.perpendicular
+                c2 = np.asarray(c02) + self.chord.h / 2 * self.chord.perpendicular
+                w1.top_coord = c1
+                w2.top_coord = c2
+            else:
+                c1 = np.asarray(c01) + self.chord.h / 2 * self.chord.perpendicular
+                c2 = np.asarray(c02) + self.chord.h / 2 * self.chord.perpendicular
+                w1.bot_coord = c1
+                w2.bot_coord = c2
+
+            coords = [c0, c01, c02, c1, c2]
+
+            self.nodal_coordinates['c0'] = c0
+            self.nodal_coordinates['c01'] = c01
+            self.nodal_coordinates['c02'] = c02
+            self.nodal_coordinates['c1'] = c1
+            self.nodal_coordinates['c2'] = c2
+
+            #
+            #
+            # plt.plot([c0[0], ec[0]], [c0[1], ec[1]])
+            # w1.plot()
+            # w2.plot()
+            # plt.scatter(*w1.line_intersection(w2), marker='x')
+            # plt.scatter(*ec)
+            # plt.scatter(*c0, marker='s')
+            # plt.scatter(*c01)
+            # plt.scatter(*c02)
+            # plt.scatter(*(np.asarray(c01) + self.chord.h / 2 * self.chord.perpendicular))
+            # plt.scatter(*(np.asarray(
+            #     c02) + self.chord.h / 2 * self.chord.perpendicular))
+            # plt.axis('equal')
+            # plt.show()
+
+        elif len(self.webs) == 3:
+            self.joint_type = 'KT'
+            c0 = self.chord.to_global(self.loc)
+            ec = c0 - self.e * self.chord.perpendicular
+            if self.chord.mtype == 'top_chord':
+                w1, w2, w3 = sorted(self.webs.values(), key= lambda w: w.bot_loc)
+            else:
+                w1, w2, w3 = sorted(self.webs.values(), key=lambda w: w.top_loc)
+            c01 = self.chord.line_intersection(w1)
+            theta1 = w1.angle - self.chord.angle
+            d1 = abs(self.chord.h / 2   / np.tan(theta1))
+            c01 -= self.chord.unit * d1
+
+            c02 = self.chord.line_intersection(w2)
+            theta2 = w2.angle - self.chord.angle
+            d2 = abs(self.chord.h / 2 / np.tan(theta2))
+            c02 += self.chord.unit * d2
+
+        for c in coords:
+            self.chord.add_node_coord(c)
+
+        if self.is_generated:
+            for key, coord in self.nodal_coordinates.items():
+                self.nodes[key].coord = coord
+
+
+    def round_coordinates(self, prec=PREC):
+        for name, coord in self.nodal_coordinates.items():
+            self.nodal_coordinates[name] = [round(c, prec) for c in coord]
             
     def generate(self, fem_model):
         """
@@ -1135,9 +1381,9 @@ class TrussJoint():
         """
         if not self.is_generated:
             self.is_generated = True
-            for coord in self.nodal_coordinates:
+            for name, coord in self.nodal_coordinates.items():
                 idx = fem_model.nodal_coords.index(coord)
-                self.nodes[idx] = fem_model.nodes[idx]
+                self.nodes[name] = fem_model.nodes[idx]
                 if coord == self.coordinate:
                     self.cnode = fem_model.nodes[idx]
                 if coord in self.chord.nodal_coordinates:
@@ -1180,99 +1426,67 @@ class TrussJoint():
         """
         Generates eccentricity elements
         """
-        # Create a list of node instances sorted by node's x-coordinate
-        nodes = [x for _,x in sorted(zip(self.nodal_coordinates,
-                                         list(self.nodes.values())))]
-        chord_nodes = []
-        web_nodes = []
-        for node in nodes:
-            if node in self.chord.nodes.values():
-                chord_nodes.append(node)
-            else:
-                web_nodes.append(node)
-                
-        web_nodes = sorted(web_nodes, key=lambda node: node.x)
-        chord_nodes = sorted(chord_nodes, key=lambda node: node.x)
+
+
+        section = HEA(1000)
 
         index = len(fem_model.elements)
         if self.joint_type == 'Y':
-            n1, n2 = nodes
-            self.elements[index] = EBBeam(n1,
-                                        n2,
-                                        fem_model.sections[self.idx], 
+            self.elements[index] = EBBeam(self.nodes['c0'],
+                                        self.nodes['c1'],
+                                        section,
                                         fem_model.materials[self.idx])
             # Add it to fem model
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
-            
-        elif self.joint_type == 'N':
-            wn1, wn2 = web_nodes
-            cn1, cn2 = chord_nodes
-            
-            self.elements[index] = EBBeam(cn1,
-                                         wn1,
-                                        fem_model.sections[self.idx], 
-                                        fem_model.materials[self.idx])
-            # Add it to fem model
-            fem_model.add_element(self.elements[index])
-            self.element_ids.append(index)
-            # Chrod and web
-            self.elements[index+1] = EBBeam(cn2,
-                                            wn2,
-                                            fem_model.sections[self.idx], 
-                                            fem_model.materials[self.idx])
-            # Add it to fem model
-            fem_model.add_element(self.elements[index+1])
-            self.element_ids.append(index+1)
-            
-            
+
+
         elif self.joint_type == 'K':
-            cn1, cn2, cn3 = chord_nodes
-            wn1, wn2 = web_nodes
             # Chrod and web
-            self.elements[index] = EBBeam(cn1,
-                                        wn1,
-                                        fem_model.sections[self.idx], 
+            self.elements[index] = EBBeam(self.nodes['c01'],
+                                        self.nodes['c1'],
+                                        section,
                                         fem_model.materials[self.idx])
             # Add it to fem model
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
             # Chrod and web
-            self.elements[index+1] = EBBeam(cn3,
-                                            wn2,
-                                            fem_model.sections[self.idx], 
+            self.elements[index+1] = EBBeam(self.nodes['c02'],
+                                            self.nodes['c2'],
+                                            section,
                                             fem_model.materials[self.idx])
             # Add it to fem model
             fem_model.add_element(self.elements[index+1])
             self.element_ids.append(index+1)
-            
-        elif self.joint_type == 'KT':
-            cn1, cn2, cn3 = chord_nodes
-            wn1, wn2, wn3 = web_nodes
-            # Chrod and web
-            self.elements[index] = EBBeam(cn1,
-                                        wn1,
-                                        fem_model.sections[self.idx], 
-                                        fem_model.materials[self.idx])
-            # Add it to fem model
-            fem_model.add_element(self.elements[index])
-            self.element_ids.append(index)
-            # Central and web
-            self.elements[index+1] = EBBeam(cn2,
-                                            wn2,
-                                            fem_model.sections[self.idx], 
-                                            fem_model.materials[self.idx])
-            # Add it to fem model
-            fem_model.add_element(self.elements[index+1])
-            self.element_ids.append(index+1)
-            # Chrod and web
-            self.elements[index+2] = EBBeam(cn3,
-                                            wn3,
-                                            fem_model.sections[self.idx], 
-                                            fem_model.materials[self.idx])
-            # Add it to fem model
-            fem_model.add_element(self.elements[index+2])
-            self.element_ids.append(index+2)
+
+        # TODO: KT
+        # elif self.joint_type == 'KT':
+        #     cn1, cn2, cn3 = chord_nodes
+        #     wn1, wn2, wn3 = web_nodes
+        #     # Chrod and web
+        #     self.elements[index] = EBBeam(cn1,
+        #                                 wn1,
+        #                                 section,
+        #                                 fem_model.materials[self.idx])
+        #     # Add it to fem model
+        #     fem_model.add_element(self.elements[index])
+        #     self.element_ids.append(index)
+        #     # Central and web
+        #     self.elements[index+1] = EBBeam(cn2,
+        #                                     wn2,
+        #                                     section,
+        #                                     fem_model.materials[self.idx])
+        #     # Add it to fem model
+        #     fem_model.add_element(self.elements[index+1])
+        #     self.element_ids.append(index+1)
+        #     # Chrod and web
+        #     self.elements[index+2] = EBBeam(cn3,
+        #                                     wn3,
+        #                                     section,
+        #                                     fem_model.materials[self.idx])
+        #     # Add it to fem model
+        #     fem_model.add_element(self.elements[index+2])
+        #     self.element_ids.append(index+2)
             
         
     def plot(self, print_text=True, color=True):
@@ -1406,7 +1620,7 @@ class TrussJoint():
         # NODES
         for key in self.nodes.keys():
             node = self.nodes[key]
-            x, y = node.x
+            x, y = node.coord
             plt.scatter(x, y, s=100, c='pink')
             plt.text(x, y, str(key), horizontalalignment='center',
                      verticalalignment='center', fontsize=15)
@@ -1426,8 +1640,8 @@ class TrussJoint():
         # ECCENTRICITY ELEMENTS
         for elem in self.elements.values():
             n1, n2 = elem.nodes
-            x1, y1 = n1.x
-            x2, y2 = n2.x
+            x1, y1 = n1.coord
+            x2, y2 = n2.coord
             plt.plot([x1,x2], [y1, y2], c='b')
             
         plt.axis('equal')
@@ -1612,15 +1826,36 @@ class TrussColumn(Truss2D):
                 self.add(TrussWeb(c2, c1))
         
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+if __name__ == '__main__':
+
+    from src.frame2d.frame2d import *
+    frame = Frame2D(simple=[1,1, 5000, 5000], supports='fixed', beams=False)
+
+    simple = dict(
+        H0=5000,
+        H1=1500,
+        H2=2000,
+        L1=12500,
+        H3=1500,
+        dx=1000,
+        n=16
+    )
+
+    truss = Truss2D(simple=simple)
+    for tc in truss.top_chords:
+        truss.add(LineLoad(tc, [-30, -30], 'y'))
+
+    truss.add(XYHingedSupport([0,simple['H0'] + simple['H1']]))
+    truss.add(YHingedSupport([simple['L1'] * 2, simple['H0'] + simple['H3']]))
+    frame.add(truss)
+    truss.generate()
+    # truss.calculate()
+    truss.f.draw()
+    for j in truss.joints.values():
+        j.e = -100
+
+    truss.f.draw()
+
+

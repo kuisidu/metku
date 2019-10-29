@@ -21,6 +21,8 @@ lcr_list = [0.7]
 buckling_z = [True]    
 LT_buckling = [True]    
 cross_section_class_list = [2]
+sym = "dual"  # dual or mono
+prob_type = "discrete"  # continuous or discrete
     
 Mz = 0    
 Qy = 0    
