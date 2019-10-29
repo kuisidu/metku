@@ -6,16 +6,18 @@ import numpy as np
 import math
 import time
 
-start_height = 100
-stop_height = 500
+MIN_HEIGHT = 100
+MAX_HEIGHT = 500
 step_height = 10
-start_width = 100
-stop_width = 500
+MIN_WIDTH = 100
+MAX_WIDTH = 500
 step_width = 10
 
-HEIGHTS = np.arange(start_height, stop_height+step_height, step_height)
-WIDTHS = np.arange(start_width, stop_width+step_width, step_width)
+HEIGHTS = np.arange(MIN_HEIGHT, MAX_HEIGHT+step_height, step_height)
+WIDTHS = np.arange(MIN_WIDTH, MAX_WIDTH+step_width, step_width)
 THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
+MAX_THICK = max(THICKNESSES)
+MIN_THICK = min(THICKNESSES)
 
 try:
     from src.frame2d.frame2d import *
@@ -127,26 +129,26 @@ class WIColumn(OptimizationProblem):
 
         if self.prob_type == "continuous":
 
-            var_h = Variable("h", 100, 500,
+            var_h = Variable("h", MIN_HEIGHT, MAX_HEIGHT,
                              target={"property": "H", "objects": [col]})
-            var_tw = Variable("tw", 4, 50,
+            var_tw = Variable("tw", MIN_THICK, MAX_THICK,
                               target={"property": "TW", "objects": [col]})
             if self.symmetry == "mono":
-                var_tt = Variable("tt", 4, 50,
+                var_tt = Variable("tt", MIN_THICK, MAX_THICK,
                                  target={"property": "TT", "objects": [col]})
-                var_tb = Variable("tb", 4, 50,
+                var_tb = Variable("tb", MIN_THICK, MAX_THICK,
                                  target={"property": "TB", "objects": [col]})
-                var_bt = Variable("bt", 100, 500,
+                var_bt = Variable("bt", MIN_WIDTH, MAX_WIDTH,
                                   target={"property": "BT", "objects": [col]})
-                var_bb = Variable("bb", 100, 500,
+                var_bb = Variable("bb", MIN_WIDTH, MAX_WIDTH,
                                   target={"property": "BB", "objects": [col]})
 
                 self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
 
             elif self.symmetry == "dual":
-                var_tf = Variable("tf", 4, 50,
+                var_tf = Variable("tf", MIN_THICK, MAX_THICK,
                                   target={"property": "TF", "objects": [col]})
-                var_bf = Variable("bf", 100, 500,
+                var_bf = Variable("bf", MIN_WIDTH, MAX_WIDTH,
                                   target={"property": "BF", "objects": [col]})
 
                 self.vars = [var_h, var_tw, var_bf, var_tf]
@@ -406,36 +408,58 @@ class WIColumn(OptimizationProblem):
 
         return con
 
+    def TopFlangeShearLagCon(self, mem):
+        """
+        Builds a constraint for shear lag
+        0.5 * bt - 0.5 * tw <= Lpi/50 + sqrt(2)*aw
+        """
+
+        a = np.zeros(self.nvars())
+        con_type = '<'
+
+        for i in range(len(self.vars)):
+
+            if self.vars[i].target["property"] == "BT":
+                a[i] = +0.5
+            elif self.vars[i].target["property"] == "TW":
+                a[i] = -0.5
+
+        b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
+
+        con_name = "Top flange shear buckling"
+
+        con = LinearConstraint(a, b, con_type, name=con_name)
+
+        return con
+
+    def BottomFlangeShearLagCon(self, mem):
+        """
+        Builds a constraint for shear lag
+        0.5 * bb - 0.5 * tw <= Lpi/50 + sqrt(2)*aw
+        """
+
+        a = np.zeros(self.nvars())
+        con_type = '<'
+
+        for i in range(len(self.vars)):
+
+            if self.vars[i].target["property"] == "BB":
+                a[i] = +0.5
+            elif self.vars[i].target["property"] == "TW":
+                a[i] = -0.5
+
+        b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
+
+        con_name = "Bottom flange shear buckling"
+
+        con = LinearConstraint(a, b, con_type, name=con_name)
+
+        return con
+
     # def ShearBucklingCon(self, mem):
     #     """
     #     Builds a constraint for shear buckling resistance
-    #     0.5 * max(bt, bb) - 0.5 * tw - Lpi/50 <= sqrt(2)*aw
-    #     """
-    #
-    #     a = np.zeros(self.nvars())
-    #     con_type = '<'
-    #
-    #     for i in range(len(self.vars)):
-    #
-    #         if self.vars[i].target["property"] == "BT":
-    #             a[i] = +0.5
-    #         elif self.vars[i].target["property"] == "BB":
-    #             a[i] = +0.5
-    #         elif self.vars[i].target["property"] == "TW":
-    #             a[i] = -0.5
-    #
-    #     b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
-    #
-    #     con_name = "Shear buckling "
-    #
-    #     con = LinearConstraint(a, b, con_type, name=con_name)
-    #
-    #     return con
-    #
-    # def ShearLagCon(self, mem):
-    #     """
-    #     Builds a constraint for shear lag
-    #     hw / (tw * e) > ny
+    #     hw - (72 * e / ny) * tw <= 0
     #     """
     #
     #     a = np.zeros(self.nvars())
@@ -642,13 +666,12 @@ class WIColumn(OptimizationProblem):
 
             self.cons.append(self.WIColumnWebClassCon(mem))
             self.cons.append(self.WIColumnTopFlangeClassCon(mem))
+            self.cons.append(self.TopFlangeShearLagCon(mem))
             if self.symmetry == "mono":
                 self.cons.append(self.WIColumnBottomFlangeClassCon(mem))
+                self.cons.append(self.BottomFlangeShearLagCon(mem))
                 
             self.cons.append(self.WIColumnWebHeightCon(h_min=50))
-
-            # self.cons.append(self.ShearBucklingCon(mem))
-            # self.cons.append(self.ShearLagCon(mem))
 
 
 if __name__ == "__main__":

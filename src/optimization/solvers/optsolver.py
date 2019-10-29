@@ -12,7 +12,6 @@ except:
     from optimization.structopt import OptimizationProblem
 
 
-
 class OptSolver:
     """
         Base class for optimization problem solvers
@@ -88,7 +87,6 @@ class OptSolver:
     def take_action(self):
         pass
 
-
     def step(self, action):
         """
         Takes a step
@@ -106,9 +104,7 @@ class OptSolver:
 
         return self.X.copy(), 1, False, 'INFO'
 
-
-
-    def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=False,
+    def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=True,
               min_diff=1e-5, verb=False):
         """
         Solves given problem
@@ -193,6 +189,10 @@ class OptSolver:
             end = time.time()
             print(f"Iteration took: {end - start :.2f} s")
 
+        if self.best_x is None:
+            self.best_x = self.X
+            self.best_f = problem.obj(self.X)
+
         return self.best_f, self.best_x
 
     def random_feasible_point(self):
@@ -223,4 +223,3 @@ class OptSolver:
         print("Starting point created!")
 
         return np.asarray(X)
-        

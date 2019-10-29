@@ -2,7 +2,6 @@
 try:
     from src.frame2d.frame2d import *
     from src.optimization.structopt import *
-    from src.optimization.solvers import GA, DiscreteVNS
 except:
     from frame2d.frame2d import *
     from optimization.structopt import *
