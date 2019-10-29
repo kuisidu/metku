@@ -8,7 +8,9 @@ Euler-Bernoulli beam in 2D with rotational stiffness at nodes
 """
 
 import numpy as np
+from functools import lru_cache
 
+CACHE_BOUND = 2**10
 from .ebbeam import EBBeam
 
 # Constants
@@ -80,7 +82,7 @@ class EBSemiRigidBeam(EBBeam):
         gamma = []
 
         E = self.material.young
-        I1 = self.section.Iy
+        I1 = self.section.I[0]
         L = self.length()
         g0 = E * I1 / L
 
@@ -117,12 +119,9 @@ class EBSemiRigidBeam(EBBeam):
         """ Get numbering of element global degrees of freedom """
         return self.nodes[0].dofs + self.nodes[1].dofs
 
-    def local_stiffness_matrix(self):
+    @lru_cache(CACHE_BOUND)
+    def local_stiffness_matrix(self, E, A, I1, Le):
         """ Stiffness matrix in local coordinates """
-        E = self.material.young
-        A = self.section.area
-        I1 = self.section.Iy
-        Le = self.length()
 
         rodc = E * A / Le
         EI1 = E * I1
@@ -172,7 +171,11 @@ class EBSemiRigidBeam(EBBeam):
     def stiffness_matrix(self):
         """ Compute the stiffness matrix """
 
-        k0 = self.local_stiffness_matrix()
+        E = self.material.young
+        A = self.section.A
+        I1 = self.section.I[0]
+        Le = self.length()
+        k0 = self.local_stiffness_matrix(E, A, I1, Le)
 
         # k0 = CheckReleases[fem.elem[N],k0];
 
