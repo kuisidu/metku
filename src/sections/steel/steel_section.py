@@ -60,7 +60,7 @@ class SteelSection(metaclass=ABCMeta):
                  Ved=0.0,
                  design_code=en1993_1_1):
         self.fy = fy
-        self.eps = en1993_1_1.epsilon(self.fy)
+
         self.E = constants.E
         self.A = A
         self.I = np.asarray(I)
@@ -75,6 +75,15 @@ class SteelSection(metaclass=ABCMeta):
         self.code = design_code
         self.density = constants.density
 
+
+    def __repr__(self):
+        return type(self).__name__
+
+
+    @property
+    def eps(self):
+        return self.code.epsilon(self.fy)
+
     @property
     def NRd(self):
         if self.Ned > 0:
@@ -86,7 +95,7 @@ class SteelSection(metaclass=ABCMeta):
     @property
     def VRd(self):
         if abs(self.Ashear) < 1e-6 or self.fy < 1e-3:
-            print(self.Ashear)
+            print("STEEL SECTION, ASHEAR: ", self.Ashear)
         return self.code.shear_resistance(self.Ashear, self.fy)
 
 

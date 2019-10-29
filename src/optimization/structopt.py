@@ -87,7 +87,11 @@ class Variable:
         self.locked = False
 
     def substitute(self, new_value):
-
+        """
+        Changes variable's value and modifies target
+        :param new_value:
+        :return:
+        """
         if not self.locked:
             """ Substitute a new value for the variable """
             self.value = new_value
@@ -162,6 +166,7 @@ class IndexVariable(IntegerVariable):
                     " index or a value from the given list!")
 
         super().substitute(new_value)
+        self.value = self.idx
 
     @property
     def idx(self):
@@ -542,7 +547,7 @@ class OptimizationProblem:
                     B = np.hstack((B, con.b))
 
         end = time.time()
-        # print("Linearization took: ", end - start, " s")
+        print("Linearization took: ", end - start, " s")
 
         return A, B, df, fx
 
@@ -723,18 +728,17 @@ class OptimizationProblem:
         """ Substitute variable values from xval to structure """
 
 
-        xvals = [np.clip(x, var.lb, var.ub) for x, var in zip(xvals, self.vars)]
 
+        xvals = [max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)]
         # Save starting point
         if not np.any(self.X):
             self.x0 = xvals.copy()
 
-        if np.any(self.X != xvals):
-            self.X = xvals
-            self.fea_done = False
-            for x, var in zip(xvals, self.vars):
-                var.substitute(x)
-
+        # if np.any(self.X != xvals):
+        self.X = xvals.copy()
+        self.fea_done = False
+        for x, var in zip(xvals, self.vars):
+            var.substitute(x)
         #
         # for i in range(len(xvals)):
         #     self.substitute_variable(i, xvals[i])

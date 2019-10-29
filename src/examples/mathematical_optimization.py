@@ -1,7 +1,7 @@
 import numpy as np
 
 from src.optimization.structopt import OptimizationProblem, Variable, \
-    NonLinearConstraint
+    NonLinearConstraint, ObjectiveFunction
 
 
 class ConstrainedRosenbrockProblem(OptimizationProblem):
@@ -46,19 +46,23 @@ class ConstrainedRosenbrockProblem(OptimizationProblem):
         con1 = NonLinearConstraint(con_fun=confun1,
                                    name="Constraint 1",
                                    con_type="<",
-                                   parent=self)
+                                   problem=self)
 
         con2 = NonLinearConstraint(con_fun=confun2,
                                    name="Constraint 2",
                                    con_type="<",
-                                   parent=self)
+                                   problem=self)
 
         self.cons = [con1, con2]
 
     def create_objective(self):
-        def obj(x):
+        def obj_fun(x):
             x1, x2 = x
             return (1 - x1) ** 2 + 100 * (x2 - x1 ** 2) ** 2
+
+        obj = ObjectiveFunction(name="Objective ",
+                                obj_fun=obj_fun)
+        obj.problem = self
 
         self.obj = obj
 
@@ -105,16 +109,20 @@ class ConstrainedTownsendProblem(OptimizationProblem):
         constr = NonLinearConstraint(con_fun=confun,
                                      name="Constraint",
                                      con_type='<',
-                                     parent=self)
+                                     problem=self)
 
         self.cons = [constr]
 
     def create_objective(self):
-        def obj(x):
+        def obj_fun(x):
             x1, x2 = x
 
             val = -(np.cos((x1 - 0.1) * x2)) ** 2 - x1 * np.sin(3 * x1 + x2)
             return val
+
+        obj = ObjectiveFunction(name="Objective ",
+                                obj_fun=obj_fun)
+        obj.problem = self
 
         self.obj = obj
 
@@ -123,6 +131,10 @@ if __name__ == '__main__':
 
     problem = ConstrainedRosenbrockProblem()
     solver = SLP()
+    x0 = [1,1]
+    problem.substitute_variables(x0)
+    problem.vars[0].lock()
     x0 = [var.ub for var in problem.vars]
+
     fopt, xopt = solver.solve(problem, x0=x0, maxiter=50)
     problem(xopt)
