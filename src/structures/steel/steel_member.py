@@ -67,12 +67,12 @@ class SteelMember:
 
     @property
     def NbRd(self):
-        return self.buckling_strength()
+        return np.asarray(self.buckling_strength())
 
     @property
     def MbRd(self):
         Mcr = self.mcrit()
-        return self.LT_buckling_strength(Mcr)
+        return np.asarray(self.LT_buckling_strength(Mcr))
     
     @property
     def MEdY(self):
