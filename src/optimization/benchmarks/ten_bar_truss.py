@@ -2,7 +2,6 @@
 try:
     from src.optimization.structopt import *
     from src.frame2d.frame2d import *
-    from src.optimization.solvers import DiscreteVNS
 except:
     from optimization.structopt import *
     from frame2d.frame2d import *
@@ -12,7 +11,10 @@ import numpy as np
 
 
 ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
+ten_bar_TwoPhase = [41, 0, 38, 32, 0, 0, 27, 37, 37, 0]
 ten_bar_PSO = [40, 0, 38, 29, 0, 0, 27, 39, 37, 1]
+# [21607.5, 1044.9, 14770.5, 9997.5, 1044.9, 1044.9, 5140.65, 14190.0, 14190.0, 1044.9]
+
 
 TEN_BAR_AREAS_in2 = [1.62, 1.80, 1.99, 2.13, 2.38, 2.62, 2.63, 2.88, 2.93,
                     3.09, 3.13, 3.38, 3.47, 3.55, 3.63, 3.84, 3.87, 3.88,
@@ -28,7 +30,6 @@ TEN_BAR_AREAS_mm2 = [1044.9, 1161.0, 1283.55, 1373.85, 1535.1, 1689.9,
                      3302.4, 3702.3, 4656.9, 5140.65, 7417.5, 8707.5, 8965.5,
                      9159.0, 9997.5, 10320.0, 10900.5, 12126.0, 12835.5,
                      14190.0, 14770.5, 17092.5, 19350.0, 21607.5]
-
 
 class TenBarTruss(OptimizationProblem):
 
@@ -71,7 +72,7 @@ class TenBarTruss(OptimizationProblem):
             name = 'A' + str(i + 1)
             if self.prob_type == "discrete":
                 var = DiscreteVariable(name,
-                                    profiles=profiles,
+                                    values=profiles,
                                     target={"property": "A",
                                             "objects": [mem]})
 
@@ -82,13 +83,20 @@ class TenBarTruss(OptimizationProblem):
                                target={"property": "A",
                                        "objects": [mem]})
 
+            elif self.prob_type == 'index':
+                var = IndexVariable(name,
+                                   values=profiles,
+                                   target={"property": "A",
+                                           "objects": [mem]})
+
+
             else:
 
                 raise TypeError("Problem type must be either 'discrete' "
                                 "or 'continuous")
 
 
-            self.vars.append(var)
+            self.add(var)
 
 
     def _create_structure(self):
@@ -138,6 +146,7 @@ class TenBarTruss(OptimizationProblem):
             mem.cross_section.fy = self.sigma_max
             mem.E = self.E  # MPa
             mem.A = TEN_BAR_AREAS_mm2[0]
+            mem.rho = self.rho
             mem.Sj1 = 0
             mem.Sj2 = 0
         frame.generate()
@@ -149,7 +158,6 @@ class TenBarTruss(OptimizationProblem):
     def constraint_generator(self, mem):
 
         def compression_fun(x):
-
             return -mem.ned / (mem.A * mem.fy) - 1
 
         def tension_fun(x):
@@ -181,21 +189,21 @@ class TenBarTruss(OptimizationProblem):
 
                     comp_con = NonLinearConstraint(con_fun=compression_fun,
                                                  name="Compression " + str(i),
-                                                 parent=self)
+                                                 )
                     comp_con.fea_required = True
 
                     tension_con = NonLinearConstraint(con_fun=tension_fun,
-                                                     name="Tension " + str(i),
-                                                     parent=self)
+                                                     name="Tension " + str(i))
                     tension_con.fea_required = True
+
 
                     disp_con = NonLinearConstraint(con_fun=disp_fun,
                                                  name='Displacement ' + str(i),
-                                                 parent=self)
+                                                 )
                     disp_con.fea_required = True
-                    self.cons.append(comp_con)
-                    self.cons.append(tension_con)
-                    self.cons.append(disp_con)
+                    self.add(comp_con)
+                    self.add(tension_con)
+                    self.add(disp_con)
 
     def create_objective(self):
 
@@ -203,35 +211,26 @@ class TenBarTruss(OptimizationProblem):
             self.substitute_variables(X)
             weight = 0
             for mem in self.structure.members.values():
-                weight += self.rho * mem.A * mem.length
-
+                weight += mem.weight
             return weight
 
-        self.obj = objective
+        obj = ObjectiveFunction(name="Weight",
+                                obj_fun=objective)
+
+        self.add(obj)
 
 
 if __name__ == '__main__':
-    import time
-    sub_sizes = np.arange(2, 10)
-    step_lengths = np.arange(1, 5)
 
-    # for step_length in step_lengths:
-    #     for sub_size in sub_sizes:
-    problem = TenBarTruss()
-    problem.structure.plot()
-    # solver = DiscreteVNS(step_length=3)
-    # start = time.time()
-    # x, f, steps = solver.solve(problem,
-    #                          maxiter=1000,
-    #                          maxtime=300,
-    #                          subset_size=3)
-    # end = time.time()
-    # total_time = round(end - start, 2)
-    # with open("tenbartruss_results.csv", 'a') as f:
-    #     f.write(f'{x};'
-    #             f'{round(f,2)};'
-    #             f'{len(steps)};'
-    #             f'{step_length};'
-    #             f'{sub_size};'
-    #             f'{total_time}')
+    from src.optimization.solvers import *
+
+    problem = TenBarTruss('discrete')
+    solver = MISLP([0.05, 0.05], 1e-2)
+    x0 = [var.lb for var in problem.vars]
+    print("X0: ", x0)
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=300, verb=True, plot=True)
+    # problem([21607.5, 1044.9, 14770.5, 9997.5, 1044.9, 1044.9, 5140.65, 14190.0, 14190.0, 1044.9])
+    # problem(ten_bar_PSO)
+
+
 
