@@ -16,6 +16,7 @@ import time
 
 import numpy as np
 import scipy.optimize as sciop
+from itertools import product
 
 from functools import lru_cache
 
@@ -808,6 +809,52 @@ class OptimizationProblem:
             res = None
 
         return res
+    
+    def discrete_neighborhood(self,x,k,method='nearest'):
+        """ Creates a discrete neighborhood around point 'x' 
+            input:
+                k -- parameter used by the 'method'
+                method .. procedure for defining the neigborhood
+        """
+        neighborhood = []
+        
+        for i, var in enumerate(self.vars):
+            if method == 'nearest':
+                if isinstance(var,DiscreteVariable):
+                    values = np.array(var.values)
+                    """ Sort values in ascending order of distance from 'x' 
+                        np.argsort returns the indices of 'values'
+                    """
+                
+                    sorted_ndx = np.argsort(abs(values-x[i]))
+                    """ Get k actual values closest to x and transform
+                        the Numpy array to list.
+                        
+                        Update the list of values for this variable
+                    """
+                    neighborhood.append(values[sorted_ndx[:k]].tolist())
+                elif isinstance(var,IntegerVariable):
+                    """ For integer variables, make a list of
+                        integers between lb and ub
+                        
+                        The sorting is the same as for discrete variables,
+                        but here only lb and ub need to be updated.
+                    """
+                    values = np.arange(var.lb,var.ub+1)
+                    sorted_ndx = np.argsort(abs(values-x[i]))
+                    new_values = values[sorted_ndx[:k]].tolist()
+                    neighborhood.append(new_values)
+                    #var.lb = min(new_values)
+                    #var.ub = max(new_values)
+                
+        
+        """
+            Create iterable nList that contains the neighborhood points
+            as a list of tuples
+        """
+        nList = product(*neighborhood)
+        return nList
+
 
 
 def NumGrad(fun, h, x):
@@ -873,6 +920,46 @@ if __name__ == '__main__':
     # dvars.append(Variable("Flange thickness", 5, 40))
     # dvars.append(Variable("Web thickness", 5, 40))
     #
+
+        
+    def obj_fun(x):
+        return x[0]**2 + 2*x[1]**3 -4*x[2]
+    
+    x1 = DiscreteVariable(name='x1',values = [4.5, 5.4, 7.23, 11.2, 13.4])
+    x2 = IntegerVariable(name='x2',lb=1,ub =10)
+    x3 = DiscreteVariable(name='x3',values = [3.77,6.987,11.223])
+    x = [x1,x2,x3]
+    x0 = [6.66,4.445,5.0]
+    
+    p = OptimizationProblem(name="I-Beam Weight Minimization",variables=x)
+    
+    p.obj = obj_fun
+    
+    N = p.discrete_neighborhood(x0,k=4)
+    
+    fvals = []
+    for xi in N:
+        print(xi)
+        fvals.append((p.obj(xi)))
+    # create grid of neighborhood points
+    #M = np.meshgrid(*N)
+    
+    #s = M[0][0].shape
+    
+
+    """
+    for a in np.nditer(M):
+        print(len(a),list(a))
+    """
+    
+    """
+    for i in range(s[0]):
+        for j in range(s[1]):
+            for k in 
+            for I,m in enumerate(M):
+                x[I] = m(k,i,j)
+    """         
+    
     # p = OptimizationProblem(name="I-Beam Weight Minimization",
     # variables=dvars)
 

@@ -1,6 +1,13 @@
-from src.optimization.solvers import OptSolver
-from src.optimization.structopt import Variable, OptimizationProblem,\
-    IndexVariable, DiscreteVariable, IntegerVariable
+
+try:
+    from src.optimization.solvers import OptSolver
+    from src.optimization.structopt import Variable, OptimizationProblem,\
+        IndexVariable, DiscreteVariable, IntegerVariable
+except:
+    from optimization.solvers import OptSolver
+    from optimization.structopt import Variable, OptimizationProblem,\
+        IndexVariable, DiscreteVariable, IntegerVariable
+
 import numpy as np
 import random
 
