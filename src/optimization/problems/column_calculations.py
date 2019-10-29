@@ -8,7 +8,7 @@ try:
     from src.frame2d.frame2d import *
     from src.optimization.structopt import *
     from src.optimization.problems.wi_column import WIColumn
-    from src.optimization.solvers import slsqp, slp, slqp, mislp
+    from src.optimization.solvers import slsqp, slp, slqp, mislp, two_phase
     from src.optimization.solvers.trust_region import TrustRegionConstr
     from src.optimization.result_exporter import *
     from src.eurocodes.en1993 import en1993_1_1
@@ -16,7 +16,7 @@ except:
     from frame2d.frame2d import *
     from optimization.structopt import *
     from optimization.problems.wi_column import WIColumn
-    from optimization.solvers import slsqp, slp, slqp, mislp
+    from optimization.solvers import slsqp, slp, slqp, mislp, two_phase
     from optimization.solvers.trust_region import TrustRegionConstr
     from optimization.solvers.bnb import BnB
     from optimization.result_exporter import *
@@ -141,7 +141,7 @@ class ColumnCalculation(WIColumn):
                             # solver = mislp.MISLP(move_limits=[0.5, 5])
                             # # problem(x0)
                             # solver.solve(problem,
-                            #              maxiter=150,
+                            #              maxiter=200,
                             #              x0=x0,
                             #              min_diff=1e-2,
                             #              verb=True)
@@ -150,17 +150,20 @@ class ColumnCalculation(WIColumn):
                             # 2-vaihetekniikalla
                             # solver1 = SLP(move_limits=[0.9, 4])
                             # solver1 = TrustRegionConstr()
-                            # solver2 = MISLP(move_limits=[0.85, 1.5])
-                            # solver = TwoPhase(solver1, solver2,
-                            #                   limits=[3, 3])
+                            # solver2 = mislp.MISLP(move_limits=[0.85, 1.5])
+                            # solver = two_phase.TwoPhase(
+                            #     solver1, solver2, limits=[3, 3])
                             # fopt, xopt = solver.solve(problem,
                             #                           x0=x0,
-                            #                           maxiter=50,
+                            #                           maxiter=200,
                             #                           # min_diff=1e-6,
                             #                           # verb=True
                             #                           )
                             # problem(xopt)
+                            # ResultExporter(problem, solver2).to_csv()
+                            # ResultExporter(problem, solver2).csv_to_excel()
 
+                            # ResultExporter muille kuin 2-vaihetekniikalle
                             ResultExporter(problem, solver).to_csv()
 
 
