@@ -1,4 +1,8 @@
-from src.framefem.framefem import Material
+
+try:
+    from src.framefem.framefem import Material
+except:
+    from framefem.framefem import Material
 
 
 class Steel(Material):

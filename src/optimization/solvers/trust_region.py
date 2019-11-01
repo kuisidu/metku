@@ -175,6 +175,19 @@ class TrustRegionConstr(OptSolver):
         for ineqcon in ieqcons:
             con = {'type': 'ineq', 'fun': ineqcon}
             constraints.append(con)
+            
+        """
+        
+        """
+        out = minimize(self.problem.obj,
+                           x0,
+                           method='trust-constr',
+                           tol = 1e-10,
+                           bounds=bounds,
+                           constraints=constraints,
+                           options=options,
+                           # callback=self.callback
+                           )
         """
         try:
             out = minimize(self.problem.obj,

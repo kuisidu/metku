@@ -164,7 +164,7 @@ class ColumnCalculation(WIColumn):
                             # ResultExporter(problem, solver2).csv_to_excel()
 
                             # ResultExporter muille kuin 2-vaihetekniikalle
-                            ResultExporter(problem, solver).to_csv()
+                            #ResultExporter(problem, solver).to_csv()
 
 
 
