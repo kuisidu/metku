@@ -91,7 +91,7 @@ class WIColumn(OptimizationProblem):
         def obj_fun(x):
             self.substitute_variables(x)
             return self.structure.weight
-        obj = ObjectiveFunction("weight", obj_fun)
+        obj = ObjectiveFunction("weight", obj_fun,problem=self)
         self.add(obj)
 
     def create_structure(self, Lpi, Fx, Fy, Qx, Qy, Mz, lcr, LT_buckling):

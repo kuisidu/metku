@@ -21,6 +21,7 @@ try:
     from src.optimization.solvers.optsolver import OptSolver
 except:    
     from optimization.solvers.optsolver import OptSolver
+    from optimization.solvers.lp import LP
     import optimization.structopt as sopt
 
 
@@ -354,6 +355,8 @@ class BnB(OptSolver):
             If the problem is feasible, update the lower bound and set xR
         """
         flb, xlb, nit = self.lb_solver.solve(self.problem)
+        
+        print(self.lb_solver.result)
         if self.lb_solver.result.success == True:
             self.tree[node.identifier].data.lb = flb
             self.tree[node.identifier].data.xR = xlb   
@@ -475,14 +478,41 @@ class BnB(OptSolver):
             minimum and maximum values for variables
         """
         
-        for var in self.problem.vars:
+        
+        for i, var in enumerate(self.problem.vars):
+            lobj = np.zeros(self.problem.nvars())
             """ Formulate linear problem """
-            LP = sopt.OptimizationProblem(name="LP_tight",variables=self.problem.vars)
-                            
+            print("Create LP problem")
+            LPprob = sopt.OptimizationProblem(name="LP_tight",constraints = [],variables=self.problem.vars)            
+            lobj[i] = 1
+            lObjective = sopt.LinearObjective("LP_tight_obj",c=lobj,obj_type="MIN",problem=LPprob)
+            
+            print(lobj)
+            LPprob.add(lObjective)
+            
+            print(LPprob.cons)
+            for con in self.problem.cons:            
+                if isinstance(con,sopt.LinearConstraint):
+                    LPprob.add(con)
+            
+            print(LPprob.cons)
+            solver = LP("gurobi")
+            solver.solve(LPprob)
+            
+    
+            LPprob(solver.X)
+            print(solver.X)
+            
+            LPprob.obj.obj_type = "MAX"
+            solver.solve(LPprob)
+            LPprob(solver.X)
+            print(solver.X)
+            
     
     def pre_process(self,node):
         """ Pre-processing of a node """
         self.feasibility_tightening()
+        self.optimality_tightening()
     
     def post_process(self,node):
         """ Post-processing of a node """

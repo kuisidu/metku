@@ -13,6 +13,7 @@ a form suitable for each solver.
 """
 
 import time
+import math
 
 import numpy as np
 import scipy.optimize as sciop
@@ -21,6 +22,7 @@ from itertools import product
 from functools import lru_cache
 
 CACHE_BOUND = 2**10
+INT_TOL = 1e-4
 
 
 class Variable:
@@ -102,6 +104,15 @@ class Variable:
                     obj.__setattr__(prop, new_value)
 
 
+    def discrete_violation(self,x):
+        """ Identify the violation of value 'x' from allowable (Discrete)
+            value. Returns 0 for continous variables
+        :return:
+
+        """
+        return 0
+
+    
 
 class IntegerVariable(Variable):
     """ Class for integer variables
@@ -119,6 +130,29 @@ class IntegerVariable(Variable):
         """
 
         super().__init__(name, lb, ub, **kwargs)
+        
+    
+    def is_allowed_value(self,x):
+        """ Check if 'x' is an integer within the range of the variable """
+        
+        if x >= self.lb and x <= self.ub:
+            """ If x is within INT_TOL of its rounded integer value,
+                it is deemed integer
+            """
+            if math.isclose(x,round(x,0),abs_tol=INT_TOL):
+                return True
+            else:
+                return False
+        else:
+            return False
+    
+    def discrete_violation(self,x):
+        """ Identify the violation of value 'x' from allowable (Discrete)
+            value. Returns 0 for continous variables
+        """
+        
+        return abs(x-round(x,0))
+
 
 
 class BinaryVariable(IntegerVariable):
@@ -203,6 +237,46 @@ class DiscreteVariable(Variable):
             ub = None
 
         super().__init__(name, lb, ub, target=target)
+
+    def is_allowed_value(self,x):
+        """ Check if 'x' is one of the values listed in 
+            self.values
+        """
+            
+        if x >= self.lb and x <= self.ub:
+            """ If x is within INT_TOL of any of the allowed values,
+                it is deemed allowed
+            """
+            if min([abs(val-x) for val in self.values]) < INT_TOL:
+                return True
+                
+                """
+                for val in self.values:
+                    if abs(x-val) < INT_TOL:            
+                        return True        
+                """
+            return False
+        else:
+            return False
+        
+    def discrete_violation(self,x):
+        """ Identify the violation of value 'x' from allowable (Discrete)
+            value. 
+        """
+        return min([abs(val-x) for val in self.values])
+    
+    def smaller_discrete_value(self,x):
+        """ Returns discrete value smaller than 'x' and closest to it  """
+            
+        return max(list(filter(lambda val: (val-x<0),self.values)))
+            
+            #diff = [val-x for val in self.values]
+        
+    def larger_discrete_value(self,x):
+        """ Returns discrete value smaller than 'x' and closest to it  """
+            
+        return min(list(filter(lambda val: (val-x>0),self.values)))
+
 
 
 class Constraint:
@@ -290,20 +364,21 @@ class NonLinearConstraint(Constraint):
 
 class ObjectiveFunction:
 
-    def __init__(self, name, obj_fun, obj_type="MIN"):
+    def __init__(self, name, obj_fun, obj_type="MIN", problem=None):
 
         self.name = name
         if not callable(obj_fun):
             raise ValueError("obj_fun must be a function!")
         self.obj_fun = obj_fun
         self.obj_type = obj_type[:3].upper()
-        self.problem = None
+        self.problem = problem
 
 
     def __call__(self, x):
         X = [val for val in x]
         X.reverse()
         fixed_vals = self.problem.fixed_vals.copy()
+        
         for i, val in enumerate(fixed_vals):
             if val is None:
                 fixed_vals[i] = X.pop()
@@ -313,7 +388,7 @@ class ObjectiveFunction:
         if self.obj_type == "MIN":
             return self.obj_fun(fixed_vals)
         else:
-            return self.neg_call(fixed_vals)
+            return -self.obj_fun(fixed_vals)
 
     def neg_call(self, x):
         """
@@ -323,6 +398,24 @@ class ObjectiveFunction:
         """
         return -self(x)
 
+class LinearObjective(ObjectiveFunction):
+    """ Class for linear objective functions """
+    def __init__(self,name,c,obj_type="MIN",problem=None):
+        """ Constructor:
+            input:
+                c .. constant array for performing the evaluation
+                     c @ x
+        """
+        obj_fun = self.evaluate
+    
+        self.c = c
+    
+        super().__init__(name,obj_fun,obj_type,problem)
+        
+    
+    def evaluate(self,x):
+        """ Evaluate function value """
+        return np.array(self.c).dot(np.array(x))
 
 
 class OptimizationProblem:
@@ -590,8 +683,8 @@ class OptimizationProblem:
         print("** {0} **".format(self.name))
         print(f'Solution is feasible: {self.feasible}')
 
-        vals = [var.value for var in self.vars]
-        print(f"Optimal values: {vals}")
+        #vals = [var.value for var in self.vars]
+        #print(f"Optimal values: {vals}")
 
         print(f'X: {[round(val, prec) for val in x]}')
         g = self.eval_cons(x)

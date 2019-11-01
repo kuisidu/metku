@@ -164,10 +164,11 @@ class ColumnCalculation(WIColumn):
                             # ResultExporter(problem, solver2).csv_to_excel()
 
                             # ResultExporter muille kuin 2-vaihetekniikalle
-                            ResultExporter(problem, solver).to_csv()
+                            #ResultExporter(problem, solver).to_csv()
 
 
-                            ResultExporter(problem, solver).csv_to_excel()
+
+                            #ResultExporter(problem, solver).csv_to_excel()
 
                             seconds = time.process_time()
                             m, s = divmod(seconds, 60)
