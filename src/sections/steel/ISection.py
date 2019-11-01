@@ -82,6 +82,10 @@ class ISection(SteelSection):
             self.imp_factor_LT_gen = en1993_1_1.buckling_curve["b"]
             self.imp_factor_LT = en1993_1_1.buckling_curve["c"]
 
+
+    def __repr__(self):
+        return f"{type(self).__name__}  {self.h:.0f}"
+
     @property
     def hw(self):
         """ Straight part of the web """
@@ -203,7 +207,7 @@ class HEA(ISection):
         Subclass of ISection        
     """
 
-    def __init__(self, height=100, fy=355, catalogue=True):
+    def __init__(self, height=100, fy=355, catalogue=False):
         name = 'HE ' + str(height) + ' ' + 'A'
         # HEIGHT =! TO PROFILE NUMBER
 

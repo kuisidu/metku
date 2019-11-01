@@ -8,6 +8,9 @@ Euler-Bernoulli beam element in 2D
 """
 
 import numpy as np
+from functools import lru_cache
+
+CACHE_BOUND = 2**10
 
 try:
     from src.framefem import Element
@@ -45,6 +48,7 @@ class EBBeam(Element):
         self.bending_moment = [0.0, 0.0]
         self.shear_force = [0.0, 0.0]
 
+
     def transformation_matrix(self):
         """ Calculates transformation matrix from local to global coordinates
 
@@ -73,7 +77,8 @@ class EBBeam(Element):
         """
         return self.nodes[0].dofs + self.nodes[1].dofs
 
-    def local_stiffness_matrix(self):
+    @lru_cache(CACHE_BOUND)
+    def local_stiffness_matrix(self, E, A, I1, Le):
         """ Generates stiffness matrix in local coordinates
 
 
@@ -83,10 +88,6 @@ class EBBeam(Element):
             :rtype: np.array
 
         """
-        E = self.material.young
-        A = self.section.area
-        I1 = self.section.Iy
-        Le = self.length()
 
         rodc = E * A / Le
         EI1 = E * I1
@@ -119,8 +120,11 @@ class EBBeam(Element):
             :rtype: np.array
 
         """
-
-        k0 = self.local_stiffness_matrix()
+        E = self.material.young
+        A = self.section.A
+        I1 = self.section.I[0]
+        Le = self.length()
+        k0 = self.local_stiffness_matrix(E, A, I1, Le)
 
         # k0 = CheckReleases[fem.elem[N],k0];
 
@@ -245,7 +249,11 @@ class EBBeam(Element):
         """
         q = self.local_displacements()
         # ke = self.k0
-        ke = self.local_stiffness_matrix()
+        E = self.material.young
+        A = self.section.A
+        I1 = self.section.I[0]
+        Le = self.length()
+        ke = self.local_stiffness_matrix(E, A, I1, Le)
 
         if self.floc.size > 0:
             R = ke.dot(q) - self.floc

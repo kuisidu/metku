@@ -3,6 +3,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import time
 
 from scipy.optimize import basinhopping
 
@@ -12,14 +13,13 @@ except:
     from optimization.structopt import OptimizationProblem
 
 
-
 class OptSolver:
     """
         Base class for optimization problem solvers
     """
 
     def __init__(self):
-        self.constr_vals = np.array([])
+        self.constr_vals = np.array([-1])
         self.X = np.array([])
         self.problem = None
         self.fvals = []
@@ -89,6 +89,23 @@ class OptSolver:
     def take_action(self):
         pass
 
+    def update_plot(self, fig, ax):
+        """
+        Updates the plotted figure
+        :return:
+        """
+        ax.clear()
+        for mem in self.problem.structure.members.values():
+            (x0, y0), (x1, y1) = mem.coordinates
+            lw = mem.cross_section.A / 1000
+            ax.plot((x0, x1), (y0, y1), 'k', linewidth=lw)
+        #self.problem.structure.plot_loads()
+        #self.problem.structure.plot_deflection(10, show=False)
+
+        plt.title(f'Feasible: {self.problem.feasible}')
+        plt.axis('equal')
+        fig.canvas.draw()
+        plt.pause(0.0001)
 
     def step(self, action):
         """
@@ -107,10 +124,9 @@ class OptSolver:
 
         return self.X.copy(), 1, False, 'INFO'
 
+    def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=True,
+              min_diff=1e-5, verb=False, plot=False):
 
-
-    def solve(self, problem, x0=None, maxiter=-1, maxtime=-1, log=False,
-              min_diff=1e-5, verb=False):
         """
         Solves given problem
 
@@ -140,11 +156,20 @@ class OptSolver:
             self.X = self.random_feasible_point()
             problem.substitute_variables(self.X)
 
+
+        if plot:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            plt.ion()
+            plt.show()
+
         # Assign done
         done = False
         # Start iteration
         t_total = 0
         for i in range(maxiter):
+            if plot:
+                self.update_plot(fig, ax)
             # Check time
             start = time.time()
             t_0 = time.process_time()
@@ -194,6 +219,10 @@ class OptSolver:
             end = time.time()
             print(f"Iteration took: {end - start :.2f} s")
 
+        if self.best_x is None:
+            self.best_x = self.X
+            self.best_f = problem.obj(self.X)
+
         return self.best_f, self.best_x
 
     def random_feasible_point(self):
@@ -224,4 +253,3 @@ class OptSolver:
         print("Starting point created!")
 
         return np.asarray(X)
-        

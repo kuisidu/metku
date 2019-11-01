@@ -270,7 +270,8 @@ class ResultExporter:
                 'Top flange in class 3': '',
                 'Web in class 2': '',
                 'Top flange in class 2': '',
-                'Web height at least 50': ''
+                'Web height at least 50': '',
+                'Top flange shear buckling': ''
             }
 
             for con, g in zip(self.problem.cons, con_vals):
@@ -363,24 +364,24 @@ class ResultExporter:
             'type': 'no_blanks',
             'format': purple_color_format
         })
-        worksheet.conditional_format('S2:Z145', {
+        worksheet.conditional_format('S2:AA145', {
             'type': 'blanks',
             'format': grey_color_format
         })
-        worksheet.conditional_format('S2:Z145', {
+        worksheet.conditional_format('S2:AA145', {
             'type': 'cell',
             'criteria': '>',
             'value': 0,
             'format': red_color_format
         })
-        worksheet.conditional_format('S2:Z145', {
+        worksheet.conditional_format('S2:AA145', {
             'type': 'cell',
             'criteria': 'between',
             'minimum': -0.01,
             'maximum': 0,
             'format': yellow_color_format
         })
-        worksheet.conditional_format('S2:Z145', {
+        worksheet.conditional_format('S2:AA145', {
             'type': 'cell',
             'criteria': '<',
             'value': -0.01,

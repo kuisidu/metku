@@ -6,15 +6,15 @@ import numpy as np
 import math
 import time
 
-start_height = 100
-stop_height = 500
+MIN_HEIGHT = 100
+MAX_HEIGHT = 500
 step_height = 10
-start_width = 100
-stop_width = 500
+MIN_WIDTH = 100
+MAX_WIDTH = 500
 step_width = 10
 
-HEIGHTS = np.arange(start_height, stop_height+step_height, step_height)
-WIDTHS = np.arange(start_width, stop_width+step_width, step_width)
+HEIGHTS = np.arange(MIN_HEIGHT, MAX_HEIGHT+step_height, step_height)
+WIDTHS = np.arange(MIN_WIDTH, MAX_WIDTH+step_width, step_width)
 #THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
 THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
 MAX_THICK = max(THICKNESSES)
@@ -88,11 +88,11 @@ class WIColumn(OptimizationProblem):
         self.prob_type = 'continuous'
 
     def create_objective(self):
-        def obj(x):
+        def obj_fun(x):
             self.substitute_variables(x)
             return self.structure.weight
-
-        self.obj = obj
+        obj = ObjectiveFunction("weight", obj_fun)
+        self.add(obj)
 
     def create_structure(self, Lpi, Fx, Fy, Qx, Qy, Mz, lcr, LT_buckling):
         # Luo tyhjän kehän
@@ -135,29 +135,33 @@ class WIColumn(OptimizationProblem):
 
         if self.prob_type == "continuous":
 
-            var_h = Variable("h", 100, 500,
-                             target={"property": "H", "objects": [col]})
-            var_tw = Variable("tw", 4, 50,
-                              target={"property": "TW", "objects": [col]})
+            var_h = Variable("h", MIN_HEIGHT, MAX_HEIGHT,
+                             target={"property": "h", "objects": [col]})
+            var_tw = Variable("tw", MIN_THICK, MAX_THICK,
+                              target={"property": "tw", "objects": [col]})
             if self.symmetry == "mono":
-                var_tt = Variable("tt", 4, 50,
-                                 target={"property": "TT", "objects": [col]})
-                var_tb = Variable("tb", 4, 50,
-                                 target={"property": "TB", "objects": [col]})
-                var_bt = Variable("bt", 100, 500,
-                                  target={"property": "BT", "objects": [col]})
-                var_bb = Variable("bb", 100, 500,
-                                  target={"property": "BB", "objects": [col]})
+                var_tt = Variable("tt", MIN_THICK, MAX_THICK,
+                                 target={"property": "tt", "objects": [col]})
+                var_tb = Variable("tb", MIN_THICK, MAX_THICK,
+                                 target={"property": "tb", "objects": [col]})
+                var_bt = Variable("bt", MIN_WIDTH, MAX_WIDTH,
+                                  target={"property": "bt", "objects": [col]})
+                var_bb = Variable("bb", MIN_WIDTH, MAX_WIDTH,
+                                  target={"property": "bb", "objects": [col]})
 
-                self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+                vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+                for var in vars:
+                    self.add(var)
 
             elif self.symmetry == "dual":
-                var_tf = Variable("tf", 4, 50,
-                                  target={"property": "TF", "objects": [col]})
-                var_bf = Variable("bf", 100, 500,
-                                  target={"property": "BF", "objects": [col]})
+                var_tf = Variable("tf", MIN_THICK, MAX_THICK,
+                                  target={"property": "tf", "objects": [col]})
+                var_bf = Variable("b", MIN_WIDTH, MAX_WIDTH,
+                                  target={"property": "b", "objects": [col]})
 
-                self.vars = [var_h, var_tw, var_bf, var_tf]
+                vars = [var_h, var_tw, var_bf, var_tf]
+                for var in vars:
+                    self.add(var)
 
             else:
                 raise ValueError("Symmetry must be either dual or mono")
@@ -165,36 +169,40 @@ class WIColumn(OptimizationProblem):
         elif self.prob_type == "discrete":
             var_h = DiscreteVariable(
                 "h", values=HEIGHTS,
-                target={"property": "H", "objects": [col]})
+                target={"property": "h", "objects": [col]})
             var_tw = DiscreteVariable(
                 "tw", values=THICKNESSES,
-                target={"property": "TW", "objects": [col]})
+                target={"property": "tw", "objects": [col]})
 
             if self.symmetry == "mono":
                 var_tt = DiscreteVariable(
                     "tt", values=THICKNESSES,
-                    target={"property": "TT", "objects": [col]})
+                    target={"property": "tt", "objects": [col]})
                 var_tb = DiscreteVariable(
                     "tb", values=THICKNESSES,
-                    target={"property": "TB", "objects": [col]})
+                    target={"property": "tb", "objects": [col]})
                 var_bt = DiscreteVariable(
                     "bt", values=WIDTHS,
-                    target={"property": "BT", "objects": [col]})
+                    target={"property": "bt", "objects": [col]})
                 var_bb = DiscreteVariable(
                     "bb", values=WIDTHS,
-                    target={"property": "BB", "objects": [col]})
+                    target={"property": "bb", "objects": [col]})
 
-                self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+                vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+                for var in vars:
+                    self.add(var)
 
             elif self.symmetry == "dual":
                 var_tf = DiscreteVariable(
                     "tf", values=THICKNESSES,
-                    target={"property": "TF", "objects": [col]})
+                    target={"property": "tf", "objects": [col]})
                 var_bf = DiscreteVariable(
-                    "bf", values=WIDTHS,
-                    target={"property": "BF", "objects": [col]})
+                    "b", values=WIDTHS,
+                    target={"property": "b", "objects": [col]})
 
-                self.vars = [var_h, var_tw, var_bf, var_tf]
+                vars = [var_h, var_tw, var_bf, var_tf]
+                for var in vars:
+                    self.add(var)
 
             else:
                 raise ValueError("Symmetry must be either dual or mono")
@@ -202,36 +210,40 @@ class WIColumn(OptimizationProblem):
         elif self.prob_type == "index":
             var_h = IndexVariable(
                 "h", values=HEIGHTS,
-                target={"property": "H", "objects": [col]})
+                target={"property": "h", "objects": [col]})
             var_tw = IndexVariable(
                 "tw", values=THICKNESSES,
-                target={"property": "TW", "objects": [col]})
+                target={"property": "tw", "objects": [col]})
 
             if self.symmetry == "mono":
                 var_tt = IndexVariable(
                     "tt", values=THICKNESSES,
-                    target={"property": "TT", "objects": [col]})
+                    target={"property": "tt", "objects": [col]})
                 var_tb = IndexVariable(
                     "tb", values=THICKNESSES,
-                    target={"property": "TB", "objects": [col]})
+                    target={"property": "tb", "objects": [col]})
                 var_bt = IndexVariable(
                     "bt", values=WIDTHS,
-                    target={"property": "BT", "objects": [col]})
+                    target={"property": "bt", "objects": [col]})
                 var_bb = IndexVariable(
                     "bb", values=WIDTHS,
-                    target={"property": "BB", "objects": [col]})
+                    target={"property": "bb", "objects": [col]})
 
-                self.vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+                vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
+                for var in vars:
+                    self.add(var)
 
             elif self.symmetry == "dual":
                 var_tf = IndexVariable(
                     "tf", values=THICKNESSES,
-                    target={"property": "TF", "objects": [col]})
+                    target={"property": "tf", "objects": [col]})
                 var_bf = IndexVariable(
-                    "bf", values=WIDTHS,
-                    target={"property": "BF", "objects": [col]})
+                    "b", values=WIDTHS,
+                    target={"property": "b", "objects": [col]})
 
-                self.vars = [var_h, var_tw, var_bf, var_tf]
+                vars = [var_h, var_tw, var_bf, var_tf]
+                for var in vars:
+                    self.add(var)
 
             else:
                 raise ValueError("Symmetry must be either dual or mono")
@@ -257,13 +269,13 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "BT" or \
-                    self.vars[i].target["property"] == "BF":
+            if self.vars[i].target["property"] == "bt" or \
+                    self.vars[i].target["property"] == "b":
                 a[i] = 0.5
-            elif self.vars[i].target["property"] == "TT" or \
-                    self.vars[i].target["property"] == "TF":
+            elif self.vars[i].target["property"] == "tt" or \
+                    self.vars[i].target["property"] == "tf":
                 a[i] = - C0 * e
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = - 0.5
 
         b = math.sqrt(2) * mem.cross_section.weld_throat
@@ -303,11 +315,11 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "BT":
+            if self.vars[i].target["property"] == "bt":
                 a[i] = 0.5
-            elif self.vars[i].target["property"] == "TT":
+            elif self.vars[i].target["property"] == "tt":
                 a[i] = - C0 * e
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = - 0.5
 
         b = math.sqrt(2) * mem.cross_section.weld_throat
@@ -356,15 +368,15 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "H":
+            if self.vars[i].target["property"] == "h":
                 a[i] = 1
-            elif self.vars[i].target["property"] == "TT":
+            elif self.vars[i].target["property"] == "tt":
                 a[i] = - 1
-            elif self.vars[i].target["property"] == "TB":
+            elif self.vars[i].target["property"] == "tb":
                 a[i] = - 1
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = - C1 * e
-            elif self.vars[i].target["property"] == "TF":
+            elif self.vars[i].target["property"] == "tf":
                 a[i] = -2
 
         b = 2 * math.sqrt(2) * mem.cross_section.weld_throat
@@ -397,13 +409,13 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "H":
+            if self.vars[i].target["property"] == "h":
                 a[i] = -1
-            elif self.vars[i].target["property"] == "TT":
+            elif self.vars[i].target["property"] == "tt":
                 a[i] = + 1
-            elif self.vars[i].target["property"] == "TB":
+            elif self.vars[i].target["property"] == "tb":
                 a[i] = + 1            
-            elif self.vars[i].target["property"] == "TF":
+            elif self.vars[i].target["property"] == "tf":
                 a[i] = +2
 
         b = -h_min
@@ -414,36 +426,59 @@ class WIColumn(OptimizationProblem):
 
         return con
 
+    def TopFlangeShearLagCon(self, mem):
+        """
+        Builds a constraint for shear lag
+        0.5 * bt - 0.5 * tw <= Lpi/50 + sqrt(2)*aw
+        """
+
+        a = np.zeros(self.nvars())
+        con_type = '<'
+
+        for i in range(len(self.vars)):
+
+            if self.vars[i].target["property"] == "bt" or \
+                    self.vars[i].target["property"] == "b":
+                a[i] = +0.5
+            elif self.vars[i].target["property"] == "tw":
+                a[i] = -0.5
+
+        b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
+
+        con_name = "Top flange shear buckling"
+
+        con = LinearConstraint(a, b, con_type, name=con_name)
+
+        return con
+
+    def BottomFlangeShearLagCon(self, mem):
+        """
+        Builds a constraint for shear lag
+        0.5 * bb - 0.5 * tw <= Lpi/50 + sqrt(2)*aw
+        """
+
+        a = np.zeros(self.nvars())
+        con_type = '<'
+
+        for i in range(len(self.vars)):
+
+            if self.vars[i].target["property"] == "bb":
+                a[i] = +0.5
+            elif self.vars[i].target["property"] == "tw":
+                a[i] = -0.5
+
+        b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
+
+        con_name = "Bottom flange shear buckling"
+
+        con = LinearConstraint(a, b, con_type, name=con_name)
+
+        return con
+
     # def ShearBucklingCon(self, mem):
     #     """
     #     Builds a constraint for shear buckling resistance
-    #     0.5 * max(bt, bb) - 0.5 * tw - Lpi/50 <= sqrt(2)*aw
-    #     """
-    #
-    #     a = np.zeros(self.nvars())
-    #     con_type = '<'
-    #
-    #     for i in range(len(self.vars)):
-    #
-    #         if self.vars[i].target["property"] == "BT":
-    #             a[i] = +0.5
-    #         elif self.vars[i].target["property"] == "BB":
-    #             a[i] = +0.5
-    #         elif self.vars[i].target["property"] == "TW":
-    #             a[i] = -0.5
-    #
-    #     b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
-    #
-    #     con_name = "Shear buckling "
-    #
-    #     con = LinearConstraint(a, b, con_type, name=con_name)
-    #
-    #     return con
-    #
-    # def ShearLagCon(self, mem):
-    #     """
-    #     Builds a constraint for shear lag
-    #     hw / (tw * e) > ny
+    #     hw - (72 * e / ny) * tw <= 0
     #     """
     #
     #     a = np.zeros(self.nvars())
@@ -461,7 +496,7 @@ class WIColumn(OptimizationProblem):
     #
     #         if self.vars[i].target["property"] == "HW":
     #             a[i] = +1
-    #         elif self.vars[i].target["property"] == "TW":
+    #         elif self.vars[i].target["property"] == "tw":
     #             a[i] = -0.5
     #
     #     b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
@@ -542,43 +577,43 @@ class WIColumn(OptimizationProblem):
             buckling_y_con = NonLinearConstraint(con_fun=buckling_y,
                                                  name="Buckling_y " +
                                                       str(mem.mem_id),
-                                                 parent=self)
+                                                 )
             buckling_y_con.fea_required = True
             
             com_compression_bending_con_y = NonLinearConstraint(
                 con_fun=com_compression_bending_y,
                 name="Com_compression_bending_y " + str(mem.mem_id),
-                parent=self)
+                )
             com_compression_bending_con_y.fea_required = True
-            self.cons.append(com_compression_bending_con_y)
+            self.add(com_compression_bending_con_y)
 
-            # self.cons.append(buckling_y_con)
+            # self.add(buckling_y_con)
             
             if self.buckling_z:
 
                 buckling_z_con = NonLinearConstraint(con_fun=buckling_z,
                                                      name="Buckling_z " +
                                                           str(mem.mem_id),
-                                                     parent=self)
+                                                     )
                 buckling_z_con.fea_required = True
 
-                # self.cons.append(buckling_z_con)
+                # self.add(buckling_z_con)
 
                 com_compression_bending_con_z = NonLinearConstraint(
                     con_fun=com_compression_bending_z,
                     name="Com_compression_bending_z " + str(mem.mem_id),
-                    parent=self)
+                    )
                 com_compression_bending_con_z.fea_required = True
-                self.cons.append(com_compression_bending_con_z)
+                self.add(com_compression_bending_con_z)
             
             if self.LT_buckling:
 
                 lt_buckling_con = NonLinearConstraint(con_fun=lt_buckling,
                                                       name="LT_buckling " +
                                                            str(mem.mem_id),
-                                                      parent=self)
+                                                      )
                 lt_buckling_con.fea_required = True
-                self.cons.append(lt_buckling_con)
+                self.add(lt_buckling_con)
 
             """
             for i, elem in enumerate(mem.elements.values()):
@@ -590,24 +625,24 @@ class WIColumn(OptimizationProblem):
                 compression_con = NonLinearConstraint(con_fun=compression,
                                                       name="Compression " +
                                                            str(mem.mem_id) +
-                                                           str(i), parent=self)
+                                                           str(i), )
                 compression_con.fea_required = True
 
                 tension_con = NonLinearConstraint(con_fun=tension,
                                                   name="Tension " +
                                                        str(mem.mem_id) +
-                                                       str(i), parent=self)
+                                                       str(i), )
                 tension_con.fea_required = True
 
                 shear_con = NonLinearConstraint(con_fun=shear,
                                                 name="Shear " + str(mem.mem_id)
-                                                     + str(i), parent=self)
+                                                     + str(i), )
                 shear_con.fea_required = True
 
                 bending_moment_con = NonLinearConstraint(
                     con_fun=bending_moment, name="Bending_moment " +
                                                  str(mem.mem_id) +
-                                                 str(i), parent=self)
+                                                 str(i), )
                 bending_moment_con.fea_required = True
 
                 self.cons.extend([compression_con, tension_con, shear_con,
@@ -623,47 +658,48 @@ class WIColumn(OptimizationProblem):
                                                           name="Compression " +
                                                                str(mem.mem_id)
                                                                + str(i+1),
-                                                          parent=self)
+                                                          )
                     compression_con.fea_required = True
                     tension_con = NonLinearConstraint(con_fun=tension,
                                                       name="Tension " +
                                                            str(mem.mem_id) +
                                                            str(i+1),
-                                                      parent=self)
+                                                      )
                     tension_con.fea_required = True
                     shear_con = NonLinearConstraint(con_fun=shear,
                                                     name="Shear " +
                                                          str(mem.mem_id) +
                                                          str(i+1),
-                                                    parent=self)
+                                                    )
                     shear_con.fea_required = True
 
                     bending_moment_con = NonLinearConstraint(
                         con_fun=bending_moment, name="Bending_moment " +
                                                      str(mem.mem_id) +
-                                                     str(i+1), parent=self)
+                                                     str(i+1), )
                     bending_moment_con.fea_required = True
 
                     self.cons.extend([compression_con, tension_con, shear_con,
                                       bending_moment_con])
             """
 
-            self.cons.append(self.WIColumnWebClassCon(mem))
-            self.cons.append(self.WIColumnTopFlangeClassCon(mem))
+            self.add(self.WIColumnWebClassCon(mem))
+            self.add(self.WIColumnTopFlangeClassCon(mem))
+            self.add(self.TopFlangeShearLagCon(mem))
             if self.symmetry == "mono":
-                self.cons.append(self.WIColumnBottomFlangeClassCon(mem))
+                self.add(self.WIColumnBottomFlangeClassCon(mem))
+                self.add(self.BottomFlangeShearLagCon(mem))
                 
-            self.cons.append(self.WIColumnWebHeightCon(h_min=50))
-
-            # self.cons.append(self.ShearBucklingCon(mem))
-            # self.cons.append(self.ShearLagCon(mem))
+            self.add(self.WIColumnWebHeightCon(h_min=50))
 
 
 if __name__ == "__main__":
     from src.optimization.solvers import *
     from src.optimization.result_exporter import *
 
-    problem = WIColumn(prob_type='discrete')
+    problem = WIColumn(prob_type='continuous')
+    problem([265.56, 6.85, 216.95, 8.60])
+    print("PINTA_ALA=", problem.structure.members[0].A)
 
     # x0 = [300, 8, 200, 10, 200, 10]
     x0 = [300, 8, 200, 10]

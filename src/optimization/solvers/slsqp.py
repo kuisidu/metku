@@ -1,3 +1,4 @@
+import time
 
 import numpy as np
 from scipy.optimize import minimize
@@ -10,12 +11,10 @@ except:
 
 class SLSQP(OptSolver):
 
-
     def __init__(self):
         super().__init__()
 
-
-    def calc_constraints(self, x=[]):
+    def calc_constraints(self, x=None):
         """
         Calculates constraint values and saves them to numpy array
 
@@ -25,13 +24,10 @@ class SLSQP(OptSolver):
 
         """
         constr_vals = []
-        if not len(x):
+        if x is None:
             x = self.X
         # Calculate constraints
-        for i in range(len(self.problem.cons)):
-            constr_vals.append(self.problem.cons[i](x))
-
-        return np.asarray(constr_vals) * -1
+        self.constr_vals = self.problem.eval_cons(x)
 
     def _create_eqcons(self):
         """ Creates a list of equality constraints
@@ -61,7 +57,6 @@ class SLSQP(OptSolver):
 
         return ieqcons
 
-
     def _create_bounds(self):
         """ Creates a list of optimization variables' bounds
 
@@ -74,9 +69,7 @@ class SLSQP(OptSolver):
 
         return bounds
 
-
-
-    def solve(self, problem, maxiter=100, x0=[]):
+    def solve(self, problem, maxiter=100, x0=None, verb=False):
         """
         Solves given problem
 
@@ -86,26 +79,27 @@ class SLSQP(OptSolver):
 
         :return: fopt, xopt
         """
-
+        self.verb = verb
         self.problem = problem
+        self.maxiter = maxiter
         bounds = self._create_bounds()
         eqcons = self._create_eqcons()
         ieqcons = self._create_ieqcons()
 
         # Create initial guess if one isn't provided
-        if not len(x0):
+        if x0 is None:
             x0 = []
             for var in problem.vars:
-                x0.append(var.ub)# * np.random.uniform())
+                x0.append(var.ub)  # * np.random.uniform())
 
         """
             'eps' is the step length in numerical differentiation
         """
         options = {'maxiter': maxiter,
-                   'disp': True,
-                   'iprint': 2,
+                   'disp': verb,
+                   'iprint': 1,
                    'eps': 1e-4,
-                   'ftol':1e-3}
+                   'ftol': 1e-3}
 
         constraints = []
 
@@ -117,21 +111,37 @@ class SLSQP(OptSolver):
             con = {'type': 'ineq', 'fun': ineqcon}
             constraints.append(con)
 
+        self.start = time.time()
         out = minimize(self.problem.obj,
-                        x0,
-                        method='slsqp',
-                        tol = 1e-3,
-                        bounds=bounds,
-                        constraints=constraints,
-                        options=options)
-        
+                       x0,
+                       method='slsqp',
+                       tol=1e-3,
+                       bounds=bounds,
+                       constraints=constraints,
+                       options=options,
+                       callback=self.callback,
+                       )
+
         print(out)
-        
+
         print(self.calc_constraints(out.x))
         self.best_x = out.x
         self.best_f = out.fun
         self.X = out.x
         return out.fun, out.x
+
+    def callback(self, xk, iterations=[]):
+        i = len(iterations)
+        iterations.append(1)
+        if self.verb:
+            fval = self.problem.obj(xk)
+            self.calc_constraints(xk)
+            end = time.time()
+            print(f'\r Iteration {i + 1} / {self.maxiter}: Obj: {fval} Feasible: {self.problem.feasible} ' \
+                f'max g: {max(self.constr_vals):.4f}')
+            print(f"Iteration took: {end - self.start :.2f} s")
+            self.start = end
+
 
 class COBYLA(SLSQP):
 
@@ -170,13 +180,12 @@ class COBYLA(SLSQP):
             con = {'type': 'ineq', 'fun': ineqcon}
             constraints.append(con)
 
-
         out = minimize(self.problem.obj,
-                        x0,
-                        method='COBYLA',
-                        constraints=constraints,
-                        options=options)
-        #print(out)
+                       x0,
+                       method='COBYLA',
+                       constraints=constraints,
+                       options=options)
+        # print(out)
         return out
 
 
@@ -188,5 +197,3 @@ if __name__ == '__main__':
     xopt, fopt = solver.solve(problem, maxiter=10)
 
     problem(xopt)
-
-
