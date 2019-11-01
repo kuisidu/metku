@@ -111,6 +111,9 @@ class ColumnCalculation(WIColumn):
                             solver = BnB(problem,lb_solver)
                             solver.solve()
 
+                            print(solver.X)
+                            print(solver.best_x)
+                            print(solver.best_f)
                             """
                             # TrustRegionConstr
                             solver = TrustRegionConstr()

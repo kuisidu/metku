@@ -23,6 +23,9 @@ from functools import lru_cache
 
 CACHE_BOUND = 2**10
 INT_TOL = 1e-4
+""" Tolerance for discreteness violation of a discrete variable
+"""
+DISC_TOL = 1e-3 
 
 
 class Variable:
@@ -72,6 +75,7 @@ class Variable:
         self.target = target
         self.profiles = profiles
         self.locked = False
+        self.branch_priority = 0
 
 
     def lock(self, val=None):
@@ -151,7 +155,11 @@ class IntegerVariable(Variable):
             value. Returns 0 for continous variables
         """
         
-        return abs(x-round(x,0))
+        violation = abs(x-round(x,0))
+        if violation <= INT_TOL:
+            violation = 0
+        
+        return violation
 
 
 
@@ -263,7 +271,14 @@ class DiscreteVariable(Variable):
         """ Identify the violation of value 'x' from allowable (Discrete)
             value. 
         """
-        return min([abs(val-x) for val in self.values])
+        
+        violation = min([abs(val-x) for val in self.values])
+        
+        if violation <= DISC_TOL:
+            violation = 0
+        
+        return violation
+               
     
     def smaller_discrete_value(self,x):
         """ Returns discrete value smaller than 'x' and closest to it  """

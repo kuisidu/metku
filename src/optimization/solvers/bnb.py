@@ -411,12 +411,24 @@ class BnB(OptSolver):
         if strategy == 'max_int_violation':
             max_violation = 0
             branching_var = None
-            for i, var in enumerate(self.problem.vars):
+            for i, var in enumerate(self.problem.vars):                
                 violation_i = var.discrete_violation(xR[i])
-                if violation_i > max_violation:
-                    max_violation = violation_i
-                    branching_var = var                    
-                    xr = xR[i] 
+                print(var.name,var.branch_priority,violation_i)
+                if branching_var is None:
+                    if violation_i > max_violation:
+                        max_violation = violation_i
+                        branching_var = var                    
+                        xr = xR[i]
+                elif var.branch_priority > branching_var.branch_priority:
+                    if violation_i > 0:
+                        max_violation = violation_i
+                        branching_var = var                    
+                        xr = xR[i]
+                elif var.branch_priority == branching_var.branch_priority:
+                    if violation_i > max_violation:
+                        max_violation = violation_i
+                        branching_var = var                    
+                        xr = xR[i] 
         
         """ Create branching values """
         low_branch_value = branching_var.smaller_discrete_value(xr)
@@ -477,36 +489,50 @@ class BnB(OptSolver):
             Solve a series of LP-problems to find
             minimum and maximum values for variables
         """
-        
+        print("Optimality-based bounds tightening:")
         
         for i, var in enumerate(self.problem.vars):
             lobj = np.zeros(self.problem.nvars())
             """ Formulate linear problem """
-            print("Create LP problem")
+            
             LPprob = sopt.OptimizationProblem(name="LP_tight",constraints = [],variables=self.problem.vars)            
             lobj[i] = 1
             lObjective = sopt.LinearObjective("LP_tight_obj",c=lobj,obj_type="MIN",problem=LPprob)
             
-            print(lobj)
+            
             LPprob.add(lObjective)
             
-            print(LPprob.cons)
+            
             for con in self.problem.cons:            
                 if isinstance(con,sopt.LinearConstraint):
                     LPprob.add(con)
             
-            print(LPprob.cons)
+            
             solver = LP("gurobi")
             solver.solve(LPprob)
             
     
-            LPprob(solver.X)
-            print(solver.X)
+            #LPprob(solver.X)
+            if solver.feasible == True:                    
+                if solver.X[i] > self.problem.vars[i].lb:
+                    print("Increasing lower bound of {0:s}".format(self.problem.vars[i].name))
+                    print("From {0:4.2f} to {1:4.2f}".format(self.problem.vars[i].ub,solver.X[i]))
+                    self.problem.vars[i].lb = solver.X[i]
+            
+            
+            #print(solver.X)
             
             LPprob.obj.obj_type = "MAX"
             solver.solve(LPprob)
-            LPprob(solver.X)
-            print(solver.X)
+            
+            
+            if solver.feasible == True:                    
+                if solver.X[i] < self.problem.vars[i].ub:
+                    print("Lowering upper bound of {0:s}".format(self.problem.vars[i].name))
+                    print("From {0:4.2f} to {1:4.2f}".format(self.problem.vars[i].ub,solver.X[i]))
+                    self.problem.vars[i].ub = solver.X[i]
+                    
+            #print(solver.X)
             
     
     def pre_process(self,node):

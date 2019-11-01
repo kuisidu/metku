@@ -174,6 +174,7 @@ class WIColumn(OptimizationProblem):
                 "tw", values=THICKNESSES,
                 target={"property": "tw", "objects": [col]})
 
+            var_tw.branch_priority = 1
             if self.symmetry == "mono":
                 var_tt = DiscreteVariable(
                     "tt", values=THICKNESSES,
@@ -196,6 +197,8 @@ class WIColumn(OptimizationProblem):
                 var_tf = DiscreteVariable(
                     "tf", values=THICKNESSES,
                     target={"property": "tf", "objects": [col]})
+                
+                var_tf.branch_priority = 1
                 var_bf = DiscreteVariable(
                     "b", values=WIDTHS,
                     target={"property": "b", "objects": [col]})

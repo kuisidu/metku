@@ -78,11 +78,23 @@ class LP(OptSolver):
                 
                 lp.addLConstr(grb.LinExpr(con.a, x), con_sense, con.b)
                 
+
+        lp.update()                
+       
+
+        #for var in lp.getVars():
+        #    print(var.lb,var.ub)
+        
         
         if not verb:
             lp.setParam("LogToConsole",0)
                 #qp.update()
         lp.optimize()
+                
+        if lp.Status == grb.GRB.OPTIMAL:
+            self.feasible = True
+        elif lp.Status == grb.GRB.INFEASIBLE:
+            self.feasible = False
                 
         X = []
         for v in lp.getVars():
