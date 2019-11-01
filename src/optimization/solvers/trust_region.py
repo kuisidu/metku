@@ -184,7 +184,7 @@ class TrustRegionConstr(OptSolver):
                            bounds=bounds,
                            constraints=constraints,
                            options=options,
-                           # callback=self.callback
+                           callback=self.callback
                            )
 
             #print(out)

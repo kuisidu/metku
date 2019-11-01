@@ -394,6 +394,7 @@ class OptimizationProblem:
         elif isinstance(this, ObjectiveFunction):
             # TODO: Multiple objectives
             self.obj = this
+            this.problem = self
         else:
             raise ValueError(f"{this} must be either Variable, Constraint or ObjectiveFunction")
 
