@@ -32,7 +32,7 @@ class RectPlate:
     def side_area(self):
         return self.h*self.t
     
-    def volmue(self):
+    def volume(self):
         return self.h*self.b*self.t
     
     def weight(self):
