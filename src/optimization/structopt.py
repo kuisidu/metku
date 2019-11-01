@@ -285,20 +285,21 @@ class NonLinearConstraint(Constraint):
 
 class ObjectiveFunction:
 
-    def __init__(self, name, obj_fun, obj_type="MIN"):
+    def __init__(self, name, obj_fun, obj_type="MIN", problem=None):
 
         self.name = name
         if not callable(obj_fun):
             raise ValueError("obj_fun must be a function!")
         self.obj_fun = obj_fun
         self.obj_type = obj_type[:3].upper()
-        self.problem = None
+        self.problem = problem
 
 
     def __call__(self, x):
         X = [val for val in x]
         X.reverse()
         fixed_vals = self.problem.fixed_vals.copy()
+        
         for i, val in enumerate(fixed_vals):
             if val is None:
                 fixed_vals[i] = X.pop()
@@ -308,7 +309,7 @@ class ObjectiveFunction:
         if self.obj_type == "MIN":
             return self.obj_fun(fixed_vals)
         else:
-            return self.neg_call(fixed_vals)
+            return -self.obj_fun(fixed_vals)
 
     def neg_call(self, x):
         """
@@ -318,6 +319,24 @@ class ObjectiveFunction:
         """
         return -self(x)
 
+class LinearObjective(ObjectiveFunction):
+    """ Class for linear objective functions """
+    def __init__(self,name,c,obj_type="MIN",problem=None):
+        """ Constructor:
+            input:
+                c .. constant array for performing the evaluation
+                     c @ x
+        """
+        obj_fun = self.evaluate
+    
+        self.c = c
+    
+        super().__init__(name,obj_fun,obj_type,problem)
+        
+    
+    def evaluate(self,x):
+        """ Evaluate function value """
+        return np.array(self.c).dot(np.array(x))
 
 
 class OptimizationProblem:
@@ -584,8 +603,8 @@ class OptimizationProblem:
         print("** {0} **".format(self.name))
         print(f'Solution is feasible: {self.feasible}')
 
-        vals = [var.value for var in self.vars]
-        print(f"Optimal values: {vals}")
+        #vals = [var.value for var in self.vars]
+        #print(f"Optimal values: {vals}")
 
         print(f'X: {[round(val, prec) for val in x]}')
         g = self.eval_cons(x)
