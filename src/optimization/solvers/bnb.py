@@ -299,8 +299,11 @@ class BnB(OptSolver):
                 else:
                     bnode.data.var.lb = max(bnode.data.var.lb,bnode.data.lim)                
         
-        for var in self.problem.vars:
-            print("{0} <= {1:s} <= {2}".format(var.lb,var.name,var.ub))
+        #for var in self.problem.vars:
+        #    if var.lb == var.ub:
+        #        var.lock(var.lb)            
+                 
+        #    print("{0} <= {1:s} <= {2}".format(var.lb,var.name,var.ub))
         
         
         selected_node.data.info()
@@ -356,7 +359,7 @@ class BnB(OptSolver):
         """
         flb, xlb, nit = self.lb_solver.solve(self.problem)
         
-        print(self.lb_solver.result)
+        #print(self.lb_solver.result)
         if self.lb_solver.result.success == True:
             self.tree[node.identifier].data.lb = flb
             self.tree[node.identifier].data.xR = xlb   
@@ -370,7 +373,9 @@ class BnB(OptSolver):
     
     def upper_bound(self,node):
         """ Try to find feasible solution using a heuristic etc. """
-        N = self.problem.discrete_neighborhood(node.data.xR,k=5)
+        N = self.problem.discrete_neighborhood(node.data.xR,k=3)
+        f0 = deepcopy(self.best_f)
+        f_new = None
         for xi in N:
             gxi = self.problem.eval_cons(xi)
             if all(gxi<=self.problem.con_tol):
@@ -383,6 +388,15 @@ class BnB(OptSolver):
                     print("New: ",xi)
                     self.best_f = f_new
                     self.best_x = list(xi)
+        
+        #if f_new is not None and fnew < f0:
+        #    """ Feasible solution was improved so all nodes with
+        #        Larger lower bound can be removed from the search tree
+        #    """
+            #self.remove_node(node.identifier)
+        #    pass
+        
+                                        
         
     
     
@@ -513,7 +527,8 @@ class BnB(OptSolver):
             
     
             #LPprob(solver.X)
-            if solver.feasible == True:                    
+            if solver.feasible == True: 
+                #print("Upper bounding problem feasible.")                   
                 if solver.X[i] > self.problem.vars[i].lb:
                     print("Increasing lower bound of {0:s}".format(self.problem.vars[i].name))
                     print("From {0:4.2f} to {1:4.2f}".format(self.problem.vars[i].ub,solver.X[i]))
@@ -526,7 +541,8 @@ class BnB(OptSolver):
             solver.solve(LPprob)
             
             
-            if solver.feasible == True:                    
+            if solver.feasible == True:        
+                #print("Lower bounding problem feasible.")
                 if solver.X[i] < self.problem.vars[i].ub:
                     print("Lowering upper bound of {0:s}".format(self.problem.vars[i].name))
                     print("From {0:4.2f} to {1:4.2f}".format(self.problem.vars[i].ub,solver.X[i]))
@@ -539,13 +555,24 @@ class BnB(OptSolver):
         """ Pre-processing of a node """
         self.feasibility_tightening()
         self.optimality_tightening()
+        
+        feasible = True
+        
+        for var in self.problem.vars:
+            if var.lb > var.ub:
+                feasible = False
+                break
+        
+        return feasible
     
     def post_process(self,node):
         """ Post-processing of a node """
         pass    
     
-    def solve(self):
+    def solve(self, problem, verb = 0):
         """ Runs the Branch and Bound algorithm """
+        
+        self.problem = problem
         
         iteration = 0
         
@@ -556,64 +583,79 @@ class BnB(OptSolver):
         
         while iteration <= self.max_iters and len(self.nodes)>0:
             self.tree.show()    
-            print("Begin iteration {0}:".format(iteration))
-            print("Unexplored nodes: {0}".format(len(self.nodes)))
-            print(self.nodes)
+            if verb > 0:
+                print("*********************************")
+                print("****** Begin iteration {0} ******".format(iteration))
+                print("Unexplored nodes: {0}".format(len(self.nodes)))
+                print(self.nodes)
+                
             """ Choose node to be solved
                 This is treelib.Node object
             """
             node = self.select_node(strategy="depth_first")            
             
+            if verb > 0:
+                print("Incumbent: {0:4.2f}".format(self.best_f))
+                print("Best design: ", self.best_x)
+            
             # Preprocessing:
             # Tighten bounds of the problem
-            self.pre_process(node)
+            feasible_pre_processing = self.pre_process(node)
             
-            # Find lower bound for the node
-            feasible_lower_bound = self.lower_bound(node)
-            
-            if feasible_lower_bound:
-                print("Lower bounding problem is feasible:")
-                print("Lower bounding obtained: {0:4.2f} (f_incumbent = {1:4.2f})".format(node.data.lb,self.best_f))                
-            
-                if node.data.lb > self.best_f:
-                    # Node can be fathomed
-                    print("Node fathomed because lower bound is greater than incumbent.")
-                    self.remove_node(node.identifier)
-                else:
-                    # Try to find a feasible solution in the node, to be
-                    # used as an upper bound for the problem.
-                    self.upper_bound(node)
+            if feasible_pre_processing:     
+                if verb > 0:
+                    print("Feasible pre-processing.")
+                # Find lower bound for the node
+                feasible_lower_bound = self.lower_bound(node)
                 
-                    # Tighten the bounds based on the solution found
-                    self.post_process(node)
+                if feasible_lower_bound:
+                    if verb > 0:
+                        print("Lower bounding problem is feasible:")
+                        print("Lower bounding obtained: {0:4.2f} (f_incumbent = {1:4.2f})".format(node.data.lb,self.best_f))                
                 
-                    disc = self.variables_at_discrete_values(node.data)                
-                    # Here, the relaxation is feasible
-                    
-                        
-                    if all(disc):
-                        """ If all discrete variables have discrete values                    
-                            in the solution xR, the node can be fathomed
-                            If the node provides an improvement to the
-                            best known solution, make it as the incumbent.
-                        """
-                        print("All discrete variables at allowed values!")
-                        if node.data.lb < self.best_f:
-                            self.best_f = node.lb
-                            self.best_x = node.xR
+                    if node.data.lb > self.best_f:
+                        # Node can be fathomed
+                        print("Node fathomed because lower bound is greater than incumbent.")
+                        self.remove_node(node.identifier)
                     else:
-                        """ In this case, some of the discrete variables
-                            have non-integer/non-discrete values at xR.
-                            Then, the node is branched.
-                        """
-                        print("Branching")
-                        self.branch(node)                    
-            
+                        # Try to find a feasible solution in the node, to be
+                        # used as an upper bound for the problem.
+                        self.upper_bound(node)
+                    
+                        # Tighten the bounds based on the solution found
+                        self.post_process(node)
+                    
+                        disc = self.variables_at_discrete_values(node.data)                
+                        # Here, the relaxation is feasible
+                        
+                            
+                        if all(disc):
+                            """ If all discrete variables have discrete values                    
+                                in the solution xR, the node can be fathomed
+                                If the node provides an improvement to the
+                                best known solution, make it as the incumbent.
+                            """
+                            print("All discrete variables at allowed values!")
+                            if node.data.lb < self.best_f:
+                                self.best_f = node.data.lb
+                                self.best_x = node.data.xR
+                        else:
+                            """ In this case, some of the discrete variables
+                                have non-integer/non-discrete values at xR.
+                                Then, the node is branched.
+                            """
+                            print("Branching")
+                            self.branch(node)                    
+                
+                else:
+                    print("Lower bounding problem is infeasible.")
+                    """ Remove node from branching tree """   
+                    self.remove_node(node.identifier)
+                    #self.tree.remove_node(node.identifier)
             else:
-                print("Lower bounding problem is infeasible.")
+                print("Bounds tightening resulted detected infeasiblity.")
                 """ Remove node from branching tree """   
                 self.remove_node(node.identifier)
-                #self.tree.remove_node(node.identifier)
-            
+                    
             iteration += 1
         

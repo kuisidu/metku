@@ -68,7 +68,9 @@ class WIColumn(OptimizationProblem):
         super().__init__("WIColumn")
 
         self.prob_type = prob_type
-        self.cons.clear()
+        self.cons.clear()        
+        self.clear_vars()        
+        #print("WI column, variables: ",self.vars)
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
         self.symmetry = symmetry

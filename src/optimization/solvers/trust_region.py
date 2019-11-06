@@ -154,7 +154,7 @@ class TrustRegionConstr(OptSolver):
             for var in problem.vars:
                 x0.append(var.ub)  # * np.random.uniform())
 
-        print(bounds.lb,bounds.ub)
+        #print(bounds.lb,bounds.ub)
         
         #print(constraints[-3].ub)
 
