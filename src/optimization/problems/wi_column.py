@@ -68,7 +68,9 @@ class WIColumn(OptimizationProblem):
         super().__init__("WIColumn")
 
         self.prob_type = prob_type
-        self.cons.clear()
+        self.cons.clear()        
+        self.clear_vars()        
+        #print("WI column, variables: ",self.vars)
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
         self.symmetry = symmetry
@@ -174,6 +176,7 @@ class WIColumn(OptimizationProblem):
                 "tw", values=THICKNESSES,
                 target={"property": "tw", "objects": [col]})
 
+            var_tw.branch_priority = 1
             if self.symmetry == "mono":
                 var_tt = DiscreteVariable(
                     "tt", values=THICKNESSES,
@@ -196,6 +199,8 @@ class WIColumn(OptimizationProblem):
                 var_tf = DiscreteVariable(
                     "tf", values=THICKNESSES,
                     target={"property": "tf", "objects": [col]})
+                
+                var_tf.branch_priority = 1
                 var_bf = DiscreteVariable(
                     "b", values=WIDTHS,
                     target={"property": "b", "objects": [col]})

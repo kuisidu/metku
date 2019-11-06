@@ -78,11 +78,23 @@ class LP(OptSolver):
                 
                 lp.addLConstr(grb.LinExpr(con.a, x), con_sense, con.b)
                 
+
+        lp.update()                
+       
+
+        #for var in lp.getVars():
+        #    print(var.lb,var.ub)
+        
         
         if not verb:
             lp.setParam("LogToConsole",0)
                 #qp.update()
         lp.optimize()
+                
+        if lp.Status == grb.GRB.OPTIMAL:
+            self.feasible = True
+        elif lp.Status == grb.GRB.INFEASIBLE:
+            self.feasible = False
                 
         X = []
         for v in lp.getVars():
@@ -146,7 +158,7 @@ def Arora_Ex67():
     x = []
     for i in range(4):
         x.append(sopt.Variable('x'+str(i+1),0,1e4))
-        
+            
     p = sopt.OptimizationProblem(name="Arora, Example 6.7", variables=x)
     
     c = [4,5,0,0]
@@ -166,11 +178,11 @@ def Arora_Ex67():
     solver.solve(p)
     p(solver.X)
     
-    return solver
+    return solver, p
 
 if __name__ == '__main__':
     
-    solver = Arora_Ex67()
+    solver, p = Arora_Ex67()
     
 
     

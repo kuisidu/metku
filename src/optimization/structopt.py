@@ -23,6 +23,9 @@ from functools import lru_cache
 
 CACHE_BOUND = 2**10
 INT_TOL = 1e-4
+""" Tolerance for discreteness violation of a discrete variable
+"""
+DISC_TOL = 1e-3 
 
 
 class Variable:
@@ -72,7 +75,18 @@ class Variable:
         self.target = target
         self.profiles = profiles
         self.locked = False
+        self.branch_priority = 0
 
+
+    def __repr__(self):
+        
+        #return self.name + ": [" + str(self.lb) + "," + str(self.ub) + "]"
+        if self.locked:
+            fixed = " (fixed to {0:g})".format(self.value)
+        else:
+            fixed = ""
+            
+        return str(self.lb) + " <= " + self.name + " <= " + str(self.ub) + fixed
 
     def lock(self, val=None):
         """
@@ -151,7 +165,11 @@ class IntegerVariable(Variable):
             value. Returns 0 for continous variables
         """
         
-        return abs(x-round(x,0))
+        violation = abs(x-round(x,0))
+        if violation <= INT_TOL:
+            violation = 0
+        
+        return violation
 
 
 
@@ -263,7 +281,14 @@ class DiscreteVariable(Variable):
         """ Identify the violation of value 'x' from allowable (Discrete)
             value. 
         """
-        return min([abs(val-x) for val in self.values])
+        
+        violation = min([abs(val-x) for val in self.values])
+        
+        if violation <= DISC_TOL:
+            violation = 0
+        
+        return violation
+               
     
     def smaller_discrete_value(self,x):
         """ Returns discrete value smaller than 'x' and closest to it  """
@@ -353,6 +378,7 @@ class NonLinearConstraint(Constraint):
 
         X = [val for val in x]
         X.reverse()
+        #print(X)
         fixed_vals = self.problem.fixed_vals.copy()
         for i, val in enumerate(fixed_vals):
             if val is None:
@@ -373,16 +399,37 @@ class ObjectiveFunction:
         self.obj_type = obj_type[:3].upper()
         self.problem = problem
 
-
     def __call__(self, x):
-        X = [val for val in x]
+        """ The method returns f(x) where x is an array with length
+            of the number of free variables. The array will be appended
+            for any fixed variables with corresponding fixed values.
+            This way, if some variables are fixed, the original objective
+            function can still be called.
+                        
+            Read values from 'x' and reverse them.
+            Reversing is done so that 'pop' method can be employed.
+        """
+        X = [val for val in x]        
         X.reverse()
-        fixed_vals = self.problem.fixed_vals.copy()
         
+        """ Fixed values values is an array
+            with the values
+            fixed_vals[i] is None if the variable vars[i] is free and
+            fixed_vals[i] is val if the variable vars[i] has a fixed value val
+        """
+        fixed_vals = self.problem.fixed_vals.copy()
+                
         for i, val in enumerate(fixed_vals):
             if val is None:
+                """ If variable vars[i] is free, take its value from X
+                    Because X was revesed, the pop method provides the correct
+                    value here.
+                """
                 fixed_vals[i] = X.pop()
             if not X:
+                """ If variable vars[i] is fixed, then use the corresponding
+                    value from 'fixed_vals'
+                """
                 break
 
         if self.obj_type == "MIN":
@@ -451,6 +498,8 @@ class OptimizationProblem:
         self.con_tol = 1e-4
         self.name = name
         self.vars = variables
+        #self.vars = variables
+        #print("Variables: ", self.vars)
         self.cons = constraints
         self.obj = objective
         self.grad = gradient
@@ -540,6 +589,11 @@ class OptimizationProblem:
         """
         return np.all(self.eval_cons(self.X) <= self.con_tol)
 
+    def clear_vars(self):
+        """
+            Deletes all variables
+        """
+        self.__vars.clear()
 
     def non_linear_constraint(self, *args, **kwargs):
         """
@@ -712,7 +766,7 @@ class OptimizationProblem:
         """
         g = []
 
-        for con in self.cons:
+        for con in self.cons:            
             g.append(con(x))
 
         return np.asarray(g)

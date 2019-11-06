@@ -23,7 +23,8 @@ except:
     from eurocodes.en1993 import en1993_1_1
     from copy import deepcopy
 
-class ColumnCalculation(WIColumn):
+#class ColumnCalculation(WIColumn):
+def ColumnCalculation():
 
     q_wind = 0.00065  # N/mm2
     q_snow = 0.002  # N/mm2
@@ -107,10 +108,20 @@ class ColumnCalculation(WIColumn):
                             #problem.num_iters = nit
                             #problem(x_best, prec=5)
 
+                            
                             lb_solver = TrustRegionConstr()
                             solver = BnB(problem,lb_solver)
-                            solver.solve()
+                                                
+                            #return solver, problem
+                            
+                            #break
+                            
+                            solver.solve(problem,verb=1)
 
+                            print(solver.X)
+                            print(solver.best_x)
+                            print(solver.best_f)
+                            
                             """
                             # TrustRegionConstr
                             solver = TrustRegionConstr()
@@ -182,3 +193,8 @@ class ColumnCalculation(WIColumn):
                             # breakpoint()
 
                             #  wi.cross_section.draw()
+if __name__ == '__main__':
+    
+    solver, p = ColumnCalculation()
+    
+    p.vars[1].lock(6)    
