@@ -699,7 +699,6 @@ if __name__ == "__main__":
 
     problem = WIColumn(prob_type='continuous')
     problem([265.56, 6.85, 216.95, 8.60])
-    print("PINTA_ALA=", problem.structure.members[0].A)
 
     # x0 = [300, 8, 200, 10, 200, 10]
     x0 = [300, 8, 200, 10]
@@ -780,5 +779,6 @@ if __name__ == "__main__":
     # print(problem.structure.f.elements[0].bending_moment)
     # print(problem.structure.f.elements[0].axial_force)
     # print(problem.structure.f.loads[1].qval)
+    # print("PINTA_ALA=", problem.structure.members[0].A)
 
 
