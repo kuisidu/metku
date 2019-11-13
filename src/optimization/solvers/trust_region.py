@@ -89,7 +89,7 @@ class TrustRegionConstr(OptSolver):
 
 
 
-    def solve(self, problem, maxiter=200, x0=[]):
+    def solve(self, problem, maxiter=500, x0=[]):
         """
         Solves given problem
 
@@ -149,7 +149,7 @@ class TrustRegionConstr(OptSolver):
         constraints.append(bnd_cons)
 
         # Create initial guess if one isn't provided
-        if not len(x0):
+        if x0 is not None:
             x0 = []
             for var in problem.vars:
                 x0.append(var.ub)  # * np.random.uniform())
@@ -159,7 +159,7 @@ class TrustRegionConstr(OptSolver):
         #print(constraints[-3].ub)
 
         options = {'maxiter': maxiter,
-                   'verbose': 0,
+                   'verbose': 2,
                    'xtol': VAR_TOL,
                    'gtol': CON_TOL,
                    # 'finite_diff_rel_step': 1e-6
@@ -197,7 +197,7 @@ class TrustRegionConstr(OptSolver):
                            bounds=bounds,
                            constraints=constraints,
                            options=options,
-                           callback=self.callback
+                           # callback=self.callback
                            )
 
             #print(out)
@@ -210,6 +210,7 @@ class TrustRegionConstr(OptSolver):
             
             if out.constr_violation > CON_TOL:
                 self.feasible = False
+                print("TEST PRINT", out.constr_violation, CON_TOL)
             else:
                 self.feasible = True
 

@@ -24,7 +24,10 @@ try:
     from src.frame2d.frame2d import *
     import src.frame2d.frame2d as f2d
     from src.optimization.structopt import *
+    # import src.optimization.structopt as sopt
     from src.optimization.solvers.trust_region import TrustRegionConstr
+    from src.optimization.solvers.bnb import BnB
+    from src.optimization.solvers.lp import LP
 except:
     from frame2d.frame2d import *
     import frame2d.frame2d as f2d
@@ -60,16 +63,17 @@ class WIColumn(OptimizationProblem):
                     True .. rajoitusehto huomioidaan
                     False .. rajoitusehtoa ei huomioida
     """
-    def __init__(self, L=24000, Lpi=6000, Fx=783, Fy=-271e3, Qx=5.85, Qy=0,
+    def __init__(self, L=30000, Lpi=6000, Fx=979, Fy=-339e3, Qx=5.85, Qy=0,
                  Mz=0, lcr=2,
-                 top_flange_class=3, bottom_flange_class=3, web_class=3,
-                 symmetry="dual", buckling_z=True, LT_buckling=True,
+                 top_flange_class=2, bottom_flange_class=2, web_class=2,
+                 symmetry="dual", buckling_z=False, LT_buckling=False,
                  prob_type="continuous"):
         super().__init__("WIColumn")
 
         self.prob_type = prob_type
         self.cons.clear()        
-        self.clear_vars()        
+        self.clear_vars()
+        self.structure = None
         #print("WI column, variables: ",self.vars)
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
@@ -702,22 +706,36 @@ if __name__ == "__main__":
     from src.optimization.solvers import *
     from src.optimization.result_exporter import *
 
-    problem = WIColumn(prob_type='continuous')
-    problem([265.56, 6.85, 216.95, 8.60])
+    problem = WIColumn(prob_type='discrete')
 
     # x0 = [300, 8, 200, 10, 200, 10]
-    x0 = [300, 8, 200, 10]
+    # x0 = [300, 8, 200, 10]
+    x0 = [200, 10, 170, 12]
 
     # x0 = [var.ub for var in problem.vars]
 
-    # TrustRegionConstr
-    solver = TrustRegionConstr()
-    f_best, x_best, nit = solver.solve(problem,
-                                       maxiter=200,
-                                       x0=x0)
-    # print(x_best)
-    problem.num_iters = nit
-    problem(x_best, prec=5)
+    # # TrustRegionConstr
+    # solver = TrustRegionConstr()
+    # f_best, x_best, nit = solver.solve(problem,
+    #                                    maxiter=200,
+    #                                    x0=x0)
+    # # print(x_best)
+    # problem.num_iters = nit
+    # problem(x_best, prec=5)
+
+    # BnB
+    lb_solver = TrustRegionConstr()
+    solver = BnB(problem, lb_solver)
+
+    # return solver, problem
+
+    # break
+
+    solver.solve(problem, x0=x0, verb=1)
+
+    print(solver.X)
+    print(solver.best_x)
+    print(solver.best_f)
 
     # SLP
     # solver = SLP(move_limits=[0.9, 6])

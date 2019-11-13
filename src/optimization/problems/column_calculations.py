@@ -6,32 +6,42 @@ import time
 
 try:
     from src.frame2d.frame2d import *
-    from src.optimization.structopt import *
+    from src.optimization.solvers.optsolver import OptSolver
+    # from src.optimization.structopt import *
+    import src.optimization.structopt as sopt
     from src.optimization.problems.wi_column import WIColumn
     from src.optimization.solvers import slsqp, slp, slqp, mislp, two_phase
     from src.optimization.solvers.trust_region import TrustRegionConstr
+    from src.optimization.solvers.bnb import BnB
+    from src.optimization.solvers.lp import LP
     from src.optimization.result_exporter import *
     from src.eurocodes.en1993 import en1993_1_1
 except:
     from frame2d.frame2d import *
+    from optimization.solvers.optsolver import OptSolver
     from optimization.structopt import *
+    import optimization.structopt as sopt
     from optimization.problems.wi_column import WIColumn
     from optimization.solvers import slsqp, slp, slqp, mislp, two_phase
     from optimization.solvers.trust_region import TrustRegionConstr
     from optimization.solvers.bnb import BnB
+    from optimization.solvers.lp import LP
     from optimization.result_exporter import *
     from eurocodes.en1993 import en1993_1_1
     from copy import deepcopy
 
-#class ColumnCalculation(WIColumn):
-def ColumnCalculation():
+
+class ColumnCalculation(WIColumn):
+    # def ColumnCalculation():
 
     q_wind = 0.00065  # N/mm2
     q_snow = 0.002  # N/mm2
     g_truss = 1  # N/mm
     g_roof = 0.0005  # N/mm2
-    L_list = [24000, 30000, 36000]  # mm
-    Lpi_list = [6000, 8000, 10000]  # mm
+    # L_list = [24000, 30000, 36000]  # mm
+    L_list = [30000]  # mm
+    #Lpi_list = [6000, 8000, 10000]  # mm
+    Lpi_list = [6000]  # mm
     c = 6000  # mm
     lcr_list = [2, 0.7]
     buckling_z = [True, False]
@@ -43,7 +53,6 @@ def ColumnCalculation():
     Mz = 0
     Qy = 0
     Qx = 1.5 * q_wind * c
-
 
     #  x0 = [800, 50, 500, 50, 500, 50]
     x0 = [250, 8, 150, 10]
@@ -108,30 +117,31 @@ def ColumnCalculation():
                             #problem.num_iters = nit
                             #problem(x_best, prec=5)
 
-                            
+                            # BnB
                             lb_solver = TrustRegionConstr()
-                            solver = BnB(problem,lb_solver)
-                                                
-                            #return solver, problem
-                            
-                            #break
-                            
-                            solver.solve(problem,verb=1)
+                            solver = BnB(problem, lb_solver)
+
+                            # return solver, problem
+
+                            # break
+
+                            solver.solve(problem, x0=x0, verb=2)
+
+                            x0 = solver.best_x
+                            print("x0=", x0)
 
                             print(solver.X)
                             print(solver.best_x)
                             print(solver.best_f)
-                            
-                            """
+
                             # TrustRegionConstr
-                            solver = TrustRegionConstr()
-                            f_best, x_best, nit = solver.solve(
-                                problem,
-                                maxiter=200,
-                                x0=x0)
-                            problem.num_iters = nit
-                            problem(x_best, prec=5)
-                            """
+                            # solver = TrustRegionConstr()
+                            # f_best, x_best, nit = solver.solve(
+                            #     problem,
+                            #     maxiter=200,
+                            #     x0=x0)
+                            # problem.num_iters = nit
+                            # problem(x_best, prec=5)
 
                             # SLP
                             # solver = slp.SLP(move_limits=[0.9, 6])
@@ -174,12 +184,9 @@ def ColumnCalculation():
                             # ResultExporter(problem, solver2).to_csv()
                             # ResultExporter(problem, solver2).csv_to_excel()
 
-                            # ResultExporter muille kuin 2-vaihetekniikalle
-                            #ResultExporter(problem, solver).to_csv()
-
-
-
-                            #ResultExporter(problem, solver).csv_to_excel()
+                            # # ResultExporter muille kuin 2-vaihetekniikalle
+                            # ResultExporter(problem, solver).to_csv()
+                            # ResultExporter(problem, solver).csv_to_excel()
 
                             seconds = time.process_time()
                             m, s = divmod(seconds, 60)
@@ -193,8 +200,10 @@ def ColumnCalculation():
                             # breakpoint()
 
                             #  wi.cross_section.draw()
+
+
 if __name__ == '__main__':
-    
+
     solver, p = ColumnCalculation()
-    
-    p.vars[1].lock(6)    
+
+    p.vars[1].lock(6)

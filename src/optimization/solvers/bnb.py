@@ -19,6 +19,8 @@ from treelib import Tree, Node
 
 try:
     from src.optimization.solvers.optsolver import OptSolver
+    from src.optimization.solvers.lp import LP
+    import src.optimization.structopt as sopt
 except:    
     from optimization.solvers.optsolver import OptSolver
     from optimization.solvers.lp import LP
@@ -310,7 +312,7 @@ class BnB(OptSolver):
         
         return selected_node
     
-    def lower_bound(self,node):
+    def lower_bound(self, node, x0=None):
         """ Finds a lower bound for the problem at the 'node' by
             solving a relaxation of the problem and imposing the
             branching limits given by the node.
@@ -357,7 +359,7 @@ class BnB(OptSolver):
             If problem is infeasible, the node can be fathomed.
             If the problem is feasible, update the lower bound and set xR
         """
-        flb, xlb, nit = self.lb_solver.solve(self.problem)
+        flb, xlb, nit = self.lb_solver.solve(self.problem, x0=x0)
         
         #print(self.lb_solver.result)
         if self.lb_solver.result.success == True:
@@ -373,7 +375,7 @@ class BnB(OptSolver):
     
     def upper_bound(self,node):
         """ Try to find feasible solution using a heuristic etc. """
-        N = self.problem.discrete_neighborhood(node.data.xR,k=3)
+        N = self.problem.discrete_neighborhood(node.data.xR, k=3)
         f0 = deepcopy(self.best_f)
         f_new = None
         for xi in N:
@@ -569,7 +571,7 @@ class BnB(OptSolver):
         """ Post-processing of a node """
         pass    
     
-    def solve(self, problem, verb = 0):
+    def solve(self, problem, x0=None, verb = 0):
         """ Runs the Branch and Bound algorithm """
         
         self.problem = problem
@@ -580,8 +582,8 @@ class BnB(OptSolver):
         root = BnBNode()
         self.add_node(root,"Root","root")
         
-        
-        while iteration <= self.max_iters and len(self.nodes)>0:
+        # while iteration <= self.max_iters and len(self.nodes)>0:
+        while iteration <= 0 and len(self.nodes) > 0:
             self.tree.show()    
             if verb > 0:
                 print("*********************************")
@@ -606,7 +608,7 @@ class BnB(OptSolver):
                 if verb > 0:
                     print("Feasible pre-processing.")
                 # Find lower bound for the node
-                feasible_lower_bound = self.lower_bound(node)
+                feasible_lower_bound = self.lower_bound(node, x0=x0)
                 
                 if feasible_lower_bound:
                     if verb > 0:
