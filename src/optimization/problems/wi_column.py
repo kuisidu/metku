@@ -24,7 +24,10 @@ try:
     from src.frame2d.frame2d import *
     import src.frame2d.frame2d as f2d
     from src.optimization.structopt import *
+    # import src.optimization.structopt as sopt
     from src.optimization.solvers.trust_region import TrustRegionConstr
+    from src.optimization.solvers.bnb import BnB
+    from src.optimization.solvers.lp import LP
 except:
     from frame2d.frame2d import *
     import frame2d.frame2d as f2d
@@ -60,15 +63,18 @@ class WIColumn(OptimizationProblem):
                     True .. rajoitusehto huomioidaan
                     False .. rajoitusehtoa ei huomioida
     """
-    def __init__(self, L=24000, Lpi=6000, Fx=783, Fy=-271e3, Qx=5.85, Qy=0,
+    def __init__(self, L=30000, Lpi=6000, Fx=979, Fy=-339e3, Qx=5.85, Qy=0,
                  Mz=0, lcr=2,
-                 top_flange_class=3, bottom_flange_class=3, web_class=3,
-                 symmetry="dual", buckling_z=True, LT_buckling=True,
+                 top_flange_class=2, bottom_flange_class=2, web_class=2,
+                 symmetry="dual", buckling_z=False, LT_buckling=False,
                  prob_type="continuous"):
         super().__init__("WIColumn")
 
         self.prob_type = prob_type
-        self.cons.clear()
+        self.cons.clear()        
+        self.clear_vars()
+        self.structure = None
+        #print("WI column, variables: ",self.vars)
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
         self.symmetry = symmetry
@@ -91,7 +97,7 @@ class WIColumn(OptimizationProblem):
         def obj_fun(x):
             self.substitute_variables(x)
             return self.structure.weight
-        obj = ObjectiveFunction("weight", obj_fun)
+        obj = ObjectiveFunction("weight", obj_fun,problem=self)
         self.add(obj)
 
     def create_structure(self, Lpi, Fx, Fy, Qx, Qy, Mz, lcr, LT_buckling):
@@ -136,18 +142,18 @@ class WIColumn(OptimizationProblem):
         if self.prob_type == "continuous":
 
             var_h = Variable("h", MIN_HEIGHT, MAX_HEIGHT,
-                             target={"property": "H", "objects": [col]})
+                             target={"property": "h", "objects": [col]})
             var_tw = Variable("tw", MIN_THICK, MAX_THICK,
-                              target={"property": "TW", "objects": [col]})
+                              target={"property": "tw", "objects": [col]})
             if self.symmetry == "mono":
                 var_tt = Variable("tt", MIN_THICK, MAX_THICK,
-                                 target={"property": "TT", "objects": [col]})
+                                 target={"property": "tt", "objects": [col]})
                 var_tb = Variable("tb", MIN_THICK, MAX_THICK,
-                                 target={"property": "TB", "objects": [col]})
+                                 target={"property": "tb", "objects": [col]})
                 var_bt = Variable("bt", MIN_WIDTH, MAX_WIDTH,
-                                  target={"property": "BT", "objects": [col]})
+                                  target={"property": "bt", "objects": [col]})
                 var_bb = Variable("bb", MIN_WIDTH, MAX_WIDTH,
-                                  target={"property": "BB", "objects": [col]})
+                                  target={"property": "bb", "objects": [col]})
 
                 vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
                 for var in vars:
@@ -155,9 +161,9 @@ class WIColumn(OptimizationProblem):
 
             elif self.symmetry == "dual":
                 var_tf = Variable("tf", MIN_THICK, MAX_THICK,
-                                  target={"property": "TF", "objects": [col]})
-                var_bf = Variable("bf", MIN_WIDTH, MAX_WIDTH,
-                                  target={"property": "BF", "objects": [col]})
+                                  target={"property": "tf", "objects": [col]})
+                var_bf = Variable("b", MIN_WIDTH, MAX_WIDTH,
+                                  target={"property": "b", "objects": [col]})
 
                 vars = [var_h, var_tw, var_bf, var_tf]
                 for var in vars:
@@ -169,24 +175,25 @@ class WIColumn(OptimizationProblem):
         elif self.prob_type == "discrete":
             var_h = DiscreteVariable(
                 "h", values=HEIGHTS,
-                target={"property": "H", "objects": [col]})
+                target={"property": "h", "objects": [col]})
             var_tw = DiscreteVariable(
                 "tw", values=THICKNESSES,
-                target={"property": "TW", "objects": [col]})
+                target={"property": "tw", "objects": [col]})
 
+            var_tw.branch_priority = 1
             if self.symmetry == "mono":
                 var_tt = DiscreteVariable(
                     "tt", values=THICKNESSES,
-                    target={"property": "TT", "objects": [col]})
+                    target={"property": "tt", "objects": [col]})
                 var_tb = DiscreteVariable(
                     "tb", values=THICKNESSES,
-                    target={"property": "TB", "objects": [col]})
+                    target={"property": "tb", "objects": [col]})
                 var_bt = DiscreteVariable(
                     "bt", values=WIDTHS,
-                    target={"property": "BT", "objects": [col]})
+                    target={"property": "bt", "objects": [col]})
                 var_bb = DiscreteVariable(
                     "bb", values=WIDTHS,
-                    target={"property": "BB", "objects": [col]})
+                    target={"property": "bb", "objects": [col]})
 
                 vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
                 for var in vars:
@@ -195,10 +202,12 @@ class WIColumn(OptimizationProblem):
             elif self.symmetry == "dual":
                 var_tf = DiscreteVariable(
                     "tf", values=THICKNESSES,
-                    target={"property": "TF", "objects": [col]})
+                    target={"property": "tf", "objects": [col]})
+                
+                var_tf.branch_priority = 1
                 var_bf = DiscreteVariable(
-                    "bf", values=WIDTHS,
-                    target={"property": "BF", "objects": [col]})
+                    "b", values=WIDTHS,
+                    target={"property": "b", "objects": [col]})
 
                 vars = [var_h, var_tw, var_bf, var_tf]
                 for var in vars:
@@ -210,24 +219,24 @@ class WIColumn(OptimizationProblem):
         elif self.prob_type == "index":
             var_h = IndexVariable(
                 "h", values=HEIGHTS,
-                target={"property": "H", "objects": [col]})
+                target={"property": "h", "objects": [col]})
             var_tw = IndexVariable(
                 "tw", values=THICKNESSES,
-                target={"property": "TW", "objects": [col]})
+                target={"property": "tw", "objects": [col]})
 
             if self.symmetry == "mono":
                 var_tt = IndexVariable(
                     "tt", values=THICKNESSES,
-                    target={"property": "TT", "objects": [col]})
+                    target={"property": "tt", "objects": [col]})
                 var_tb = IndexVariable(
                     "tb", values=THICKNESSES,
-                    target={"property": "TB", "objects": [col]})
+                    target={"property": "tb", "objects": [col]})
                 var_bt = IndexVariable(
                     "bt", values=WIDTHS,
-                    target={"property": "BT", "objects": [col]})
+                    target={"property": "bt", "objects": [col]})
                 var_bb = IndexVariable(
                     "bb", values=WIDTHS,
-                    target={"property": "BB", "objects": [col]})
+                    target={"property": "bb", "objects": [col]})
 
                 vars = [var_h, var_tw, var_bt, var_tt, var_bb, var_tb]
                 for var in vars:
@@ -236,10 +245,10 @@ class WIColumn(OptimizationProblem):
             elif self.symmetry == "dual":
                 var_tf = IndexVariable(
                     "tf", values=THICKNESSES,
-                    target={"property": "TF", "objects": [col]})
+                    target={"property": "tf", "objects": [col]})
                 var_bf = IndexVariable(
-                    "bf", values=WIDTHS,
-                    target={"property": "BF", "objects": [col]})
+                    "b", values=WIDTHS,
+                    target={"property": "b", "objects": [col]})
 
                 vars = [var_h, var_tw, var_bf, var_tf]
                 for var in vars:
@@ -269,13 +278,13 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "BT" or \
-                    self.vars[i].target["property"] == "BF":
+            if self.vars[i].target["property"] == "bt" or \
+                    self.vars[i].target["property"] == "b":
                 a[i] = 0.5
-            elif self.vars[i].target["property"] == "TT" or \
-                    self.vars[i].target["property"] == "TF":
+            elif self.vars[i].target["property"] == "tt" or \
+                    self.vars[i].target["property"] == "tf":
                 a[i] = - C0 * e
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = - 0.5
 
         b = math.sqrt(2) * mem.cross_section.weld_throat
@@ -315,11 +324,11 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "BT":
+            if self.vars[i].target["property"] == "bt":
                 a[i] = 0.5
-            elif self.vars[i].target["property"] == "TT":
+            elif self.vars[i].target["property"] == "tt":
                 a[i] = - C0 * e
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = - 0.5
 
         b = math.sqrt(2) * mem.cross_section.weld_throat
@@ -368,15 +377,15 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "H":
+            if self.vars[i].target["property"] == "h":
                 a[i] = 1
-            elif self.vars[i].target["property"] == "TT":
+            elif self.vars[i].target["property"] == "tt":
                 a[i] = - 1
-            elif self.vars[i].target["property"] == "TB":
+            elif self.vars[i].target["property"] == "tb":
                 a[i] = - 1
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = - C1 * e
-            elif self.vars[i].target["property"] == "TF":
+            elif self.vars[i].target["property"] == "tf":
                 a[i] = -2
 
         b = 2 * math.sqrt(2) * mem.cross_section.weld_throat
@@ -409,13 +418,13 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "H":
+            if self.vars[i].target["property"] == "h":
                 a[i] = -1
-            elif self.vars[i].target["property"] == "TT":
+            elif self.vars[i].target["property"] == "tt":
                 a[i] = + 1
-            elif self.vars[i].target["property"] == "TB":
+            elif self.vars[i].target["property"] == "tb":
                 a[i] = + 1            
-            elif self.vars[i].target["property"] == "TF":
+            elif self.vars[i].target["property"] == "tf":
                 a[i] = +2
 
         b = -h_min
@@ -437,9 +446,10 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "BT":
+            if self.vars[i].target["property"] == "bt" or \
+                    self.vars[i].target["property"] == "b":
                 a[i] = +0.5
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = -0.5
 
         b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
@@ -461,9 +471,9 @@ class WIColumn(OptimizationProblem):
 
         for i in range(len(self.vars)):
 
-            if self.vars[i].target["property"] == "BB":
+            if self.vars[i].target["property"] == "bb":
                 a[i] = +0.5
-            elif self.vars[i].target["property"] == "TW":
+            elif self.vars[i].target["property"] == "tw":
                 a[i] = -0.5
 
         b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
@@ -495,7 +505,7 @@ class WIColumn(OptimizationProblem):
     #
     #         if self.vars[i].target["property"] == "HW":
     #             a[i] = +1
-    #         elif self.vars[i].target["property"] == "TW":
+    #         elif self.vars[i].target["property"] == "tw":
     #             a[i] = -0.5
     #
     #     b = self.Lpi / 50 + math.sqrt(2) * mem.cross_section.weld_throat
@@ -696,21 +706,36 @@ if __name__ == "__main__":
     from src.optimization.solvers import *
     from src.optimization.result_exporter import *
 
-    problem = WIColumn(prob_type='continuous')
+    problem = WIColumn(prob_type='discrete')
 
     # x0 = [300, 8, 200, 10, 200, 10]
-    x0 = [300, 8, 200, 10]
+    # x0 = [300, 8, 200, 10]
+    x0 = [200, 10, 170, 12]
 
     # x0 = [var.ub for var in problem.vars]
 
-    # TrustRegionConstr
-    solver = TrustRegionConstr()
-    f_best, x_best, nit = solver.solve(problem,
-                                       maxiter=200,
-                                       x0=x0)
-    # print(x_best)
-    problem.num_iters = nit
-    problem(x_best, prec=5)
+    # # TrustRegionConstr
+    # solver = TrustRegionConstr()
+    # f_best, x_best, nit = solver.solve(problem,
+    #                                    maxiter=200,
+    #                                    x0=x0)
+    # # print(x_best)
+    # problem.num_iters = nit
+    # problem(x_best, prec=5)
+
+    # BnB
+    lb_solver = TrustRegionConstr()
+    solver = BnB(problem, lb_solver)
+
+    # return solver, problem
+
+    # break
+
+    solver.solve(problem, x0=x0, verb=1)
+
+    print(solver.X)
+    print(solver.best_x)
+    print(solver.best_f)
 
     # SLP
     # solver = SLP(move_limits=[0.9, 6])
@@ -777,5 +802,6 @@ if __name__ == "__main__":
     # print(problem.structure.f.elements[0].bending_moment)
     # print(problem.structure.f.elements[0].axial_force)
     # print(problem.structure.f.loads[1].qval)
+    # print("PINTA_ALA=", problem.structure.members[0].A)
 
 

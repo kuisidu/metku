@@ -53,8 +53,12 @@ class Concrete:
         self.name = material
         self.fck = concrete[material]["fck"]
         self.fck_cube = concrete[material]["fck_cube"]
-        self.fcm = concrete[material]["fcm"]
-        self.Ecm = concrete[material]["Ecm"]
+        
+        self.fcm = self.fck + 8.0
+        self.Ecm = 22000*(self.fcm/10)**0.3
+        
+        #self.fcm = concrete[material]["fcm"]
+        #self.Ecm = concrete[material]["Ecm"]
         
     def fcd(self,a_cc=alpha_cc,gC=gammaC):
         """ Design value for compressive strength """

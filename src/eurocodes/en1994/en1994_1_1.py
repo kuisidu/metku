@@ -22,8 +22,13 @@ S3L_Studs = {19: {"D": 19.0, "A": 9.52, "H": 31.75},
             }
 
 
-def ShearStud:
+class ShearStud:
     """ Class for shear connectors """
     
-    def __init__(self):
+    def __init__(self,stud=S3L_Studs[22],length=100.0):
         """ Constructor """
+        
+        self.d = stud["D"]
+        self.a = stud["A"]
+        self.h = stud["H"]
+        self.length = length
