@@ -213,9 +213,9 @@ class ColumnCalculation(WIColumn):
                             # breakpoint()
 
                             #  wi.cross_section.draw()
+                            """
 
+#if __name__ == '__main__':
 
-if __name__ == '__main__':
-
-    solver, p = ColumnCalculation()
+    #solver, p = ColumnCalculation()
 
