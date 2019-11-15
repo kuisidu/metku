@@ -39,11 +39,11 @@ class ColumnCalculation(WIColumn):
     g_truss = 1  # N/mm
     g_roof = 0.0005  # N/mm2
 
-    # L_list = [24000, 30000, 36000]  # mm
-    L_list = [30000]  # mm
+    L_list = [24000, 30000, 36000]  # mm
+    # L_list = [30000]  # mm
+    Lpi_list = [6000, 8000, 10000]  # mm
+    # Lpi_list = [6000]  # mm
 
-    #Lpi_list = [6000, 8000, 10000]  # mm
-    Lpi_list = [6000]  # mm
     c = 6000  # mm
     #lcr_list = [2, 0.7]
     lcr_list = [2]
@@ -58,7 +58,9 @@ class ColumnCalculation(WIColumn):
     Qx = 1.5 * q_wind * c
 
     #  x0 = [800, 50, 500, 50, 500, 50]
-    x0 = [340, 6, 180, 10]
+    #  x0 = [250, 8, 150, 10]
+    #  x0 = [340, 6, 180, 10]
+    x0 = [300, 8, 200, 10]
 
     #  x0 = [400, 20, 200, 20]
     #  x0 = [300, 8, 200, 10, 200, 10]
@@ -94,7 +96,7 @@ class ColumnCalculation(WIColumn):
                             print("Constraints:", len(problem.cons))
                             print("Nonlinear Constraints:", problem.nnonlincons())
                             
-                            problem([340,10,150,8])
+                            problem([340, 10, 150, 8])
                             # problem = WIColumn(
                             #     L=24000, Lpi=6000, Fx=782.89, Fy=-271200,
                             #     Qx=5.85, Qy=0, Mz=0, lcr=2,
@@ -126,13 +128,14 @@ class ColumnCalculation(WIColumn):
 
                             # BnB
                             lb_solver = TrustRegionConstr()
-                            solver = BnB(problem,lb_solver)
-                                                
-                            #return solver, problem
-                            
-                            #break
-                            
-                            solver.solve(problem,x0=x0,verb=2)
+                            # lb_solver = slp.SLP()
+                            solver = BnB(problem, lb_solver)
+
+                            # return solver, problem
+
+                            # break
+
+                            solver.solve(problem, x0=x0, verb=2)
 
                             x0 = solver.best_x
                             print("x0=", x0)
@@ -142,10 +145,8 @@ class ColumnCalculation(WIColumn):
                             print("Best found objective function value:",solver.best_f)
                                                         
                             problem(solver.best_x)
-                            
-                            
+
                             #return solver, problem
-                            """
 
                             # TrustRegionConstr
                             # solver = TrustRegionConstr()
@@ -198,8 +199,8 @@ class ColumnCalculation(WIColumn):
                             # ResultExporter(problem, solver2).csv_to_excel()
 
                             # # ResultExporter muille kuin 2-vaihetekniikalle
-                            # ResultExporter(problem, solver).to_csv()
-                            # ResultExporter(problem, solver).csv_to_excel()
+                            ResultExporter(problem, solver).to_csv()
+                            ResultExporter(problem, solver).csv_to_excel()
 
                             seconds = time.process_time()
                             m, s = divmod(seconds, 60)
@@ -213,9 +214,10 @@ class ColumnCalculation(WIColumn):
                             # breakpoint()
 
                             #  wi.cross_section.draw()
-                            """
 
-#if __name__ == '__main__':
 
-    #solver, p = ColumnCalculation()
-
+# if __name__ == '__main__':
+#
+#     solver, p = ColumnCalculation()
+#
+#     p.vars[1].lock(6)

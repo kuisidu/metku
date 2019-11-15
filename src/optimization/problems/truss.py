@@ -76,7 +76,10 @@ groups = [
 ]
 """
 
-from src.optimization.structopt import *
+try:
+    from src.optimization.structopt import *
+except:
+    from optimization.structopt import *
 
 # Sorted by area
 RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',
@@ -979,9 +982,14 @@ def create_planetruss(L=25000, H1=1500, H2=2000, n=16, dx=0):
 
 
 if __name__ == '__main__':
-    from src.optimization.solvers import *
-    from src.frame2d.frame2d import *
-    from src.truss2d import *
+    try: 
+        from src.optimization.solvers import *
+        from src.frame2d.frame2d import *
+        from src.truss2d import *
+    except:
+        from optimization.solvers import *
+        from frame2d.frame2d import *
+        from truss2d import *
 
     import matplotlib.pyplot as plt
 
