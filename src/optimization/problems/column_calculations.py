@@ -30,13 +30,15 @@ def ColumnCalculation():
     q_snow = 0.002  # N/mm2
     g_truss = 1  # N/mm
     g_roof = 0.0005  # N/mm2
-    L_list = [24000, 30000, 36000]  # mm
-    Lpi_list = [6000, 8000, 10000]  # mm
+    L_list = [24000]  # mm
+    #Lpi_list = [6000, 8000, 10000]  # mm
+    Lpi_list = [6000]  # mm
     c = 6000  # mm
-    lcr_list = [2, 0.7]
-    buckling_z = [True, False]
-    LT_buckling = [True, False]
-    cross_section_class_list = [3, 2]
+    #lcr_list = [2, 0.7]
+    lcr_list = [2]
+    buckling_z = [False]
+    LT_buckling = [False]
+    cross_section_class_list = [3]
     sym = "dual"  # dual or mono
     prob_type = "discrete"  # continuous or discrete
 
@@ -46,7 +48,7 @@ def ColumnCalculation():
 
 
     #  x0 = [800, 50, 500, 50, 500, 50]
-    x0 = [250, 8, 150, 10]
+    x0 = [340, 6, 180, 10]
 
     #  x0 = [400, 20, 200, 20]
     #  x0 = [300, 8, 200, 10, 200, 10]
@@ -79,6 +81,10 @@ def ColumnCalculation():
                                 buckling_z=buck_z, LT_buckling=LT,
                                 prob_type=prob_type)
 
+                            print("Constraints:", len(problem.cons))
+                            print("Nonlinear Constraints:", problem.nnonlincons())
+                            
+                            problem([340,10,150,8])
                             # problem = WIColumn(
                             #     L=24000, Lpi=6000, Fx=782.89, Fy=-271200,
                             #     Qx=5.85, Qy=0, Mz=0, lcr=2,
@@ -116,12 +122,17 @@ def ColumnCalculation():
                             
                             #break
                             
-                            solver.solve(problem,verb=1)
+                            solver.solve(problem,x0=x0,verb=1)
 
-                            print(solver.X)
-                            print(solver.best_x)
-                            print(solver.best_f)
+                            print("Solver done.")
+                            #print(solver.X)
+                            print("Best found solution.",solver.best_x)
+                            print("Best found objective function value:",solver.best_f)
+                                                        
+                            problem(solver.best_x)
                             
+                            
+                            return solver, problem
                             """
                             # TrustRegionConstr
                             solver = TrustRegionConstr()
@@ -197,4 +208,4 @@ if __name__ == '__main__':
     
     solver, p = ColumnCalculation()
     
-    p.vars[1].lock(6)    
+    #p.vars[1].lock(6)    
