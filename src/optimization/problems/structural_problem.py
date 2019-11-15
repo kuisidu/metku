@@ -1,11 +1,15 @@
-from src.optimization.structopt import *
-from src.sections.steel.catalogue import ipe_profiles
+try:
+    from src.optimization.structopt import *
+    from src.sections.steel.catalogue import ipe_profiles
+except:
+    from optimization.structopt import *
+    from sections.steel.catalogue import ipe_profiles
 
 
 class StructuralProblem(OptimizationProblem):
 
     def __init__(self,
-                 name="Structiral Optimization Problem",
+                 name="Structural Optimization Problem",
                  structure=None,
                  var_groups=None,
                  con_groups=None,
@@ -359,9 +363,14 @@ class StructuralProblem(OptimizationProblem):
 
 if __name__ == '__main__':
 
-    from src.frame2d.frame2d import *
-    from src.truss2d import Truss2D
-    from src.optimization.solvers import *
+    try:
+        from src.frame2d.frame2d import *
+        from src.truss2d import Truss2D
+        from src.optimization.solvers import *
+    except:
+        from frame2d.frame2d import *
+        from truss2d import Truss2D
+        from optimization.solvers import *
 
     n_bays = 1
     n_storeys = 1
