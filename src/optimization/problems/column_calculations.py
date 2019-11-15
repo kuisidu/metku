@@ -38,10 +38,10 @@ class ColumnCalculation(WIColumn):
     q_snow = 0.002  # N/mm2
     g_truss = 1  # N/mm
     g_roof = 0.0005  # N/mm2
-    # L_list = [24000, 30000, 36000]  # mm
-    L_list = [30000]  # mm
-    #Lpi_list = [6000, 8000, 10000]  # mm
-    Lpi_list = [6000]  # mm
+    L_list = [24000, 30000, 36000]  # mm
+    # L_list = [30000]  # mm
+    Lpi_list = [6000, 8000, 10000]  # mm
+    # Lpi_list = [6000]  # mm
     c = 6000  # mm
     lcr_list = [2, 0.7]
     buckling_z = [True, False]
@@ -55,7 +55,8 @@ class ColumnCalculation(WIColumn):
     Qx = 1.5 * q_wind * c
 
     #  x0 = [800, 50, 500, 50, 500, 50]
-    x0 = [250, 8, 150, 10]
+    #  x0 = [250, 8, 150, 10]
+    x0 = [300, 8, 200, 10]
 
     #  x0 = [400, 20, 200, 20]
     #  x0 = [300, 8, 200, 10, 200, 10]
@@ -119,6 +120,7 @@ class ColumnCalculation(WIColumn):
 
                             # BnB
                             lb_solver = TrustRegionConstr()
+                            # lb_solver = slp.SLP()
                             solver = BnB(problem, lb_solver)
 
                             # return solver, problem
@@ -127,8 +129,8 @@ class ColumnCalculation(WIColumn):
 
                             solver.solve(problem, x0=x0, verb=2)
 
-                            x0 = solver.best_x
-                            print("x0=", x0)
+                            # x0 = solver.best_x
+                            # print("x0=", x0)
 
                             print(solver.X)
                             print(solver.best_x)
@@ -185,8 +187,8 @@ class ColumnCalculation(WIColumn):
                             # ResultExporter(problem, solver2).csv_to_excel()
 
                             # # ResultExporter muille kuin 2-vaihetekniikalle
-                            # ResultExporter(problem, solver).to_csv()
-                            # ResultExporter(problem, solver).csv_to_excel()
+                            ResultExporter(problem, solver).to_csv()
+                            ResultExporter(problem, solver).csv_to_excel()
 
                             seconds = time.process_time()
                             m, s = divmod(seconds, 60)
@@ -202,8 +204,8 @@ class ColumnCalculation(WIColumn):
                             #  wi.cross_section.draw()
 
 
-if __name__ == '__main__':
-
-    solver, p = ColumnCalculation()
-
-    p.vars[1].lock(6)
+# if __name__ == '__main__':
+#
+#     solver, p = ColumnCalculation()
+#
+#     p.vars[1].lock(6)

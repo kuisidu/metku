@@ -135,6 +135,8 @@ class ResultExporter:
         else:
             fopt = None
             con_vals = None
+            # con_vals = []
+            # xopt = [0, 0, 0, 0]
 
         # Initial point, x0
         x0 = [round(var, 2) for var in self.problem.x0]
