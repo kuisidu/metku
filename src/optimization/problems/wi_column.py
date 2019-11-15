@@ -83,9 +83,11 @@ class WIColumn(OptimizationProblem):
         self.Fy = Fy
         self.Qx = Qx
         self.lcr = lcr
+        
+        section_class = max(top_flange_class, bottom_flange_class)
         self.create_structure(Lpi, Fx, Fy, Qx, Qy, Mz, lcr, LT_buckling)
         self.create_variables()
-        self.create_constraints()
+        self.create_constraints(section_class)
         self.create_objective()
         self.prob_type = 'continuous'
 
@@ -512,7 +514,7 @@ class WIColumn(OptimizationProblem):
     #
     #     return con
 
-    def create_stability_constraints(self, mem):
+    def create_stability_constraints(self, mem, section_class):
         """
         Creates stability constraint functions
         :return:
@@ -528,11 +530,11 @@ class WIColumn(OptimizationProblem):
 
         def com_compression_bending_y(x):
             self.substitute_variables(x)
-            return mem.steel_member.check_beamcolumn()[0] - 1
+            return mem.steel_member.check_beamcolumn(section_class=section_class)[0] - 1
 
         def com_compression_bending_z(x):
             self.substitute_variables(x)
-            return mem.steel_member.check_beamcolumn()[1] - 1
+            return mem.steel_member.check_beamcolumn(section_class=section_class)[1] - 1
 
         def lt_buckling(x):
             self.substitute_variables(x)
@@ -572,12 +574,16 @@ class WIColumn(OptimizationProblem):
 
         return compression, tension, shear, bending_moment
 
-    def create_constraints(self):
+    def create_constraints(self, section_class):
+        """ Create constraints for each member 
+            (for the single column the list is a single member)
+        """
         for mem in self.structure.members.values():
 
+            
             buckling_y, buckling_z, com_compression_bending_y, \
                 com_compression_bending_z, lt_buckling = \
-                self.create_stability_constraints(mem)
+                self.create_stability_constraints(mem, section_class)
 
             buckling_y_con = NonLinearConstraint(con_fun=buckling_y,
                                                  name="Buckling_y " +
