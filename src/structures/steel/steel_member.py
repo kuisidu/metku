@@ -339,7 +339,7 @@ class SteelMember:
 
         return r
 
-    def check_beamcolumn(self, Cmy=0.9):
+    def check_beamcolumn(self, Cmy=0.9, section_class=None):
         """ Verify stability for combined axial force and bending moment
             LT_buckling -- kiepahdus
                     True .. rajoitusehto huomioidaan
@@ -349,7 +349,14 @@ class SteelMember:
         NEd = np.min(np.array(self.ned).clip(max=0.0))
 
         self.profile.Ned = NEd
-        cross_section_class = self.profile.section_class()
+        if section_class is None:
+            cross_section_class = self.profile.section_class()
+        else:
+            cross_section_class = section_class
+            
+        #print("Check beam column:")
+        #print("Section class:", cross_section_class)
+        
         slend = self.slenderness()
         CmLT = 1  # Pitääkö käyttää jotakin kaavaa?
 
@@ -362,7 +369,7 @@ class SteelMember:
         kyy = en1993_1_1.kyy(UNy, slend[0], Cmy,
                              section_class=cross_section_class)
 
-        kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=1.0,
+        kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=CmLT,
                              section_class=cross_section_class)
 
         MyEd1 = np.max(np.array(self.myed))
@@ -373,7 +380,7 @@ class SteelMember:
         # MzEd2 = abs(np.min(np.array(self.mzed)))
         # MzEd = max(MzEd1, MzEd2)
 
-        MRd = self.profile.MRd
+        MRd = self.profile.bending_resistance(C=cross_section_class)
 
         # phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
         #         slend[0] - 0.2) + slend[0] ** 2)

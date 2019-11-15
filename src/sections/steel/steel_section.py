@@ -101,6 +101,8 @@ class SteelSection(metaclass=ABCMeta):
 
     @property
     def MRd(self):
+        
+        
         if self.C < 3:
             return self.code.bending_resistance(self.Wpl, self.fy)
         elif self.C == 3:
