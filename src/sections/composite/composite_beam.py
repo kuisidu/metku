@@ -195,7 +195,43 @@ class CompositeIBeam:
         """
         a = self.distance_centroids()
         return a**2*self.EAa*self.EAc/(self.EAa+self.EAc)/(self.EIa + self.EIc)
+    
+    def Ra(self):
+        """ Full resultant of steel part """
         
+        return self.steel.fy*self.Aa
+    
+    def Rc(self):
+        """ Full resultant of concrete part """
+        
+        return 0.85*self.slab.material.fcd()*self.Ac
+    
+    def Rf(self):
+        """ Resultant of top flange of the steel beam """
+        
+        Af = self.steel.tf * self.steel.b        
+        
+        return self.steel.fy*Af
+    
+    def MplRd(self):
+        """ Plastic moment resistance based on full shear connection """
+        
+        Ra = self.Ra()
+        Rc = self.Rc()
+        
+        ei = self.distance_centroids()
+        hc = self.slab.hc
+        if Ra < Rc:
+            """ Neutral axis in concrete part """
+            print("Plastic neutral axis in concrete")
+            ec0 = Ra/Rc*hc
+            MplRd = Ra*(ei+0.5*hc-0.5*ec0)
+        elif Rc < Ra-2*self.Rf():
+            """ Neutral axis in top flange of steel beam """
+            ec0 = 0.5*(Ra-Rc)/self.steel.b/self.steel.fy + self.slab.h
+            
+        else:
+            """ Neutral axis in the web of the steel part """
 
 if __name__ == '__main__':
     
@@ -217,4 +253,6 @@ if __name__ == '__main__':
     print("Distance between centroids [mm]: ", p.distance_centroids())
     print("Liittovaikutuskerroin: ", p.composite_coefficient())
     print("Bending stiffness of composite section: ",p.EIcom()*1e-12)
+    
+    p.MplRd()
     

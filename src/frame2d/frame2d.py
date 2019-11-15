@@ -2,13 +2,10 @@
 @author: Jaakko Huusko
 """
 
-import math
 import os
-
-import matplotlib.pyplot as plt
-import numpy as np
 import time
-import copy
+
+import numpy as np
 
 try:
     import src.framefem.framefem  as fem
@@ -72,7 +69,8 @@ class Frame2D:
         :ivar simple:
     """
 
-    def __init__(self, simple=None, num_elements=None, supports=None, fem_model=None, beams=True):
+    def __init__(self, simple=None, num_elements=None, supports=None,
+                 fem_model=None, create_beams=True):
 
         if fem_model:
             self.f = fem_model
@@ -97,7 +95,7 @@ class Frame2D:
         self.self_weight = False
         self.truss = []
         self.simple = simple
-        self.beams = beams
+        self.create_beams = create_beams
 
         if simple:
             self.storeys = simple[0]
@@ -111,8 +109,10 @@ class Frame2D:
 
     @property
     def L(self):
-        x_coordinates = [mem.coordinates[0][0] for mem in self.members.values()]
-        x_coordinates.extend([mem.coordinates[1][0] for mem in self.members.values()])
+        x_coordinates = [mem.coordinates[0][0] for mem in
+                         self.members.values()]
+        x_coordinates.extend(
+            [mem.coordinates[1][0] for mem in self.members.values()])
         x_min = min(x_coordinates)
         x_max = max(x_coordinates)
         L = x_max - x_min
@@ -120,13 +120,22 @@ class Frame2D:
 
     @property
     def H(self):
-        y_coordinates = [mem.coordinates[0][1] for mem in self.members.values()]
-        y_coordinates.extend([mem.coordinates[1][1] for mem in self.members.values()])
+        y_coordinates = [mem.coordinates[0][1] for mem in
+                         self.members.values()]
+        y_coordinates.extend(
+            [mem.coordinates[1][1] for mem in self.members.values()])
         y_min = min(y_coordinates)
         y_max = max(y_coordinates)
         H = y_max - y_min
         return H
 
+    @property
+    def beams(self):
+        return [mem for mem in self.members.values() if mem.mtype == 'beam']
+
+    @property
+    def columns(self):
+        return [mem for mem in self.members.values() if mem.mtype == 'column']
 
     def add(self, this):
         """ Adds given item to the frame.
@@ -154,12 +163,13 @@ class Frame2D:
             # If coordinate is outside of member's coordinates,
             # it's rejected in member's add_node_coord function
             for member in self.members.values():
-               coord = this.line_intersection(member.coordinates)
-               if isinstance(coord, list):
-                   this.add_node_coord(coord)
-                   member.add_node_coord(coord)
+                coord = this.line_intersection(member.coordinates)
+                if isinstance(coord, list):
+                    this.add_node_coord(coord)
+                    member.add_node_coord(coord)
 
-            if str(this.nodal_coordinates) not in [str(c) for c in self.nodal_coordinates]:
+            if str(this.nodal_coordinates) not in [str(c) for c in
+                                                   self.nodal_coordinates]:
                 self.nodal_coordinates.extend(this.nodal_coordinates)
                 self.nodal_coordinates.sort()
 
@@ -186,10 +196,10 @@ class Frame2D:
 
         # SUPPORTS
         elif isinstance(this, Support):
-            #this.supp_id = len(self.supports)
+            # this.supp_id = len(self.supports)
             supp_label = len(self.supports)
             self.supports[supp_label] = this
-            #self.supports[this.supp_id] = this
+            # self.supports[this.supp_id] = this
             self.support_nodes.append(this.coordinate)
 
             for member in self.members.values():
@@ -198,7 +208,7 @@ class Frame2D:
                     member.add_node_coord(this.coordinate)
 
         # TRUSS
-        elif isinstance(this, Frame2D):
+        elif type(this).__name__ == 'Truss2D':
             self.truss.append(this)
 
             # Bottom chord coordinates
@@ -210,16 +220,18 @@ class Frame2D:
                         member.add_node_coord(coord)
                         # Create eccentricity to connection
                         if member.mtype == "column":
-                            joint0 = [j for j in bchord.joints if j.loc <= 0.02]
-                            joint1 = [j for j in bchord.joints if j.loc >= 0.98]
+                            joint0 = [j for j in bchord.joints if
+                                      j.loc <= 0.02]
+                            joint1 = [j for j in bchord.joints if
+                                      j.loc >= 0.98]
                             if coord == c0 and joint0:
                                 joint0 = joint0[0]
                                 web = list(joint0.webs.values())[0]
                                 theta = abs(joint0.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(joint0.g1 * math.cos(joint0.chord.angle) +
-                                                           web.h / 2 * math.sin(theta))
-                                # m to mm
-                                ecc_x = ecc_x
+                                ecc_x = member.h / 2 + abs(
+                                    joint0.g1 * math.cos(joint0.chord.angle) +
+                                    web.h / 2 * math.sin(theta))
+
                                 x0, y0 = joint0.coordinate
                                 # Change joint's coordinate
                                 joint0.coordinate = [x0 + ecc_x, y0]
@@ -233,8 +245,9 @@ class Frame2D:
                                 joint1 = joint1[0]
                                 web = list(joint1.webs.values())[0]
                                 theta = abs(joint1.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(joint1.g1 * math.cos(joint1.chord.angle) +
-                                                           web.h / 2 * math.sin(theta))
+                                ecc_x = member.h / 2 + abs(
+                                    joint1.g1 * math.cos(joint1.chord.angle) +
+                                    web.h / 2 * math.sin(theta))
                                 # m to mm
                                 ecc_x = ecc_x
                                 x1, y1 = joint1.coordinate
@@ -244,7 +257,6 @@ class Frame2D:
                                 member.ecc_coordinates.append([coord, c1])
                                 bchord.columns[c1[0]] = member
                 # Change chord's end coordinates
-
                 bchord.coordinates = [c0, c1]
                 bchord.calc_nodal_coordinates()
 
@@ -258,8 +270,10 @@ class Frame2D:
                         # Create eccentricity to connection
                         if member.mtype == "column":
 
-                            joint0 = [j for j in tchord.joints if j.loc <= 0.02]
-                            joint1 = [j for j in tchord.joints if j.loc >= 0.98]
+                            joint0 = [j for j in tchord.joints if
+                                      j.loc <= 0.02]
+                            joint1 = [j for j in tchord.joints if
+                                      j.loc >= 0.98]
 
                             # Chord's position vector
                             v = np.array([math.cos(tchord.angle),
@@ -279,17 +293,19 @@ class Frame2D:
 
                                 coord0 = np.asarray(joint0.coordinate)
                                 # Change joint's coordinate
-                                joint0.coordinate = list(c0 + ecc_x * v)
+                                joint0.coordinate = list(
+                                    c0 + ecc_x * tchord.unit)
                             if coord == c0:
                                 # Calculate chord's new start coordinate
                                 # c0 = [c0[0] + tchord.h / 2000 * u[0], c0[1] + tchord.h / 2000 * u[1]]
-                                ecc_y = tchord.h / 2 * u[1]
+                                ecc_y = -tchord.h / 2 * tchord.perpendicular[1]
                                 # c0 = [c0[0] + member.h/2000, c0[1]]
                                 # Add eccentricity elements coordinates to list
                                 coord[1] -= ecc_y
                                 member.ecc_coordinates.append([coord, c0])
                                 tchord.columns[c0[0]] = member
-                                temp_coords = sorted(member.coordinates, key=lambda x: x[1])
+                                temp_coords = sorted(member.coordinates,
+                                                     key=lambda x: x[1])
                                 temp_coords[1] = coord
                                 member.coordinates = temp_coords
                                 member.calc_nodal_coordinates()
@@ -303,20 +319,22 @@ class Frame2D:
                                 #        web.h/2 * math.sin(theta))  
                                 ecc_x = member.h / 2 + joint1.g1
                                 coord1 = np.asarray(joint1.coordinate)
-                                joint1.coordinate = list(c1 - ecc_x * v)
+                                joint1.coordinate = list(
+                                    c1 - ecc_x * tchord.unit)
                             if coord == c1:
                                 # Calculate chord's new end point
                                 # c1 = [c1[0] + tchord.h/2000 * u[0], c1[1] + tchord.h/2000 * u[1]]
                                 # c1 = [c1[0] - member.h/2000, c1[1]]
                                 # member.ecc_coordinates.append([coord, c1])
                                 # tchord.columns[c1[0]] = member
-                                ecc_y = tchord.h / 2 * u[1]
+                                ecc_y = -tchord.h / 2 * tchord.perpendicular[1]
                                 # c0 = [c0[0] + member.h/2000, c0[1]]
                                 # Add eccentricity elements coordinates to list
                                 coord[1] -= ecc_y
                                 member.ecc_coordinates.append([coord, c1])
                                 tchord.columns[c1[0]] = member
-                                temp_coords = sorted(member.coordinates, key=lambda x: x[1])
+                                temp_coords = sorted(member.coordinates,
+                                                     key=lambda x: x[1])
                                 temp_coords[1] = coord
                                 member.coordinates = temp_coords
                                 member.calc_nodal_coordinates()
@@ -378,7 +396,8 @@ class Frame2D:
         for member in self.members.values():
             member.calc_nodal_displacements(self.f)
             for node in member.nodal_displacements.keys():
-                self.nodal_displacements[node] = member.nodal_displacements[node]
+                self.nodal_displacements[node] = member.nodal_displacements[
+                    node]
 
     def calculate(self, load_id=2):
         """ Calculates forces and displacements
@@ -496,7 +515,7 @@ class Frame2D:
             member_id keeps track for running numbering for id's
         """
         self.generate_columns()
-        if self.beams:
+        if self.create_beams:
             self.generate_beams()
 
     def generate_supports(self, supp_type):
@@ -530,12 +549,14 @@ class Frame2D:
         if not self.is_generated:
             self.is_generated = True
         for member in self.members.values():
+            member.calc_nodal_coordinates()
             member.round_coordinates()
             member.generate(self.f)
             for coord in member.nodal_coordinates:
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
             self.nodes.extend(list(member.nodes.values()))
+
         # Generate TrussJoints
         if len(self.truss):
             for truss in self.truss:
@@ -560,7 +581,8 @@ class Frame2D:
         # Add line loads (if any)
         for lineLoad in self.line_loads.values():
             member = lineLoad.member
-            lineLoad.element_ids = member.lineload_elements(lineLoad.coordinates)
+            lineLoad.element_ids = member.lineload_elements(
+                lineLoad.coordinates)
             lineLoad.add_load(self.f)
 
     def to_csv(self, filename, num_frames=0, s=1):
@@ -581,7 +603,8 @@ class Frame2D:
                     f.write(f'{x0}, {y}, {z0}, {x1}, {y}, {z1},{profile} \n')
         print(f'{filename}.csv created to: \n{os.getcwd()}')
 
-    def to_robot(self, filename, num_frames=1, s=1, brace_profile="SHS 50x50x2"):
+    def to_robot(self, filename, num_frames=1, s=1,
+                 brace_profile="SHS 50x50x2"):
         """  Creates an Aurodesk Robot Structural Analysis .str -file
         
             Parameters
@@ -628,18 +651,21 @@ class Frame2D:
                 if profile_type == 'RHS':
                     profile = 'RRHS ' + splitted_val[1]
                 elif profile_type == 'HE':
-                    profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
+                    profile = splitted_val[0] + splitted_val[2] + splitted_val[
+                        1]
                 elif profile_type == "SHS":
                     dims = splitted_val[1].split("X")
-                    profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[1])
+                    profile = 'RRHS ' + str(dims[0]) + 'X' + str(
+                        dims[0]) + 'X' + str(dims[1])
                 else:
                     profile = member.profile
                 # Webs
                 if member.mtype == "web" or member.mtype == "beam" or \
-                                member.mtype == "top_chord" or member.mtype == "bottom_chord":
+                        member.mtype == "top_chord" or member.mtype == "bottom_chord":
                     Sj1 = min(1e10, member.Sj1)
                     Sj2 = min(1e10, member.Sj2)
-                    releases[elements.index(elem) + 1] = f'ORIgin RY Hy={Sj1}  END RY Hy={Sj2}'
+                    releases[elements.index(
+                        elem) + 1] = f'ORIgin RY Hy={Sj1}  END RY Hy={Sj2}'
 
                 profiles.append(profile)
                 material.append(member.material)
@@ -663,7 +689,6 @@ class Frame2D:
                         #    releases[elements.index(elem) +1] = 'END RY'
                         # else:
                         #    releases[elements.index(elem) +1] = 'ORIgin RY'
-
 
             if self.truss:
                 trusses = self.truss
@@ -720,7 +745,7 @@ class Frame2D:
                     else:
                         pass
 
-            #except:
+            # except:
             #    pass
 
             for pointload in self.point_loads.values():
@@ -768,7 +793,8 @@ class Frame2D:
                 profile = splitted_val[0] + splitted_val[2] + splitted_val[1]
             elif profile_type == "SHS":
                 dims = splitted_val[1].split("X")
-                profile = 'RRHS ' + str(dims[0]) + 'X' + str(dims[0]) + 'X' + str(dims[2])
+                profile = 'RRHS ' + str(dims[0]) + 'X' + str(
+                    dims[0]) + 'X' + str(dims[2])
             else:
                 profile = brace_profile
             profiles.append(profile)
@@ -786,18 +812,19 @@ class Frame2D:
             f.write("NODes \n")
             for i, node in enumerate(nodes):
                 if num_frames != 1:
-                    f.write(f'{i+1}   {node[0]}    {node[1]}    {node[2]} \n')
+                    f.write(
+                        f'{i + 1}   {node[0]}    {node[1]}    {node[2]} \n')
                 else:
-                    f.write(f'{i+1}   {node[0]}    {node[1]} \n')
+                    f.write(f'{i + 1}   {node[0]}    {node[1]} \n')
 
             f.write('ELEments \n')
             for i, element in enumerate(elements):
-                f.write(f' {i+1}  {element[0]}    {element[1]} \n')
+                f.write(f' {i + 1}  {element[0]}    {element[1]} \n')
 
             f.write('PROperties \n')
             for i in range(len(elements)):
                 f.write(f' "{material[i]}" \n')
-                f.write(f' {i+1}  ')
+                f.write(f' {i + 1}  ')
                 f.write(f' {profiles[i]}    \n')
 
             f.write("SUPports \n")
@@ -923,7 +950,8 @@ class Frame2D:
                     marker = '4'
             else:
                 marker = '2'
-            plt.scatter(node_coord[0], node_coord[1], s=50, c='k', marker=marker)
+            plt.scatter(node_coord[0], node_coord[1], s=50, c='k',
+                        marker=marker)
 
         # if self.truss:
         #    self.truss.plot(show=False, print_text=print_text, color=color)
@@ -950,13 +978,14 @@ class Frame2D:
             x, y = load.coordinate
             scl = max(self.L, self.H) * 1e-1
             dx, dy, _ = load.v
-            plt.arrow(x, y, np.sign(dx)*scl, np.sign(dy)*scl,
-                      head_width=scl*1e-1, ec='b')
-            #lt.scatter(x, y, c='b', marker='*')
+            plt.arrow(x, y, np.sign(dx) * scl, np.sign(dy) * scl,
+                      head_width=scl * 1e-1, ec='b')
+            # lt.scatter(x, y, c='b', marker='*')
 
         for lineload in self.line_loads.values():
             c0, c1 = lineload.coordinates
             q1, q2 = lineload.values
+            dq = (q2 - q1) / 10
             x1, y1 = c0
             x2, y2 = c1
             num_arrows = 10
@@ -971,24 +1000,25 @@ class Frame2D:
             else:
                 Y = np.ones(11) * y1
             scl = max(self.L, self.H) * 8e-2
-            q_scl = q2 / q1
-            for x, y in zip(X, Y):
+            for i, (x, y) in enumerate(zip(X, Y)):
+                q = q1 + dq * i
+                q_scl = q / max(abs(q2), abs(q1))
                 if lineload.direction == 'y':
                     # Moves arrows above member
-                    y -= (np.sign(q1) * scl - scl * 2e-1)
+                    y += (np.sign(q1) - 2e-1) * scl * q_scl
                     dx = 0
-                    dy = np.sign(q1) * scl
+                    dy = -np.sign(q1) * scl * q_scl
                     plt.arrow(x, y, dx, dy,
                               head_width=scl * 1e-1, ec='r',
                               head_starts_at_zero=False)
                 else:
-                    x -= (np.sign(q1) * scl - scl * 2e-1)
-                    dx = np.sign(q1) * scl
+                    x -= (np.sign(q1) + 0.25) * scl * q_scl
+                    dx = np.sign(q1) * scl * q_scl
                     dy = 0
                     plt.arrow(x, y, dx, dy,
-                              head_width=scl * 1e-1, ec='r')
+                              head_width=scl * 1e-1, ec='y')
 
-            #plt.plot([c0[0], c1[0]], [c0[1], c1[1]], c='b')
+            # plt.plot([c0[0], c1[0]], [c0[1], c1[1]], c='b')
 
             # x0, y0 = self.f.elements[lineload.element_ids[0]].nodes[0].x
             # x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
@@ -1075,7 +1105,8 @@ class Frame2D:
         self.alpha_cr = w
         for j in range(v.shape[1]):
             if show:
-                self.plot(print_text=False, show=False, loads=False, color=False)
+                self.plot(print_text=False, show=False, loads=False,
+                          color=False)
             for member in self.members.values():
                 X = []
                 Y = []
@@ -1093,7 +1124,7 @@ class Frame2D:
                     Y.append(y)
 
                 plt.plot(X, Y, color='m')
-            plt.title(f'Buckling shape {j+1},  ' r"$\alpha_{cr}$" f' = {w[j]*1000:.2f}')
+            plt.title(f'Buckling shape {j + 1},  ' r"$\alpha_{cr}$" f' = {w[j] * 1000:.2f}')
             # if self.truss:
             #    self.truss.plot_buckling(show=False)
 
@@ -1110,8 +1141,8 @@ class Frame2D:
         self.plot(print_text=False, show=False, color=False)
         for member in self.members.values():
             member.bmd_test(scale)
-        if self.truss:
-            self.truss.bmd(scale)
+        # for truss in self.truss:
+        #     truss.bmd(scale)
         plt.show()
 
     def plot_normal_force(self, show=True):
@@ -1149,8 +1180,8 @@ class Frame2D:
             self.self_weight = True
             for member in self.members.values():
                 member.add_self_weight(self)
-            #self.add_loads('self_weight')
-            #self.generate_frame()
+            # self.add_loads('self_weight')
+            # self.generate_frame()
         else:
             self.remove_self_weight()
             self.add_self_weight()
@@ -1255,7 +1286,8 @@ class FrameMember:
 
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
                  material="S355", num_elements=5,
-                 Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False, reverse=False):
+                 Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False,
+                 reverse=False):
 
         self.element_ids = []
         self.elements = {}
@@ -1311,11 +1343,23 @@ class FrameMember:
 
         self.steel_members = [self.steel_member]
 
-
-
     def copy(self):
         return type(self)(self.coordinates)
 
+    def __repr__(self):
+        return f"{type(self).__name__}({self.coordinates})"
+
+    @property
+    def Y(self):
+        (x1, y1), (x2, y2) = self.coordinates
+        return np.asarray([y1, y2])
+
+    @Y.setter
+    def Y(self, val):
+        (x1, y1), (x2, y2) = self.coordinates
+        print(self.coordinates)
+        self.coordinates = [[x1, val], [x2, val]]
+        print(self.coordinates)
 
     @property
     def start_coord(self):
@@ -1331,9 +1375,8 @@ class FrameMember:
         :param loc: local coordinate
         :return: global coordinate
         """
-
         Lx = self.length * loc
-        global_coord = self.coordinates[0] +  Lx * self.unit
+        global_coord = self.coordinates[0] + Lx * self.unit
         return global_coord
 
     @property
@@ -1357,7 +1400,6 @@ class FrameMember:
         start, end = np.asarray(self.coordinates)
         unit = np.array(end - start) / self.length
         return unit
-
 
     @property
     def A(self):
@@ -1499,7 +1541,8 @@ class FrameMember:
                 self.profile = profile_type + " " + str(val)
             elif profile_type == "SHS":
                 val = max(val, 25)
-                self.profile = profile_type + " " + str(val) + 'X' + str(val) + 'X' + str(max(round(val / 20), 2))
+                self.profile = profile_type + " " + str(val) + 'X' + str(
+                    val) + 'X' + str(max(round(val / 20), 2))
         elif len(splitted) == 3:
             self.profile = splitted[0] + " " + str(val) + " " + splitted[2]
 
@@ -1540,6 +1583,11 @@ class FrameMember:
         
         :param val: string, profile name e.g. 'IPE 100'
         """
+
+        # if isinstance(val, SteelSection):
+        #     self.cross_section = val
+        #     self.__profile = str(val)
+
         if isinstance(val, list) and len(val) == 5:
             h, b, tf, tw, r = val
             if isinstance(self.cross_section, CustomISection):
@@ -1588,7 +1636,8 @@ class FrameMember:
                 self.cross_section = IPE(H, self.fy)
 
             elif profile_type == 'WI':
-                self.cross_section = WISection(H, tw, [b1, b2], [tf1, tf2], self.fy)
+                self.cross_section = WISection(H, tw, [b1, b2], [tf1, tf2],
+                                               self.fy)
 
             elif profile_type == 'HE':
                 if splitted_val[2] == 'A':
@@ -1611,7 +1660,8 @@ class FrameMember:
             elif profile_type == 'SHS':
                 self.cross_section = SHS(H, T, self.fy)
             else:
-                raise ValueError('{} is not valid profile type!'.format(profile_type))
+                raise ValueError(
+                    '{} is not valid profile type!'.format(profile_type))
 
         # Change member's elements' properties
         if len(self.elements) > 0:
@@ -1675,12 +1725,9 @@ class FrameMember:
 
     @property
     def length(self):
-        start_node, end_node = self.coordinates
-        x0, y0 = start_node
-        x1, y1 = end_node
-        x = (x1 - x0) ** 2
-        y = (y1 - y0) ** 2
-        L = np.sqrt(x + y)
+        start_node, end_node = np.asarray(self.coordinates)
+
+        L = np.linalg.norm(end_node - start_node)
         return L
 
     def alpha_to_Sj(self):
@@ -1702,6 +1749,7 @@ class FrameMember:
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
+
         if not self.is_generated:
             self.add_nodes(fem_model)
             self.add_material(fem_model)
@@ -1757,6 +1805,7 @@ class FrameMember:
                 loc = 0
             else:
                 loc = 1 / i
+            loc = round(loc, PREC)
             if loc not in self.loc:
                 self.loc.append(loc)
 
@@ -1778,14 +1827,15 @@ class FrameMember:
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
-        #if coord not in self.nodal_coordinates and self.point_intersection(coord):
+        # if coord not in self.nodal_coordinates and self.point_intersection(coord):
         coord = list(coord)
-        if coord not in self.added_coordinates and self.point_intersection(coord):
+        if coord not in self.added_coordinates and self.point_intersection(
+                coord):
             self.added_coordinates.append(coord)
             self.nodal_coordinates.append(coord)
             c0, c1 = self.coordinates
             self.nodal_coordinates.sort(
-                    key=lambda c: np.linalg.norm(np.asarray(c0) - np.asarray(c)))
+                key=lambda c: np.linalg.norm(np.asarray(c0) - np.asarray(c)))
             start_node, end_node = self.coordinates
             x, y = coord
             x1, y1 = start_node
@@ -1793,6 +1843,10 @@ class FrameMember:
             dy = y - y1
             dz = math.sqrt((dx ** 2 + dy ** 2))
             z = dz / self.length
+
+            if x < x1:
+                z *= -1
+            z = round(z, PREC)
             if z not in self.loc:
                 self.loc.append(z)
                 self.loc.sort()
@@ -1862,14 +1916,16 @@ class FrameMember:
                     # EBSemiRigid -element, first element
                     if i == 0:
                         self.elements[index] = \
-                            EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                            EBSemiRigidBeam(fem_model.nodes[n1],
+                                            fem_model.nodes[n2], \
                                             self.cross_section, \
                                             self.material, \
                                             rot_stiff=[self.Sj1, np.inf])
                     # EBSemiRigid -element, last element
                     elif i == (len(self.nodes) - 2):
                         self.elements[index] = \
-                            EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                            EBSemiRigidBeam(fem_model.nodes[n1],
+                                            fem_model.nodes[n2], \
                                             self.cross_section, \
                                             self.material, \
                                             rot_stiff=[np.inf, self.Sj2])
@@ -2047,6 +2103,16 @@ class FrameMember:
         s = fem.BeamSection(self.cross_section.A, self.cross_section.I[0])
         fem_model.add_section(s)
 
+    @property
+    def locs(self):
+        locs = []
+        for ncoord in self.nodal_coordinates:
+            ncoord = np.asarray(ncoord)
+            start_coord, end_coord = np.asarray(self.coordinates)
+            loc = np.linalg.norm(start_coord - ncoord) / self.length
+            locs.append(round(loc, PREC))
+        return locs
+
     def check_cross_section(self):
         """ Checks if cross-section is strong enough.
             Gives boolean value for self.is_strong_enough
@@ -2058,7 +2124,7 @@ class FrameMember:
                 ned = forces[0]
                 ved = forces[1]
                 med = forces[2]
-                loc = self.loc[i]
+                loc = self.locs[i]
                 self.steel_member.add_section(ned=ned, vzed=ved,
                                               myed=med, loc=loc)
         else:
@@ -2130,10 +2196,12 @@ class FrameMember:
         if ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)) == 0:
             return None
         else:
-            px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / (
-                (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
-            py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / (
-                (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
+            px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (
+                        x3 * y4 - y3 * x4)) / (
+                         (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
+            py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (
+                        x3 * y4 - y3 * x4)) / (
+                         (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
 
             return [round(px, 5), round(py, 5)]
 
@@ -2156,7 +2224,8 @@ class FrameMember:
             else:
                 k = (y2 - y1) / (x2 - x1)
                 b = y1 - k * x1
-                return math.isclose(y, k * x + b, rel_tol=1e-3)  # y == k * x + b
+                return math.isclose(y, k * x + b,
+                                    rel_tol=1e-3)  # y == k * x + b
         return False
 
     def plot(self, print_text=True, c='k'):
@@ -2213,7 +2282,8 @@ class FrameMember:
 
     def plot_results(self):
 
-        UN, UV, UM, UMN = self.cross_section.section_resistance(return_list=True)
+        UN, UV, UM, UMN = self.cross_section.section_resistance(
+            return_list=True)
         B = max(self.steel_member.check_buckling())
         LT = self.steel_member.check_LT_buckling()
 
@@ -2261,13 +2331,15 @@ class FrameMember:
                 y = y0 - y1
                 X.append(x)
                 Y.append(y)
-                if i == 0 or i == len(self.nodes) - 1 or bending_moment == max(moment_values) or \
-                                bending_moment == min(moment_values):
+                if i == 0 or i == len(self.nodes) - 1 or bending_moment == max(
+                        moment_values) or \
+                        bending_moment == min(moment_values):
                     if bending_moment > 0:
                         vert = 'top'
                     else:
                         vert = 'bottom'
-                    plt.text(x, y, f'{bending_moment:.2f} kNm', verticalalignment=vert)
+                    plt.text(x, y, f'{bending_moment:.2f} kNm',
+                             verticalalignment=vert)
 
             elif self.mtype == "column":
                 x0 = self.nodal_coordinates[i + 1][0]
@@ -2278,13 +2350,15 @@ class FrameMember:
                 y = y0
                 X.append(x)
                 Y.append(y)
-                if i == 0 or i == len(self.nodes) - 1 or bending_moment == max(moment_values) or \
-                                bending_moment == min(moment_values):
+                if i == 0 or i == len(self.nodes) - 1 or bending_moment == max(
+                        moment_values) or \
+                        bending_moment == min(moment_values):
                     if bending_moment > 0:
                         horz = 'left'
                     else:
                         horz = 'right'
-                    plt.text(x, y, f'{bending_moment:.2f} kNm', horizontalalignment=horz)
+                    plt.text(x, y, f'{bending_moment:.2f} kNm',
+                             horizontalalignment=horz)
         X.append(self.nodal_coordinates[i + 1][0])
         Y.append(self.nodal_coordinates[i + 1][1])
         plt.plot(X, Y, color='gray')
@@ -2318,8 +2392,10 @@ class FrameMember:
             Y.append(y)
             horzalign = 'center'
             vertalign = 'center'
-            if bending_moment == max(moment_values) or bending_moment == min(moment_values):
-                plt.text(x, y, f'{bending_moment*unit_scaler:.2f} kNm', horizontalalignment=horzalign)
+            if bending_moment == max(moment_values) or bending_moment == min(
+                    moment_values):
+                plt.text(x, y, f'{bending_moment * unit_scaler:.2f} kNm',
+                         horizontalalignment=horzalign)
         x0, y0 = elem.nodes[1].coord
         bending_moment = elem.bending_moment[1]
         val = bending_moment * unit_scaler * scale
@@ -2328,7 +2404,8 @@ class FrameMember:
         Y.append(y)
         X.append(x02)
         Y.append(y02)
-        plt.text(x, y, f'{bending_moment*unit_scaler:.2f} kNm', horizontalalignment=horzalign)
+        plt.text(x, y, f'{bending_moment * unit_scaler:.2f} kNm',
+                 horizontalalignment=horzalign)
         plt.plot(X, Y, color='gray')
 
     def sfd(self, scale):
@@ -2379,7 +2456,8 @@ class FrameMember:
             alpha = max(0.1, r)
             color = (0, 0.5 - r / 2, 1, alpha)
         # Plot members
-        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color=color, linewidth=2)
+        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color=color,
+                 linewidth=2)
         # Plot text
         # Calculate text location
         delta_y = X[1][1] - X[0][1]
@@ -2396,7 +2474,8 @@ class FrameMember:
         y = (X[1][1] + X[0][1]) / 2
         horzalign = 'center'
         vertalign = 'center'
-        plt.text(x, y, f'{self.ned*unit_scaler:.2f}  kN,\nr: {r*100:.2f} %',
+        plt.text(x, y,
+                 f'{self.ned * unit_scaler:.2f}  kN,\nr: {r * 100:.2f} %',
                  rotation=rot, horizontalalignment=horzalign,
                  verticalalignment=vertalign)
 
@@ -2405,7 +2484,6 @@ class FrameMember:
         # Returns the elements that are under line load
         #:param coords: 2D-array of float, line load's start and end coordinates
         #:return element_ids: array of int, elements id's
-
 
         start, end = coords
         start = [round(c, PREC) for c in start]
@@ -2424,7 +2502,8 @@ class FrameMember:
 class SteelBeam(FrameMember):
     def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
                  profile="IPE 100", material="S355", num_elements=4, **kwargs):
-        super().__init__(coordinates, mem_id, profile, material, num_elements, **kwargs)
+        super().__init__(coordinates, mem_id, profile, material, num_elements,
+                         **kwargs)
 
         self.mtype = 'beam'
         self.alpha1 = alpha1
@@ -2481,7 +2560,8 @@ class Load:
 class PointLoad(Load):
     """ Class for point loads (forces and moments) """
 
-    def __init__(self, coordinate, v, load_id=2, ltype='live', name='PointLoad',
+    def __init__(self, coordinate, v, load_id=2, ltype='live',
+                 name='PointLoad',
                  f=1.0):
         super().__init__(load_id, ltype, name, f)
         """ Input:
@@ -2496,7 +2576,6 @@ class PointLoad(Load):
         self.f = f
         self.node = None
 
-
     @property
     def coordinate(self):
         if self.node:
@@ -2504,15 +2583,13 @@ class PointLoad(Load):
         else:
             return self.__coordinate
 
-
     def add_load(self, fem_model):
 
         if self.coordinate in fem_model.nodal_coords:
             idx = fem_model.nodal_coords.index(self.coordinate)
             self.node = fem_model.nodes[idx]
-            fem_model.add_load(fem.PointLoad(self.load_id, self.node, self.v, self.f))
-
-
+            fem_model.add_load(
+                fem.PointLoad(self.load_id, self.node, self.v, self.f))
 
 
 class LineLoad(Load):
@@ -2529,11 +2606,15 @@ class LineLoad(Load):
         else:
             self.mem_id = None
             self.member = None
-        self.coordinates = coordinates
+
         self.values = np.asarray(values)
         self.direction = direction
         self.f = f
         self.element_ids = None
+
+    @property
+    def coordinates(self):
+        return self.member.coordinates
 
     def calc_k(self):
         v0, v1 = self.values
@@ -2585,14 +2666,15 @@ class Support:
             idx = fem_model.nodal_coords.index(self.coordinate)
             self.node_id = idx
             self.node = fem_model.nodes[idx]
-            fem_model.add_support(self.supp_id, self.node_id, self.dofs, val=0.0)
+            fem_model.add_support(self.supp_id, self.node_id, self.dofs,
+                                  val=0.0)
         else:
             pass
 
 
 class FixedSupport(Support):
     def __init__(self, coordinate, supp_id=1):
-        #super().__init__(coordinate, [1, 1, 1], supp_id)
+        # super().__init__(coordinate, [1, 1, 1], supp_id)
         super().__init__(coordinate, [0, 1, 2], supp_id)
 
 
@@ -2616,13 +2698,18 @@ class Hinge(Support):
         super().__init__(coordinate, [0, 0, 0], supp_id)
 
 
-if __name__ == '__main__':
-
+def test():
     frame = Frame2D()
-    mem = SteelBeam([[0,0], [2000, 1000]], num_elements=1)
+    mem = SteelBeam([[0, 0], [2000, 1000]], num_elements=1000)
 
-    frame.add(FixedSupport([0,0]))
+    frame.add(FixedSupport([0, 0]))
+    frame.add(LineLoad(mem, [-10, -10], 'y'))
     frame.add(mem)
     frame.generate()
     frame.calculate()
-    # frame.bmd(10)
+    print(mem.med)
+
+
+if __name__ == '__main__':
+    frame = Frame2D(simple=[2, 2, 2, 2])
+    print(frame.beams)

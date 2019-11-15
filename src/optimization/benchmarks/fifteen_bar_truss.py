@@ -72,7 +72,7 @@ class FifteenBarTruss(OptimizationProblem):
             name = 'A' + str(i + 1)
             if self.prob_type == "discrete":
                 var = DiscreteVariable(name,
-                                       profiles=profiles,
+                                       values=profiles,
                                        target={"property": "A",
                                                "objects": [mem]})
 
@@ -87,7 +87,7 @@ class FifteenBarTruss(OptimizationProblem):
                 raise TypeError("Problem type must be either 'dicrete' "
                                 "or 'continuous")
 
-            self.vars.append(var)
+            self.add(var)
 
         # Node location variables
         # Nodes 2, 3, 6, 7 can move in x- and y -directions
@@ -141,7 +141,8 @@ class FifteenBarTruss(OptimizationProblem):
                       target={"property": "y",
                               "objects": [y_nodes[5]]})
 
-        self.vars.extend([x2, x3, y2, y3, y4, y6, y7, y8])
+        for var in [x2, x3, y2, y3, y4, y6, y7, y8]:
+            self.add(var)
 
     def create_structure(self):
 
@@ -236,33 +237,32 @@ class FifteenBarTruss(OptimizationProblem):
                     comp_con = NonLinearConstraint(con_fun=compression_fun,
                                                    name="Compression " + str(
                                                        i),
-                                                   parent=self)
+                                                   problem=self)
                     comp_con.fea_required = True
 
                     tension_con = NonLinearConstraint(con_fun=tension_fun,
                                                       name="Tension " + str(i),
-                                                      parent=self)
+                                                      problem=self)
                     tension_con.fea_required = True
 
                     # buckl_con = NonLinearConstraint(con_fun=buckling_fun,
                     #                                name='Buckling ' + str(
                     #                                    i),
-                    #                                parent=self)
+                    #                                problem=self)
                     # buckl_con.fea_required = True
 
-                    self.cons.append(comp_con)
-                    self.cons.append(tension_con)
-                    # self.cons.append(buckl_con)
+                    self.add(comp_con)
+                    self.add(tension_con)
+                    # self.add(buckl_con)
 
 
 
 if __name__ == '__main__':
     from src.optimization.solvers import *
-    problem = FifteenBarTruss(prob_type='discrete')
+    problem = FifteenBarTruss(prob_type='continuous')
     #solver = GA(popsize=10)
-    solver = MISLP(move_limits=[0.5, 5], gamma=1e-3)
+    solver = SLP(move_limits=[0.05, 0.05], gamma=1e-2)
     x0 = [var.ub for var in problem.vars]
-
-    solver.solve(problem, x0=x0, maxiter=200, log=True)
+    solver.solve(problem, x0=x0, maxiter=200, verb=True, plot=True)
     problem(solver.X)
     problem.structure.plot()
