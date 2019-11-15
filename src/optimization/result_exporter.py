@@ -131,10 +131,10 @@ class ResultExporter:
 
             # Constraints' values
             con_vals = list(self.problem.eval_cons(xopt))
+            con_vals = [f'{val:f}' for val in con_vals]
         else:
             fopt = None
             con_vals = None
-        con_vals = [f'{val:f}' for val in con_vals]
 
         # Initial point, x0
         x0 = [round(var, 2) for var in self.problem.x0]

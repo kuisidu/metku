@@ -89,7 +89,9 @@ class TrustRegionConstr(OptSolver):
 
 
 
+
     def solve(self, problem, maxiter=200, x0=None):
+
         """
         Solves given problem
 
@@ -213,6 +215,7 @@ class TrustRegionConstr(OptSolver):
             
             if out.constr_violation > CON_TOL:
                 self.feasible = False
+                print("TEST PRINT", out.constr_violation, CON_TOL)
             else:
                 self.feasible = True
 
