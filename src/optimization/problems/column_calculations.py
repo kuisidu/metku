@@ -45,11 +45,10 @@ class ColumnCalculation(WIColumn):
     # Lpi_list = [6000]  # mm
 
     c = 6000  # mm
-    #lcr_list = [2, 0.7]
-    lcr_list = [2]
-    buckling_z = [False]
-    LT_buckling = [False]
-    cross_section_class_list = [3]
+    lcr_list = [2, 0.7]
+    buckling_z = [True, False]
+    LT_buckling = [True, False]
+    cross_section_class_list = [3, 2]
     sym = "dual"  # dual or mono
     prob_type = "discrete"  # continuous or discrete
 
@@ -96,7 +95,8 @@ class ColumnCalculation(WIColumn):
                             print("Constraints:", len(problem.cons))
                             print("Nonlinear Constraints:", problem.nnonlincons())
                             
-                            problem([340, 10, 150, 8])
+                            # problem([340, 10, 150, 8])
+
                             # problem = WIColumn(
                             #     L=24000, Lpi=6000, Fx=782.89, Fy=-271200,
                             #     Qx=5.85, Qy=0, Mz=0, lcr=2,
@@ -107,8 +107,6 @@ class ColumnCalculation(WIColumn):
                             #     buckling_z=True,
                             #     LT_buckling=True,
                             #     prob_type='continuous')
-
-                            #  print(problem.nnonlincons())
 
                             # print("L={0}, Lpi={1}, Fx={2}, Fy={3}, Qx={4}, "
                             #       "Qy={5}, Mz={6}, lcr={7}, "
@@ -144,7 +142,7 @@ class ColumnCalculation(WIColumn):
                             print("Best found solution.",solver.best_x)
                             print("Best found objective function value:",solver.best_f)
                                                         
-                            problem(solver.best_x)
+                            # problem(solver.best_x)
 
                             #return solver, problem
 
