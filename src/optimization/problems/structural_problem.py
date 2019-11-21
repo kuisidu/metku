@@ -7,19 +7,24 @@ except:
 
 
 class StructuralProblem(OptimizationProblem):
+    """
+    Class for general structural problem
 
+    """
     def __init__(self,
                  name="Structural Optimization Problem",
                  structure=None,
                  var_groups=None,
                  con_groups=None,
                  constraints=None,
-                 profiles=list(ipe_profiles.keys()),
+                 profiles=None,
                  obj=None):
         super().__init__(name=name,
                          structure=structure)
         self.var_groups = var_groups
         self.con_groups = con_groups
+        if profiles is None:
+            profiles = list(ipe_profiles.keys())
         self.profiles = profiles
         self.create_variables()
         if constraints is None:
@@ -39,6 +44,10 @@ class StructuralProblem(OptimizationProblem):
 
     @property
     def available_constraints(self):
+        """
+        Returns all available constraints anf their corresponding keyword
+        :return:
+        """
         return dict(compression=False,
                     tension=False,
                     shear=False,
@@ -55,7 +64,11 @@ class StructuralProblem(OptimizationProblem):
     def cross_section_constraints(self, mem, elem):
         """
         Creates cross-section constraints
-        :return:
+
+        :param mem: FrameMember object
+        :param elem: Element object
+
+        :return: dict of created functions
         """
 
         def compression(x):
@@ -89,6 +102,7 @@ class StructuralProblem(OptimizationProblem):
         """
         Creates stability constraint functions
 
+        :param mem: FrameMember object
         :return:
         """
 
@@ -116,7 +130,7 @@ class StructuralProblem(OptimizationProblem):
     def deflection_constraints(self, mem, limit_x=None, limit_y=None):
         """
         Creates deflection constraint functions
-        :param mem:
+        :param mem: FrameMember object
         :return:
         """
 
@@ -144,15 +158,13 @@ class StructuralProblem(OptimizationProblem):
     def cross_section_class_constraints(self, mem):
         """
         Cross-section class constraints
-        :param mem:
+        :param mem: FrameMember -object
         :return:
         """
 
         def section_class(x):
-            b_ = mem.cross_section.H - 3 * mem.cross_section.T
-
-            return b_ / mem.cross_section.T / (
-                    33 * mem.cross_section.epsilon) - 1
+            # TODO
+            return None
 
         return section_class
 
@@ -168,6 +180,7 @@ class StructuralProblem(OptimizationProblem):
                            compression_bending_z=False,
                            deflection_y=None,
                            deflection_x=None,
+                           section_class=None,
                            alpha_cr=None,
                            members=None
                            ):
@@ -348,8 +361,6 @@ class StructuralProblem(OptimizationProblem):
 
 
 
-
-
     def create_objective(self):
 
         def obj_fun(x):
@@ -374,8 +385,8 @@ if __name__ == '__main__':
 
     n_bays = 1
     n_storeys = 1
-    L_bay = 10000
-    H_storey = 5000
+    L_bay = 24000
+    H_storey = 8000
 
     simple_frame = [n_storeys, n_bays, H_storey, L_bay]
 
@@ -383,21 +394,26 @@ if __name__ == '__main__':
 
     simple_truss = dict(
         H0=H_storey,
-        H1=1500,
-        H2=2000,
+        H1=1800,
+        H2=2400,
         L1=L_bay / 2,
-        H3=1500,
-        dx=1000,
-        n=16
+        dx=0,
+        n=14
     )
 
     truss = Truss2D(simple=simple_truss, fem_model=frame.f)
     frame.add(truss)
+
     for tc in truss.top_chords:
         frame.add(LineLoad(tc, [-30, -30], 'y'))
-    frame.add(PointLoad([0, 6500], [100e3, 0, 0]))
-    frame.generate()
-    frame.calculate()
+    for bc in truss.bottom_chords:
+        frame.add(LineLoad(bc, [-1, -1], 'y'))
+    col1, col2 = frame.columns
+    frame.add(LineLoad(col1, [3.5, 3.5], 'x'))
+    frame.add(LineLoad(col2, [0.2, 0.2], 'x'))
+    truss.generate()
+    # frame.calculate()
+    truss.f.draw()
 
     TC_group = {
         'name': 'TopChords',
@@ -413,17 +429,6 @@ if __name__ == '__main__':
             'deflection_x': frame.H / 300
         }
     }
-
-    H1_group = {
-        'name': 'H1',
-        'var_type': 'continuous',
-        'value': 1500,
-        'lb': 500,
-        'ub': 2000,
-        'property': 'H1',
-        'objects': [truss]
-    }
-
 
     BC_group = {
         'name': 'BottomChords',
@@ -448,25 +453,26 @@ if __name__ == '__main__':
         'var_type': 'index',
         'value': 10,
         'values': list(ipe_profiles.keys()),
-        'property': 'profile',
+        # 'properties': ['h', 'b', 'tf', 'tw'],
         'objects': frame.columns
     }
+
 
     problem = StructuralProblem(name="TEST",
                                 structure=frame,
                                 var_groups=[TC_group, BC_group, WEB_group,
-                                            COL_group, H1_group],
+                                            COL_group],
                                 con_groups=[TC_group],
                                 constraints={
                                     'buckling_y': True,
-                                    'buckling_z': False,
-                                    'compression_bending_y': False,
-                                    'compression_bending_z': False,
-                                    'compression': False,
-                                    'tension': False,
-                                    'shear': False,
-                                    # 'deflection_y': frame.L / 300,
-                                    # 'deflection_x': frame.H / 300
+                                    'buckling_z': True,
+                                    'compression_bending_y': True,
+                                    'compression_bending_z': True,
+                                    'compression': True,
+                                    'tension': True,
+                                    'shear': True,
+                                    'deflection_y': frame.L / 200,
+                                    'deflection_x': frame.H / 300
                                 })
     solver = GA(pop_size=50, mut_rate=0.15)
     x0 = [1 for var in problem.vars]
