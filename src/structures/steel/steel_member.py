@@ -290,6 +290,16 @@ class SteelMember:
         self.ted.append(ted)
         self.loc.append(loc)
 
+    def clear_sections(self):
+        self.ned.clear()
+        self.myed.clear()
+        self.mzed.clear()
+        self.vyed.clear()
+        self.vzed.clear()
+        self.ted.clear()
+        self.loc.clear()
+
+
     def check_section(self, n=0):
         """ Verify resistance of section 'n' """
         self.profile.Ned = self.ned[n]
@@ -422,5 +432,4 @@ class SteelMember:
         com_comp_bend_z = -NEd / NbRd[1] + kzy * MyEd / MRd[0]
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
-
         return com_comp_bend
