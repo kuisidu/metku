@@ -209,56 +209,82 @@ class Frame2D:
 
         # TRUSS
         elif type(this).__name__ == 'Truss2D':
+            if self.f != this.f:
+                this.f = self.f
             self.truss.append(this)
 
             # Bottom chord coordinates
             for bchord in this.bottom_chords:
                 c0, c1 = bchord.coordinates
-                for member in self.members.values():
-                    coord = member.line_intersection(bchord.coordinates)
+                for col in self.columns:
+                    coord = col.line_intersection(bchord.coordinates)
+                    # If bottom chord and column intersect
                     if isinstance(coord, list):
-                        member.add_node_coord(coord)
-                        # Create eccentricity to connection
-                        if member.mtype == "column":
-                            joint0 = [j for j in bchord.joints if
-                                      j.loc <= 0.02]
-                            joint1 = [j for j in bchord.joints if
-                                      j.loc >= 0.98]
-                            if coord == c0 and joint0:
-                                joint0 = joint0[0]
-                                web = list(joint0.webs.values())[0]
-                                theta = abs(joint0.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(
-                                    joint0.g1 * math.cos(joint0.chord.angle) +
-                                    web.h / 2 * math.sin(theta))
+                        col.add_node_coord(coord)
+                        c0, c1 = bchord.coordinates
+                        # Distance between coordinates
+                        if np.linalg.norm(np.asarray(coord) - c0) <= 1e-2:
+                            c0 = coord + col.cross_section.h / 2 * bchord.unit
+                            bchord.coordinates = [c0, c1]
+                            col.ecc_coordinates.append([coord, c0])
+                        elif np.linalg.norm(np.asarray(coord) - c1) <= 1e-2:
+                            c1 = coord - col.cross_section.h / 2 * bchord.unit
+                            bchord.coordinates = [c0, c1]
+                            col.ecc_coordinates.append([coord, c1])
+                        bchord.calc_nodal_coordinates()
+                        for joint in bchord.joints:
+                            if joint.loc == 0:
+                                joint.loc = (col.cross_section.h / 2 + joint.g1) / bchord.length
+                            elif joint.loc == 1:
+                                joint.loc = 1 - (col.cross_section.h / 2 + joint.g1) / bchord.length
+                            else:
+                                joint.calc_nodal_coordinates()
 
-                                x0, y0 = joint0.coordinate
-                                # Change joint's coordinate
-                                joint0.coordinate = [x0 + ecc_x, y0]
-                            if coord == c0:
-                                # Calculate chord's new start coordinate
-                                c0 = [c0[0] + member.h / 2, c0[1]]
-                                # Add eccentricity element's coordinates to list
-                                member.ecc_coordinates.append([coord, c0])
-                                bchord.columns[c0[0]] = member
-                            if coord == c1 and joint1:
-                                joint1 = joint1[0]
-                                web = list(joint1.webs.values())[0]
-                                theta = abs(joint1.chord.angle - web.angle)
-                                ecc_x = member.h / 2 + abs(
-                                    joint1.g1 * math.cos(joint1.chord.angle) +
-                                    web.h / 2 * math.sin(theta))
-                                # m to mm
-                                ecc_x = ecc_x
-                                x1, y1 = joint1.coordinate
-                                joint1.coordinate = [x1 - ecc_x, y1]
-                            if coord == c1:
-                                c1 = [c1[0] - member.h / 2, c1[1]]
-                                member.ecc_coordinates.append([coord, c1])
-                                bchord.columns[c1[0]] = member
-                # Change chord's end coordinates
-                bchord.coordinates = [c0, c1]
-                bchord.calc_nodal_coordinates()
+                bchord.nodal_coordinates.sort(
+                    key=lambda c: np.linalg.norm(
+                        np.asarray(c0) - np.asarray(c)))
+
+                #         # Create eccentricity to connection
+                #         if member.mtype == "column":
+                #             joint0 = [j for j in bchord.joints if
+                #                       j.loc <= 0.02]
+                #             joint1 = [j for j in bchord.joints if
+                #                       j.loc >= 0.98]
+                #             if coord == c0 and joint0:
+                #                 joint0 = joint0[0]
+                #                 web = list(joint0.webs.values())[0]
+                #                 theta = abs(joint0.chord.angle - web.angle)
+                #                 ecc_x = member.h / 2 + abs(
+                #                     joint0.g1 * math.cos(joint0.chord.angle) +
+                #                     web.h / 2 * math.sin(theta))
+                #
+                #                 x0, y0 = joint0.coordinate
+                #                 # Change joint's coordinate
+                #                 joint0.coordinate = [x0 + ecc_x, y0]
+                #             if coord == c0:
+                #                 # Calculate chord's new start coordinate
+                #                 c0 = [c0[0] + member.h / 2, c0[1]]
+                #                 # Add eccentricity element's coordinates to list
+                #                 member.ecc_coordinates.append([coord, c0])
+                #                 bchord.columns[c0[0]] = member
+                #             if coord == c1 and joint1:
+                #                 joint1 = joint1[0]
+                #                 web = list(joint1.webs.values())[0]
+                #                 theta = abs(joint1.chord.angle - web.angle)
+                #                 ecc_x = member.h / 2 + abs(
+                #                     joint1.g1 * math.cos(joint1.chord.angle) +
+                #                     web.h / 2 * math.sin(theta))
+                #                 # m to mm
+                #                 ecc_x = ecc_x
+                #                 x1, y1 = joint1.coordinate
+                #                 joint1.coordinate = [x1 - ecc_x, y1]
+                #             if coord == c1:
+                #                 c1 = [c1[0] - member.h / 2, c1[1]]
+                #                 member.ecc_coordinates.append([coord, c1])
+                #                 bchord.columns[c1[0]] = member
+                # # Change chord's end coordinates
+                # bchord.coordinates = [c0, c1]
+                # bchord.calc_nodal_coordinates()
 
             # Top chord coordinates
             for tchord in this.top_chords:
@@ -605,7 +631,7 @@ class Frame2D:
 
     def to_robot(self, filename, num_frames=1, s=1,
                  brace_profile="SHS 50x50x2"):
-        """  Creates an Aurodesk Robot Structural Analysis .str -file
+        """  Creates an Autodesk Robot Structural Analysis .str -file
         
             Parameters
             ----------
@@ -700,7 +726,7 @@ class Frame2D:
 
                     # Y joint
                     if len(joint.nodal_coordinates) == 2:
-                        n1, n2 = sorted(joint.nodal_coordinates)
+                        n1, n2 = sorted(joint.nodal_coordinates.values())
                         if num_frames != 1:
                             n1 = [n1[0], i * s, n1[1]]
                             n2 = [n2[0], i * s, n2[1]]
@@ -715,7 +741,7 @@ class Frame2D:
                         material.append("S355")
                     # K joint
                     elif joint.joint_type == "K":
-                        coords = sorted(joint.nodal_coordinates)
+                        coords = sorted(joint.nodal_coordinates.values())
                         n1, n2, n3, n4, n5 = coords
                         if num_frames != 1:
                             n1 = [n1[0], i * s, n1[1]]
@@ -1303,8 +1329,8 @@ class FrameMember:
         self.added_coordinates = []
         self.nodal_coordinates = []
         self.loc = []
-        self.__coordinates = None
-        self.coordinates = coordinates
+        self.__coordinates = coordinates
+        # self.coordinates = coordinates
         self.material = material
         self.cross_section = None
         self.__profile = profile
@@ -1461,6 +1487,7 @@ class FrameMember:
     def coordinates(self, val):
         if not self.n1:
             self.__coordinates = val
+            self.calc_nodal_coordinates()
         else:
             self.__coordinates = val
             x1, y1 = val[0]
@@ -1471,6 +1498,7 @@ class FrameMember:
                 mem.calc_nodal_coordinates()
             for mem in self.n2.parents:
                 mem.calc_nodal_coordinates()
+
 
     @property
     def MRd(self):
@@ -1975,6 +2003,18 @@ class FrameMember:
             adds them to dict where node is the key and froces are value
             self.nodal_forces[node_id] = [Fx, Fy, Mz]
         """
+
+        def absmax(vals):
+            min_val = min(vals)
+            max_val = max(vals)
+            abs_max = max(abs(min_val), abs(max_val))
+            if abs_max == abs(min_val):
+                return min_val
+            else:
+                return max_val
+
+
+
         self.med = 0
         self.ved = 0
         self.ned = 0
@@ -1987,15 +2027,15 @@ class FrameMember:
         node_ids = list(self.nodes.keys())
         for element in self.elements.values():
             node_id = node_ids[i]
-            axial_force = element.axial_force[0]
+            axial_force = absmax(element.axial_force)
             if abs(axial_force) > abs(max_ned):
                 max_ned = axial_force
 
-            shear_force = element.shear_force[0]
+            shear_force = absmax(element.shear_force)
             if abs(shear_force) > abs(max_ved):
                 max_ved = shear_force
 
-            bending_moment = element.bending_moment[0]
+            bending_moment = absmax(element.bending_moment)
             if abs(bending_moment) > abs(max_med):
                 max_med = bending_moment
 
@@ -2007,15 +2047,15 @@ class FrameMember:
             if i == len(self.elements):
 
                 node_id = node_ids[i]
-                axial_force = element.axial_force[1]
+                axial_force = absmax(element.axial_force)
                 if abs(axial_force) > abs(max_ned):
                     max_ned = axial_force
 
-                shear_force = element.shear_force[1]
+                shear_force = absmax(element.shear_force)
                 if abs(shear_force) > abs(max_ved):
                     max_ved = shear_force
 
-                bending_moment = element.bending_moment[1]
+                bending_moment = absmax(element.bending_moment)
                 if abs(bending_moment) > abs(max_med):
                     max_med = bending_moment
 
@@ -2118,6 +2158,7 @@ class FrameMember:
             Gives boolean value for self.is_strong_enough
             Saves list of stress ratios to self.r
         """
+        self.steel_member.length = self.length
         if not self.steel_member.nsect():
             for i, node in enumerate(self.nodal_forces.keys()):
                 forces = self.nodal_forces[node]
@@ -2175,7 +2216,12 @@ class FrameMember:
         for profile in profiles:
             self.profile = profile
             self.check_cross_section()
-            if max(self.r) <= 1.0:
+            for smem in self.steel_members:
+                r1 = smem.check_sections()
+
+                r2 = max(smem.check_beamcolumn())
+                self.r = max(max(r1), r2)
+            if self.r <= 1.0:
                 break
 
     def line_intersection(self, coordinates):
@@ -2365,13 +2411,22 @@ class FrameMember:
 
     def bmd_test(self, scale=1):
 
+        def absmax(vals):
+            min_val = min(vals)
+            max_val = max(vals)
+            abs_max = max(abs(min_val), abs(max_val))
+            if abs_max == abs(min_val):
+                return min_val
+            else:
+                return max_val
+
         # Scales Nmm to kNm
         unit_scaler = 1e-6
 
         # Member's position vector
-        v = np.array([math.cos(self.angle), math.sin(self.angle)])
+        v = self.unit
         # Vector perpendicular to v
-        u = np.array([-math.sin(self.angle), math.cos(self.angle)])
+        u = -self.perpendicular
         X = []
         Y = []
         start_coord, end_coord = self.coordinates
@@ -2385,7 +2440,7 @@ class FrameMember:
 
         for elem in self.elements.values():
             x0, y0 = elem.nodes[0].coord
-            bending_moment = elem.bending_moment[0]
+            bending_moment = absmax(elem.bending_moment)
             val = bending_moment * unit_scaler * scale
             x, y = np.array([x0, y0]) - val * u
             X.append(x)
@@ -2397,7 +2452,7 @@ class FrameMember:
                 plt.text(x, y, f'{bending_moment * unit_scaler:.2f} kNm',
                          horizontalalignment=horzalign)
         x0, y0 = elem.nodes[1].coord
-        bending_moment = elem.bending_moment[1]
+        bending_moment = absmax(elem.bending_moment)
         val = bending_moment * unit_scaler * scale
         x, y = np.array([x0, y0]) - val * u
         X.append(x)
@@ -2474,8 +2529,14 @@ class FrameMember:
         y = (X[1][1] + X[0][1]) / 2
         horzalign = 'center'
         vertalign = 'center'
+
+        if self.ned > 0:
+            NED = max([f[0] for f in self.nodal_forces.values()])
+        else:
+            NED = min([f[0] for f in self.nodal_forces.values()])
+
         plt.text(x, y,
-                 f'{self.ned * unit_scaler:.2f}  kN,\nr: {r * 100:.2f} %',
+                 f'{NED * unit_scaler:.2f}  kN,\nr: {r * 100:.2f} %',
                  rotation=rot, horizontalalignment=horzalign,
                  verticalalignment=vertalign)
 
