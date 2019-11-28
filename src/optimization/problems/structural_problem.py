@@ -345,21 +345,20 @@ class StructuralProblem(OptimizationProblem):
 
     def group_constraints(self):
 
-        con_groups = [group for group in self.con_groups if "constraints" in group]
+        if self.con_groups is not None:
+            con_groups = [group for group in self.con_groups if "constraints" in group]
 
-        for group in self.con_groups:
-            cons = group['constraints']
-            for obj in group['objects']:
-                for con in self.cons:
-                    if obj in con.vars:
-                        # Remove old constraints
-                        self.cons.remove(con)
-                        del con
-                init_cons = self.constraints.copy()
-                init_cons.update(cons)
-                self.create_constraints(**init_cons, members=group['objects'])
-
-
+            for group in self.con_groups:
+                cons = group['constraints']
+                for obj in group['objects']:
+                    for con in self.cons:
+                        if obj in con.vars:
+                            # Remove old constraints
+                            self.cons.remove(con)
+                            del con
+                    init_cons = self.constraints.copy()
+                    init_cons.update(cons)
+                    self.create_constraints(**init_cons, members=group['objects'])
 
     def create_objective(self):
 
