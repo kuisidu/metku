@@ -8,8 +8,8 @@ MIN_WIDTH = 100
 MAX_WIDTH = 500
 step_width = 10
 
-HEIGHTS = np.arange(MIN_HEIGHT, MAX_HEIGHT+step_height, step_height)
-WIDTHS = np.arange(MIN_WIDTH, MAX_WIDTH+step_width, step_width)
+HEIGHTS = list(np.arange(MIN_HEIGHT, MAX_HEIGHT+step_height, step_height))
+WIDTHS = list(np.arange(MIN_WIDTH, MAX_WIDTH+step_width, step_width))
 #THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
 THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
 MAX_THICK = max(THICKNESSES)
@@ -141,6 +141,7 @@ def create_continuous_variable_groups(structure, col_bounds, col_values,
 def create_discrete_variable_groups(structure):
 
     groups = []
+    col_sections = [col.cross_section for col in structure.columns]
 
     COL_group_h = {
         'name': 'Columns h',
@@ -148,7 +149,7 @@ def create_discrete_variable_groups(structure):
         'value': 10,
         'values': HEIGHTS,
         'property': 'h',
-        'objects': structure.columns
+        'objects': col_sections
     }
     groups.append(COL_group_h)
 
@@ -158,7 +159,7 @@ def create_discrete_variable_groups(structure):
         'value': 6,
         'values': THICKNESSES,
         'property': 'tw',
-        'objects': structure.columns
+        'objects': col_sections
     }
     groups.append(COL_group_tw)
 
@@ -168,7 +169,7 @@ def create_discrete_variable_groups(structure):
         'value': 10,
         'values': WIDTHS,
         'property': 'b',
-        'objects': structure.columns
+        'objects': col_sections
     }
     groups.append(COL_group_b)
 
@@ -178,22 +179,22 @@ def create_discrete_variable_groups(structure):
         'value': 6,
         'values': THICKNESSES,
         'property': 'tf',
-        'objects': structure.columns
+        'objects': col_sections
     }
     groups.append(COL_group_tf)
 
     truss = structure.truss[0]
 
-    H1_group = {
-        'name': 'H1',
-        'var_type': 'continuous',
-        'value': 1500,
-        'lb': 500,
-        'ub': 2000,
-        'property': 'H1',
-        'objects': [truss]
-    }
-    groups.append(H1_group)
+    # H1_group = {
+    #     'name': 'H1',
+    #     'var_type': 'continuous',
+    #     'value': 1500,
+    #     'lb': 500,
+    #     'ub': 2000,
+    #     'property': 'H1',
+    #     'objects': [truss]
+    # }
+    # groups.append(H1_group)
 
     TC_group = {
         'name': 'TopChords',
