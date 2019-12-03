@@ -27,6 +27,8 @@ except:
     from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
 
 import numpy as np
+import matplotlib.pyplot as plt
+import math
 from matplotlib.patches import Arc
 
 PREC = 3
@@ -167,17 +169,15 @@ class Truss2D(Frame2D):
     def dx(self, val):
 
         bc = self.bottom_chords[0]
-        L = self.L
-
-        x, y = self.origin
-        bc.n1.x = x + val
-        bc.n2.x = x + L - 2 * val
-
-        for joint in bc.joints:
-            joint.calc_nodal_coordinates()
-
-        bc.calc_nodal_coordinates()
+        locs = bc.locs
+        bc.n1.coord = np.asarray(self.origin) + np.array([val, self.H0])
+        bc.n2.coord = np.asarray(self.origin) + np.array([self.L1 + self.L2 - val, self.H0])
+        for loc, node in zip(locs, bc.nodes.values()):
+            node.coord = bc.to_global(loc)
+        for j in bc.joints:
+            j.calc_nodal_coordinates()
         self._dx = val
+
 
     def generate_chords(self):
         """
@@ -442,6 +442,11 @@ class TrussMember(FrameMember):
                  Sj1=np.inf,
                  Sj2=np.inf, **kwargs):
 
+        self.joints = []
+        # FrameMember -objects that chord is connected to
+        self.columns = {}
+        # List of chords' members between joints
+        self.steel_members = []
         super().__init__(coordinates,
                          mem_id,
                          profile,
@@ -449,11 +454,6 @@ class TrussMember(FrameMember):
                          num_elements,
                          Sj1,
                          Sj2, **kwargs)
-        self.joints = []
-        # FrameMember -objects that chord is connected to
-        self.columns = {}
-        # List of chords' members between joints
-        self.steel_members = []
 
     # def add_node_coord(self, coord):
     #     """
@@ -487,11 +487,9 @@ class TrussMember(FrameMember):
     @profile.setter
     def profile(self, val):
         super(TrussMember, self.__class__).profile.fset(self, val)
-        try:
-            for joint in self.joints:
-                joint.calc_nodal_coordinates()
-        except:
-            pass
+        for joint in self.joints:
+            joint.calc_nodal_coordinates()
+
 
     def calc_nodal_coordinates(self, num_elements=0):
         """
@@ -554,6 +552,9 @@ class TrussMember(FrameMember):
                 node.coord = self.to_global(loc)
 
     def check_cross_section(self):
+
+        for smem in self.steel_members:
+            smem.profile = self.cross_section
 
         if self.mtype != 'web':  # If member is chord
             # Sort joints using joints' local coordinate
@@ -1161,7 +1162,7 @@ class TrussJoint:
         :return: max N
         """
         if self.joint_type == 'Y':
-            N0 = self.chord.nodal_forces[self.nodes['c01'].nid][0]
+            N0 = self.chord.nodal_forces[self.nodes['c0'].nid][0]
 
 
         elif self.joint_type == 'K':
@@ -1192,7 +1193,7 @@ class TrussJoint:
     @property
     def M0(self):
         if self.joint_type == 'Y':
-            M0 = self.chord.nodal_forces[self.nodes['c01'].nid][2]
+            M0 = self.chord.nodal_forces[self.nodes['c0'].nid][2]
 
         elif self.joint_type == 'K':
             M01 = self.chord.nodal_forces[self.nodes['c01'].nid][2]
@@ -1745,10 +1746,21 @@ class TrussJoint:
         """
         Updates RHS_joint's forces
         """
-        if self.joint_type == 'K':
-            self.rhs_joint.N0 = self.N0
-            self.rhs_joint.V0 = self.V0
-            self.rhs_joint.M0 = self.M0
+        self.rhs_joint.M0 = self.M0
+        self.rhs_joint.N0 = self.N0
+        self.rhs_joint.V0 = self.V0
+
+        if self.joint_type == 'Y':
+            self.angle = np.degrees(self.theta1)
+
+        elif self.joint_type == 'K':
+            self.rhs_joint.angles = [np.degrees(self.theta1),
+                                    np.degrees(self.theta2)]
+
+
+        elif self.joint_type == 'KT':
+            # TODO
+            pass
 
 
 class TrussColumn(Truss2D):
@@ -1973,7 +1985,7 @@ if __name__ == '__main__':
         H2=2000,
         L1=L_bay / 2,
         H3=1500,
-        dx=500,
+        dx=1000,
         n=16
     )
 
@@ -1988,29 +2000,40 @@ if __name__ == '__main__':
     truss.calculate()
     # truss.plot()
 
-    truss.H1 = 1000
-    truss.H2 = 1500
-    truss.H3 = 1300
-    truss.f.draw()
-
-    # joint = truss.joints[4]
-    # w1, w2 = joint.webs.values()
+    # truss.H1 = 1000
+    # truss.H2 = 1500
+    # truss.H3 = 1300
+    # truss.dx = 100
     #
-    # print("Before: ")
-    # print('e0', joint.e)
-    # print('g0', joint.g1)
-    # print('e1', w1.j1.e)
-    # print('g1', w1.j1.g1)
-    # print('e2', w2.j1.e)
-    # print('g2', w2.j1.g1)
-    # truss.bottom_chords[0].profile = "RHS 200x200x5"
-    # print("After: ")
-    # print('e0', joint.e)
-    # print('g0', joint.g1)
-    # print('e1', w1.j1.e)
-    # print('g1', w1.j1.g1)
-    # print('e2', w2.j1.e)
-    # print('g2', w2.j1.g1)
+    # truss.f.draw()
+
+    joint = truss.joints[4]
+    w1, w2 = joint.webs.values()
+
+    print("Before: ")
+    print('e0', joint.e)
+    print('g0', joint.g1)
+    print('e1', w1.j1.e)
+    print('g1', w1.j1.g1)
+    print('e2', w2.j1.e)
+    print('g2', w2.j1.g1)
+
+    print("theta1", np.degrees(joint.theta1))
+    print("theta2", np.degrees(joint.theta2))
+    print("-" * 20)
+    val = 50
+    print("Changed g0 to:", val)
+    print("-"*20)
+    joint.g1 = val
+    print("After: ")
+    print('e0', joint.e)
+    print('g0', joint.g1)
+    print('e1', w1.j1.e)
+    print('g1', w1.j1.g1)
+    print('e2', w2.j1.e)
+    print('g2', w2.j1.g1)
+    print("theta1", np.degrees(joint.theta1))
+    print("theta2", np.degrees(joint.theta2))
     # joint.plot_joint()
     # frame.add(truss)
     # cols = [col for col in frame.members.values() if col.mtype == 'column']
