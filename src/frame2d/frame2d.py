@@ -222,6 +222,7 @@ class Frame2D:
                     if isinstance(coord, list):
                         col.add_node_coord(coord)
                         c0, c1 = bchord.coordinates
+                        coord = np.asarray(coord)
                         # Distance between coordinates
                         if np.linalg.norm(np.asarray(coord) - c0) <= 1e-2:
                             c0 = coord + col.cross_section.h / 2 * bchord.unit
@@ -243,48 +244,6 @@ class Frame2D:
                 bchord.nodal_coordinates.sort(
                     key=lambda c: np.linalg.norm(
                         np.asarray(c0) - np.asarray(c)))
-
-                #         # Create eccentricity to connection
-                #         if member.mtype == "column":
-                #             joint0 = [j for j in bchord.joints if
-                #                       j.loc <= 0.02]
-                #             joint1 = [j for j in bchord.joints if
-                #                       j.loc >= 0.98]
-                #             if coord == c0 and joint0:
-                #                 joint0 = joint0[0]
-                #                 web = list(joint0.webs.values())[0]
-                #                 theta = abs(joint0.chord.angle - web.angle)
-                #                 ecc_x = member.h / 2 + abs(
-                #                     joint0.g1 * math.cos(joint0.chord.angle) +
-                #                     web.h / 2 * math.sin(theta))
-                #
-                #                 x0, y0 = joint0.coordinate
-                #                 # Change joint's coordinate
-                #                 joint0.coordinate = [x0 + ecc_x, y0]
-                #             if coord == c0:
-                #                 # Calculate chord's new start coordinate
-                #                 c0 = [c0[0] + member.h / 2, c0[1]]
-                #                 # Add eccentricity element's coordinates to list
-                #                 member.ecc_coordinates.append([coord, c0])
-                #                 bchord.columns[c0[0]] = member
-                #             if coord == c1 and joint1:
-                #                 joint1 = joint1[0]
-                #                 web = list(joint1.webs.values())[0]
-                #                 theta = abs(joint1.chord.angle - web.angle)
-                #                 ecc_x = member.h / 2 + abs(
-                #                     joint1.g1 * math.cos(joint1.chord.angle) +
-                #                     web.h / 2 * math.sin(theta))
-                #                 # m to mm
-                #                 ecc_x = ecc_x
-                #                 x1, y1 = joint1.coordinate
-                #                 joint1.coordinate = [x1 - ecc_x, y1]
-                #             if coord == c1:
-                #                 c1 = [c1[0] - member.h / 2, c1[1]]
-                #                 member.ecc_coordinates.append([coord, c1])
-                #                 bchord.columns[c1[0]] = member
-                # # Change chord's end coordinates
-                # bchord.coordinates = [c0, c1]
-                # bchord.calc_nodal_coordinates()
 
             # Top chord coordinates
             for tchord in this.top_chords:
@@ -425,6 +384,19 @@ class Frame2D:
                 self.nodal_displacements[node] = member.nodal_displacements[
                     node]
 
+
+    def update_model(self):
+        """
+        Updates frame's geometry
+        :return:
+        """
+        for mem in self.members.values():
+            mem.calc_nodal_coordinates()
+        if len(self.truss):
+            for t in self.truss:
+                for j in t.joints.values():
+                    j.calc_nodal_coordinates()
+
     def calculate(self, load_id=2):
         """ Calculates forces and displacements
             
@@ -435,6 +407,7 @@ class Frame2D:
             :type load_id: int
         """
         start = time.time()
+        self.update_model()
         if self.is_calculated == False:
             self.is_calculated = True
             self.f.add_loadcase(supp_id=1, load_id=load_id)
@@ -726,6 +699,8 @@ class Frame2D:
 
                     # Y joint
                     if len(joint.nodal_coordinates) == 2:
+                        for n, c in joint.nodal_coordinates.items():
+                            joint.nodal_coordinates[n] = list(c)
                         n1, n2 = sorted(joint.nodal_coordinates.values())
                         if num_frames != 1:
                             n1 = [n1[0], i * s, n1[1]]
@@ -741,6 +716,8 @@ class Frame2D:
                         material.append("S355")
                     # K joint
                     elif joint.joint_type == "K":
+                        for n, c in joint.nodal_coordinates.items():
+                            joint.nodal_coordinates[n] = list(c)
                         coords = sorted(joint.nodal_coordinates.values())
                         n1, n2, n3, n4, n5 = coords
                         if num_frames != 1:
@@ -1600,6 +1577,8 @@ class FrameMember:
         """
         Returns member's profile e.g. IPE 200, HE 120 A
         """
+        # if self.cross_section is not None:
+        #     return str(self.cross_section)
         return self.__profile
 
     @profile.setter
@@ -2146,8 +2125,8 @@ class FrameMember:
     @property
     def locs(self):
         locs = []
-        for ncoord in self.nodal_coordinates:
-            ncoord = np.asarray(ncoord)
+        for node in self.nodes.values():
+            ncoord = np.asarray(node.coord)
             start_coord, end_coord = np.asarray(self.coordinates)
             loc = np.linalg.norm(start_coord - ncoord) / self.length
             locs.append(round(loc, PREC))
@@ -2159,6 +2138,7 @@ class FrameMember:
             Saves list of stress ratios to self.r
         """
         self.steel_member.length = self.length
+        self.steel_member.profile = self.cross_section
         if not self.steel_member.nsect():
             for i, node in enumerate(self.nodal_forces.keys()):
                 forces = self.nodal_forces[node]
