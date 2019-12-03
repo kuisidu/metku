@@ -17,11 +17,12 @@ from ortools.linear_solver import pywraplp
 
 class SLP(OptSolver):
 
-    def __init__(self, move_limits=(0.05, 0.05), gamma=1e-2):
+    def __init__(self, move_limits=(0.05, 0.05), gamma=1e-2, C=2e5, beta=10):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
         self.gamma = gamma
-        self.alpha = 1.0
+        self.C = C
+        self.beta = beta
 
     def take_action(self):
         """
@@ -44,8 +45,6 @@ class SLP(OptSolver):
         x = {}
         # Variables
         for i, var in enumerate(self.problem.vars):
-            #lb = max(var.value - 0.5*self.alpha*(var.ub-var.lb),var.lb)
-            #ub = min(var.value + 0.5*self.alpha*(var.ub-var.lb),var.ub)
             delta = var.ub - var.lb
 
             lb, ub = self.move_limits * delta
@@ -54,40 +53,44 @@ class SLP(OptSolver):
             x[i] = solver.NumVar(lb,
                                  ub,
                                  var.name)
-
+        # Beta
+        beta = solver.NumVar(0, self.beta, 'beta')
         # Constraints
         for i in range(n):
-            solver.Add(solver.Sum([A[i, j] * x[j] for j in range(m)]) <= B[i])
+            solver.Add(solver.Sum([A[i, j] * x[j] for j in range(m)]) <= B[i] + beta)
 
         # Objective
-        solver.Minimize(solver.Sum([df[j] * x[j] for j in range(m)]))
+        solver.Minimize(solver.Sum([df[j] * x[j] for j in range(m)]) + self.C * beta)
 
 
         sol = solver.Solve()
+
+
         # If solution if infeasible
         if sol == 2:
             print("Solution found was infeasible!")
-            self.move_limits += np.array([-self.gamma, self.gamma])
             # Return something != 0, otherwise iteration will
             # stop because two consecutive iterations produce
             # too similar results
-            return np.ones_like(self.X)
-        else:
-            X = []
-            for i in range(len(x)):
-                if self.problem.prob_type == 'discrete':
-                    X.append(int(x[i].solution_value()))
-                else:
-                    X.append(x[i].solution_value())
-            X = np.asarray(X)
+            return np.zeros_like(self.X)
 
-            return X - self.X
-        # return res.x - self.X
+        if beta.solution_value() < 1:
+            self.beta = beta.solution_value()
+
+        X = []
+        for i in range(len(x)):
+            if self.problem.prob_type == 'discrete':
+                X.append(int(x[i].solution_value()))
+            else:
+                X.append(x[i].solution_value())
+        X = np.asarray(X)
+
+        return X - self.X
 
     def step(self, action):
 
+        self.C += self.C * self.gamma
         self.move_limits -= self.move_limits * self.gamma
-        self.alpha = self.alpha/(1+self.alpha)
         self.X += action
         for i in range(len(self.X)):
             self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
@@ -101,7 +104,7 @@ if __name__ == '__main__':
 
     problem = FifteenBarTruss(prob_type='continuous')
     x0 = [var.ub for var in problem.vars]
-    solver = SLP(move_limits=[0.1, 0.1], gamma=1e-3)
+    solver = SLP(move_limits=[0.15, 0.15], gamma=1e-3)
     fopt, xopt = solver.solve(problem, x0=x0, maxiter=100, log=True, verb=True, plot=True)
     problem(xopt)
     # #

@@ -772,6 +772,7 @@ class OptimizationProblem:
 
         print(f"Objective function = {fx:.{prec}f}\n")
 
+        ncons = min(len(self.cons), ncons)
         print(f"{ncons} Maximum Constraints:")
         print("----------")
 
@@ -779,6 +780,7 @@ class OptimizationProblem:
         for con in np.asarray(self.cons)[idx]:
             gi = con(x)
             print(f"{con.name}: {gi:.{prec}f} {con.type} 0")
+
 
     def eval_cons(self, x):
         """ Constraint evaluation
@@ -894,8 +896,6 @@ class OptimizationProblem:
 
     def substitute_variables(self, xvals):
         """ Substitute variable values from xval to structure """
-
-
 
         xvals = [max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)]
         # Save starting point
