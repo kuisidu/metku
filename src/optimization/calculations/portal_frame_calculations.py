@@ -62,7 +62,6 @@ def create_structure(L, H0, H1, H2, dx, n):
     frame.f.draw()
     frame.plot()
     frame.calculate()
-    frame.to_robot("testi")
 
     return frame
 
@@ -146,8 +145,8 @@ def create_discrete_variable_groups(structure):
     COL_group_h = {
         'name': 'Columns h',
         'var_type': 'index',
-        'value': [300],
-        'values': [MIN_HEIGHT, MAX_HEIGHT],
+        'value': 10,
+        'values': HEIGHTS,
         'property': 'h',
         'objects': structure.columns
     }
@@ -156,8 +155,8 @@ def create_discrete_variable_groups(structure):
     COL_group_tw = {
         'name': 'Columns tw',
         'var_type': 'index',
-        'value': [6],
-        'values': [MIN_THICK, MAX_THICK],
+        'value': 6,
+        'values': THICKNESSES,
         'property': 'tw',
         'objects': structure.columns
     }
@@ -166,8 +165,8 @@ def create_discrete_variable_groups(structure):
     COL_group_b = {
         'name': 'Columns b',
         'var_type': 'index',
-        'value': [200],
-        'values': [MIN_WIDTH, MAX_WIDTH],
+        'value': 10,
+        'values': WIDTHS,
         'property': 'b',
         'objects': structure.columns
     }
@@ -176,8 +175,8 @@ def create_discrete_variable_groups(structure):
     COL_group_tf = {
         'name': 'Columns tf',
         'var_type': 'index',
-        'value': [10],
-        'values': [MIN_THICK, MAX_THICK],
+        'value': 6,
+        'values': THICKNESSES,
         'property': 'tf',
         'objects': structure.columns
     }
@@ -185,16 +184,16 @@ def create_discrete_variable_groups(structure):
 
     truss = structure.truss[0]
 
-    # H1_group = {
-    #     'name': 'H1',
-    #     'var_type': 'continuous',
-    #     'value': 1500,
-    #     'lb': 500,
-    #     'ub': 2000,
-    #     'property': 'H1',
-    #     'objects': [truss]
-    # }
-    # groups.append(H1_group)
+    H1_group = {
+        'name': 'H1',
+        'var_type': 'continuous',
+        'value': 1500,
+        'lb': 500,
+        'ub': 2000,
+        'property': 'H1',
+        'objects': [truss]
+    }
+    groups.append(H1_group)
 
     TC_group = {
         'name': 'TopChords',
@@ -203,12 +202,7 @@ def create_discrete_variable_groups(structure):
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.top_chords,
-        'constraints': {
-            'buckling_y': True,
-            'buckling_z': False,
-            'deflection_y': structure.L / 300,
-            'deflection_x': structure.H / 300
-        }}
+        }
     groups.append(TC_group)
 
     BC_group = {
@@ -276,7 +270,7 @@ if __name__ == '__main__':
                                 constraints={
                                     'buckling_y': True,
                                     'buckling_z': True,
-                                    'compression_bending_y': True,
+                                    'compression_bending_y': False,
                                     'compression_bending_z': False,
                                     'compression': True,
                                     'tension': True,
@@ -284,24 +278,13 @@ if __name__ == '__main__':
                                     # 'deflection_y': structure.L / 200,
                                     # 'deflection_x': structure.H / 300
                                 })
-    solver = GA(pop_size=50, mut_rate=0.15)
+    solver = GA(pop_size=50, mut_rate=0.15, cx_rate=0.9)
     x0 = [1 for var in problem.vars]
     fopt, xopt = solver.solve(problem, x0=x0, maxiter=10, plot=True)
     problem(xopt, ncons=10)
     structure.plot_deflection(100)
+    structure.to_robot("lopputulos")
 
-    # 2-vaihetekniikalla
-    # solver1 = SLP(move_limits=[0.9, 4])
-    # solver1 = TrustRegionConstr()
-    # solver2 = GA(pop_size=50, mut_rate=0.15)
-    # solver = two_phase.TwoPhase(
-    #     solver1, solver2, limits=[3, 3])
-    # fopt, xopt = solver.solve(problem,
-    #                           x0=x0,
-    #                           maxiter=200,
-    #                           # min_diff=1e-6,
-    #                           # verb=True
-    #                           )
-    # problem(xopt)
+
 
 
