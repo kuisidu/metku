@@ -1,4 +1,20 @@
 # Import dependencies
+import numpy as np
+
+MIN_HEIGHT = 100
+MAX_HEIGHT = 500
+step_height = 10
+MIN_WIDTH = 100
+MAX_WIDTH = 500
+step_width = 10
+
+HEIGHTS = np.arange(MIN_HEIGHT, MAX_HEIGHT+step_height, step_height)
+WIDTHS = np.arange(MIN_WIDTH, MAX_WIDTH+step_width, step_width)
+#THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
+THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
+MAX_THICK = max(THICKNESSES)
+MIN_THICK = min(THICKNESSES)
+
 try:
     from src.frame2d.frame2d import *
     from src.truss2d import Truss2D
@@ -32,19 +48,21 @@ def create_structure(L, H0, H1, H2, dx, n):
 
     columns = frame.columns
 
-    # Kuormat?
+    # Kuormat
     for tc in truss.top_chords:
-        frame.add(LineLoad(tc, [-30, -30], 'y'))
+        frame.add(LineLoad(tc, [-22.6, -22.6], 'y'))
     for bc in truss.bottom_chords:
         frame.add(LineLoad(bc, [-0.7, -0.7], 'y'))
     # frame.add(PointLoad([0, 6500], [100e3, 0, 0]))
     frame.add(LineLoad(columns[0], [5.85, 5.85], 'x'))
     frame.add(LineLoad(columns[1], [0.2, 0.2], 'x'))
+    # frame.add(LineLoad(columns), [])
 
     frame.generate()
     frame.f.draw()
     frame.plot()
     frame.calculate()
+    frame.to_robot("testi")
 
     return frame
 
@@ -125,15 +143,45 @@ def create_discrete_variable_groups(structure):
 
     groups = []
 
-    COL_group = {
-        'name': 'Columns',
+    COL_group_h = {
+        'name': 'Columns h',
         'var_type': 'index',
-        'value': 10,
-        'values': list(h_profiles.keys()),
-        'property': 'profile',
+        'value': [300],
+        'values': [MIN_HEIGHT, MAX_HEIGHT],
+        'property': 'h',
         'objects': structure.columns
     }
-    groups.append(COL_group)
+    groups.append(COL_group_h)
+
+    COL_group_tw = {
+        'name': 'Columns tw',
+        'var_type': 'index',
+        'value': [6],
+        'values': [MIN_THICK, MAX_THICK],
+        'property': 'tw',
+        'objects': structure.columns
+    }
+    groups.append(COL_group_tw)
+
+    COL_group_b = {
+        'name': 'Columns b',
+        'var_type': 'index',
+        'value': [200],
+        'values': [MIN_WIDTH, MAX_WIDTH],
+        'property': 'b',
+        'objects': structure.columns
+    }
+    groups.append(COL_group_b)
+
+    COL_group_tf = {
+        'name': 'Columns tf',
+        'var_type': 'index',
+        'value': [10],
+        'values': [MIN_THICK, MAX_THICK],
+        'property': 'tf',
+        'objects': structure.columns
+    }
+    groups.append(COL_group_tf)
 
     truss = structure.truss[0]
 
@@ -193,9 +241,9 @@ def create_constraint_groups():
 if __name__ == '__main__':
 
     structure = create_structure(L=24000,
-                                 H0=7000,
-                                 H1=1000,
-                                 H2=1500,
+                                 H0=8000,
+                                 H1=1800,
+                                 H2=2400,
                                  dx=0,
                                  n=14
                                  )
@@ -219,15 +267,16 @@ if __name__ == '__main__':
     #                                                web_bounds=web_bounds,
     #                                                web_values=web_values,
     #                                                )
-    var_groups = create_discrete_variable_groups(structure)
+
+    var_groups = create_discrete_variable_groups(structure=structure)
 
     problem = StructuralProblem(name="Example",
                                 structure=structure,
                                 var_groups=var_groups,
                                 constraints={
-                                    'buckling_y': False,
-                                    'buckling_z': False,
-                                    'compression_bending_y': False,
+                                    'buckling_y': True,
+                                    'buckling_z': True,
+                                    'compression_bending_y': True,
                                     'compression_bending_z': False,
                                     'compression': True,
                                     'tension': True,
@@ -238,7 +287,7 @@ if __name__ == '__main__':
     solver = GA(pop_size=50, mut_rate=0.15)
     x0 = [1 for var in problem.vars]
     fopt, xopt = solver.solve(problem, x0=x0, maxiter=10, plot=True)
-    problem(xopt)
+    problem(xopt, ncons=10)
     structure.plot_deflection(100)
 
     # 2-vaihetekniikalla
