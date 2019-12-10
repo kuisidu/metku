@@ -78,8 +78,10 @@ groups = [
 
 try:
     from src.optimization.structopt import *
+    from src.frame2d.frame2d import SteelBeam
 except:
     from optimization.structopt import *
+
 
 # Sorted by area
 RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',
@@ -285,6 +287,14 @@ class TrussProblem(OptimizationProblem):
         self.lb = lb
         self.ub = ub
 
+
+
+        # Create variables
+        self.create_variables()
+
+        # Create constraints
+        self.create_constraints()
+
         # Assign objective
         if isinstance(self.objective, str):
             if self.objective == 'weight':
@@ -301,17 +311,25 @@ class TrussProblem(OptimizationProblem):
             raise ValueError("Objective must be either "
                              "'weight' or 'cost' or a function")
 
-        # Create variables
-        self.create_variables()
-
-        # Create constraints
-        self.create_constraints()
 
     @property
     def weight_fun(self):
+
+        # self.penalty_cons = [con for con in self.cons]
+        # self.cons.clear()
+
         if self.structure is not None:
             def obj_fun(x):
-                return self.structure.weight
+                # pos_vals = np.clip([con(x) for con in self.penalty_cons], 0, 1000) ** 2
+
+                # weight = 0
+                # for mem in self.structure.members.values():
+                #     A = mem.cross_section.A
+                #     L = mem.length
+                #     rho = mem.material.density
+                #     weight += A * L * rho
+                # return weight
+                return self.structure.weight #+ 2e5 * sum(pos_vals)
 
             obj = ObjectiveFunction(name="Objective ",
                                     obj_fun=obj_fun)
@@ -344,11 +362,12 @@ class TrussProblem(OptimizationProblem):
                 self.groups.append(group)
 
         for i, group in enumerate(self.groups):
-
+            if not "value" in group.keys():
+                group["value"] = 0
             if group["var_type"] == 'discrete':
                 var = DiscreteVariable(
                     name=group['name'],
-                    values=group['profiles'],
+                    values=group['values'],
                     value=group['value'],
                     target={"property": group["property"],
                             "objects": group["objects"]}
@@ -406,143 +425,171 @@ class TrussProblem(OptimizationProblem):
                                  " 'continuous', 'index' or 'binary")
 
 
-    def index_to_binary(self):
+    def index_to_binary(self, params=('H', 'B', 'T'), chord_profiles=RHS_COMP, web_profiles=RHS_COMP):
         """
         Creates binary variables and continuous variables
         :return:
         """
         idx_vars = [var for var in self.vars if isinstance(var, IndexVariable)]
-
         # Temp member instance to get needed values
         mem = SteelBeam([[0, 0], [1000, 0]])
-        vars = {}
-        for i, idx_var in enumerate(idx_vars):
-            A_list = []
-            Iy_list = []
-            Iz_list = []
-            Wply_list = []
-            Wplz_list = []
-            bin_vars = []
-            for j, profile in enumerate(idx_var.values):
-                # Get attributes
-                mem.profile = profile
-                A = mem.cross_section.A
-                Iy, Iz = mem.cross_section.I
-                Wply, Wplz = mem.cross_section.Wpl
 
-                # Append attributes
-                A_list.append(A)
-                Iy_list.append(Iy)
-                Iz_list.append(Iz)
-                Wply_list.append(Wply)
-                Wplz_list.append(Wplz)
+        for var in idx_vars:
+            for param in params:
+                values = []
+                if var.target['objects'][0].mtype == 'web':
+                    profiles = web_profiles
+                else:
+                    profiles = chord_profiles
+                for profile in profiles:
+                    mem.profile = profile
+                    values.append(mem.cross_section.__getattribute__(param))
+                new_var = DiscreteVariable(
+                    name=f"{var.name} {param}",
+                    values=values,
+                    value=values[min(var.value, len(values) -1)],
+                    id=var.id,
+                    target={"property": param,
+                            "objects": [obj.cross_section for obj in  var.target["objects"]]}
+                )
+                # Add new variable
+                self.add(new_var)
+                # Remove index variable
+            self.all_vars.remove(var)
 
-                bin_var = BinaryVariable(name=f"BinVar{i}{j}")
-                bin_vars.append(bin_var)
 
-            # Create continuous variables
-            # A
-            A_var = Variable(name=f"Continuous A{i}",
-                             lb=min(A_list),
-                             ub=max(A_list),
-                             target={
-                                 "objects": idx_var.target["objects"],
-                                 "property": "A"
-                             })
-            # Iy
-            Iy_var = Variable(name=f"Continuous Iy{i}",
-                              lb=min(Iy_list),
-                              ub=max(Iy_list),
-                              target={
-                                  "objects": idx_var.target["objects"],
-                                  "property": "Iy"
-                              })
-            # Iz
-            Iz_var = Variable(name=f"Continuous Iz{i}",
-                              lb=min(Iz_list),
-                              ub=max(Iz_list),
-                              target={
-                                  "objects": idx_var.target["objects"],
-                                  "property": "Iz"
-                              })
-            # Wply
-            Wply_var = Variable(name=f"Continuous Wply{i}",
-                                lb=min(Wply_list),
-                                ub=max(Wply_list),
-                                target={
-                                    "objects": idx_var.target["objects"],
-                                    "property": "Wply"
-                                })
-            # Wplz
-            Wplz_var = Variable(name=f"Continuous Wplz{i}",
-                                lb=min(Wplz_list),
-                                ub=max(Wplz_list),
-                                target={
-                                    "objects": idx_var.target["objects"],
-                                    "property": "Wplz"
-                                })
 
-            cont_vars = [A_var, Iy_var, Iz_var, Wply_var, Wplz_var]
-            lists = [A_list, Iy_list, Iz_list, Wply_list, Wplz_list]
 
-            vars[i] = {'bin_vars': bin_vars, 'cont_vars': cont_vars,
-                       'lists': lists}
-            self.vars.remove(idx_var)
-            self.vars.extend(bin_vars)
-            self.vars.extend(cont_vars)
+
+        # vars = {}
+        #
+        # for i, idx_var in enumerate(idx_vars):
+        #     A_list = []
+        #     Iy_list = []
+        #     Iz_list = []
+        #     Wply_list = []
+        #     Wplz_list = []
+        #     bin_vars = []
+        #     for j, profile in enumerate(idx_var.values):
+        #         # Get attributes
+        #         mem.profile = profile
+        #         A = mem.cross_section.A
+        #         Iy, Iz = mem.cross_section.I
+        #         Wply, Wplz = mem.cross_section.Wpl
+        #
+        #         # Append attributes
+        #         A_list.append(A)
+        #         Iy_list.append(Iy)
+        #         Iz_list.append(Iz)
+        #         Wply_list.append(Wply)
+        #         Wplz_list.append(Wplz)
+        #
+        #         bin_var = BinaryVariable(name=f"BinVar{i}{j}")
+        #         bin_vars.append(bin_var)
+        #
+        #     # Create continuous variables
+        #     # A
+        #     A_var = Variable(name=f"Continuous A{i}",
+        #                      lb=min(A_list),
+        #                      ub=max(A_list),
+        #                      target={
+        #                          "objects": idx_var.target["objects"],
+        #                          "property": "A"
+        #                      })
+        #     # Iy
+        #     Iy_var = Variable(name=f"Continuous Iy{i}",
+        #                       lb=min(Iy_list),
+        #                       ub=max(Iy_list),
+        #                       target={
+        #                           "objects": idx_var.target["objects"],
+        #                           "property": "Iy"
+        #                       })
+        #     # Iz
+        #     Iz_var = Variable(name=f"Continuous Iz{i}",
+        #                       lb=min(Iz_list),
+        #                       ub=max(Iz_list),
+        #                       target={
+        #                           "objects": idx_var.target["objects"],
+        #                           "property": "Iz"
+        #                       })
+        #     # Wply
+        #     Wply_var = Variable(name=f"Continuous Wply{i}",
+        #                         lb=min(Wply_list),
+        #                         ub=max(Wply_list),
+        #                         target={
+        #                             "objects": idx_var.target["objects"],
+        #                             "property": "Wply"
+        #                         })
+        #     # Wplz
+        #     Wplz_var = Variable(name=f"Continuous Wplz{i}",
+        #                         lb=min(Wplz_list),
+        #                         ub=max(Wplz_list),
+        #                         target={
+        #                             "objects": idx_var.target["objects"],
+        #                             "property": "Wplz"
+        #                         })
+        #
+        #     cont_vars = [A_var, Iy_var, Iz_var, Wply_var, Wplz_var]
+        #     lists = [A_list, Iy_list, Iz_list, Wply_list, Wplz_list]
+        #
+        #     vars[i] = {'bin_vars': bin_vars, 'cont_vars': cont_vars,
+        #                'lists': lists}
+        #     self.vars.remove(idx_var)
+        #     self.vars.extend(bin_vars)
+        #     self.vars.extend(cont_vars)
 
         # Create linear constraints
-        for i, vars_dict in enumerate(vars.values()):
-            bin_vars = vars_dict['bin_vars']
-            cont_vars = vars_dict['cont_vars']
-            lists = vars_dict['lists']
-            A_var, Iy_var, Iz_var, Wply_var, Wplz_var = cont_vars
-            A_list, Iy_list, Iz_list, Wply_list, Wplz_list = lists
-            # Binary constraint sum(bin_vars) == 1
-            bin_idx = [self.vars.index(bvar) for bvar in bin_vars]
-            a = np.zeros(len(self.vars))
-            a[bin_idx] = 1
-            bin_con = LinearConstraint(a=a, b=1, con_type="=",
-                                       name="Binary Constraint "
-                                            + str(i))
-            # A con; sum(Â*bin_vars) == A
-            a_A = np.zeros(len(self.vars))
-            a_A[bin_idx] = A_list
-            b = A_var
-            A_con = LinearConstraint(a=a_A,
-                                     b=b,
-                                     name=f"A Constraint {i}")
-            # Iy con; sum(Îy*bin_vars) == Iy
-            a_Iy = np.zeros(len(self.vars))
-            a_Iy[bin_idx] = Iy_list
-            b = Iy_var
-            Iy_con = LinearConstraint(a=a_Iy,
-                                      b=b,
-                                      name=f"Iy Constraint {i}")
-            # Iz con; sum(Îz*bin_vars) == Iz
-            a_Iz = np.zeros(len(self.vars))
-            a_Iz[bin_idx] = Iz_list
-            b = Iz_var
-            Iz_con = LinearConstraint(a=a_Iz,
-                                      b=b,
-                                      name=f"Iz Constraint {i}")
-            # Wply con; sum(Wply*bin_vars) == Wply
-            a_Wply = np.zeros(len(self.vars))
-            a_Wply[bin_idx] = Wply_list
-            b = Wply_var
-            Wply_con = LinearConstraint(a=a_Wply,
-                                        b=b,
-                                        name=f"Wply Constraint {i}")
-            # Wplz con; sum(Wplz*bin_vars) == Wplz
-            a_Wplz = np.zeros(len(self.vars))
-            a_Wplz[bin_idx] = Wplz_list
-            b = Wplz_var
-            Wplz_con = LinearConstraint(a=a_Wplz,
-                                        b=b,
-                                        name=f"Wplz Constraint {i}")
-
-            self.cons.extend([bin_con, A_con, Iy_con,
-                              Iz_con, Wply_con, Wplz_con])
+        # for i, vars_dict in enumerate(vars.values()):
+        #     bin_vars = vars_dict['bin_vars']
+        #     cont_vars = vars_dict['cont_vars']
+        #     lists = vars_dict['lists']
+        #     A_var, Iy_var, Iz_var, Wply_var, Wplz_var = cont_vars
+        #     A_list, Iy_list, Iz_list, Wply_list, Wplz_list = lists
+        #     # Binary constraint sum(bin_vars) == 1
+        #     bin_idx = [self.vars.index(bvar) for bvar in bin_vars]
+        #     a = np.zeros(len(self.vars))
+        #     a[bin_idx] = 1
+        #     bin_con = LinearConstraint(a=a, b=1, con_type="=",
+        #                                name="Binary Constraint "
+        #                                     + str(i))
+        #     # A con; sum(Â*bin_vars) == A
+        #     a_A = np.zeros(len(self.vars))
+        #     a_A[bin_idx] = A_list
+        #     b = A_var
+        #     A_con = LinearConstraint(a=a_A,
+        #                              b=b,
+        #                              name=f"A Constraint {i}")
+        #     # Iy con; sum(Îy*bin_vars) == Iy
+        #     a_Iy = np.zeros(len(self.vars))
+        #     a_Iy[bin_idx] = Iy_list
+        #     b = Iy_var
+        #     Iy_con = LinearConstraint(a=a_Iy,
+        #                               b=b,
+        #                               name=f"Iy Constraint {i}")
+        #     # Iz con; sum(Îz*bin_vars) == Iz
+        #     a_Iz = np.zeros(len(self.vars))
+        #     a_Iz[bin_idx] = Iz_list
+        #     b = Iz_var
+        #     Iz_con = LinearConstraint(a=a_Iz,
+        #                               b=b,
+        #                               name=f"Iz Constraint {i}")
+        #     # Wply con; sum(Wply*bin_vars) == Wply
+        #     a_Wply = np.zeros(len(self.vars))
+        #     a_Wply[bin_idx] = Wply_list
+        #     b = Wply_var
+        #     Wply_con = LinearConstraint(a=a_Wply,
+        #                                 b=b,
+        #                                 name=f"Wply Constraint {i}")
+        #     # Wplz con; sum(Wplz*bin_vars) == Wplz
+        #     a_Wplz = np.zeros(len(self.vars))
+        #     a_Wplz[bin_idx] = Wplz_list
+        #     b = Wplz_var
+        #     Wplz_con = LinearConstraint(a=a_Wplz,
+        #                                 b=b,
+        #                                 name=f"Wplz Constraint {i}")
+        #
+        #     self.cons.extend([bin_con, A_con, Iy_con,
+        #                       Iz_con, Wply_con, Wplz_con])
 
     def joint_geometry_constraints(self, joint):
         """
@@ -555,22 +602,37 @@ class TrussProblem(OptimizationProblem):
 
         if joint.joint_type == 'Y':
             w1 = list(joint.webs.values())[0]
+
             def b(x):
                 """
                 Web's breadth constraint
                 """
                 return w1.cross_section.B / joint.chord.cross_section.B - 1
 
-            # TODO: angle, bmin 0.25
+            def b_min(x):
+                """
+                Minimum breadth for web 1
+                """
+                val = 0.35 * joint.chord.cross_section.B
+                val /= w1.cross_section.B
+                val -= 1
+                return val
+
+            def theta_min(x):
+
+                val = 30 / np.degrees(joint.theta1) - 1
+                # val = 30 - np.degrees(w1.angle - joint.chord.angle)
+                return val
 
             con_funs = {
                 f'Joint {joint.jid} b': b,
+                f'Joint {joint.jid} b1_min': b_min,
+                f'Joint {joint.jid} theta1_min': theta_min,
             }
 
         elif joint.joint_type == 'K':
             w1, w2 = joint.webs.values()
 
-            # TODO: bi/b0 >= 0.1 + 0.01b0/t0
             def beta(x):
                 """
                 Beta constraint
@@ -583,6 +645,20 @@ class TrussProblem(OptimizationProblem):
 
                 return (b1 + b2 + h1 + h2) / (4 * b0) - 1
                 # return (b1 + b2 + h1 + h2) - (4 * b0)
+
+            def b1b0(x):
+                b1 = w1.cross_section.B
+                b0 = joint.chord.cross_section.B
+                t0 = joint.chord.cross_section.T
+
+                return (0.1 + 0.01 * b0 / t0) / (b1 / b0) - 1
+
+            def b2b0(x):
+                b2 = w2.cross_section.B
+                b0 = joint.chord.cross_section.B
+                t0 = joint.chord.cross_section.T
+
+                return (0.1 + 0.01 * b0 / t0) / (b2 / b0) - 1
 
             def g_min(x):
                 """
@@ -599,8 +675,8 @@ class TrussProblem(OptimizationProblem):
                 """
                 beta = joint.rhs_joint.beta()
                 val = 0.5 * (1 - beta) * joint.chord.cross_section.B
-                val -= joint.g1
                 val /= abs(joint.g1)
+                val -= 1
                 return val
 
             def g_max_beta(x):
@@ -641,35 +717,24 @@ class TrussProblem(OptimizationProblem):
                 return val
 
             def theta1_min(x):
-                if np.degrees(joint.chord.angle) < 90:
-                    val = 30 / np.degrees(w1.angle - joint.chord.angle) -1
-                else:
-                    val = 30 / np.degrees(w1.angle + joint.chord.angle) - 1
+
+                val = 30 / np.degrees(joint.theta1) - 1
                 # val = 30 - np.degrees(w1.angle - joint.chord.angle)
                 return val
 
             def theta1_max(x):
-                if np.degrees(joint.chord.angle) < 90:
-                    val = abs(np.degrees(w1.angle + joint.chord.angle)) / 90 -1
-                else:
-                    val = abs(np.degrees(w1.angle - joint.chord.angle)) / 90 - 1
+                val = np.degrees(joint.theta1) / 90 - 1
                 # val = 30 - np.degrees(w1.angle - joint.chord.angle)
 
                 return val
 
             def theta2_min(x):
-                if np.degrees(joint.chord.angle) < 90:
-                    val = 30 / np.degrees(w2.angle + joint.chord.angle) - 1
-                else:
-                    val = 30 / np.degrees(w2.angle - joint.chord.angle) - 1
+                val = 30 / np.degrees(joint.theta2) - 1
                 # val = 30 - np.degrees(w2.angle - joint.chord.angle)
                 return val
 
             def theta2_max(x):
-                if np.degrees(joint.chord.angle) < 90:
-                    val = np.degrees(w2.angle + joint.chord.angle) / 90 - 1
-                else:
-                    val = np.degrees(w2.angle - joint.chord.angle) / 90 - 1
+                val = np.degrees(joint.theta2) / 90 - 1
                 # val = 30 - np.degrees(w2.angle - joint.chord.angle)
                 return val
 
@@ -679,12 +744,14 @@ class TrussProblem(OptimizationProblem):
                 # return joint.e - ((0.25 * joint.chord.cross_section.H))
 
             def e_neg(x):
-                return -1 - joint.e /(0.55 * joint.chord.cross_section.H)
+                return -1 - joint.e / (0.55 * joint.chord.cross_section.H)
 
                 # return  - joint.e - (0.55 * joint.chord.cross_section.H)
 
             con_funs = {
                 f'Joint {joint.jid} beta': beta,
+                f'Joint {joint.jid} b1b0': b1b0,
+                f'Joint {joint.jid} b2b0': b2b0,
                 f'Joint {joint.jid} g_min': g_min,
                 f'Joint {joint.jid} g_min_beta': g_min_beta,
                 f'Joint {joint.jid} g_max_beta': g_max_beta,
@@ -693,13 +760,14 @@ class TrussProblem(OptimizationProblem):
                 f'Joint {joint.jid} b2_min': b2_min,
                 f'Joint {joint.jid} b2_max': b2_max,
                 f'Joint {joint.jid} theta1_min': theta1_min,
-                # f'Joint {joint.jid} theta1_max': theta1_max,
+                f'Joint {joint.jid} theta1_max': theta1_max,
                 f'Joint {joint.jid} theta2_min': theta2_min,
-                # f'Joint {joint.jid} theta2_max': theta2_max,
+                f'Joint {joint.jid} theta2_max': theta2_max,
                 f'Joint {joint.jid} e_pos': e_pos,
                 f'Joint {joint.jid} e_neg': e_neg}
 
         elif joint.joint_type == 'KT':
+            # TODO
             pass
 
         return con_funs
@@ -724,10 +792,9 @@ class TrussProblem(OptimizationProblem):
                 NRd1 = joint.rhs_joint.chord_web_buckling()
                 return -w1.ned / NRd1 - 1
 
-
             def brace_failure(x):
                 N1Rd = joint.rhs_joint.brace_failure()
-                return w1.ned / N1Rd - 1
+                return abs(w1.ned) / N1Rd - 1
 
             con_funs = {
                 f'Joint {joint.jid} chord face failure': chord_face_failure,
@@ -740,6 +807,7 @@ class TrussProblem(OptimizationProblem):
             w1, w2 = joint.webs.values()
 
             def chord_face_failure_1(x):
+
                 NRd1, NRd2 = joint.rhs_joint.chord_face_failure()
                 return abs(w1.ned) / NRd1 - 1
                 # return abs(w1.ned) - NRd1
@@ -763,20 +831,20 @@ class TrussProblem(OptimizationProblem):
                 joint.rhs_joint.V0 = joint.V0
                 (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
 
-                return joint.N0 / N0Rd -1
+                return joint.N0 / N0Rd - 1
                 # return joint.N0 - N0Rd
 
             def chord_shear_1(x):
                 joint.rhs_joint.V0 = joint.V0
                 (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
 
-                return abs(w1.ned) / N1Rd -1
+                return abs(w1.ned) / N1Rd - 1
 
             def chord_shear_2(x):
                 joint.rhs_joint.V0 = joint.V0
                 (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
 
-                return abs(w2.ned) / N2Rd -1
+                return abs(w2.ned) / N2Rd - 1
 
             def brace_failure_1(x):
                 N1Rd = joint.rhs_joint.brace_failure()[0]
@@ -813,22 +881,34 @@ class TrussProblem(OptimizationProblem):
         :return:
         """
 
+        def absmax(vals):
+            min_val = min(vals)
+            max_val = max(vals)
+            abs_max = max(abs(min_val), abs(max_val))
+            if abs_max == abs(min_val):
+                return min_val
+            else:
+                return max_val
+
+
         def compression(x):
-            N = elem.axial_force[0]
+            N = absmax(elem.axial_force)
             return -N / sect.NRd - 1
 
         def tension(x):
-            N = elem.axial_force[0]
+            N = absmax(elem.axial_force)
             return N / sect.NRd - 1
 
         def shear(x):
-            V = elem.shear_force[0]
+            V = absmax(elem.shear_force)
             return abs(V) / sect.VRd - 1
 
         def bending_moment(x):
             # Moment about y
+
             # TODO: Moment about z
-            M = elem.bending_moment[0]
+
+            M = absmax(elem.bending_moment)
             return abs(M) / sect.cross_section.plastic_bending_resistance() - 1
 
         return compression, tension, shear, bending_moment
@@ -840,10 +920,10 @@ class TrussProblem(OptimizationProblem):
         :return:
         """
         def buckling_y(x):
-            return -mem.NEd / mem.NbRd[0] - 1
+            return - min(mem.ned) / mem.NbRd[0] - 1
 
         def buckling_z(x):
-            return -mem.NEd / mem.NbRd[1] - 1
+            return -min(mem.ned) / mem.NbRd[1] - 1
 
         def com_compression_bending_y(x):
             return mem.check_beamcolumn(section_class=section_class)[0] - 1
@@ -882,7 +962,7 @@ class TrussProblem(OptimizationProblem):
         def section_class(x):
             b_ = mem.cross_section.H - 4*mem.cross_section.T
 
-            return b_ / mem.cross_section.T / (38* mem.cross_section.epsilon) - 1
+            return b_ / mem.cross_section.T / (38 * mem.cross_section.epsilon) - 1
 
         return section_class
 
@@ -936,7 +1016,7 @@ class TrussProblem(OptimizationProblem):
 
 
             disp_fun = self.deflection_constraints(mem)
-            disp_con = self.non_linear_constraint(disp_fun,name="Displacement " + str(mem.mem_id))
+            disp_con = self.non_linear_constraint(disp_fun, name="Displacement " + str(mem.mem_id))
             disp_con.fea_required = True
 
             sect_fun = self.cross_section_class_constraints(mem)
@@ -1279,7 +1359,10 @@ if __name__ == '__main__':
         return individual
 
 
-    # problem.index_to_binary()
+    problem.index_to_binary()
+
+    for var in problem.vars:
+        print(var.name, var.id)
 
     def cx_fun(A, B):
 
@@ -1295,7 +1378,14 @@ if __name__ == '__main__':
                 mutation_kwargs={'prob': 0.5, "stepsize": 5,
                                  "multiplier": 0.25})
 
-    solver = VNS(step_length=3)
+    solver = MISLP()
     x0 = [var.ub for var in problem.vars]
-    fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True, plot=True)
+    truss.calculate()
+    for mem in truss.members.values():
+        for smem in mem.steel_members:
+            print(smem.ned)
+    problem.substitute_variables(x0)
+    problem.fea()
+    problem(x0)
+    # fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True, plot=True)
 

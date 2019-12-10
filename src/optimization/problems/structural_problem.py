@@ -13,6 +13,7 @@ class StructuralProblem(OptimizationProblem):
     Class for general structural problem
 
     """
+
     def __init__(self,
                  name="Structural Optimization Problem",
                  structure=None,
@@ -62,6 +63,289 @@ class StructuralProblem(OptimizationProblem):
                     deflection_y=None,
                     deflection_x=None,
                     alpha_cr=None)
+
+    def joint_geometry_constraints(self, joint):
+        """
+        Creates joint geometry constraint functions
+        :param joint: TrussJoint
+        :return: constraint functions in a dict
+        """
+
+        con_funs = {}
+
+        if joint.joint_type == 'Y':
+            w1 = list(joint.webs.values())[0]
+
+            def b(x):
+                """
+                Web's breadth constraint
+                """
+                return w1.cross_section.B / joint.chord.cross_section.B - 1
+
+            def b_min(x):
+                """
+                Minimum breadth for web 1
+                """
+                val = 0.35 * joint.chord.cross_section.B
+                val /= w1.cross_section.B
+                val -= 1
+                return val
+
+            def theta_min(x):
+
+                val = 30 / np.degrees(joint.theta1) - 1
+                # val = 30 - np.degrees(w1.angle - joint.chord.angle)
+                return val
+
+            con_funs = {
+                f'Joint {joint.jid} b': b,
+                f'Joint {joint.jid} b1_min': b_min,
+                f'Joint {joint.jid} theta1_min': theta_min,
+            }
+
+        elif joint.joint_type == 'K':
+            w1, w2 = joint.webs.values()
+
+            def beta(x):
+                """
+                Beta constraint
+                """
+                b1 = w1.cross_section.B
+                b2 = w2.cross_section.B
+                h1 = w1.cross_section.H
+                h2 = w2.cross_section.H
+                b0 = joint.chord.cross_section.B
+
+                return (b1 + b2 + h1 + h2) / (4 * b0) - 1
+                # return (b1 + b2 + h1 + h2) - (4 * b0)
+
+            def b1b0(x):
+                b1 = w1.cross_section.B
+                b0 = joint.chord.cross_section.B
+                t0 = joint.chord.cross_section.T
+
+                return (0.1 + 0.01 * b0 / t0) / (b1 / b0) - 1
+
+            def b2b0(x):
+                b2 = w2.cross_section.B
+                b0 = joint.chord.cross_section.B
+                t0 = joint.chord.cross_section.T
+
+                return (0.1 + 0.01 * b0 / t0) / (b2 / b0) - 1
+
+            def g_min(x):
+                """
+                Minimum value for gap
+                """
+                gap = w1.cross_section.T + w2.cross_section.T
+                val = gap - joint.g1
+                val /= abs(joint.g1)
+                return val
+
+            def g_min_beta(x):
+                """
+                Minimum value for gap
+                """
+                beta = joint.rhs_joint.beta()
+                val = 0.5 * (1 - beta) * joint.chord.cross_section.B
+                val /= abs(joint.g1)
+                val -= 1
+                return val
+
+            def g_max_beta(x):
+                """
+                Maximum value for gap
+                """
+                beta = joint.rhs_joint.beta()
+                val = joint.g1
+                val /= (1.5 * (1 - beta) * joint.chord.cross_section.B)
+                val -= 1
+                return val
+
+            def b1_min(x):
+                """
+                Minimum breadth for web 1
+                """
+                val = 0.35 * joint.chord.cross_section.B
+                val /= w1.cross_section.B
+                val -= 1
+                return val
+
+            def b1_max(x):
+                val = -0.85 * joint.chord.cross_section.B
+                val /= w1.cross_section.B
+                val += 1
+                return val
+
+            def b2_min(x):
+                val = 0.35 * joint.chord.cross_section.B
+                val /= w2.cross_section.B
+                val -= 1
+                return val
+
+            def b2_max(x):
+                val = -0.85 * joint.chord.cross_section.B
+                val /= w2.cross_section.B
+                val += 1
+                return val
+
+            def theta1_min(x):
+
+                val = 30 / np.degrees(joint.theta1) - 1
+                # val = 30 - np.degrees(w1.angle - joint.chord.angle)
+                return val
+
+            def theta1_max(x):
+                val = np.degrees(joint.theta1) / 90 - 1
+                # val = 30 - np.degrees(w1.angle - joint.chord.angle)
+
+                return val
+
+            def theta2_min(x):
+                val = 30 / np.degrees(joint.theta2) - 1
+                # val = 30 - np.degrees(w2.angle - joint.chord.angle)
+                return val
+
+            def theta2_max(x):
+                val = np.degrees(joint.theta2) / 90 - 1
+                # val = 30 - np.degrees(w2.angle - joint.chord.angle)
+                return val
+
+            def e_pos(x):
+                return joint.e / ((0.25 * joint.chord.cross_section.H)) - 1
+
+                # return joint.e - ((0.25 * joint.chord.cross_section.H))
+
+            def e_neg(x):
+                return -1 - joint.e / (0.55 * joint.chord.cross_section.H)
+
+                # return  - joint.e - (0.55 * joint.chord.cross_section.H)
+
+            con_funs = {
+                f'Joint {joint.jid} beta': beta,
+                f'Joint {joint.jid} b1b0': b1b0,
+                f'Joint {joint.jid} b2b0': b2b0,
+                f'Joint {joint.jid} g_min': g_min,
+                f'Joint {joint.jid} g_min_beta': g_min_beta,
+                f'Joint {joint.jid} g_max_beta': g_max_beta,
+                f'Joint {joint.jid} b1_min': b1_min,
+                f'Joint {joint.jid} b1_max': b1_max,
+                f'Joint {joint.jid} b2_min': b2_min,
+                f'Joint {joint.jid} b2_max': b2_max,
+                f'Joint {joint.jid} theta1_min': theta1_min,
+                f'Joint {joint.jid} theta1_max': theta1_max,
+                f'Joint {joint.jid} theta2_min': theta2_min,
+                f'Joint {joint.jid} theta2_max': theta2_max,
+                f'Joint {joint.jid} e_pos': e_pos,
+                f'Joint {joint.jid} e_neg': e_neg}
+
+        elif joint.joint_type == 'KT':
+            # TODO
+            pass
+
+        return con_funs
+
+    def joint_strength_constraints(self, joint):
+        """
+        Creates joint strength costraint functions
+
+        :param joint: TrussJoint to be calculated
+        :return: constraint functions in a dict
+        """
+        con_funs = {}
+
+        if joint.joint_type == 'Y':
+            w1 = list(joint.webs.values())[0]
+
+            def chord_face_failure(x):
+                NRd1 = joint.rhs_joint.chord_face_failure()
+                return w1.ned / NRd1 - 1
+
+            def chord_web_buckling(x):
+                NRd1 = joint.rhs_joint.chord_web_buckling()
+                return -w1.ned / NRd1 - 1
+
+            def brace_failure(x):
+                N1Rd = joint.rhs_joint.brace_failure()
+                return abs(w1.ned) / N1Rd - 1
+
+            con_funs = {
+                f'Joint {joint.jid} chord face failure': chord_face_failure,
+                f'Joint {joint.jid} chord web buckling': chord_web_buckling,
+                f'Joint {joint.jid} brace failure': brace_failure,
+            }
+
+
+        elif joint.joint_type == 'K':
+            w1, w2 = joint.webs.values()
+
+            def chord_face_failure_1(x):
+
+                NRd1, NRd2 = joint.rhs_joint.chord_face_failure()
+                return abs(w1.ned) / NRd1 - 1
+                # return abs(w1.ned) - NRd1
+
+            def chord_face_failure_2(x):
+                NRd1, NRd2 = joint.rhs_joint.chord_face_failure()
+                return abs(w2.ned) / NRd2 - 1
+                # return abs(w2.ned) - NRd2
+
+            def punching_shear_1(x):
+                NRd1 = joint.rhs_joint.punching_shear()[0]
+                return abs(w1.ned) / NRd1 - 1
+                # return abs(w1.ned) - NRd1
+
+            def punching_shear_2(x):
+                NRd2 = joint.rhs_joint.punching_shear()[1]
+                return abs(w2.ned) / NRd2 - 1
+                # return abs(w2.ned) - NRd2
+
+            def chord_shear_0(x):
+                joint.rhs_joint.V0 = joint.V0
+                (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
+
+                return joint.N0 / N0Rd - 1
+                # return joint.N0 - N0Rd
+
+            def chord_shear_1(x):
+                joint.rhs_joint.V0 = joint.V0
+                (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
+
+                return abs(w1.ned) / N1Rd - 1
+
+            def chord_shear_2(x):
+                joint.rhs_joint.V0 = joint.V0
+                (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
+
+                return abs(w2.ned) / N2Rd - 1
+
+            def brace_failure_1(x):
+                N1Rd = joint.rhs_joint.brace_failure()[0]
+                return abs(w1.ned) / N1Rd - 1
+                # return abs(w1.ned) - N1Rd
+
+            def brace_failure_2(x):
+                N2Rd = joint.rhs_joint.brace_failure()[1]
+                return abs(w2.ned) / N2Rd - 1
+                # return abs(w2.ned) - N2Rd
+
+            con_funs = {
+                f'Joint {joint.jid} chord face failure 1': chord_face_failure_1,
+                f'Joint {joint.jid} chord face failure 2': chord_face_failure_2,
+                f'Joint {joint.jid} punching shear 1': punching_shear_1,
+                f'Joint {joint.jid} punching shear 2': punching_shear_2,
+                f'Joint {joint.jid} chord shear 0': chord_shear_0,
+                # f'Joint {joint.jid} chord shear 1': chord_shear_1,
+                # f'Joint {joint.jid} chord shear 2': chord_shear_2,
+                f'Joint {joint.jid} brace failure 1': brace_failure_1,
+                f'Joint {joint.jid} brace failure 2': brace_failure_2,
+            }
+
+        elif joint.joint_type == 'KT':
+            # TODO
+            pass
+
+        return con_funs
 
     def cross_section_constraints(self, mem, elem):
         """
@@ -303,6 +587,28 @@ class StructuralProblem(OptimizationProblem):
                         vars=mem)
                     self.add(con)
 
+        # JOINTS
+        for truss in self.structure.truss:
+            for joint in truss.joints.values():
+                # JOINT GEOMETRY
+                joint_geom_cons = self.joint_geometry_constraints(joint)
+                for key, val in joint_geom_cons.items():
+                    con = NonLinearConstraint(
+                        name=f"{key}:",
+                        con_fun=val,
+                        con_type='<',
+                        fea_required=False)
+                    self.add(con)
+                # JOINT STRENGTH
+                joint_str_cons = self.joint_strength_constraints(joint)
+                for key, val in joint_str_cons.items():
+                    con = NonLinearConstraint(
+                        name=f"{key}:",
+                        con_fun=val,
+                        con_type='<',
+                        fea_required=True)
+                    self.add(con)
+
     def create_variables(self):
         """
         Creates design variables
@@ -391,7 +697,8 @@ class StructuralProblem(OptimizationProblem):
     def group_constraints(self):
 
         if self.con_groups is not None:
-            con_groups = [group for group in self.con_groups if "constraints" in group]
+            con_groups = [group for group in self.con_groups if
+                          "constraints" in group]
 
             for group in self.con_groups:
                 cons = group['constraints']
@@ -403,7 +710,8 @@ class StructuralProblem(OptimizationProblem):
                             del con
                     init_cons = self.constraints.copy()
                     init_cons.update(cons)
-                    self.create_constraints(**init_cons, members=group['objects'])
+                    self.create_constraints(**init_cons,
+                                            members=group['objects'])
 
     def create_objective(self):
 
@@ -441,8 +749,8 @@ if __name__ == '__main__':
         H1=1800,
         H2=2400,
         L1=L_bay / 2,
-        dx=0,
-        n=14
+        dx=400,
+        n=16
     )
 
     truss = Truss2D(simple=simple_truss, fem_model=frame.f)
@@ -453,11 +761,12 @@ if __name__ == '__main__':
     for bc in truss.bottom_chords:
         frame.add(LineLoad(bc, [-1, -1], 'y'))
     col1, col2 = frame.columns
-    frame.add(LineLoad(col1, [3.5, 3.5], 'x'))
-    frame.add(LineLoad(col2, [0.2, 0.2], 'x'))
-    truss.generate()
-    # frame.calculate()
-    truss.f.draw()
+    # frame.add(LineLoad(col1, [3.5, 3.5], 'x'))
+    # frame.add(LineLoad(col2, [0.2, 0.2], 'x'))
+    frame.generate()
+    # truss.generate()
+    frame.calculate()
+    # truss.f.draw()
 
     TC_group = {
         'name': 'TopChords',
@@ -497,10 +806,14 @@ if __name__ == '__main__':
         'var_type': 'index',
         'value': 10,
         'values': list(ipe_profiles.keys()),
+        'property': 'profile',
         # 'properties': ['h', 'b', 'tf', 'tw'],
         'objects': frame.columns
     }
 
+    # # truss.f.draw()
+    frame.to_robot("PROTAL_TEST")
+    # frame.bmd(100)
 
     problem = StructuralProblem(name="TEST",
                                 structure=frame,
@@ -518,8 +831,9 @@ if __name__ == '__main__':
                                     'deflection_y': frame.L / 200,
                                     'deflection_x': frame.H / 300
                                 })
-    solver = GA(pop_size=50, mut_rate=0.15)
-    x0 = [1 for var in problem.vars]
-    fopt, xopt = solver.solve(problem, x0=x0, maxiter=10, plot=True)
-    problem(xopt)
-    frame.plot_deflection(100)
+
+    # solver = GA(pop_size=50, mut_rate=0.15)
+    # x0 = [1 for var in problem.vars]
+    # fopt, xopt = solver.solve(problem, x0=x0, maxiter=10, plot=True)
+    # problem(xopt)
+    # frame.plot_deflection(100)
