@@ -1,9 +1,11 @@
 try:
     from src.optimization.structopt import *
     from src.sections.steel.catalogue import ipe_profiles
+    from src.sections.steel import ISection, WISection, RHS
 except:
     from optimization.structopt import *
     from sections.steel.catalogue import ipe_profiles
+    from sections.steel import ISection, WISection, RHS
 
 
 class StructuralProblem(OptimizationProblem):
@@ -98,7 +100,7 @@ class StructuralProblem(OptimizationProblem):
 
         return cons
 
-    def stability_constraints(self, mem):
+    def stability_constraints(self, mem, section_class):
         """
         Creates stability constraint functions
 
@@ -107,16 +109,16 @@ class StructuralProblem(OptimizationProblem):
         """
 
         def buckling_y(x):
-            return -mem.NEd / mem.NbRd[0] - 1
+            return -min(mem.ned) / mem.NbRd[0] - 1
 
         def buckling_z(x):
-            return -mem.NEd / mem.NbRd[1] - 1
+            return -min(mem.ned) / mem.NbRd[1] - 1
 
         def com_compression_bending_y(x):
-            return mem.check_beamcolumn()[0] - 1
+            return mem.check_beamcolumn(section_class=section_class)[0] - 1
 
         def com_compression_bending_z(x):
-            return mem.check_beamcolumn()[1] - 1
+            return mem.check_beamcolumn(section_class=section_class)[1] - 1
 
         cons = {
             'buckling_y': buckling_y,
@@ -155,18 +157,47 @@ class StructuralProblem(OptimizationProblem):
 
         return cons
 
-    def cross_section_class_constraints(self, mem):
+    def cross_section_class_constraints(self, mem, column_class=3,
+                                        tube_class=2):
         """
         Cross-section class constraints
         :param mem: FrameMember -object
         :return:
         """
+        K_web = [0,33,38,42]
+        K_flange = [0,9,10,14]
 
-        def section_class(x):
-            # TODO
-            return None
+        def web_class(x):
+            if isinstance(mem.cross_section, (ISection, WISection)):
+                c = mem.cross_section.cw
+                t = mem.cross_section.tw
+                K = K_web[column_class]
 
-        return section_class
+            elif isinstance(mem.cross_section, RHS):
+                c = mem.cross_section.c_web
+                t = mem.cross_section.T
+                K = K_web[tube_class]
+
+            return c / t - K * mem.cross_section.eps
+
+        def flange_class(x):
+            if isinstance(mem.cross_section, (ISection, WISection)):
+                c = mem.cross_section.cf_top
+                t = mem.cross_section.tt
+                K = K_flange[column_class]
+
+            elif isinstance(mem.cross_section, RHS):
+                c = mem.cross_section.c_flange
+                t = mem.cross_section.T
+                K = K_flange[tube_class]
+
+            return c / t - K * mem.cross_section.eps
+
+        cons = {'web_class': web_class,
+                'flange_class': flange_class
+                }
+
+        return cons
 
     def create_constraints(self,
                            compression=False,
@@ -180,7 +211,8 @@ class StructuralProblem(OptimizationProblem):
                            compression_bending_z=False,
                            deflection_y=None,
                            deflection_x=None,
-                           section_class=None,
+                           web_class=None,
+                           flange_class=None,
                            alpha_cr=None,
                            members=None
                            ):
@@ -218,7 +250,11 @@ class StructuralProblem(OptimizationProblem):
         for mem in members:
             # STABILITY CONSTRAINTS
             for i, smem in enumerate(mem.steel_members):
-                stability_cons = self.stability_constraints(smem)
+                if isinstance(mem.cross_section, WISection):
+                    section_class = 3
+                else:
+                    section_class = 2
+                stability_cons = self.stability_constraints(smem, section_class)
                 for key, val in stability_cons.items():
                     if eval(key.lower()):
                         con = NonLinearConstraint(
@@ -243,7 +279,16 @@ class StructuralProblem(OptimizationProblem):
                             self.add(con)
 
             # CROSS-SECTION CLASS CONSTRAINTS
-            # TODO
+            class_cons = self.cross_section_class_constraints(mem)
+            for key, val in class_cons.items():
+                if eval(key.lower()):
+                    con = NonLinearConstraint(
+                        name=f"{key}: {mem.mem_id}",
+                        con_fun=val,
+                        con_type='<',
+                        fea_required=False,
+                        vars=mem)
+                    self.add(con)
 
             # DEFLECTION CONSTRAINTS
             def_cons = self.deflection_constraints(mem, deflection_x,
