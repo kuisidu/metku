@@ -18,10 +18,21 @@ except:
 class RHSJoint:
     """ Class for joints between RHS members """
     
-    def __init__(self,chord_profile):
+    def __init__(self,chord_profile, N0=None, V0=None, M0=None):
         """ Constructor
         """
-        self.chord = chord_profile        
+        self.chord = chord_profile
+        if N0 is None:
+            N0 = chord_profile.Ned
+        self.N0 = N0
+
+        if V0 is None:
+            V0 = chord_profile.Ved
+        self.V0 = V0
+
+        if M0 is None:
+            M0 = chord_profile.Med
+        self.M0 = M0
         
     def h0(self):
         return self.chord.H
@@ -37,19 +48,13 @@ class RHSJoint:
     
     def fy0(self):
         return self.chord.fy
-    
-    def N0(self):
-        return self.chord.Ned
-    
-    def M0(self):
-        return self.chord.Med
-        
+
     def gamma(self):
         return 0.5*self.h0()/self.t0()
         
     def b_straigth(self):
         """ Length of the straight part of the chord profile """
-        return self.b0()-2*self.r0();
+        return self.b0()-2*self.r0()
         
     def beta(self):
         """ Abstract method for beta that depends on the joint type """
@@ -61,8 +66,8 @@ class RHSJoint:
         kn = 1.0
         n = self.eval_N()
         b = self.beta()
-        if n > 0.0: # compression                
-            kn = min(1.3-0.4*n/self.beta(),1.0)
+        if n > 0.0: # compression
+            kn = min(1.3-0.4*n/self.beta(), 1.0)
         
         return kn
         
@@ -91,7 +96,7 @@ class RHSJoint:
         # s0Ed is positive, if the stress in the chord
         # is compressive.
         # CAREFUL WITH UNITS HERE!
-        s0Ed = -self.N0()*1e3/A0+self.M0()*1e6/Wel0
+        s0Ed = -self.N0/A0+self.M0/Wel0
         
         return s0Ed
 
@@ -113,7 +118,7 @@ class RHSJoint:
         A0 = self.chord.A
         Wpl0 = self.chord.Wpl[1]
         # s0Ed < 0 for compression
-        s0Ed = -self.N0()*1e3/A0+self.M0()*1e6/Wpl0
+        s0Ed = -self.N0/A0+self.M0/Wpl0
         return s0Ed
 
 
@@ -122,10 +127,10 @@ class RHSJoint:
 class RHSKGapJoint(RHSJoint):
     """ For K and N Gap joints between RHS members """
     
-    def __init__(self,chord,braces,angles,gap=20):
+    def __init__(self,chord,braces,angles,gap=20, **kwargs):
         """ Constructor
         """
-        RHSJoint.__init__(self,chord)
+        RHSJoint.__init__(self,chord, **kwargs)
         self.braces = braces
         self.gap = gap
         self.angles = angles
@@ -164,7 +169,7 @@ class RHSKGapJoint(RHSJoint):
         g = self.gamma()                           
         kn = self.eval_KN()
         r = self.strength_reduction()
-        fy0 =  self.fy0()
+        fy0 = self.fy0()
         t0 = self.t0()
         NRd = []
         NRd0 = r*8.9*kn*fy0*t0**2*math.sqrt(g)*b/gammaM5
@@ -181,10 +186,11 @@ class RHSKGapJoint(RHSJoint):
         fy0 = self.fy0()
         # braces
         NiRd = fy0*Aeta/math.sqrt(3)/s/gammaM5
-        # chord                          
+        # chord
         if self.V0/self.chord.shear_force_resistance() > 1:
-            print("Chord is not strong enough for shear forces")
-            N0Rd = 1e-6
+            # print("Chord is not strong enough for shear forces")
+            N0Rd = fy0*((self.chord.A-Aeta))/gammaM5
+
         else:
             N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0/self.chord.shear_force_resistance())**2))/gammaM5
             
@@ -226,8 +232,8 @@ class RHSKGapJoint(RHSJoint):
 
 class RHSYJoint(RHSJoint):
     
-    def __init__(self, chord_profile, brace, angle):
-        super().__init__(chord_profile)
+    def __init__(self, chord_profile, brace, angle, **kwargs):
+        super().__init__(chord_profile, **kwargs)
         self.brace = brace
         self.angle = angle
         
@@ -254,11 +260,13 @@ class RHSYJoint(RHSJoint):
         
     def chord_face_failure(self):
                         
-        b = self.beta()                          
+        b = self.beta()
+        if b >= 1:
+            b = 0.99
         kn = self.eval_KN()
         n = self.eval_N()
         r = self.strength_reduction()
-        fy0 =  self.fy0()
+        fy0 = self.fy0()
         t0 = self.t0()
         NRd = r**kn*fy0*t0**2 / ((1-b)*np.sin(np.radians(self.angle)))
         NRd = NRd * (2*n / np.sin(np.radians(self.angle)) + 4*np.sqrt(1-b))
@@ -268,10 +276,10 @@ class RHSYJoint(RHSJoint):
     
     
     def slend(self):
-        
-       slend = 3.46*(self.h0()/(self.t0() -2) *np.sqrt(1/np.sin(np.radians(self.angle))))
-       slend = slend / (np.pi * np.sqrt(E / self.fy0()))
-       return slend
+
+        slend = 3.46*(self.h0()/(self.t0() -2) *np.sqrt(1/np.sin(np.radians(self.angle))))
+        slend = slend / (np.pi * np.sqrt(E / self.fy0()))
+        return slend
    
     def chord_web_buckling(self):
         alpha = self.chord.imp_factor[0]
@@ -283,7 +291,7 @@ class RHSYJoint(RHSJoint):
         r = self.strength_reduction()
         t0 = self.t0()
         h = self.h()
-        NRd = r**kn*fb*t0**2 / (np.sin(np.radians(self.angle)))
+        NRd = r**kn*fb*t0 / (np.sin(np.radians(self.angle)))
         NRd = NRd * (2*h / np.sin(np.radians(self.angle)) + 10*t0)
         NRd = NRd / gammaM5
         return NRd
