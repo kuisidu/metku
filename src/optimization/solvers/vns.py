@@ -61,11 +61,10 @@ class VNS(OptSolver):
                     self.prev_x.append(var.value)
 
             elif isinstance(var, IndexVariable):
-
-                var.lb = max(0, var.idx - self.step_length)
-                var.ub = min(var.ub, var.idx + self.step_length)
+                var.lb = max(0, var.value - self.step_length)
+                var.ub = min(var.ub, var.value + self.step_length)
                 if not recursive:
-                    self.prev_x.append(var.idx)
+                    self.prev_x.append(var.value)
 
             else:
                 delta = (var.ub - var.lb) / 10
@@ -116,7 +115,8 @@ class VNS(OptSolver):
         # Reset step_length
         self.step_length = self.initial_step_length
         # Take step
-        self.X += action
+        self.X = np.asarray(self.X) + np.asarray(action)
+
 
         for i in range(len(self.X)):
             self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
@@ -162,9 +162,9 @@ class VNS(OptSolver):
                     cx_rate=0.9,
                     mutation_kwargs={'prob': 0.05,
                                      "stepsize": 100,
-                                     "multiplier": self.step_length},
-                    first_improvement=self.first_improvement
+                                     "multiplier": self.step_length}
                 )
+                self.solver_params["first_improvement"] = self.first_improvement
 
             self.solver = GA(**self.solver_params)
 
