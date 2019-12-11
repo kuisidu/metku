@@ -64,7 +64,6 @@ class GA(OptSolver):
         :param X: one optimization problem solution
         :return: objective value of optimization problem
         """
-
         self.problem.substitute_variables(ind)
         X = [round(var.value, 3) for var in self.problem.vars]
         obj_val = self.problem.obj(X)
@@ -73,6 +72,9 @@ class GA(OptSolver):
         val = obj_val + penalty_val
         if self.plot:
             self.update_plot(self.fig, self.ax)
+
+
+        # print("GAPS: ", [j.g1 for j in self.problem.structure.joints.values()])
 
         if val < self.best_f:
             for i, x in enumerate(X):
@@ -83,8 +85,6 @@ class GA(OptSolver):
             self.best_x = best_x.copy()
             self.best_f = val
             self.counter = 0
-
-
 
         # NOTE! Need to return at least two values, hence the comma
         return val,  # <- DO NOT REMOVE THIS COMMA
@@ -163,11 +163,11 @@ class GA(OptSolver):
     def solve(self, problem, x0=None, maxiter=100, maxtime=-1, log=False,
               min_diff=1e-5, verb=False, plot=False):
 
+
         self.toolbox = base.Toolbox()
         self.problem = problem
         self.create_fitness()
         self.register()
-
 
         if plot and not self.plot:
             fig = plt.figure()
@@ -211,7 +211,6 @@ class GA(OptSolver):
                     # must be recalculated later
                     del child1.fitness.values
                     del child2.fitness.values
-
                 for mutant in offspring[:-1]:
                     # mutate an individual with probability MUTPB
                     if random.random() < MUTPB:
@@ -234,8 +233,8 @@ class GA(OptSolver):
             std = abs(sum2 / length - mean ** 2) ** 0.5
 
             if verb:
-                print(f"Generation {it}/{maxiter} \n"
-                      f"Min fitness: {min(fits)} \n"
+                print("VERB: ", self.best_x)
+                print(f"Min fitness: {min(fits)} \n"
                       f"Obj: {problem.obj(self.best_x)} \n"
                       f"Max con: {max(problem.eval_cons(self.best_x)):.3f}  "
                       f"{problem.cons[np.argmax(problem.eval_cons(self.best_x))].name}")
@@ -258,12 +257,19 @@ class GA(OptSolver):
             else:
                 prev_val = min(fits)
 
+            if log:
+                problem.num_iters += 1
+                problem.fvals.append(self.best_f)
+                problem.states.append(list(pop[np.argmin(fits)]))
+                problem.gvals.append(max(self.constr_vals))
+                self.fvals.append(self.best_f)
+                self.xvals.append(self.best_x)
+
         # best_idx = np.argmin(fits)
         # xopt = pop[best_idx]
         # print("XOPT: ", xopt)
         # fopt = fits[best_idx]
 
-        print(self.best_x)
         return self.best_f, self.best_x
 
 
