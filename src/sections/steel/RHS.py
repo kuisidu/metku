@@ -183,8 +183,7 @@ class SHS(RHS):
         RHS.__init__(self, H, H, T, fy)
 
     def __repr__(self):
-        def __repr__(self):
-            return f"{type(self).__name__} {self.H:.0f}X{self.B:.0f}X{self.T:.1f}"
+        return f"{type(self).__name__} {self.H:.0f}X{self.B:.0f}X{self.T:.1f}"
 
 
 # Functions for computing RHS section properties
