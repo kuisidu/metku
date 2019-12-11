@@ -56,14 +56,13 @@ class RHS(SteelSection):
         self.T = T
         self.Iw = 0
         self.It = self.torsional_constant()
-
         self.imp_factor = [en1993_1_1.buckling_curve["c"],
                            en1993_1_1.buckling_curve["c"]]
         self.imp_factor_LT_gen = en1993_1_1.buckling_curve["c"]  # TODO
         self.imp_factor_LT = en1993_1_1.buckling_curve["c"]  # TODO
 
     def __repr__(self):
-        return f"{type(self).__name__} {self.H:.0f}X{self.B:.0f}X{self.T:.0f}"
+        return f"{type(self).__name__} {self.H:.0f}X{self.B:.0f}X{self.T:.1f}"
 
     def update_properties(self):
         """
@@ -71,7 +70,12 @@ class RHS(SteelSection):
         """
 
         try:
+            # Using values from catalog, all catalog values
+            # have maximum of 1 decimal
+            # if (self.H * 10).is_integer() and (self.B * 10).is_integer() and (self.T * 10).is_integer():
             self.R = RHS_outer_radius(self.T)
+            # else:
+            # self.R = 2 * self.T
             self.A = RHS_area(self.H, self.B, self.T, self.R)
             I = [0.0, 0.0]
             I[0] = RHS_second_moment(self.H, self.B, self.T, self.R)
@@ -177,6 +181,9 @@ class SHS(RHS):
 
     def __init__(self, H, T, fy=355):
         RHS.__init__(self, H, H, T, fy)
+
+    def __repr__(self):
+        return f"{type(self).__name__} {self.H}X{self.T:.1f}"
 
 
 # Functions for computing RHS section properties
