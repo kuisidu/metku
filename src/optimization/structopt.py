@@ -217,19 +217,15 @@ class IndexVariable(IntegerVariable):
         super().__init__(name, lb, ub, target=target, **kwargs)
 
     def substitute(self, new_value):
-        if new_value not in self.values:
-            if not new_value % 1:
-                new_value = int(new_value)
-            try:
-                new_value = self.values[new_value]
-            except:
-                raise ValueError(
-                    f"Input {new_value} is erroneous "
-                    "IndexVariable's value must be either"
-                    " index or a value from the given list!")
+        try:
+            super().substitute(self.values[new_value])
+        except:
+            raise ValueError(
+                f"Input {new_value} is erroneous "
+                "IndexVariable's value must be either"
+                " index or a value from the given list!")
 
-        super().substitute(new_value)
-        self.value = self.idx
+        self.value = new_value
 
     @property
     def idx(self):

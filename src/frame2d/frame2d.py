@@ -407,7 +407,7 @@ class Frame2D:
             :type load_id: int
         """
         start = time.time()
-        self.update_model()
+        # self.update_model()
         if self.is_calculated == False:
             self.is_calculated = True
             self.f.add_loadcase(supp_id=1, load_id=load_id)

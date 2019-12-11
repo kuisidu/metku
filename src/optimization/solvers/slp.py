@@ -79,10 +79,7 @@ class SLP(OptSolver):
 
         X = []
         for i in range(len(x)):
-            if self.problem.prob_type == 'discrete':
-                X.append(int(x[i].solution_value()))
-            else:
-                X.append(x[i].solution_value())
+            X.append(x[i].solution_value())
         X = np.asarray(X)
 
         return X - self.X

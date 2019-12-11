@@ -100,6 +100,13 @@ class RHS(SteelSection):
         if key in dim_vars:
             self.update_properties()
 
+    @property
+    def c_web(self):
+        return self.H - 2 * self.R
+
+    @property
+    def c_flange(self):
+        return self.B - 2 * self.R
 
     def torsional_constant(self):
         """
