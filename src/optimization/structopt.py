@@ -21,7 +21,7 @@ from itertools import product
 from collections.abc import Iterable
 from functools import lru_cache
 
-CACHE_BOUND = 2**10
+CACHE_BOUND = 2**8
 INT_TOL = 1e-4
 """ Tolerance for discreteness violation of a discrete variable
 """
@@ -32,7 +32,7 @@ class Variable:
     """ Class for optimization variables
     """
 
-    def __init__(self, name, lb, ub, target=None, profiles=None, value=None):
+    def __init__(self, name, lb, ub, id=None, target=None, profiles=None, value=None):
         """
         Parameters:
             -----------
@@ -76,6 +76,7 @@ class Variable:
         self.profiles = profiles
         self.locked = False
         self.branch_priority = 0
+        self.id = id
 
 
     def __repr__(self):
@@ -204,7 +205,6 @@ class IndexVariable(IntegerVariable):
     that takes values from given list
     """
     def __init__(self, name="", values=None, target=None, **kwargs):
-
         self.values = values
 
         if values is not None:
@@ -218,20 +218,22 @@ class IndexVariable(IntegerVariable):
 
     def substitute(self, new_value):
         try:
+            new_value = int(new_value)
             super().substitute(self.values[new_value])
         except:
             raise ValueError(
                 f"Input {new_value} is erroneous "
                 "IndexVariable's value must be either"
-                " index or a value from the given list!")
+                " index or a value from the given list!\n"
+            f"Values: {self.values}")
 
         self.value = new_value
 
-    @property
-    def idx(self):
-        if self.value in self.values:
-            return self.values.index(self.value)
-        return self.value
+    # @property
+    # def idx(self):
+    #     if self.value in self.values:
+    #         return self.values.index(self.value)
+    #     return self.value
 
 
 class DiscreteVariable(Variable):
@@ -534,6 +536,8 @@ class OptimizationProblem:
         """
         # VARIABLES
         if isinstance(this, Variable):
+            if this.id is None:
+                this.id = len(self.vars)
             if this not in self.__vars:
                 self.__vars.append(this)
 
@@ -707,7 +711,7 @@ class OptimizationProblem:
                     B = np.hstack((B, con.b))
 
         end = time.time()
-        print("Linearization took: ", end - start, " s")
+        # print("Linearization took: ", end - start, " s")
 
         return A, B, df, fx
 
