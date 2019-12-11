@@ -92,6 +92,12 @@ class ColumnCalculation(WIColumn):
                                 buckling_z=buck_z, LT_buckling=LT,
                                 prob_type=prob_type)
 
+                            # problem.all_vars.clear()
+                            #
+                            # for mem in problem.structure.members.values():
+                            #     mem.profile = "IPE 300"
+                            # print(problem.eval_cons([]))
+
                             print("Constraints:", len(problem.cons))
                             print("Nonlinear Constraints:", problem.nnonlincons())
                             
@@ -141,7 +147,7 @@ class ColumnCalculation(WIColumn):
                             #print(solver.X)
                             print("Best found solution.",solver.best_x)
                             print("Best found objective function value:",solver.best_f)
-                                                        
+                                                
                             # problem(solver.best_x)
 
                             #return solver, problem
@@ -197,8 +203,8 @@ class ColumnCalculation(WIColumn):
                             # ResultExporter(problem, solver2).csv_to_excel()
 
                             # # ResultExporter muille kuin 2-vaihetekniikalle
-                            ResultExporter(problem, solver).to_csv()
-                            ResultExporter(problem, solver).csv_to_excel()
+                            # ResultExporter(problem, solver).to_csv()
+                            # ResultExporter(problem, solver).csv_to_excel()
 
                             seconds = time.process_time()
                             m, s = divmod(seconds, 60)

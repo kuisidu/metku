@@ -8,9 +8,9 @@ MIN_WIDTH = 100
 MAX_WIDTH = 500
 step_width = 10
 
-HEIGHTS = list(np.arange(MIN_HEIGHT, MAX_HEIGHT+step_height, step_height))
-WIDTHS = list(np.arange(MIN_WIDTH, MAX_WIDTH+step_width, step_width))
-#THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
+HEIGHTS = list(np.arange(MIN_HEIGHT, MAX_HEIGHT + step_height, step_height))
+WIDTHS = list(np.arange(MIN_WIDTH, MAX_WIDTH + step_width, step_width))
+# THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
 THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
 MAX_THICK = max(THICKNESSES)
 MIN_THICK = min(THICKNESSES)
@@ -27,7 +27,6 @@ except:
 
 
 def create_structure(L, H0, H1, H2, dx, n):
-
     simple_frame = [1, 1, H0, L]
     frame = Frame2D(simple=simple_frame, create_beams=False,
                     supports='fixed')  # Tuet, aina fixed?
@@ -35,7 +34,7 @@ def create_structure(L, H0, H1, H2, dx, n):
         col.profile = 'WI 500-12-10X300-10X300'
 
     simple_truss = {
-        "L1": L/2,
+        "L1": L / 2,
         "H0": H0,
         "H1": H1,
         "H2": H2,
@@ -69,23 +68,22 @@ def create_structure(L, H0, H1, H2, dx, n):
 def create_continuous_variable_groups(structure, col_bounds, col_values,
                                       tc_values, tc_bounds, bc_values,
                                       bc_bounds, web_values, web_bounds):
-
     # HUOM! objectit oltava poikkileikkausolioita
     # mem.cross_section
 
     groups = []
     col_sections = [col.cross_section for col in structure.columns]
-    
+
     COL_group = {
         'name': 'Columns',
         'var_type': 'continuous',
-        'values': col_values, # [300, 100, 10, 5],
-        'bounds': col_bounds, # [[100, 800], [100, 300], [5, 50], [5, 50]],
+        'values': col_values,  # [300, 100, 10, 5],
+        'bounds': col_bounds,  # [[100, 800], [100, 300], [5, 50], [5, 50]],
         'properties': ['h', 'b', 'tf', 'tw'],
         'objects': col_sections
     }
     groups.append(COL_group)
-    
+
     # Ristikon osille samaan tapaan
     truss = structure.truss[0]
     # top_chords = truss.top_chords
@@ -108,7 +106,7 @@ def create_continuous_variable_groups(structure, col_bounds, col_values,
         'bounds': tc_bounds,  # [[100, 300], [100, 300], [4, 12.5]],
         'properties': [['H', 'B'], 'T'],
         'objects': [tc.cross_section for tc in truss.top_chords],
-        }
+    }
     groups.append(TC_group)
 
     BC_group = {
@@ -130,12 +128,11 @@ def create_continuous_variable_groups(structure, col_bounds, col_values,
         'objects': [web.cross_section for web in truss.webs.values()]
     }
     groups.append(WEB_group)
-    
+
     return groups
 
 
 def create_discrete_variable_groups(structure):
-
     groups = []
     col_sections = [col.cross_section for col in structure.columns]
 
@@ -199,7 +196,7 @@ def create_discrete_variable_groups(structure):
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.top_chords,
-        }
+    }
     groups.append(TC_group)
 
     BC_group = {
@@ -226,7 +223,6 @@ def create_discrete_variable_groups(structure):
 
 
 def create_binary_discrete_variable_groups(structure):
-
     groups = []
     col_sections = [col.cross_section for col in structure.columns]
 
@@ -243,7 +239,7 @@ def create_binary_discrete_variable_groups(structure):
     COL_group_tw = {
         'name': 'Columns tw',
         'var_type': 'discrete',
-        'value': 5,
+        'value': 8,
         'values': THICKNESSES,
         'property': 'tw',
         'objects': col_sections
@@ -263,7 +259,7 @@ def create_binary_discrete_variable_groups(structure):
     COL_group_tf = {
         'name': 'Columns tf',
         'var_type': 'discrete',
-        'value': 6,
+        'value': 10,
         'values': THICKNESSES,
         'property': 'tf',
         'objects': col_sections
@@ -290,12 +286,12 @@ def create_binary_discrete_variable_groups(structure):
         'values': list(np.arange(100, 310, 10)),
         'property': ['H', 'B'],
         'objects': [tc.cross_section for tc in truss.top_chords],
-        }
+    }
     groups.append(TC_h_group)
     TC_t_group = {
         'name': 'TopChords',
         'var_type': 'discrete',
-        'value': 8,
+        'value': 10,
         'values': list(np.arange(3, 13, 1)),
         'property': ['T'],
         'objects': [tc.cross_section for tc in truss.top_chords],
@@ -314,7 +310,7 @@ def create_binary_discrete_variable_groups(structure):
     BC_t_group = {
         'name': 'TopChords',
         'var_type': 'discrete',
-        'value': 8,
+        'value': 10,
         'values': list(np.arange(3, 13, 1)),
         'property': ['T'],
         'objects': [bc.cross_section for bc in truss.bottom_chords],
@@ -346,10 +342,26 @@ def create_binary_discrete_variable_groups(structure):
 
 def create_constraint_groups():
     pass
-    
+
+def discrete_neighbors(structure, n, params=('A', 'Iy'), profiles=SHS):
+    neighbors = []
+
+    helper = SteelBeam([[0, 0], [0, 1000]])
+    for mem in structure.members.values():
+        vals = []
+        for profile in profiles:
+            helper.profile = profile
+            d = 0
+            for param in params:
+                d += np.linalg.norm(mem.cross_section._getattribute_(
+                    param) - helper.cross_section._getattribute_(param))
+            vals.append(d)
+        neighbors.append(list(np.argsort(vals)[:n]))
+
+    return neighbors
+
 
 if __name__ == '__main__':
-
     structure = create_structure(L=24000,
                                  H0=8000,
                                  H1=1800,
@@ -387,6 +399,8 @@ if __name__ == '__main__':
                                 structure=structure,
                                 var_groups=binary_disc_var_groups,
                                 constraints={
+                                    'joint_geometry_constraints': False,
+                                    'joint_strength_constraints': False,
                                     'buckling_y': True,
                                     'buckling_z': True,
                                     'compression_bending_y': True,
@@ -407,7 +421,7 @@ if __name__ == '__main__':
     # fopt, xopt = solver.solve(problem, x0=x0, maxiter=10, plot=False, verb=True)
     # problem(xopt, ncons=10)
     # structure.plot_deflection(100)
-    # structure.to_robot("lopputulos")
+    # # structure.to_robot("lopputulos")
 
     # VNS
     # solver = VNS(pop_size=10, maxiter=5, first_improvement=True, solver="GA",
@@ -429,17 +443,12 @@ if __name__ == '__main__':
     # problem(solver.X, prec=5)
 
     # MISLP
-    solver = MISLP(move_limits=[0.1, 0.1], beta=100)
+    solver = MISLP(move_limits=[0.2, 0.2], beta=100)
     # problem(x0)
     x0 = [var.value for var in problem.vars]
-    solver.solve(problem,
-                 maxiter=100,
-                 x0=x0,
-                 min_diff=1e-2,
-                 verb=True)
-    problem(solver.X, prec=5)
-
-
-
-
-
+    fopt, xopt = solver.solve(problem,
+                              maxiter=50,
+                              x0=x0,
+                              min_diff=1e-2,
+                              verb=True)
+    problem(xopt, prec=5)

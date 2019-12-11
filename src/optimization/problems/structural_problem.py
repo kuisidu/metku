@@ -1,10 +1,10 @@
 try:
     from src.optimization.structopt import *
-    from src.sections.steel.catalogue import ipe_profiles
+    from src.sections.steel.catalogue import ipe_profiles, shs_profiles
     from src.sections.steel import ISection, WISection, RHS
 except:
     from optimization.structopt import *
-    from sections.steel.catalogue import ipe_profiles
+    from sections.steel.catalogue import ipe_profiles, shs_profiles
     from sections.steel import ISection, WISection, RHS
 
 
@@ -51,7 +51,9 @@ class StructuralProblem(OptimizationProblem):
         Returns all available constraints anf their corresponding keyword
         :return:
         """
-        return dict(compression=False,
+        return dict(joint_geometry_constraints=False,
+                    joint_strength_constraints=False,
+                    compression=False,
                     tension=False,
                     shear=False,
                     bending_moment=False,
@@ -473,7 +475,7 @@ class StructuralProblem(OptimizationProblem):
             elif isinstance(mem.cross_section, RHS):
                 c = mem.cross_section.c_flange
                 t = mem.cross_section.T
-                K = K_flange[tube_class]
+                K = K_web[tube_class]
 
             return c / t - K * mem.cross_section.eps
 
@@ -484,6 +486,8 @@ class StructuralProblem(OptimizationProblem):
         return cons
 
     def create_constraints(self,
+                           joint_geometry_constraints=False,
+                           joint_strength_constraints=False,
                            compression=False,
                            tension=False,
                            shear=False,
@@ -591,23 +595,25 @@ class StructuralProblem(OptimizationProblem):
         for truss in self.structure.truss:
             for joint in truss.joints.values():
                 # JOINT GEOMETRY
-                joint_geom_cons = self.joint_geometry_constraints(joint)
-                for key, val in joint_geom_cons.items():
-                    con = NonLinearConstraint(
-                        name=f"{key}:",
-                        con_fun=val,
-                        con_type='<',
-                        fea_required=False)
-                    self.add(con)
+                if joint_geometry_constraints:
+                    joint_geom_cons = self.joint_geometry_constraints(joint)
+                    for key, val in joint_geom_cons.items():
+                        con = NonLinearConstraint(
+                            name=f"{key}:",
+                            con_fun=val,
+                            con_type='<',
+                            fea_required=False)
+                        self.add(con)
                 # JOINT STRENGTH
-                joint_str_cons = self.joint_strength_constraints(joint)
-                for key, val in joint_str_cons.items():
-                    con = NonLinearConstraint(
-                        name=f"{key}:",
-                        con_fun=val,
-                        con_type='<',
-                        fea_required=True)
-                    self.add(con)
+                if joint_strength_constraints:
+                    joint_str_cons = self.joint_strength_constraints(joint)
+                    for key, val in joint_str_cons.items():
+                        con = NonLinearConstraint(
+                            name=f"{key}:",
+                            con_fun=val,
+                            con_type='<',
+                            fea_required=True)
+                        self.add(con)
 
     def create_variables(self):
         """
@@ -693,6 +699,40 @@ class StructuralProblem(OptimizationProblem):
             else:
                 raise ValueError("var_type must be either 'discrete',"
                                  " 'continuous', 'index' or 'binary")
+
+    def index_to_binary(self, params=('H', 'B', 'T'), chord_profiles=shs_profiles.keys(),
+                        web_profiles=shs_profiles.keys()):
+        """
+        Creates binary variables and continuous variables
+        :return:
+        """
+        idx_vars = [var for var in self.vars if isinstance(var, IndexVariable)]
+        # Temp member instance to get needed values
+        mem = SteelBeam([[0, 0], [1000, 0]])
+
+        for var in idx_vars:
+            for param in params:
+                values = []
+                if var.target['objects'][0].mtype == 'web':
+                    profiles = web_profiles
+                else:
+                    profiles = chord_profiles
+                for profile in profiles:
+                    mem.profile = profile
+                    values.append(mem.cross_section._getattribute_(param))
+                new_var = DiscreteVariable(
+                    name=f"{var.name} {param}",
+                    values=values,
+                    value=values[min(var.value, len(values) - 1)],
+                    id=var.id,
+                    target={"property": param,
+                            "objects": [obj.cross_section for obj in
+                                        var.target["objects"]]}
+                )
+                # Add new variable
+                self.add(new_var)
+                # Remove index variable
+            self.all_vars.remove(var)
 
     def group_constraints(self):
 
