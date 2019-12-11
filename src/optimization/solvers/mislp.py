@@ -23,6 +23,7 @@ class MISLP(OptSolver):
         Defines action to take
         :return: action
         """
+
         # Linearize problem
         A, B, df, fx = self.problem.linearize(*self.X.copy())
         # Create CBC solver
@@ -73,18 +74,19 @@ class MISLP(OptSolver):
         y = {}
         for i, var in enumerate(discrete_vars):
             for j in range(len(var.values)):
-                y[i, j] = CBC_solver.BoolVar(f'y{i},{j}')
+                if (var.id, j) not in y.keys():
+                    y[var.id, j] = CBC_solver.BoolVar(f'y{var.id},{j}')
 
         # Create binary constraints
         for i, var in enumerate(discrete_vars):
             # Binary constraint
             # sum(bin_vars) == 1
-            CBC_solver.Add(CBC_solver.Sum([y[i, j]
+            CBC_solver.Add(CBC_solver.Sum([y[var.id, j]
                                            for j in range(len(var.values))]) == 1)
             # Binary property constraint
             # Ai == sum(A[i][bin_idx])
             idx = discrete_ids[i]
-            CBC_solver.Add(CBC_solver.Sum([y[i, j] * var.values[j]
+            CBC_solver.Add(CBC_solver.Sum([y[var.id, j] * var.values[j]
                                            for j in range(len(var.values))]) == x[idx])
 
         # Objective
@@ -98,26 +100,30 @@ class MISLP(OptSolver):
 
         self.beta = beta.solution_value()
 
-        X = [j for i, var in enumerate(discrete_vars)
-             for j in range(len(var.values)) if y[i, j].solution_value() == 1.0]
-
-
-        for i in range(len(X), len(x)):
-            X.append(x[i].solution_value())
-
-        # for i, var in enumerate(discrete_vars):
-        #     print(x[i].solution_value())
-        #     print(var.profiles[X[i]])
-
-        # for i, var in enumerate(self.problem.vars):
-        #     for j in range(var.ub):
-        #         print(i, j, y[i,j].solution_value())
-
-        X = np.asarray(X)
-        for i in discrete_ids:
-            X[i] = discrete_vars[i].values[int(X[i])]
-        X = np.asarray(X)
-
+        # X = [j for i, var in enumerate(discrete_vars)
+        #      for j in range(len(var.values)) if y[var.id, j].solution_value() == 1.0]
+        #
+        #
+        # print("MISLP: ", [a.solution_value() for a in x.values()])
+        # for i in range(len(X), len(x)):
+        #     X.append(x[i].solution_value())
+        #
+        # print(X)
+        # # for i, var in enumerate(discrete_vars):
+        # #     print(x[i].solution_value())
+        # #     print(var.profiles[X[i]])
+        #
+        # # for i, var in enumerate(self.problem.vars):
+        # #     for j in range(var.ub):
+        # #         print(i, j, y[i,j].solution_value())
+        #
+        # X = np.asarray(X)
+        #
+        # print(X)
+        # for i in discrete_ids:
+        #     print(int(X[i]))
+        #     X[i] = discrete_vars[i].values[int(X[i])]
+        X = np.asarray([round(var.solution_value(), 3) for var in x.values()])
         return X - self.X
 
     def step(self, action):
@@ -139,10 +145,9 @@ if __name__ == '__main__':
 
     ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
     # [40  0 38 34  0  0 27 38 38  0] 2497.67
-    problem = TenBarTruss(prob_type='continuous')
-    solver = MISLP(move_limits=[0.5, 3], gamma=1e-2)
+    problem = TenBarTruss(prob_type='discrete')
+    solver = MISLP(move_limits=[0.3, 0.3], gamma=1e-2)
     x0 = [var.ub for var in problem.vars]
-
     solver.solve(problem, x0=x0, maxiter=300, log=True, verb=True)
     problem(solver.X)
 
