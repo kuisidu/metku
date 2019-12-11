@@ -24,6 +24,7 @@ except:
     from frame2d.frame2d import *
     from truss2d import Truss2D
     from optimization.solvers import *
+    from optimization.problems.structural_problem import StructuralProblem
 
 
 def create_structure(L, H0, H1, H2, dx, n):
@@ -58,8 +59,8 @@ def create_structure(L, H0, H1, H2, dx, n):
     # frame.add(LineLoad(columns), [])
 
     frame.generate()
-    frame.f.draw()
-    frame.plot()
+    # frame.f.draw()
+    # frame.plot()
     frame.calculate()
 
     return frame
@@ -139,7 +140,7 @@ def create_discrete_variable_groups(structure):
     COL_group_h = {
         'name': 'Columns h',
         'var_type': 'index',
-        'value': 15,
+        'value': 30,
         'values': HEIGHTS,
         'property': 'h',
         'objects': col_sections
@@ -149,7 +150,7 @@ def create_discrete_variable_groups(structure):
     COL_group_tw = {
         'name': 'Columns tw',
         'var_type': 'index',
-        'value': 6,
+        'value': 10,
         'values': THICKNESSES,
         'property': 'tw',
         'objects': col_sections
@@ -159,7 +160,7 @@ def create_discrete_variable_groups(structure):
     COL_group_b = {
         'name': 'Columns b',
         'var_type': 'index',
-        'value': 10,
+        'value': 30,
         'values': WIDTHS,
         'property': 'b',
         'objects': col_sections
@@ -169,7 +170,7 @@ def create_discrete_variable_groups(structure):
     COL_group_tf = {
         'name': 'Columns tf',
         'var_type': 'index',
-        'value': 6,
+        'value': 10,
         'values': THICKNESSES,
         'property': 'tf',
         'objects': col_sections
@@ -192,7 +193,7 @@ def create_discrete_variable_groups(structure):
     TC_group = {
         'name': 'TopChords',
         'var_type': 'index',
-        'value': 10,
+        'value': 90,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.top_chords,
@@ -202,7 +203,7 @@ def create_discrete_variable_groups(structure):
     BC_group = {
         'name': 'BottomChords',
         'var_type': 'index',
-        'value': 15,
+        'value': 90,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.bottom_chords
@@ -212,7 +213,7 @@ def create_discrete_variable_groups(structure):
     WEB_group = {
         'name': 'Webs',
         'var_type': 'index',
-        'value': 5,
+        'value': 40,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': list(truss.webs.values())
@@ -343,7 +344,7 @@ def create_binary_discrete_variable_groups(structure):
 def create_constraint_groups():
     pass
 
-def discrete_neighbors(structure, n, params=('A', 'Iy'), profiles=SHS):
+def discrete_neighbors(structure, n, params=('A', 'Iy'), profiles=shs_profiles):
     neighbors = []
 
     helper = SteelBeam([[0, 0], [0, 1000]])
@@ -397,7 +398,7 @@ if __name__ == '__main__':
 
     problem = StructuralProblem(name="Example",
                                 structure=structure,
-                                var_groups=binary_disc_var_groups,
+                                var_groups=disc_var_groups,
                                 constraints={
                                     'joint_geometry_constraints': False,
                                     'joint_strength_constraints': False,
@@ -408,8 +409,8 @@ if __name__ == '__main__':
                                     'compression': True,
                                     'tension': True,
                                     'shear': True,
-                                    # 'deflection_y': structure.L / 200,
-                                    #  'deflection_x': structure.H / 300,
+                                    'deflection_y': structure.L / 200,
+                                    'deflection_x': structure.H / 300,
                                     'web_class': True,
                                     'flange_class': True
                                 })
@@ -442,8 +443,12 @@ if __name__ == '__main__':
     #              verb=True)
     # problem(solver.X, prec=5)
 
+    problem.index_to_binary()
+    # for var in problem.vars:
+    #     print(type(var))
+
     # MISLP
-    solver = MISLP(move_limits=[0.2, 0.2], beta=100)
+    solver = MISLP(move_limits=[0.05, 0.05], beta=100)
     # problem(x0)
     x0 = [var.value for var in problem.vars]
     fopt, xopt = solver.solve(problem,
@@ -452,3 +457,48 @@ if __name__ == '__main__':
                               min_diff=1e-2,
                               verb=True)
     problem(xopt, prec=5)
+
+    index_problem = StructuralProblem(name="Example",
+                                structure=structure,
+                                var_groups=disc_var_groups,
+                                constraints={
+                                    'joint_geometry_constraints': False,
+                                    'joint_strength_constraints': False,
+                                    'buckling_y': True,
+                                    'buckling_z': True,
+                                    'compression_bending_y': True,
+                                    'compression_bending_z': True,
+                                    'compression': True,
+                                    'tension': True,
+                                    'shear': True,
+                                    'deflection_y': structure.L / 200,
+                                    'deflection_x': structure.H / 300,
+                                    'web_class': True,
+                                    'flange_class': True
+                                })
+
+    idx_vars = [var for var in index_problem.vars]
+    ids = []
+    for var in problem.vars:
+        if 'Column' in var.name:
+            idx = var.values.index(var.value)
+            idx_vars[var.id].value = idx
+        elif var.id not in ids:
+            ids.append(var.id)
+            mem = var.target['objects'][0]
+            idx = list(shs_profiles.keys()).index(str(mem))
+            idx_vars[var.id].value = idx
+
+    index_problem.fea()
+    index_problem([var.value for var in index_problem.vars])
+
+    # VNS
+    from deap.tools import mutShuffleIndexes
+    solver = VNS(pop_size=50, maxiter=5, first_improvement=True, solver="GA",
+                 solver_params={'pop_size': 50,
+                                'mut_rate': 0.15,
+                                'cx_rate': 0.9,
+                                'first_improvement': True,})
+    x0 = [var.value for var in index_problem.vars]
+    fopt, xopt = solver.solve(index_problem, x0=x0, maxiter=10, verb=True)
+    index_problem(xopt, prec=5)

@@ -1,10 +1,13 @@
 try:
+    from src.frame2d.frame2d import SteelBeam
+    from src.sections.steel import SteelSection
     from src.optimization.structopt import *
-    from src.sections.steel.catalogue import ipe_profiles, shs_profiles
+    from src.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
     from src.sections.steel import ISection, WISection, RHS
 except:
+    from frame2d.frame2d import SteelBeam
     from optimization.structopt import *
-    from sections.steel.catalogue import ipe_profiles, shs_profiles
+    from sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
     from sections.steel import ISection, WISection, RHS
 
 
@@ -701,7 +704,7 @@ class StructuralProblem(OptimizationProblem):
                                  " 'continuous', 'index' or 'binary")
 
     def index_to_binary(self, params=('H', 'B', 'T'), chord_profiles=shs_profiles.keys(),
-                        web_profiles=shs_profiles.keys()):
+                        web_profiles=shs_profiles.keys(), col_profiles=hea_profiles.keys()):
         """
         Creates binary variables and continuous variables
         :return:
@@ -711,26 +714,41 @@ class StructuralProblem(OptimizationProblem):
         mem = SteelBeam([[0, 0], [1000, 0]])
 
         for var in idx_vars:
-            for param in params:
-                values = []
-                if var.target['objects'][0].mtype == 'web':
-                    profiles = web_profiles
-                else:
-                    profiles = chord_profiles
-                for profile in profiles:
-                    mem.profile = profile
-                    values.append(mem.cross_section._getattribute_(param))
+            if isinstance(var.target['objects'][0], SteelSection):
                 new_var = DiscreteVariable(
-                    name=f"{var.name} {param}",
-                    values=values,
-                    value=values[min(var.value, len(values) - 1)],
+                    name=f"{var.name}",
+                    values=var.values,
+                    value=var.values[var.value],
                     id=var.id,
-                    target={"property": param,
-                            "objects": [obj.cross_section for obj in
-                                        var.target["objects"]]}
+                    target=var.target
                 )
                 # Add new variable
                 self.add(new_var)
+            else:
+                for param in params:
+                    values = []
+                    if var.target['objects'][0].mtype == 'web':
+                        profiles = web_profiles
+                    elif var.target['objects'][0].mtype == 'column':
+                        profiles = col_profiles
+                    elif 'chord' in var.target['objects'][0].mtype:
+                        profiles = chord_profiles
+                    else:
+                        break
+                    for profile in profiles:
+                        mem.profile = profile
+                        values.append(mem.cross_section.__getattribute__(param))
+                    new_var = DiscreteVariable(
+                        name=f"{var.name} {param}",
+                        values=values,
+                        value=values[min(var.value, len(values) - 1)],
+                        id=var.id,
+                        target={"property": param,
+                                "objects": [obj.cross_section for obj in
+                                            var.target["objects"]]}
+                    )
+                    # Add new variable
+                    self.add(new_var)
                 # Remove index variable
             self.all_vars.remove(var)
 
