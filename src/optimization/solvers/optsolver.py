@@ -183,7 +183,7 @@ class OptSolver:
             state, reward, done, info = self.step(action)
             # If new state is almost same as previous
             if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff or \
-                np.all(prev_state == state)) and problem.feasible:
+                np.all(prev_state == state)):
                 done = True
                 break
             # Change current state
