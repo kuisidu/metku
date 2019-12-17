@@ -25,6 +25,7 @@ density = 7850.0e-9
 # Partial safety factors
 gammaC = 1.5    # Concrete
 gammaS = 1.15   # Steel
+gammaV = 1.25   # shear stud
 
 # EN 1992-1-1 3.1.6
 alpha_cc = 0.85 

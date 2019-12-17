@@ -15,7 +15,11 @@ except:
     from eurocodes.en1993 import en1993_1_1, constants
     from sections.steel.steel_section import SteelSection
     from sections.steel.catalogue import profile
-
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    import matplotlib.lines as mlines
+    import matplotlib.path as mpath
+    import numpy as np
 
 class ISection(SteelSection):
     """ Base class for I -sections """
@@ -84,7 +88,44 @@ class ISection(SteelSection):
 
 
     def __repr__(self):
-        return f"{type(self).__name__}  {self.h:.0f}"
+        return f"{type(self).__name__} {self.h:.0f}"
+    
+    def info(self,latex=False):
+        """ Prints a bunch of section properties """
+        
+        if latex:
+            print("*** " + self.__repr__() + " ***")
+            print(" $h = {0:.0f}{1:s}$".format(self.h,'\\,\\unit{mm}'))
+            print(" $t_w = {0:.1f}{1:s}$".format(self.tw,'\\,\\unit{mm}'))
+            print(" $b = {0:.0f}{1:s}$".format(self.b,'\\,\\unit{mm}'))
+            print(" $t_f = {0:.1f}{1:s}$".format(self.tf,'\\,\\unit{mm}'))
+            print(" $r = {0:.0f}{1:s}$".format(self.r,'\\,\\unit{mm}'))
+            print(" $A = {0:.2f}{1:s}$".format(self.A*1e-2,'\\ee{2}\\,\\squnit{mm}'))
+            print(" $I_y = {0:.2f}{1:s}$".format(self.I[0]*1e-4,'\\ee{4}\\,\\quunit{mm}'))
+            print(" $I_z = {0:.2f}{1:s}$".format(self.I[1]*1e-4,'\\ee{4}\\,\\quunit{mm}'))
+            print(" $W_el,y = {0:.2f}{1:s}$".format(self.Wel[0]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))
+            print(" $W_el,z = {0:.2f}{1:s}$".format(self.Wel[1]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))
+            print(" $W_pl,y = {0:.2f}{1:s}$".format(self.Wpl[0]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))
+            print(" $W_pl,z = {0:.2f}{1:s}$".format(self.Wpl[1]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))
+            print(" $I_t = {0:.2f}{1:s}$".format(self.It*1e-4,'\\ee{4}\\,\\quunit{mm}'))
+            print(" $I_w = {0:.2f}{1:s}$".format(self.Iw*1e-12,'\\ee{12}\\,\\text{mm}^{6}'))
+        else:
+            print("*** " + self.__repr__() + " ***")
+            print(" h = {0:.0f} mm".format(self.h))
+            print(" tw = {0:.1f} mm".format(self.tw))
+            print(" b = {0:.0f} mm".format(self.b))
+            print(" tf = {0:.1f} mm".format(self.tf))
+            print(" r = {0:.0f} mm".format(self.r))
+            print(" A = {0:.2f} (100 mm2)".format(self.A*1e-2))
+            print(" Iy = {0:.2f} (10^4 mm4)".format(self.I[0]*1e-4))
+            print(" Iz = {0:.2f} (10^4 mm4)".format(self.I[1]*1e-4))
+            print(" Wel,y = {0:.2f} (10^3 mm4)".format(self.Wel[0]*1e-3))
+            print(" Wel,z = {0:.2f} (10^3 mm4)".format(self.Wel[1]*1e-3))
+            print(" Wpl,y = {0:.2f} (10^3 mm4)".format(self.Wpl[0]*1e-3))
+            print(" Wpl,z = {0:.2f} (10^3 mm4)".format(self.Wpl[1]*1e-3))
+            print(" It = {0:.2f} (10^4 mm4)".format(self.It*1e-4))
+            print(" Iw = {0:.2f} (10^12 mm6)".format(self.Iw*1e-12))
+        
 
     @property
     def hw(self):
@@ -173,6 +214,133 @@ class ISection(SteelSection):
 
         return MNRd
 
+    def draw(self,axes=None,origin=[0,0],theta=0):
+        """ Draw the profile 
+            input:
+                axes .. matplotlib.axes.Axes object. If this is given,
+                        the profile will be drawn to that Axes
+                theta .. rotation (optional)
+        """
+        
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
+        
+        if theta != 0:
+            phi = np.radians(theta)
+            c, s = np.cos(phi), np.sin(phi)
+            R = np.array(((c,-s), (s, c)))
+        
+        lw = 1.5
+        
+        h = self.h
+        b = self.b
+        tf = self.tf
+        tw = self.tw
+        r = self.r
+        hw = self.hw
+                
+        xdata = [-0.5*tw-r,-0.5*b,-0.5*b,0.5*b,0.5*b,0.5*tw+r]
+        ydata = [-0.5*h+tf, -0.5*h+tf, -0.5*h,-0.5*h,-0.5*h+tf,-0.5*h+tf]
+        
+        if origin[0] != 0:
+            xdata = [x+origin[0] for x in xdata]
+        
+        if origin[1] != 0:
+            ydata = [y+origin[1] for y in ydata]
+        
+        if theta != 0:
+            xrot = [R.dot(np.array([x,y])) for x, y in zip(xdata,ydata)]
+            xdata = [x[0] for x in xrot]
+            ydata = [x[1] for x in xrot]
+        
+        bflange = mlines.Line2D(xdata,ydata,linewidth=lw)
+                
+        ax.add_line(bflange)
+        
+        # Bottom chamfers
+        if theta != 0:
+            x0 = tuple(R.dot(np.array([0.5*tw+r,-0.5*self.hw])))
+        else:
+            x0 = (0.5*tw+r+origin[0],-0.5*self.hw+origin[1])
+                
+        x1 = (-x0[0],x0[1])
+
+        
+        
+        br_corner = patches.Arc(x0,2*r,2*r,0,180+theta,270+theta,linewidth=lw,zorder=4)
+        bl_corner = patches.Arc(x1,2*r,2*r,0,270+theta,360+theta,linewidth=lw,zorder=4)
+        
+        ax.add_patch(br_corner)
+        ax.add_patch(bl_corner)
+        
+    
+        #ax.plot(0.5*tw+r,-0.5*self.hw,'bo')
+        
+        top_x_data = xdata
+        top_y_data = [0.5*h-tf, 0.5*h-tf, 0.5*h,0.5*h,0.5*h-tf,0.5*h-tf]        
+        
+        if origin[1] != 0:
+            top_y_data = [y+origin[1] for y in top_y_data]
+        
+        tflange =  mlines.Line2D(top_x_data,top_y_data,linewidth=lw)
+        ax.add_line(tflange)
+        
+        
+        
+        # Top chamfers
+        tr_corner = patches.Arc((0.5*tw+r+origin[0],0.5*hw+origin[1]),2*r,2*r,0,90,180,zorder=4)
+        tl_corner = patches.Arc((-0.5*tw-r+origin[0],0.5*hw+origin[1]),2*r,2*r,0,0,90,zorder=4)
+        
+        ax.add_patch(tr_corner)
+        ax.add_patch(tl_corner)
+        
+        # Draw web
+        xweb_l = [-0.5*tw+origin[0],-0.5*tw+origin[0]]
+        yweb = [-0.5*hw+origin[1],0.5*hw+origin[1]]
+        
+        if theta is not 0:
+            web_rot = [R.dot(np.array([x,y])) for x, y in zip(xweb_l,yweb)]
+            xweb_l = [x[0] for x in web_rot]
+            yweb_l = [x[1] for x in web_rot]
+        else:
+            yweb_l = yweb
+        
+        lweb = mlines.Line2D(xweb_l,yweb_l,linewidth=lw)
+        ax.add_line(lweb)
+        
+        xweb_r = [0.5*tw+origin[0],0.5*tw+origin[0]]
+        
+        rweb = mlines.Line2D(xweb_r,yweb,linewidth=lw)
+        ax.add_line(rweb)
+        
+        """
+        verts = [(0,0),
+                 (1,0),
+                 (0,1)]
+        
+        codes = [mpath.Path.]
+        
+        Iprof_path = mpath.Path(verts,codes)
+        
+        
+        Iprof = patches.PathPatch(Iprof_path,facecolor="none",lw=1.5)
+        ax.add_patch(Iprof)
+        """
+        
+        #ax.add_patch(bot_flange)
+        #ax.add_patch(web)
+        #ax.add_patch(top_flange)
+        #ax.set_xlim(-0.5*b, 0.5*b)
+        #ax.set_ylim(-0.5*h, 0.5*h)
+        
+        if axes is  None:
+            ax.set_xlim(-b, b)
+            ax.set_ylim(-h, h)
+        
+            ax.set_aspect('equal')
+            
 
 class IPE(ISection):
     """ IPE sections
@@ -207,7 +375,7 @@ class HEA(ISection):
         Subclass of ISection        
     """
 
-    def __init__(self, height=100, fy=355, catalogue=False):
+    def __init__(self, height=100, fy=355, catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'A'
         # HEIGHT =! TO PROFILE NUMBER
 
@@ -242,7 +410,7 @@ class HEAA(ISection):
         Subclass of ISection        
     """
 
-    def __init__(self, height=100, fy=355, catalogue=False):
+    def __init__(self, height=100, fy=355, catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'AA'
         # HEIGHT =! TO PROFILE NUMBER
 
@@ -309,7 +477,7 @@ class HEC(ISection):
         Subclass of ISection
     """
 
-    def __init__(self, height=100, fy=355, catalogue=False):
+    def __init__(self, height=100, fy=355, catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'C'
         # H,B,tf,tb,r,fy=355
         if catalogue:
@@ -334,7 +502,7 @@ class HEM(ISection):
         Subclass of ISection        
     """
 
-    def __init__(self, height=100, fy=355, catalogue=False):
+    def __init__(self, height=100, fy=355, catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'M'
         # HEIGHT =! TO PROFILE NUMBER
 
@@ -404,12 +572,17 @@ def cross_section_properties(b, h, tf, tw, r):
                                                                                                                    tw + 0.4468 * r) ** 2.0
 
     # Torsional constant [mm^4]
-    #It = 2.0 / 3.0 * (b - 0.63 * tf) * tf ** 3.0 + 1.0 / 3.0 * (h - 2.0 * tf) * tw ** 3.0 + 2.0 * (tw / tf) * (0.145 + 0.1 * r / tf) * (((r + tw / 2.0) ** 2.0 + (r + tf) ** 2.0 - r ** 2.0) / (2.0 * r + tf)) ** 4
-            
+    # Taken from Arcelor Mittal, with source SCI P385 Design of Members in Torsion
+    #It = 2.0 / 3.0 * (b - 0.63 * tf) *tf ** 3.0 + 1.0 / 3.0 * (h - 2.0 * tf) * tw ** 3.0 + 2.0 * (tw / tf) * (0.145 + 0.1 * r / tf) * (((r + tw / 2.0) ** 2.0 + (r + tf) ** 2.0 - r ** 2.0) / (2.0 * r + tf)) ** 4
+    a1 = -0.042+0.2204*tw/tf + 0.1355*r/tf - 0.0865*r*tw/tf**2 - 0.0725*tw**2/tf**2
+    D1 = ((tf+r)**2+(r+0.25*tw)*tw)/(2*r+tf)
+    It = 2.0/3.0*b*tf**3 + (h-2*tf)*tw**3/3.0 + 2*a1*D1**4 - 0.420*tf**4
+    
+    """
     It = 2.0/3.0*(b - 0.63*tf)*tf**3.0 + \
          + 1.0/3.0*(h-2.0*tf)*tw**3.0 + \
          + (0.042 + 0.2204*(tw / tf)+0.1355*(r/tf)-0.0865*(r*tw/tf**2) -0.0725*(tw/tf)**2) * (((r + tw/2.0)**2.0 + (r + tf)**2.0 - r**2.0)/(2.0*r + tf))**4.0
-
+    """
     #print(tf,tw,b,h,It)
 
     # Warping constant [mm^6]
@@ -434,3 +607,10 @@ def cross_section_properties(b, h, tf, tw, r):
     # eps = math.sqrt(235.0/fy)
 
     return A, Au, Ashear, I, It, Iw, Wpl, Wel
+
+
+if __name__ == '__main__':
+    
+    p = IPE(400)
+    p.info(latex=True)
+    #p.draw(theta = 0)

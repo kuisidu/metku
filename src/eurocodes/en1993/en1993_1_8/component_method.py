@@ -110,14 +110,16 @@ def Tstub_compression_flange(fjd,beff,leff):
     return fjd*beff*leff
 
 
-def col_web_trv_comp(column, beam, plate, a_p, beta, sigma_com_Ed=0.0):
+def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     """ Column web in transverse compression, 6.2.6.2, 6.3.2
         Input: 
             column .. SteelSection class object
             beam .. SteelSection class object
-            plate .. EndPlate class object
+            t_p .. thickness of end plate
+            ebottom .. lower overhang of the plate
             a_p .. Weld size between end plate and beam
-            beta .. factor taking into account 
+            beta .. factor taking into account shear of the column web
+            sigma_com_Ed .. compression stress in the column
     """
     # Connection using screws
 
@@ -134,8 +136,7 @@ def col_web_trv_comp(column, beam, plate, a_p, beta, sigma_com_Ed=0.0):
     t_fb = beam.tf                           # Beam flange thickness
 
     # Plate information
-    t_p = plate.t                                # Plate thickness
-    lo_p = plate.lower_overhang                     # Lower overhang of plate
+    lo_p = ebottom                  
 
     # Width of compressed zone under compressed flange using 45 deg stress distribution
     s_p = min(2.0*t_p, t_p+lo_p-sqrt(2.0)*a_p)           # lo_p is overhang of end-plate over lower flange of beam
@@ -169,7 +170,7 @@ def col_web_trv_comp(column, beam, plate, a_p, beta, sigma_com_Ed=0.0):
     return F_c_wc_Rd, b_eff_c_wc
 
 
-def cweb_trv_tens(column, l_eff, beta):# l_eff_1f, l_eff_2f):
+def column_web_tension(column, l_eff, beta):# l_eff_1f, l_eff_2f):
     """ Column web in transverse tension, 6.2.6.3, 6.3.2
         
     """

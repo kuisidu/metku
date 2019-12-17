@@ -705,6 +705,8 @@ def test_non_sym():
 
 if __name__ == '__main__':
 
+    from copy import deepcopy
+    
     #test_non_sym()
     #from frame2d.frame2d import *
     #frame = Frame2D()
@@ -717,6 +719,15 @@ if __name__ == '__main__':
     p.section_class(verb=True)
     p.effective_web(verb=True)
     p.draw()
+    
+    #s = p
+    
+    s = WISection(p.h,p.tw,p.b,p.tf,p.fy,p.weld_throat)
+    s.h = 1200
+    
+    print(s.h)
+    print(p.h)
+    
     #profile = "WI 200-5-200-8-100-5"
     # frame.plot()
     #print(col.cross_section.b)

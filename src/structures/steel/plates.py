@@ -7,7 +7,12 @@ Classes for various steel plates
 @author: kmela
 """
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
 from materials.steel_data import Steel
+
+
 
 class RectPlate:
     """ Rectangular plate """
@@ -38,3 +43,4 @@ class RectPlate:
     def weight(self):
         
         return self.density*self.volume()
+    

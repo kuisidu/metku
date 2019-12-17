@@ -10,6 +10,10 @@ Rectangular hollow sections
 import math
 import numpy as np
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.lines as mlines
+
 try:
     from src.eurocodes.en1993 import en1993_1_1
     from src.sections.steel.steel_section import SteelSection
@@ -62,8 +66,56 @@ class RHS(SteelSection):
         self.imp_factor_LT_gen = en1993_1_1.buckling_curve["c"]  # TODO
         self.imp_factor_LT = en1993_1_1.buckling_curve["c"]  # TODO
 
+    @property
+    def h(self):
+        return self.H
+    
+    @property
+    def b(self):
+        return self.B
+
+    @property
+    def t(self):
+        return self.T
+
+    @property
+    def r(self):
+        return self.R
+    
     def __repr__(self):
         return f"{type(self).__name__} {self.H:.0f}X{self.B:.0f}X{self.T:.0f}"
+
+    def info(self,latex=False):
+        """ Prints a bunch of section properties """
+        
+        if latex:
+            print("*** " + self.__repr__() + " ***")
+            print(" $h = {0:.0f}{1:s}$".format(self.H,'\\,\\unit{mm}'))
+            print(" $b = {0:.0f}{1:s}$".format(self.B,'\\,\\unit{mm}'))
+            print(" $t = {0:.1f}{1:s}$".format(self.t,'\\,\\unit{mm}'))            
+            print(" $r = {0:.1f}{1:s}$".format(self.r,'\\,\\unit{mm}'))
+            print(" $A = {0:.2f}{1:s}$".format(self.A*1e-2,'\\ee{2}\\,\\squnit{mm}'))
+            print(" $I_y = {0:.2f}{1:s}$".format(self.I[0]*1e-4,'\\ee{4}\\,\\quunit{mm}'))
+            print(" $I_z = {0:.2f}{1:s}$".format(self.I[1]*1e-4,'\\ee{4}\\,\\quunit{mm}'))
+            print(" $W_el,y = {0:.2f}{1:s}$".format(self.Wel[0]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))
+            print(" $W_el,z = {0:.2f}{1:s}$".format(self.Wel[1]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))
+            print(" $W_pl,y = {0:.2f}{1:s}$".format(self.Wpl[0]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))
+            print(" $W_pl,z = {0:.2f}{1:s}$".format(self.Wpl[1]*1e-3,'\\ee{3}\\,\\cuunit{mm}'))        
+            print(" $Ashear = {0:.2f}{1:s}$".format(self.Ashear*1e-2,'\\ee{2}\\,\\squnit{mm}'))
+        else:
+            print("*** " + self.__repr__() + " ***")
+            print(" h = {0:.0f} mm".format(self.h))
+            print(" b = {0:.0f} mm".format(self.b))            
+            print(" t = {0:.1f} mm".format(self.t))
+            print(" r = {0:.1f} mm".format(self.r))
+            print(" A = {0:.2f} (100 mm2)".format(self.A*1e-2))
+            print(" Iy = {0:.2f} (10^4 mm4)".format(self.I[0]*1e-4))
+            print(" Iz = {0:.2f} (10^4 mm4)".format(self.I[1]*1e-4))
+            print(" Wel,y = {0:.2f} (10^3 mm4)".format(self.Wel[0]*1e-3))
+            print(" Wel,z = {0:.2f} (10^3 mm4)".format(self.Wel[1]*1e-3))
+            print(" Wpl,y = {0:.2f} (10^3 mm4)".format(self.Wpl[0]*1e-3))
+            print(" Wpl,z = {0:.2f} (10^3 mm4)".format(self.Wpl[1]*1e-3))
+            print(" Ashear = {0:.2f} (100 mm2)".format(self.Ashear*1e-2))
 
     def update_properties(self):
         """
@@ -161,6 +213,88 @@ class RHS(SteelSection):
             MNRd = MRd * min((1 - UN) / (1 - 0.5 * aw), 1)
 
         return MNRd
+    
+    def draw(self,axes=None,theta=0):
+        """ Draw the profile 
+            input:
+                axes .. matplotlib.axes.Axes object. If this is given,
+                        the profile will be drawn to that Axes
+                theta .. rotation (optional)
+        """
+        
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
+        
+        if theta is not 0:
+            phi = np.radians(theta)
+            c, s = np.cos(phi), np.sin(phi)
+            R = np.array(((c,-s), (s, c)))
+        
+        lw = 1.5
+        col = 'b'
+        
+        h = self.H
+        b = self.B
+        t = self.T
+        r = self.R
+        
+        # Draw webs
+        y_web = [-0.5*h+r,0.5*h-r]                            
+        ax.vlines([-0.5*b,-0.5*b+t,0.5*b-t,0.5*b],y_web[0],y_web[1],colors='b',linewidth=lw)
+        
+        # Draw flanges
+        x_flange = [-0.5*b+r,0.5*b-r]
+        y_top = [0.5*h,0.5*h-t]
+        y_bottom = [-0.5*h,-0.5*h+t]
+        y_flanges = y_top + y_bottom
+        
+        ax.hlines(y_flanges,x_flange[0],x_flange[1],colors='b',linewidth=lw)
+        
+        # Draw corners
+        # Upper left corner
+        x_up_left = (-0.5*b+r,0.5*h-r)
+        
+        up_left_corner_in = patches.Arc(x_up_left,2*(r-t),2*(r-t),0,90,180,color=col,linewidth=lw)
+        up_left_corner_out = patches.Arc(x_up_left,2*r,2*r,0,90,180,color=col,linewidth=lw)
+        
+        ax.add_patch(up_left_corner_in)
+        ax.add_patch(up_left_corner_out)
+        
+        x_bot_left = (-0.5*b+r,-0.5*h+r)
+        
+        bot_left_corner_in = patches.Arc(x_bot_left,2*(r-t),2*(r-t),0,180,270,color=col,linewidth=lw)
+        bot_left_corner_out = patches.Arc(x_bot_left,2*r,2*r,0,180,270,color=col,linewidth=lw)
+        
+        ax.add_patch(bot_left_corner_in)
+        ax.add_patch(bot_left_corner_out)
+                            
+        # Upper left corner
+        x_up_right = (0.5*b-r,0.5*h-r)
+        
+        up_right_corner_in = patches.Arc(x_up_right,2*(r-t),2*(r-t),0,0,90,color=col,linewidth=lw)
+        up_right_corner_out = patches.Arc(x_up_right,2*r,2*r,0,0,90,color=col,linewidth=lw)
+        
+        ax.add_patch(up_right_corner_in)
+        ax.add_patch(up_right_corner_out)
+        
+        
+        x_bot_right = (0.5*b-r,-0.5*h+r)
+        
+        bot_right_corner_in = patches.Arc(x_bot_right,2*(r-t),2*(r-t),0,270,360,color=col,linewidth=lw)
+        bot_right_corner_out = patches.Arc(x_bot_right,2*r,2*r,0,270,360,color=col,linewidth=lw)
+        
+        ax.add_patch(bot_right_corner_in)
+        ax.add_patch(bot_right_corner_out)
+        
+        
+        a = 0.1
+        
+        ax.set_xlim(-(0.5+a)*b, (0.5+a)*b)
+        ax.set_ylim(-(0.5+a)*h, (0.5+a)*h)
+        
+        ax.set_aspect('equal')
 
 
 class SHS(RHS):
@@ -229,3 +363,8 @@ def RHS_outer_radius(T):
     else:
         R = 3 * T
     return R
+
+if __name__ == "__main__":
+    
+    p = RHS(250,150,10)
+    #p.draw()

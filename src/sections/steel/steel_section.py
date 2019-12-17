@@ -174,7 +174,7 @@ class SteelSection(metaclass=ABCMeta):
         """
 
     def weight(self):
-        """ Weight per unit length """
+        """ Weight per unit length kg/mm """
         w = self.A * constants.density
         return w
 
@@ -193,6 +193,16 @@ class SteelSection(metaclass=ABCMeta):
         p = stmin / stmax
 
         return p
+    
+    def sigma_com(self):
+        """ Elastic compressive stress 
+            This works for double symmetric cross-sections
+        """
+        sN = -self.Ned/self.A
+        sMy = self.Med/self.Wel[0]
+        
+        return sN + sMy
+
 
     def section_class(self,verb=False):
         """ Determines cross-section class """

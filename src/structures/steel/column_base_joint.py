@@ -9,6 +9,11 @@ Column base joint according to EN 1993-1-8
 
 import math
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.lines as lines
+
+
 try:
     from src.eurocodes.en1993 import constants
     from src.eurocodes.en1993 import en1993_1_1
@@ -20,35 +25,83 @@ except:
     import eurocodes.en1992.constants as en1992_const
     from sections.steel.ISection import HEA
     from structures.steel.plates import RectPlate
+    from materials.steel_data import Steel
 
 
 # Anchor bolts
     
-HPM_L = {16:{"d":16,"As":157,"L":280,"washer":[40,6],"dh":38,"k":10},
-             20:{"d":20,"As":245,"L":350,"washer":[44,6],"dh":46,"k":12},
-             24:{"d":24,"As":352,"L":430,"washer":[56,6],"dh":55,"k":13},
-             30:{"d":30,"As":561,"L":500,"washer":[65,8],"dh":70,"k":15},
-             39:{"d":39,"As":976,"L":700,"washer":[90,10],"dh":90,"k":18},
+HPM_L = {16:{"d":16,"As":157,"L":280,"washer":[40,6],"dh":38,"k":10, "material": "B500B"},
+             20:{"d":20,"As":245,"L":350,"washer":[44,6],"dh":46,"k":12, "material": "B500B"},
+             24:{"d":24,"As":352,"L":430,"washer":[56,6],"dh":55,"k":13,"material": "B500B"},
+             30:{"d":30,"As":561,"L":500,"washer":[65,8],"dh":70,"k":15, "material": "B500B"},
+             39:{"d":39,"As":976,"L":700,"washer":[90,10],"dh":90,"k":18, "material": "B500B"},
              }
+
+class AnchorBolt:
+    """ For anchor bolt data """
+    
+    def __init__(self,bolt_type=HPM_L[24]):
+        """ Constructor
+            input:
+                bolt_type .. from a list of bolts above
+                
+            attributes:
+                d .. diameter of the shank (mm)
+                As .. stress area of the threaded shank (mm2)
+                L .. length of the bolt (mm)
+                washer .. [0] washer diameter (mm)
+                          [1] washer thickness (mm)
+                dh .. diameter of the head [mm]
+                k .. thickness of the head (mm)
+                material .. 
+        """
+        
+        self.d = bolt_type["d"]
+        self.As = bolt_type["As"]
+        self.L = bolt_type["L"]
+        self.washer = bolt_type["washer"]
+        self.dh = bolt_type["dh"]
+        self.k = bolt_type["k"]
+        self.material = Steel(bolt_type["material"])
 
 class ColumnBase:
     
     
-    def __init__(self,column_profile, base_plate, concrete="C25/30"):
+    def __init__(self,column_profile, plate_edges, plate_thickness, anchor_bolts, bolt_x=None, bolt_p=100, concrete="C25/30"):
         """ Constructor
             Input:
                 column_profile .. SteelSection class object
-                base_plate .. 
+                plate_edges .. list of edge distances
+                               [0] .. distance from left column flange to edge
+                               [1] .. distance from right column flange to edge
+                               [2] .. distance from top edge to column flange
+                               [3] .. distance from bottom edge to column flange
+                plate_thickness .. thickness of the base plate [mm]
+                anchor_bolts
+                        
         """
 
         self.column = column_profile
+        self._c = plate_edges
+        h = column_profile.h
+        b = column_profile.b
+        hp = h + c[0] + c[1]
+        bp = b + c[2] + c[3]
+        base_plate = RectPlate(bp,hp,plate_thickness,material="S355")
         self.plate = base_plate
-        self.anchor_bolt = None
+        self.anchor_bolt = anchor_bolts
+        self.p = bolt_p
+        if bolt_x is None:
+            bolt_x = [0,0]
+            bolt_x[0] = -0.5*h-0.5*c[0]
+            bolt_x[1] = 0.5*h+0.5*c[1]
+            
+        self.xb = bolt_x
         self.concrete = en1992_const.Concrete(concrete)        
         self.Ac0 = 1.0
         self.Ac1 = 1.0
-        self.flange_weld = 0.0
-        self.web_weld = 0.0
+        self.flange_weld = 5.0
+        self.web_weld = 5.0
         self.bolt_rows = []
         self.beta_j = 2.0/3.0
         
@@ -101,6 +154,18 @@ class ColumnBase:
         """ Effective length """
         return 2*c+self.column.b
     
+    def bolt_coord(self):
+        """ Returns list of tuples that are the xy-coordinates of the bolts """
+        coords = []
+        
+        ypos = 0.5*self.p
+        yneg = -ypos
+        for xb in self.xb:    
+            coords.append((xb,yneg))
+            coords.append((xb,ypos))
+            
+        return coords
+    
     def FCRd(self):
         """ Compression strength of T-stub 
             EN 1993-1-8, Eq. (6.4)
@@ -118,13 +183,88 @@ class ColumnBase:
         """
         McRd = self.column.MRd[0]
         return McRd/(self.column.h-self.column.tf)
+    
+    def draw(self, name=""):
+        """ Draw the connection """
+        fig, ax = plt.subplots(1,2)
+        ymax = 150
+        
+        self.column.draw(axes=ax[1])
+        
+        # Side view:
+        # Origin is located at the bottom of the steel profile center line
+        hp, bp, tp = self.plate.h, self.plate.b, self.plate.t
+        base_plate = patches.Rectangle((-0.5*hp, -tp), width=hp, height=tp, fill=False, hatch='\\')
+        
+        base_plate_plan = patches.Rectangle((-0.5*hp, -0.5*bp), width=hp,
+                                       height=bp, fill=False, hatch='//')
+        
+        
+        # Draw bolts
+        dbolt = self.anchor_bolt.d
+        lbolt = self.anchor_bolt.L
+        left_bolt = patches.Rectangle((self.xb[0]-0.5*dbolt, -tp-lbolt), width=dbolt,
+                                       height=lbolt+tp, fill=True)
+        
+        right_bolt = patches.Rectangle((self.xb[1]-0.5*dbolt, -tp-lbolt), width=dbolt,
+                                       height=lbolt+tp, fill=True)
+        """
+        bot_flange = patches.Rectangle((-0.5*self.bb, 0), width=self.bb,
+                                       height=self.tb, fill=False, hatch='\\')
+        web = patches.Rectangle((-0.5*self.tw, self.tb), width=self.tw,
+                                height=self.hw, fill=False, hatch='\\')
+    
+        top_flange = patches.Rectangle((-0.5*self.bt, self.h-self.tt),
+                                       width=self.bt, height=self.tt,
+                                       fill=False, hatch='\\')
+        """
+        ax[0].add_patch(base_plate)
+        h = self.column.h
+        tf = self.column.tf
+        ax[0].vlines([-0.5*h,-0.5*h+tf,0.5*h,0.5*h-tf],0,ymax)
+        ax[0].vlines(0,0,ymax,linestyles='dashdot')
+        ax[0].add_patch(left_bolt)
+        ax[0].add_patch(right_bolt)
+        ax[0].set_xlim(-0.5*hp, 0.5*hp)
+        if self.anchor_bolt is None:
+            ymin = -self.plate.t
+        else:
+            ymin = -self.anchor_bolt.L
+        
+        ax[0].set_ylim(ymin, ymax)
+    
+        
+        ax[0].set_aspect('equal')
+        
+        xtick = ax[0].get_xticks()
+        #print(xtick)
+        
+        """ Draw connection from above """
+        ax[1].add_patch(base_plate_plan)
+        
+        # Draw column profile
+        
+        
+        # Draw bolts
+        xy_bolts = self.bolt_coord()
 
+        for xy in xy_bolts:
+            ax[1].add_patch(patches.Circle(xy,radius=0.5*dbolt,linestyle='solid'))
+
+        
+        ax[1].set_xticks(xtick)
+        #ax[1].set_xlim(-0.5*hp, 0.5*hp)
+        ax[1].set_ylim(-0.5*hp, 0.5*hp)
+        ax[1].set_aspect('equal')
+        
+        return ax
+        
 if __name__ == '__main__':
     
     col = HEA(240)
-    w = col.b + 20
-    d = col.h + 140
-    plate = RectPlate(width=d,depth=d,thickness=30,material="S355")
+    #w = col.b + 20
+    #d = col.h + 140
+    #plate = RectPlate(width=d,depth=d,thickness=30,material="S355")
         
     
     #conc = en1992.concrete["C25/30"]
@@ -133,8 +273,17 @@ if __name__ == '__main__':
     col.Med = 39.57e6
     col.Ved = 16.70e3
     
-    joint = ColumnBase(col,plate,concrete="C25/30")
+    c = [100,100,50,50]
+    tp = 40
+    bolts = AnchorBolt(HPM_L[24])
+
+    joint = ColumnBase(col,plate_edges = c,\
+                       plate_thickness = tp,\
+                       anchor_bolts = bolts,\
+                       bolt_p = 100,\
+                       concrete="C25/30")
         
+    ax = joint.draw()
     
     #concrete = en1992_const.Concrete("C25/30")
     #fcd = concrete.fcd
@@ -142,6 +291,7 @@ if __name__ == '__main__':
     # Strength of the foundation
     #fjd = beta_j*fcd
     
+    """
     print("fcd = {0:4.2f} MPa".format(joint.fcd))
     print("fjd = {0:4.2f} MPa".format(joint.fjd))
     
@@ -216,3 +366,4 @@ if __name__ == '__main__':
     
     #joint.fcd
     
+    """

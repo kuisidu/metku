@@ -8,7 +8,7 @@ Created on Wed Aug  7 09:15:25 2019
 """
 
 import math
-from materials.steel_data import steel
+from materials.steel_data import Steel
 
 fasteners = {'SXC14-S19-5.5':{'d1':5.5,'dS':5.1}}
 
