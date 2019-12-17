@@ -18,21 +18,21 @@ import math
 import numpy as np
 import scipy.optimize as sciop
 from itertools import product
-
+from collections.abc import Iterable
 from functools import lru_cache
 
-CACHE_BOUND = 2**10
+CACHE_BOUND = 2**8
 INT_TOL = 1e-4
 """ Tolerance for discreteness violation of a discrete variable
 """
-DISC_TOL = 1e-3 
+DISC_TOL = 1e-3
 
 
 class Variable:
     """ Class for optimization variables
     """
 
-    def __init__(self, name, lb, ub, target=None, profiles=None, value=None):
+    def __init__(self, name, lb, ub, id=None, target=None, profiles=None, value=None):
         """
         Parameters:
             -----------
@@ -76,22 +76,26 @@ class Variable:
         self.profiles = profiles
         self.locked = False
         self.branch_priority = 0
+        self.id = id
 
 
     def __repr__(self):
-        
+
         #return self.name + ": [" + str(self.lb) + "," + str(self.ub) + "]"
         if self.locked:
             fixed = " (fixed to {0:g})".format(self.value)
         else:
             fixed = ""
-            
+
         return str(self.lb) + " <= " + self.name + " <= " + str(self.ub) + fixed
 
     def lock(self, val=None):
         """
-        :return:
+        Locks the variable so it's value can't be changed
 
+        Parameters:
+        -----------
+        :param val: value to give to variable before locking
         """
         if val is not None:
             self.substitute(val)
@@ -99,7 +103,9 @@ class Variable:
         self.locked = True
 
     def unlock(self):
-
+        """
+        Unlocks the variable so it's value can be changed
+        """
         self.locked = False
 
     def substitute(self, new_value):
@@ -115,7 +121,11 @@ class Variable:
             if self.target is not None:
                 for obj in self.target['objects']:
                     prop = self.target['property']
-                    obj.__setattr__(prop, new_value)
+                    if isinstance(prop, list):
+                        for p in prop:
+                            obj.__setattr__(p, new_value)
+                    else:
+                        obj.__setattr__(prop, new_value)
 
 
     def discrete_violation(self,x):
@@ -126,7 +136,7 @@ class Variable:
         """
         return 0
 
-    
+
 
 class IntegerVariable(Variable):
     """ Class for integer variables
@@ -144,11 +154,11 @@ class IntegerVariable(Variable):
         """
 
         super().__init__(name, lb, ub, **kwargs)
-        
-    
+
+
     def is_allowed_value(self,x):
         """ Check if 'x' is an integer within the range of the variable """
-        
+
         if x >= self.lb and x <= self.ub:
             """ If x is within INT_TOL of its rounded integer value,
                 it is deemed integer
@@ -159,18 +169,17 @@ class IntegerVariable(Variable):
                 return False
         else:
             return False
-    
+
     def discrete_violation(self,x):
         """ Identify the violation of value 'x' from allowable (Discrete)
             value. Returns 0 for continous variables
         """
-        
+
         violation = abs(x-round(x,0))
         if violation <= INT_TOL:
             violation = 0
-        
-        return violation
 
+        return violation
 
 
 class BinaryVariable(IntegerVariable):
@@ -191,9 +200,11 @@ class BinaryVariable(IntegerVariable):
 
 
 class IndexVariable(IntegerVariable):
-
-    def __init__(self, name="", values=None, target=None):
-
+    """
+    Class for index variables, basically integer variable
+    that takes values from given list
+    """
+    def __init__(self, name="", values=None, target=None, **kwargs):
         self.values = values
 
         if values is not None:
@@ -203,34 +214,32 @@ class IndexVariable(IntegerVariable):
             lb = None
             ub = None
 
-        super().__init__(name, lb, ub, target=target)
+        super().__init__(name, lb, ub, target=target, **kwargs)
 
     def substitute(self, new_value):
-        if new_value not in self.values:
-            if not new_value % 1:
-                new_value = int(new_value)
-            try:
-                new_value = self.values[new_value]
-            except:
-                raise ValueError(
-                    f"Input {new_value} is erroneous "
-                    "IndexVariable's value must be either"
-                    " index or a value from the given list!")
+        try:
+            new_value = int(new_value)
+            super().substitute(self.values[new_value])
+        except:
+            raise ValueError(
+                f"Input {new_value} is erroneous "
+                "IndexVariable's value must be either"
+                " index or a value from the given list!\n"
+            f"Values: {self.values}")
 
-        super().substitute(new_value)
-        self.value = self.idx
+        self.value = new_value
 
-    @property
-    def idx(self):
-        if self.value in self.values:
-            return self.values.index(self.value)
-        return self.value
+    # @property
+    # def idx(self):
+    #     if self.value in self.values:
+    #         return self.values.index(self.value)
+    #     return self.value
 
 
 class DiscreteVariable(Variable):
     """ Class for general discrete variables """
 
-    def __init__(self, name="", values=None, target=None):
+    def __init__(self, name="", values=None, target=None, **kwargs):
         """ Constructor
 
             Parameters:
@@ -254,20 +263,20 @@ class DiscreteVariable(Variable):
             lb = None
             ub = None
 
-        super().__init__(name, lb, ub, target=target)
+        super().__init__(name, lb, ub, target=target, **kwargs)
 
     def is_allowed_value(self,x):
-        """ Check if 'x' is one of the values listed in 
+        """ Check if 'x' is one of the values listed in
             self.values
         """
-            
+
         if x >= self.lb and x <= self.ub:
             """ If x is within INT_TOL of any of the allowed values,
                 it is deemed allowed
             """
             if min([abs(val-x) for val in self.values]) < INT_TOL:
                 return True
-                
+
                 """
                 for val in self.values:
                     if abs(x-val) < INT_TOL:            
@@ -276,30 +285,30 @@ class DiscreteVariable(Variable):
             return False
         else:
             return False
-        
+
     def discrete_violation(self,x):
         """ Identify the violation of value 'x' from allowable (Discrete)
-            value. 
+            value.
         """
-        
+
         violation = min([abs(val-x) for val in self.values])
-        
+
         if violation <= DISC_TOL:
             violation = 0
-        
+
         return violation
-               
-    
+
+
     def smaller_discrete_value(self,x):
         """ Returns discrete value smaller than 'x' and closest to it  """
-            
+
         return max(list(filter(lambda val: (val-x<0),self.values)))
-            
+
             #diff = [val-x for val in self.values]
-        
+
     def larger_discrete_value(self,x):
         """ Returns discrete value smaller than 'x' and closest to it  """
-            
+
         return min(list(filter(lambda val: (val-x>0),self.values)))
 
 
@@ -307,18 +316,25 @@ class DiscreteVariable(Variable):
 class Constraint:
     """ General class for constraints """
 
-    def __init__(self, name="", con_type="<", problem=None):
+    def __init__(self, name="", con_type="<",
+                 problem=None, fea_required=False,
+                 vars=None):
         self.name = name
         self.type = con_type
         self.problem = problem
-        self.fea_required = False
+        self.fea_required = fea_required
+        if not isinstance(vars, Iterable):
+            vars = [vars]
+        self.vars = vars
 
     def __call__(self, x):
         """
         Runs finite element analysis on problem's structure if needed
         """
         if self.problem is not None:
-            if np.any(self.problem.X != x):  # Replace with norm
+            X = np.array([var.value for var in self.problem.vars])
+            x = np.asarray(x)
+            if np.linalg.norm(X - x) > 1e-2:  # Replace with norm
                 self.problem.substitute_variables(x)
 
         if self.fea_required and not self.problem.fea_done:
@@ -335,12 +351,12 @@ class Constraint:
 class LinearConstraint(Constraint):
     """ Class for linear constraints """
 
-    def __init__(self, a=None, b=None, con_type="<", name="", problem=None):
+    def __init__(self, a=None, b=None, con_type="<", name="", problem=None, **kwargs):
         """ Constructor """
 
         self.a = a
         self.b = b
-        Constraint.__init__(self, name, con_type, problem)
+        Constraint.__init__(self, name, con_type, problem, **kwargs)
 
     def __call__(self, x):
         """ Evaluate constraint at x """
@@ -363,14 +379,14 @@ class LinearConstraint(Constraint):
 class NonLinearConstraint(Constraint):
     """ Class for linear constraints """
 
-    def __init__(self, con_fun, con_type="<", name="", problem=None):
+    def __init__(self, con_fun, con_type="<", name="", problem=None, **kwargs):
         """ Constructor
             con_fun: function that returns the value of constraint function
                      g(x) <= 0 (or >= 0 or = 0)
         """
 
         self.con = con_fun
-        Constraint.__init__(self, name, con_type, problem)
+        Constraint.__init__(self, name, con_type, problem, **kwargs)
 
     def __call__(self, x):
         """ Evaluate constraint at x """
@@ -378,7 +394,6 @@ class NonLinearConstraint(Constraint):
 
         X = [val for val in x]
         X.reverse()
-        #print(X)
         fixed_vals = self.problem.fixed_vals.copy()
         for i, val in enumerate(fixed_vals):
             if val is None:
@@ -405,20 +420,20 @@ class ObjectiveFunction:
             for any fixed variables with corresponding fixed values.
             This way, if some variables are fixed, the original objective
             function can still be called.
-                        
+
             Read values from 'x' and reverse them.
             Reversing is done so that 'pop' method can be employed.
         """
-        X = [val for val in x]        
+        X = [val for val in x]
         X.reverse()
-        
+
         """ Fixed values values is an array
             with the values
             fixed_vals[i] is None if the variable vars[i] is free and
             fixed_vals[i] is val if the variable vars[i] has a fixed value val
         """
         fixed_vals = self.problem.fixed_vals.copy()
-                
+
         for i, val in enumerate(fixed_vals):
             if val is None:
                 """ If variable vars[i] is free, take its value from X
@@ -454,12 +469,12 @@ class LinearObjective(ObjectiveFunction):
                      c @ x
         """
         obj_fun = self.evaluate
-    
+
         self.c = c
-    
+
         super().__init__(name,obj_fun,obj_type,problem)
-        
-    
+
+
     def evaluate(self,x):
         """ Evaluate function value """
         return np.array(self.c).dot(np.array(x))
@@ -498,8 +513,6 @@ class OptimizationProblem:
         self.con_tol = 1e-4
         self.name = name
         self.vars = variables
-        #self.vars = variables
-        #print("Variables: ", self.vars)
         self.cons = constraints
         self.obj = objective
         self.grad = gradient
@@ -523,12 +536,15 @@ class OptimizationProblem:
         """
         # VARIABLES
         if isinstance(this, Variable):
+            if this.id is None:
+                this.id = len(self.vars)
             if this not in self.__vars:
                 self.__vars.append(this)
 
         # CONSTRAINTS
         elif isinstance(this, Constraint):
-            if this not in self.cons:
+            if this not in self.cons and \
+                    (isinstance(this, NonLinearConstraint) and this.con not in [con.con for con in self.cons]):
                 self.cons.append(this)
                 this.problem = self
 
@@ -695,7 +711,7 @@ class OptimizationProblem:
                     B = np.hstack((B, con.b))
 
         end = time.time()
-        print("Linearization took: ", end - start, " s")
+        # print("Linearization took: ", end - start, " s")
 
         return A, B, df, fx
 
@@ -728,7 +744,7 @@ class OptimizationProblem:
         self.fea_done = True
         self.num_fem_analyses += 1
 
-    def __call__(self, x, prec=2):
+    def __call__(self, x, prec=2, ncons=5):
         """ Call method evaluates the objective function and all constraints
             at x and returns their values
         """
@@ -743,22 +759,28 @@ class OptimizationProblem:
         print(f'X: {[round(val, prec) for val in x]}')
         g = self.eval_cons(x)
         print(F"Max constraint: {self.cons[np.argmax(g)].name}: {max(g):.{prec}f}")
-        if len(x) < 10:
+        if len(x) < 100:
             print("Variables:")
             print("----------")
-            for i in range(len(x)):
-                print(f"{self.vars[i].name} = {x[i]:.{prec}f}")
+            for var in self.vars:
+                if isinstance(var, IndexVariable):
+                    print(f"{var.name} = {var.values[var.value]}")
+                else:
+                    print(f"{var.name} = {var.value:.{prec}f}")
 
             print("----------\n")
 
         print(f"Objective function = {fx:.{prec}f}\n")
 
-        print("Constraints:")
+        ncons = min(len(self.cons), ncons)
+        print(f"{ncons} Maximum Constraints:")
         print("----------")
 
-        for con in self.cons:
-            g = con(x)
-            print(f"{con.name}: {g:.{prec}f} {con.type} 0")
+        idx = np.argpartition(g, -ncons)[-ncons:]
+        for con in np.asarray(self.cons)[idx]:
+            gi = con(x)
+            print(f"{con.name}: {gi:.{prec}f} {con.type} 0")
+
 
     def eval_cons(self, x):
         """ Constraint evaluation
@@ -766,7 +788,7 @@ class OptimizationProblem:
         """
         g = []
 
-        for con in self.cons:            
+        for con in self.cons:
             g.append(con(x))
 
         return np.asarray(g)
@@ -875,8 +897,6 @@ class OptimizationProblem:
     def substitute_variables(self, xvals):
         """ Substitute variable values from xval to structure """
 
-
-
         xvals = [max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)]
         # Save starting point
         if not np.any(self.X):
@@ -961,8 +981,8 @@ class OptimizationProblem:
             res = None
 
         return res
-    
-    def discrete_neighborhood(self,x,k,method='nearest'):
+
+    def discrete_neighborhood(self, x, k, method='nearest'):
         """ Creates a discrete neighborhood around point 'x' 
             input:
                 k -- parameter used by the 'method'

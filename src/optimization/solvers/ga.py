@@ -1,48 +1,55 @@
-
 try:
     from src.optimization.solvers import OptSolver
-    from src.optimization.structopt import Variable, OptimizationProblem,\
+    from src.optimization.structopt import Variable, OptimizationProblem, \
         IndexVariable, DiscreteVariable, IntegerVariable
 except:
     from optimization.solvers import OptSolver
-    from optimization.structopt import Variable, OptimizationProblem,\
+    from optimization.structopt import Variable, OptimizationProblem, \
         IndexVariable, DiscreteVariable, IntegerVariable
 
-import numpy as np
 import random
-import matplotlib.pyplot as plt
-import copy
 
+import matplotlib.pyplot as plt
+import numpy as np
 from deap import base, creator, tools
 
+import time
 
 class GA(OptSolver):
 
-    def __init__(self, pop_size=10, mut_rate=0.05, penalty=None,
+    def __init__(self, pop_size=10, mut_rate=0.05, cx_rate=0.8, penalty=None,
                  mut_fun=tools.mutShuffleIndexes,
                  mutation_kwargs={'indpb': 0.05},
                  cx_fun=tools.cxTwoPoint,
-                 cx_kwargs={}):
+                 cx_kwargs={},
+                 first_improvement=False,
+                 best_f=1e100):
         super().__init__()
 
         self.toolbox = base.Toolbox()
         self.pop_size = pop_size
         self.mut_rate = mut_rate
+        self.cx_rate = cx_rate
         self.mut_fun = mut_fun
         self.mutation_kwargs = mutation_kwargs
         self.cx_kwargs = cx_kwargs
         self.cx_fun = cx_fun
         self.plot = False
-        self.best_f = 1e100
+        self.best_f = best_f
+        self.prev_best = best_f
+        self.first_improvement = first_improvement
+        self.best_ind = None
         if penalty is None:
             def penalty(constr_vals):
                 pos_vals = np.clip(constr_vals, 0, 100)
-                return 2e6 * sum(pos_vals**2)
+                return 2e6 * sum(pos_vals ** 2)
 
             self.penalty = penalty
         else:
             self.penalty = penalty
 
+
+        self.counter = 0
 
     def take_action(self):
         pass
@@ -50,16 +57,15 @@ class GA(OptSolver):
     def step(self, action):
         pass
 
-
-    def eval_individual(self, X):
+    def eval_individual(self, ind):
         """
         Evaluates one individual
 
         :param X: one optimization problem solution
         :return: objective value of optimization problem
         """
-        self.problem.substitute_variables(X)
-        X = [var.value for var in self.problem.vars]
+        self.problem.substitute_variables(ind)
+        X = [round(var.value, 3) for var in self.problem.vars]
         obj_val = self.problem.obj(X)
         constr_vals = self.problem.eval_cons(X)
         penalty_val = self.penalty(constr_vals)
@@ -67,19 +73,26 @@ class GA(OptSolver):
         if self.plot:
             self.update_plot(self.fig, self.ax)
 
+
+        # print("GAPS: ", [j.g1 for j in self.problem.structure.joints.values()])
+
         if val < self.best_f:
-            self.best_x = X.copy()
+            for i, x in enumerate(X):
+                ind[i] = x
+            self.best_ind = ind
+            self.prev_best = self.best_f
+            best_x = [var.value for var in self.problem.all_vars]
+            self.best_x = best_x.copy()
             self.best_f = val
+            self.counter = 0
 
         # NOTE! Need to return at least two values, hence the comma
         return val,  # <- DO NOT REMOVE THIS COMMA
 
-
     def create_fitness(self):
 
-        creator.create("FitnessMin", base.Fitness, weights=(-1,0))
+        creator.create("FitnessMin", base.Fitness, weights=(-1, 0))
         creator.create("Individual", list, fitness=creator.FitnessMin)
-
 
     def attribute_generator(self, counter_list=[0]):
         """
@@ -101,14 +114,13 @@ class GA(OptSolver):
 
         return val
 
-
     def register(self):
 
         self.toolbox.register("attribute", self.attribute_generator)
 
-        self.toolbox.register("individual", tools.initRepeat, creator.Individual,
+        self.toolbox.register("individual", tools.initRepeat,
+                              creator.Individual,
                               self.toolbox.attribute, len(self.problem.vars))
-
 
         # Evaluation function
         self.toolbox.register("evaluate", self.eval_individual)
@@ -121,7 +133,7 @@ class GA(OptSolver):
         # generation: each individual of the current generation
         # is replaced by the 'fittest' (best) of three individuals
         # drawn randomly from the current generation.
-        self.toolbox.register("select", tools.selBest, k=3)
+        self.toolbox.register("select", tools.selBest, k=2)
 
         # Define the population to be a list of individuals
         self.toolbox.register("population", tools.initRepeat,
@@ -129,26 +141,28 @@ class GA(OptSolver):
 
     def new_population(self, offspring):
         """
-        Creates a new population from offsprings
+        Creates a new population from offsprings by shuffling them
         :param offspring: list of offsprings
         :return: new population
         """
-
-
+        idx = np.random.randint(len(offspring)-1)
+        self.problem.substitute_variables(self.best_x)
+        values = [var.value for var in self.problem.vars]
+        for i, val in enumerate(offspring[idx]):
+            offspring[idx][i] = values[i]
         multiplier = self.pop_size // len(offspring) + 1
-
         new_population = list(offspring) * multiplier
-
         np.random.shuffle(new_population[:self.pop_size])
+
+        if self.best_ind is not None:
+            new_population.append(self.best_ind)
 
         return new_population
 
 
-
-
-
     def solve(self, problem, x0=None, maxiter=100, maxtime=-1, log=False,
               min_diff=1e-5, verb=False, plot=False):
+
 
         self.toolbox = base.Toolbox()
         self.problem = problem
@@ -164,7 +178,6 @@ class GA(OptSolver):
             self.fig = fig
             self.ax = ax
 
-
         pop = self.toolbox.population(n=self.pop_size)
         fitnesses = list(map(self.toolbox.evaluate, pop))
 
@@ -172,16 +185,17 @@ class GA(OptSolver):
         #       are crossed
         #
         # MUTPB is the probability for mutating an individual
-        CXPB, MUTPB = 0.5, 0.5
+        CXPB, MUTPB = self.cx_rate, self.mut_rate
 
         # Main loop
         it = 0
+        prev_val = None
         while it < maxiter:
             it += 1
+            problem.num_iters += 1
             print(f"Iteration {it}/{maxiter}")
             # Select the next generation individuals
             offspring = self.toolbox.select(pop)
-
             new_pop = self.new_population(offspring)
 
             # Clone the selected individuals
@@ -197,9 +211,7 @@ class GA(OptSolver):
                     # must be recalculated later
                     del child1.fitness.values
                     del child2.fitness.values
-
-                for mutant in offspring:
-
+                for mutant in offspring[:-1]:
                     # mutate an individual with probability MUTPB
                     if random.random() < MUTPB:
                         self.toolbox.mutate(mutant)
@@ -211,38 +223,59 @@ class GA(OptSolver):
             fitnesses = map(self.toolbox.evaluate, invalid_ind)
             for ind, fit in zip(invalid_ind, fitnesses):
                 ind.fitness.values = fit
-
             # The population is entirely replaced by the offspring
             pop[:] = offspring
             # Gather all the fitnesses in one list and print the stats
             fits = [ind.fitness.values[0] for ind in pop]
-
             length = len(pop)
             mean = sum(fits) / length
             sum2 = sum(x * x for x in fits)
             std = abs(sum2 / length - mean ** 2) ** 0.5
-            problem.substitute_variables(pop[np.argmin(fits)])
-            print("  Min %s" % min(fits))
-            print("  Max %s" % max(fits))
-            print("  Avg %s" % mean)
-            print("  Std %s" % std)
+
+            if verb:
+                print("VERB: ", self.best_x)
+                print(f"Min fitness: {min(fits)} \n"
+                      f"Obj: {problem.obj(self.best_x)} \n"
+                      f"Max con: {max(problem.eval_cons(self.best_x)):.3f}  "
+                      f"{problem.cons[np.argmax(problem.eval_cons(self.best_x))].name}")
+            problem.substitute_variables(self.best_x)
+
             if plot:
                 self.update_plot(self.fig, self.ax)
 
+            if self.first_improvement and self.best_f < self.prev_best:
+                return self.best_f, self.best_x
+
+            if self.counter > (10 - 3):
+                print(f"The result has not improved in the last 10 generations."
+                      f"\n Returning current best values.")
+                return self.best_f, self.best_x
+
+            elif it > 0 and prev_val == min(fits):
+                self.counter += 1
+
+            else:
+                prev_val = min(fits)
+
+            if log:
+                problem.num_iters += 1
+                problem.fvals.append(self.best_f)
+                problem.states.append(list(pop[np.argmin(fits)]))
+                problem.gvals.append(max(self.constr_vals))
+                self.fvals.append(self.best_f)
+                self.xvals.append(self.best_x)
 
         # best_idx = np.argmin(fits)
         # xopt = pop[best_idx]
         # print("XOPT: ", xopt)
         # fopt = fits[best_idx]
 
-        print(self.best_x)
         return self.best_f, self.best_x
 
 
 if __name__ == "__main__":
-
     from src.optimization.benchmarks import *
+
     problem = TenBarTruss('index')
     solver = GA(pop_size=100)
     solver.solve(problem, maxiter=50)
-

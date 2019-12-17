@@ -74,10 +74,88 @@ class SteelSection(metaclass=ABCMeta):
         self.imp_factor = None
         self.code = design_code
         self.density = constants.density
+        self.rotate = False
 
 
     def __repr__(self):
         return type(self).__name__
+
+
+    @property
+    def Iy(self):
+        if self.rotate:
+            return self.I[1]
+        return self.I[0]
+
+    @Iy.setter
+    def Iy(self, val):
+        if self.rotate:
+            self.I[1] = val
+        self.I[0] = val
+
+    @property
+    def Iz(self):
+        if self.rotate:
+            return self.I[0]
+        return self.I[1]
+
+    @Iz.setter
+    def Iz(self, val):
+        if self.rotate:
+            self.I[0] = val
+        self.I[1] = val
+
+    @property
+    def Wply(self):
+        if self.rotate:
+            return self.Wpl[1]
+        return self.Wpl[0]
+
+    @Wply.setter
+    def Wply(self, val):
+        if self.rotate:
+            self.Wpl[1] = val
+        self.Wpl[0] = val
+
+    @property
+    def Wplz(self):
+        if self.rotate:
+            return self.Wpl[0]
+        return self.Wpl[1]
+
+    @Wplz.setter
+    def Wplz(self, val):
+        if self.rotate:
+            self.Wpl[0] = val
+        self.Wpl[1] = val
+
+    @property
+    def Wely(self):
+        if self.rotate:
+            return self.Wel[1]
+        return self.Wel[0]
+
+    @Wely.setter
+    def Wely(self, val):
+        if self.rotate:
+            self.Wel[1] = val
+        self.Wel[0] = val
+
+    @property
+    def Welz(self):
+        if self.rotate:
+            return self.Wel[0]
+        return self.Wel[1]
+
+    @Welz.setter
+    def Welz(self, val):
+        if self.rotate:
+            self.Wel[0] = val
+        self.Wel[1] = val
+
+
+
+
 
 
     @property
@@ -101,8 +179,7 @@ class SteelSection(metaclass=ABCMeta):
 
     @property
     def MRd(self):
-        
-        
+
         if self.C < 3:
             return self.code.bending_resistance(self.Wpl, self.fy)
         elif self.C == 3:
@@ -121,7 +198,7 @@ class SteelSection(metaclass=ABCMeta):
 
     @property
     def epsilon(self):
-        e = self.code.epsilon()
+        e = self.code.epsilon(self.fy)
         return e
 
 

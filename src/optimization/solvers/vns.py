@@ -15,19 +15,23 @@ except:
 
 class VNS(OptSolver):
     
-    def __init__(self, step_length=1, stochastic=False, stoch_vals=[-1, 0, 1],
-                 stoch_prob=[0.05, 0.9, 0.05]):
+    def __init__(self, step_length=1, stochastic=False, pop_size=5, maxiter=3, first_improvement=True,
+                 solver='GA', solver_params=None, max_expansion=10):
         super().__init__()
         self.step_length = step_length
         self.initial_step_length = step_length
         self.stochastic = stochastic
-        self.stoch_vals = stoch_vals
-        self.stoch_prob = stoch_prob
         self.temp_X = np.array([])
         self.fopt = 1e100
+        self.x0 = None
         self.prev_x = []
-        if sum(stoch_prob) != 1:
-            raise ValueError(f"Sum of stoch_prob must be 1.0 !")
+        self.pop_size = pop_size
+        self.maxiter = maxiter
+        self.space_expansion = 0
+        self.max_expansion = max_expansion
+        self.first_improvement = first_improvement
+        self.solver = solver.upper()
+        self.solver_params = solver_params
         
     def take_action(self, recursive=False):
         """
@@ -40,37 +44,66 @@ class VNS(OptSolver):
 
         for var in self.problem.vars:
             if isinstance(var, DiscreteVariable):
-                pass
-            elif isinstance(var, IndexVariable):
+                idx = np.argmin((np.asarray(var.values) - var.value) ** 2)
+                delta = (var.ub - var.lb) / (self.step_length * len(var.values))
+                lb, ub = var.lb - delta, var.ub + delta
 
-                var.lb = max(0, var.idx - self.step_length)
-                var.ub = min(var.ub, var.idx + self.step_length)
+                if idx == 0:
+                    ub = max(ub, var.values[1] - var.value)
+                elif idx == len(var.values) - 1:
+                    lb = max(lb, var.value - var.values[idx - 1])
+                else:
+                    lb = max(lb, var.value - var.values[idx - 1])
+                    ub = max(ub, var.values[idx + 1] - var.value)
+                var.lb = lb
+                var.ub = ub
                 if not recursive:
-                    self.prev_x.append(var.idx)
+                    self.prev_x.append(var.value)
+
+            elif isinstance(var, IndexVariable):
+                var.lb = max(0, var.value - self.step_length)
+                var.ub = min(var.ub, var.value + self.step_length)
+                if not recursive:
+                    self.prev_x.append(var.value)
 
             else:
-
-                delta = (var.ub - var.lb) / 50
-
+                delta = (var.ub - var.lb) / 10
                 var.lb = max(var.lb, var.value - delta * self.step_length)
                 var.ub = min(var.ub, var.value + delta * self.step_length)
 
                 if not recursive:
                     self.prev_x.append(var.value)
 
+        if self.space_expansion >= 10:
+            return np.zeros_like(self.best_x)
 
-        fopt, xopt = self.solver.solve(self.problem, maxiter=3, plot=True)
-        if fopt < self.fopt:
+
+        if self.x0 is None:
+            self.x0 = [var.value for var in self.problem.vars]
+
+        if type(self.solver).__name__ == 'GA':
+            self.solver.counter = 0
+
+        fopt, xopt = self.solver.solve(self.problem, maxiter=self.maxiter, x0=self.x0, plot=self.plot)
+
+        if fopt < self.fopt and xopt != self.prev_x:
             self.fopt = fopt
+            self.x0 = xopt
+            self.solver.best_f, self.solver.prev_best = fopt, fopt
+            self.space_expansion = 0
             for var, bound in zip(self.problem.vars, bounds):
                 var.lb, var.ub = bound
             return np.asarray(xopt) - np.asarray(self.prev_x)
 
         else:
+            if self.space_expansion >= self.max_expansion:
+                print("EXPANDED OVER {} TIMES!".format(self.max_expansion))
+                return np.zeros_like(self.best_x)
             print("EXPANDING SEARCH SPACE")
+            self.space_expansion += 1
             for var, bound in zip(self.problem.vars, bounds):
                 var.lb, var.ub = bound
-            self.step_length += self.initial_step_length
+            self.step_length += 1
 
             return self.take_action(recursive=True)
 
@@ -78,12 +111,12 @@ class VNS(OptSolver):
         """
         Takes step
         """
-        print(action)
         self.prev_x = []
         # Reset step_length
         self.step_length = self.initial_step_length
         # Take step
-        self.X += action
+        self.X = np.asarray(self.X) + np.asarray(action)
+
 
         for i in range(len(self.X)):
             self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
@@ -94,37 +127,56 @@ class VNS(OptSolver):
 
     def solve(self, *args, **kwargs):
 
-        self.plot = kwargs['plot']
+        try:
+            self.plot = kwargs['plot']
+        except:
+            self.plot = False
 
-        def mutate(individual, prob=0.01, stepsize=1, multiplier=0.1):
-            """
-            Mutates individual
-            :param individual:
-            :param prob:
-            :return: mutated individual
-            """
-            for i in range(len(individual)):
-                var = self.problem.vars[i]
-                if isinstance(var, (IndexVariable, IntegerVariable)):
-                    step = min(var.ub - var.lb, stepsize)
-                    val = np.random.randint(0, step)
+        if self.solver == 'GA':
+            if self.solver_params is None:
+                def mutate(individual, prob=0.05, stepsize=1, multiplier=0.1):
+                    """
+                    Mutates individual
+                    :param individual:
+                    :param prob:
+                    :return: mutated individual
+                    """
+                    for i in range(len(individual)):
+                        if np.random.rand() < prob:
+                            var = self.problem.vars[i]
+                            if isinstance(var,
+                                          (IndexVariable, IntegerVariable)):
+                                step = min(var.ub - var.lb, stepsize)
+                                val = np.random.randint(0, step)
+                            else:
+                                val = np.random.uniform(var.lb, var.ub)
+                            if np.random.rand() < 0.5:
+                                val *= -1
+                            individual[i] += val
 
-                else:
-                    val = np.random.uniform(var.lb, var.ub)
-
-                if np.random.rand() < prob:
-                    if np.random.rand() < 0.5:
-                        val *= -1
-                    individual[i] += val
-
-            return individual
-
-
-        self.solver = GA(pop_size=5,
+                    return individual
+                self.solver_params = dict(
+                    pop_size=self.pop_size,
                     mut_fun=mutate,
-                    mutation_kwargs={'prob': 0.5, "stepsize": 10,
-                                     "multiplier": self.step_length})
-        super().solve(*args, **kwargs)
+                    mut_rate=1,
+                    cx_rate=0.9,
+                    mutation_kwargs={'prob': 0.05,
+                                     "stepsize": 100,
+                                     "multiplier": self.step_length}
+                )
+                self.solver_params["first_improvement"] = self.first_improvement
+
+            self.solver = GA(**self.solver_params)
+
+
+        elif self.solver == "SLP":
+            self.solver = SLP(**self.solver_params)
+
+        elif self.solver == "MISLP":
+            self.solver = MISLP(**self.solver_params)
+
+
+        return super().solve(*args, **kwargs)
 
 
 class DiscreteVNS(OptSolver):
@@ -211,23 +263,27 @@ class DiscreteVNS(OptSolver):
 
         self.calc_constraints(X)
 
-        prev_val = sum(np.clip(prev_cons_vals, 0, 100))
-        cur_val = sum(np.clip(self.constr_vals, 0, 100))
+        prev_val = sum(np.clip(prev_cons_vals, 0, 100)**2)
+        cur_val = sum(np.clip(self.constr_vals, 0, 100)**2)
 
         d_cons_vals = prev_val - cur_val
 
         if dfval > 0 and d_cons_vals >= 0 and np.all(self.constr_vals <= 0):
             self.best_fval = fval
             reward = 1
-            
-        elif d_cons_vals > 0 and np.all(self.constr_vals <= 0):
-            print(d_cons_vals)
-            reward = 1
+        #
+        # elif d_cons_vals > 0 and np.all(self.constr_vals <= 0):
+        #     print(d_cons_vals)
+        #     reward = 1
+
+        # if self.best_fval > self.problem.obj(X):
+        #     reward = 1
         
         else:
             reward = -1
 
-        done = np.all(self.constr_vals <= 0)
+        #done = np.all(self.constr_vals <= 0)
+        done = False
 
         return X, reward, done, 'INFO'
 
@@ -293,14 +349,14 @@ class DiscreteVNS(OptSolver):
                 self.update_plot(fig, ax)
             self.X = s
             if verb:
-                print("New Best! ", self.best_fval)
+                print("New Best! ", problem.obj(s))
                 print(self.X)
 
         print("TIME: ", time.time() - start_time, " s")
         print("X: ", list(self.X))
         print(f"Weight: {problem.obj(self.X):2f}")
         
-        return self.X, problem.obj(self.X)
+        return problem.obj(self.X), self.X
 
         
 if __name__ == '__main__':
