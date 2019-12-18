@@ -9,6 +9,14 @@ As different optimization solvers are applied, the methods of
 OptimizationProblem class will be used to write the problem data in
 a form suitable for each solver.
 
+Classes:
+    Variable
+    IntegerVariable(Variable)
+    BinaryVariable(IntegerVariable)
+    IndexVariable(IntegerVariable)
+    DiscreteVariable(Variable)
+
+
 @author: kmela
 """
 
@@ -23,9 +31,10 @@ from functools import lru_cache
 
 CACHE_BOUND = 2**8
 INT_TOL = 1e-4
-""" Tolerance for discreteness violation of a discrete variable
-"""
+""" Tolerance for discreteness violation of a discrete variable """
 DISC_TOL = 1e-3
+""" Tolerance for comparing variable vectors """
+X_TOL = 1e-6
 
 
 class Variable:
@@ -76,7 +85,7 @@ class Variable:
         self.profiles = profiles
         self.locked = False
         self.branch_priority = 0
-        self.id = id
+        self.id = id            # MIKÄ TÄMÄ ON?
 
 
     def __repr__(self):
@@ -201,10 +210,16 @@ class BinaryVariable(IntegerVariable):
 
 class IndexVariable(IntegerVariable):
     """
-    Class for index variables, basically integer variable
-    that takes values from given list
+    Class for index variables.
+    
+    An index variable is usually used to select a profile for
+    a member.
+    
     """
     def __init__(self, name="", values=None, target=None, **kwargs):
+        """ Constructor:
+            :param values: list of possible 
+        """
         self.values = values
 
         if values is not None:
@@ -217,8 +232,11 @@ class IndexVariable(IntegerVariable):
         super().__init__(name, lb, ub, target=target, **kwargs)
 
     def substitute(self, new_value):
+        """ Substitute the profile corresponding to the integer new_value
+        """
         try:
-            new_value = int(new_value)
+            # Take into account that new_value can be a float
+            new_value = int(new_value)            
             super().substitute(self.values[new_value])
         except:
             raise ValueError(
@@ -319,6 +337,17 @@ class Constraint:
     def __init__(self, name="", con_type="<",
                  problem=None, fea_required=False,
                  vars=None):
+        """ Constructor
+            Input:
+                name: Name of the constraint (string)
+                con_type: '<', '>' or '='
+                problem: OptimizationProblem class object, to which the
+                         constraint belongs
+                fea_required: (Boolean) to indicate whether or not carry
+                              out structural analysis, when the constraint
+                              is evaluated
+                vars: list of Variable type objects
+        """
         self.name = name
         self.type = con_type
         self.problem = problem
@@ -328,15 +357,29 @@ class Constraint:
         self.vars = vars
 
     def __call__(self, x):
-        """
+        """ Evaluate the constraint using the syntax con(x)
+            
         Runs finite element analysis on problem's structure if needed
         """
         if self.problem is not None:
+            """ Collect current variable values stored in each
+                optimization variable to X
+            """
             X = np.array([var.value for var in self.problem.vars])
             x = np.asarray(x)
-            if np.linalg.norm(X - x) > 1e-2:  # Replace with norm
+            """ If the new values deviate from the old values
+                in terms of L2 norm by more than X_TOL, substitute
+                new values.
+                
+                NOTE: X_TOL should be small
+            """
+            if np.linalg.norm(X - x) > X_TOL:  # Replace with norm
                 self.problem.substitute_variables(x)
 
+        """ If structural analysis is part of the consraint evaluation
+            AND
+            if FEM analysis has not been carried out for X, perform FEM
+        """
         if self.fea_required and not self.problem.fea_done:
             self.problem.fea()
 
@@ -352,16 +395,28 @@ class LinearConstraint(Constraint):
     """ Class for linear constraints """
 
     def __init__(self, a=None, b=None, con_type="<", name="", problem=None, **kwargs):
-        """ Constructor """
+        """ Constructor 
+            Constraint is of the form: a'*x con_type b
+            
+            **kwargs: can be 'fea_required' and 'vars'.
+            Probably fea_required is always False for linear constraints
+        """
 
         self.a = a
         self.b = b
         Constraint.__init__(self, name, con_type, problem, **kwargs)
 
     def __call__(self, x):
-        """ Evaluate constraint at x """
+        """ Evaluate constraint at x 
+            MITEN 'x' SISÄLLYTETÄÄN EVALUOINTIIN?
+            PITÄISIKÖ TÄSSÄ OLLA ALUSSA super().__call__(x), KUTEN
+            EPÄLINEAARISELLA EHDOLLA?
+        """
 
         X = []
+        """ By iterating over 'all_vars', also the fixed variables
+            are included in the function evaluation.
+        """
         for var in self.problem.all_vars:
             if isinstance(var, IndexVariable):
                 X.append(var.idx)
@@ -390,11 +445,27 @@ class NonLinearConstraint(Constraint):
 
     def __call__(self, x):
         """ Evaluate constraint at x """
+        
+        """ This call substitutes variable values (if needed) and
+            performs structural analysis (if needed)
+        """
         super().__call__(x)
 
+        
+        """ Make vector 'fixed_vals', corresponding to the vector of
+            design variables that includes those in 'x' and the fixed
+            values
+        """
         X = [val for val in x]
         X.reverse()
-        fixed_vals = self.problem.fixed_vals.copy()
+        
+        """ fixed_vals is a list with length equalling the
+            number of original variable, including fixed and free.
+            In place of free variables, 'fixed_vals' has None, and to this
+            position, the value from 'X' should be inserted.
+        """
+        # IS COPY ENOUGH, OR SHOULD IT BE deepcopy?
+        fixed_vals = self.problem.fixed_vals.copy() 
         for i, val in enumerate(fixed_vals):
             if val is None:
                 fixed_vals[i] = X.pop()
@@ -508,6 +579,14 @@ class OptimizationProblem:
                 :ivar hess: Hessian of the objective function
                 :ivar structure: structure to be optimized
                 :ivar profiles: list of available profiles (optional)
+                :ivar fea_done: indicates if FEM analysis has been done (bool)
+                :ivar X: stored design variable values
+                :ivar x0: initial point
+                :ivar num_iters: number of iterations (int)
+                :ivar num_fem_analyses: number of FEM analyses (int)
+                :ivar fvals: number of function evaluations (int)
+                :ivar states:
+                :ivar gvals:
         """
 
         self.con_tol = 1e-4
@@ -515,6 +594,9 @@ class OptimizationProblem:
         self.vars = variables
         self.cons = constraints
         self.obj = objective
+        # Gradient and Hessian of the objective function
+        # should also include the possibility that some of the variables
+        # can be fixed!
         self.grad = gradient
         self.hess = hess
         self.structure = structure
@@ -533,6 +615,8 @@ class OptimizationProblem:
         """
         Adds given object to the problem
         :param this: object to be added
+        
+        :type: Variable, Constraint, ObjectiveFunction
         """
         # VARIABLES
         if isinstance(this, Variable):
@@ -561,7 +645,7 @@ class OptimizationProblem:
         """
         Returns locked variables
 
-        :return: list of locked variables
+        :return: list of locked variables (Variable objects, not values!)
         """
         return [var for var in self.__vars if var.locked]
 
@@ -585,6 +669,9 @@ class OptimizationProblem:
 
     @vars.setter
     def vars(self, vals):
+        """
+            Sets variables, to 'vals' (list of Variable objects)            
+        """
         self.__vars = vals
 
     @property
@@ -862,6 +949,7 @@ class OptimizationProblem:
 
         return lb, ub
 
+    # THIS METHOD IS NOT NEEDED!! USE substitute_variables INSTEAD!!
     def substitute_variable(self, i, xval):
         """ Substitutes the value 'xval' for variable i """
         var = self.vars[i]
@@ -911,6 +999,7 @@ class OptimizationProblem:
         # for i in range(len(xvals)):
         #     self.substitute_variable(i, xvals[i])
 
+    # OBSOLETE! USE SOLVERS FROM solvers MODULE!
     def solve(self, solver="slsqp", **kwargs):
         """ Solve the optimization problem
             input:
