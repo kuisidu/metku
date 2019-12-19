@@ -34,7 +34,7 @@ INT_TOL = 1e-4
 """ Tolerance for discreteness violation of a discrete variable """
 DISC_TOL = 1e-3
 """ Tolerance for comparing variable vectors """
-X_TOL = 1e-6
+X_TOL = 1e-12
 
 
 class Variable:
@@ -408,10 +408,12 @@ class LinearConstraint(Constraint):
 
     def __call__(self, x):
         """ Evaluate constraint at x 
-            MITEN 'x' SISÄLLYTETÄÄN EVALUOINTIIN?
-            PITÄISIKÖ TÄSSÄ OLLA ALUSSA super().__call__(x), KUTEN
-            EPÄLINEAARISELLA EHDOLLA?
         """
+        
+        """ This call substitutes variable values (if needed) and
+            performs structural analysis (if needed)
+        """
+        super().__call__(x)
 
         X = []
         """ By iterating over 'all_vars', also the fixed variables
@@ -627,8 +629,9 @@ class OptimizationProblem:
 
         # CONSTRAINTS
         elif isinstance(this, Constraint):
-            if this not in self.cons and \
-                    (isinstance(this, NonLinearConstraint) and this.con not in [con.con for con in self.cons]):
+            if this not in self.cons:
+            #if this not in self.cons and \
+            #        (isinstance(this, NonLinearConstraint) and this.con not in [con.con for con in self.cons]):
                 self.cons.append(this)
                 this.problem = self
 
@@ -834,7 +837,7 @@ class OptimizationProblem:
     def __call__(self, x, prec=2, ncons=5):
         """ Call method evaluates the objective function and all constraints
             at x and returns their values
-        """
+        """        
         self.substitute_variables(x)
         fx = self.obj(x)
         print("** {0} **".format(self.name))
@@ -993,7 +996,7 @@ class OptimizationProblem:
         # if np.any(self.X != xvals):
         self.X = xvals.copy()
         self.fea_done = False
-        for x, var in zip(xvals, self.vars):
+        for x, var in zip(xvals, self.vars):            
             var.substitute(x)
         #
         # for i in range(len(xvals)):
@@ -1182,7 +1185,7 @@ if __name__ == '__main__':
     # dvars.append(Variable("Web thickness", 5, 40))
     #
 
-        
+    """    
     def obj_fun(x):
         return x[0]**2 + 2*x[1]**3 -4*x[2]
     
@@ -1206,7 +1209,7 @@ if __name__ == '__main__':
     #M = np.meshgrid(*N)
     
     #s = M[0][0].shape
-    
+    """
 
     """
     for a in np.nditer(M):
@@ -1223,7 +1226,7 @@ if __name__ == '__main__':
     
     # p = OptimizationProblem(name="I-Beam Weight Minimization",
     # variables=dvars)
-
+    """
     problem = OptimizationProblem()
     vars = []
     for i in range(10):
@@ -1241,3 +1244,4 @@ if __name__ == '__main__':
     var0.unlock()
     var3.unlock()
     print(len(problem.vars))
+    """
