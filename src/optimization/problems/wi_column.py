@@ -709,10 +709,17 @@ class WIColumn(OptimizationProblem):
 
 
 if __name__ == "__main__":
-    from src.optimization.solvers import *
-    from src.optimization.result_exporter import *
+    from optimization.solvers import *
+    from optimization.solvers.bnb import BnB
+    from optimization.result_exporter import *
 
-    problem = WIColumn(prob_type='discrete')
+    problem = WIColumn(prob_type='discrete',
+                       Lpi=8000,                       
+                       top_flange_class=3,
+                       bottom_flange_class=3,
+                       web_class=3,
+                       buckling_z=True,
+                       LT_buckling=True)
 
     # x0 = [300, 8, 200, 10, 200, 10]
     # x0 = [300, 8, 200, 10]
@@ -790,8 +797,8 @@ if __name__ == "__main__":
     plt.show()
     """
 
-    ResultExporter(problem, solver).to_csv()
-    ResultExporter(problem, solver).csv_to_excel()
+    #ResultExporter(problem, solver).to_csv()
+    #ResultExporter(problem, solver).csv_to_excel()
 
     seconds = time.process_time()
     m, s = divmod(seconds, 60)
