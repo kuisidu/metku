@@ -39,6 +39,39 @@ class Truss2D(Frame2D):
 
     def __init__(self, origin=(0, 0), simple=None, num_elements=2,
                  fem_model=None, q=None):
+        """ Constructor 
+            Parameters:
+            ------------
+            :param origin: location of the origin (tuple)
+            :param simple: simple truss or not
+            :param num_elements: number of elements per member
+            :param fem_model: FrameFEM object
+            :param q: load?
+    
+            :type origin: tuple
+            :type simple: list
+            :type num_elements: int
+            :type fem_model: FrameFEM
+    
+    
+            Variables:
+            ----------
+            :ivar truss:
+            :ivar origin:
+            :ivar top_chords: list of members constituting the top chord
+            :ivar bottom_chords: list of bottom chord members
+            :ivar webs: dict of web members, or braces
+            :ivar joints: dict of truss joints
+            :ivar simple: dict of data used to generate a truss quickly
+            :ivar _H0: height at
+            :ivar _H1: height at
+            :ivar _H2: height at
+            :ivar _H3: height at
+            :ivar L1: span
+            :ivar L2: span
+            
+        
+        """
         super().__init__(num_elements=num_elements, fem_model=fem_model)
         self.truss = [self]
         self.origin = origin
@@ -54,13 +87,21 @@ class Truss2D(Frame2D):
                        'L2': 0,
                        'n': 0,
                        'dx': 0}
+        
+        """ If 'simple' parameters are given, use those
+            instead of the default values (this is what the update method does)
+        """
         if simple is not None:
             self.simple.update(simple)
 
+        """ NOTE: if no 'simple' parameters are given, then _H and L attributes
+            are zeroes, and they need to be added separately
+        """
         self._H0 = self.simple['H0']
         self._H1 = self.simple['H1']
         self._H2 = self.simple['H2']
         if not self.simple['H3']:
+            # H1 is a property
             self._H3 = self.H1
         else:
             self._H3 = self.simple['H3']
@@ -909,6 +950,7 @@ class TrussWeb(TrussMember):
 
 
 class TrussJoint:
+    """ Class for welded tubular joints """
     def __init__(self, chord, loc, joint_type="N", g1=30, g2=30,
                  reverse=False):
 
@@ -1038,6 +1080,7 @@ class TrussJoint:
 
     @property
     def e(self):
+        """ Eccentrictity of the connection """
 
         # if self.joint_type == 'K':
         #     w1, w2 = self.webs.values()

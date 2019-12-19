@@ -29,6 +29,13 @@ PREC = 3
 # -----------------------------------------------------------------------------
 class Frame2D:
     """ Class for 2D frame
+    
+        Methods:
+        ------------
+        add
+        generate
+        calculate
+        plot
 
         Parameters:
         ------------

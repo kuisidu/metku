@@ -58,7 +58,7 @@ class EndPlateJoint:
         self.weld_p = 5
         
         self.p = bp-2*e_bolts
-        print(bp-2*e_bolts)
+        # Create bolt rows
         for y in y_bolts:
             self.bolt_rows.append(BoltRow(bolt,self.p,y))
             
@@ -302,7 +302,7 @@ class EndPlateJoint:
 
 if __name__ == '__main__':
     
-    from ISection import HEA, IPE
+    from sections.steel.ISection import HEA, IPE
     from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt
     
     bolt = Bolt(24,10.9)
@@ -324,6 +324,6 @@ if __name__ == '__main__':
                          ebottom=ebottom,bolt=bolt,y_bolts=y_bolts,\
                          e_bolts=60)
     
-    conn.info(draw=False)
+    conn.info(draw=True)
         
         

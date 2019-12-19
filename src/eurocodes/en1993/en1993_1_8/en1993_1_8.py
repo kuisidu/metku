@@ -220,7 +220,7 @@ class BoltRow:
     
     """
     
-    def __init__(self,bolt,p,z):
+    def __init__(self,bolt,p,z,position="inner"):
         """ Constructor
             input:
                 bolt .. Bolt class object defining the bolt
@@ -228,17 +228,20 @@ class BoltRow:
                 z .. vertical position of bolt row
                 y .. horizontal position of one bolt
                 (the other is assumed to lie symmetrically i.e. at -y.)
+                position .. position of the bolt row, expressed verbally
         """
         
         self.bolt = bolt
         self.p = p
         self.z = z
+        self.pos = position
         #self.y = y
         """ p can be a single number, in which case there are two bolts
             in the row
             
             if p is an array, the number of bolts is length of p + 1
         """
+        
         
         if isinstance(p,float) or isinstance(p,int):
             self.bolts = 2
@@ -426,7 +429,7 @@ class TStubEndPlate(TStub):
                 leff = 2*self.p
             else:
                 leff = 2*math.pi*self.m
-        elif row_low = "end":
+        elif row_low == "end":
             if as_group:
                 leff = math.pi*self.m + self.p
             else:
@@ -455,7 +458,7 @@ class TStubEndPlate(TStub):
                 leff = self.p
             else:
                 leff = 4*self.m+1.25*self.e
-        elif row_low = "end":
+        elif row_low == "end":
             if as_group:
                 leff = math.pi*self.m + self.p
             else:

@@ -161,7 +161,7 @@ class TrustRegionConstr(OptSolver):
         #print(constraints[-3].ub)
 
         options = {'maxiter': maxiter,
-                   'verbose': 2,
+                   'verbose': 0,
                    'xtol': VAR_TOL,
                    'gtol': CON_TOL,
                    'initial_tr_radius': 1,
