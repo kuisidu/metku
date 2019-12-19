@@ -131,7 +131,7 @@ class BnB(OptSolver):
         # These are node identifier values correspondng to tree nodes
         self.nodes = []
         
-        self.max_iters = 1
+        self.max_iters = 20
         
         self.orig_lb = []
         self.orig_ub = []
@@ -591,8 +591,8 @@ class BnB(OptSolver):
         root = BnBNode()
         self.add_node(root,"Root","root")
         
-        # while iteration <= self.max_iters and len(self.nodes)>0:
-        while iteration <= 0 and len(self.nodes) > 0:
+        while iteration <= self.max_iters and len(self.nodes)>0:
+        #while iteration <= 0 and len(self.nodes) > 0:
             self.tree.show()    
             if verb > 0:
                 print("*********************************")
@@ -670,4 +670,8 @@ class BnB(OptSolver):
                 self.remove_node(node.identifier)
                     
             iteration += 1
+        
+        # Wrap up: set original variable bounds
+        self.set_variable_bounds()
+    
         
