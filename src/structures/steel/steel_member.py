@@ -170,10 +170,12 @@ class SteelMember:
         """ Member lateral-torsional bending strength """
 
         MRd = self.profile.bending_resistance()[0]
+        """
         if axis == 'y':
             idx = 0
         else:
             idx = 1
+        """
         lambdaLT = self.LT_slenderness(Mcr) # [idx]
         
         # self.profile.define_imp_factor_LT()
@@ -194,8 +196,7 @@ class SteelMember:
             chiLT = 1.0
         else:
             p = 0.5 * (1 + alphaLT * (lambdaLT - lambdaLT0) + beta*lambdaLT ** 2)
-            chiLT = min(1. / (p + math.sqrt(p ** 2 - beta*lambdaLT ** 2)), chiLTmax
-                        )
+            chiLT = min(1. / (p + math.sqrt(p ** 2 - beta*lambdaLT ** 2)), chiLTmax)
         MbRd = chiLT * MRd
         
         if verb:
@@ -221,7 +222,7 @@ class SteelMember:
         w = self.weight_per_length * self.length
         return w
 
-    def mcrit(self, C=[1.12, 0.45, 0.525], k=[1, 1]):
+    def mcrit(self, C=[1.12, 0.45, 0.525], k=[1, 1],za=0.0,verb=False):
         """ Critical moment for lateral-torsional buckling
 
             For mono- and double-symmetric profiles
@@ -245,16 +246,22 @@ class SteelMember:
         L = self.length
         C1, C2, C3 = C
 
-        if self.symmetry == 'dual':
-            za = 0
+    
+
+        if self.symmetry == 'dual':            
             zs = 0
             zg = za - zs
             part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
-            part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
-                            (math.pi ** 2 * E * Iz) + (C2 * zg) ** 2)
+            part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + 
+                            (kz * L) ** 2 * G * It /(math.pi ** 2 * E * Iz) + 
+                            (C2 * zg) ** 2)
             part3 = C2 * zg
+            
+            #print("part 1 = {0:4.2f}".format(part1))
+            #print("part 2 = {0:4.2f}".format(part2))
+            #print("part 3 = {0:4.2f}".format(part3))
 
-            Mcr = part1 * (part2 - part3)
+            Mcr = part1 * (part2 - part3)            
 
         elif self.symmetry == 'mono':
             za = 0
@@ -269,6 +276,10 @@ class SteelMember:
                             (math.pi ** 2 * E * Iz) + (C2 * zg - C3 * zj) ** 2)
 
             Mcr = part1 * (part2 + part3)
+            
+        if verb:
+            print("kz = {0:4.2f}; kw = {1:4.2f}".format(kz,kw))
+            print("C1 = {0:4.2f}; C2 = {1:4.2f}".format(C1,C2))
 
         # print("Iz = {0:4.2f}".format(Iz*1e-4))
         # print("Iw = {0:4.2f}".format(Iw*1e-6))
@@ -300,16 +311,17 @@ class SteelMember:
         self.loc.clear()
 
 
-    def check_section(self, n=0):
+    def check_section(self, n=0, verb=False):
         """ Verify resistance of section 'n' """
         self.profile.Ned = self.ned[n]
         self.profile.Med = self.myed[n]
         self.profile.Ved = self.vzed[n]
+                
 
-        r = self.profile.section_resistance()
+        r = self.profile.section_resistance(verb=verb)
         return r
 
-    def check_sections(self, class1or2=True):
+    def check_sections(self, class1or2=True, verb=False):
         """ Verify resistance of all sections """
         r = np.zeros(len(self.check_section()))
         for n in range(self.nsect()):

@@ -393,6 +393,8 @@ class CompositeIBeam:
             MplRd = Ra*(ei+0.5*hc-0.5*ec0)
             if verb:
                 print("Plastic neutral axis in concrete:")
+                print("Ra = {0:4.2f} kN".format(Ra*1e-3))
+                print("Rc = {0:4.2f} kN".format(Rc*1e-3))
                 print("ec0 = {0:4.2f} [mm]".format(ec0))
         elif Rc < Ra-2*self.Rf():
             """ Neutral axis in top flange of steel beam """
@@ -509,7 +511,7 @@ def rak33301_ht2():
     C = 5700
     L = 6800
     k_valu = 2000e-3
-    steel = IPE(300)
+    steel = IPE(270)
 
     slab = CompositeSlab(160,constants.Concrete("C25/30"),47)
 
@@ -651,7 +653,8 @@ def tentti():
     C = 5400
     L = 7000
     k_valu = 1800e-3
-    steel = IPE(360)
+    steel = IPE(220)
+    
 
     #slab = CompositeSlab(160,constants.Concrete("C25/30"),46.5)
     slab = ConcreteSlab(180,constants.Concrete("C30/37"))
@@ -673,7 +676,7 @@ def tentti():
     q_work = 0.75
     
     # Hyötykuorma kN/m2
-    q_live = 5.0
+    q_live = 2.5
     
     p = CompositeIBeam(L,steel,slab)
     #p.draw()
@@ -706,7 +709,11 @@ def tentti():
     # Murtorajatila
     print("*** Toiminta liittorakenteena *** ")
     print("*** MURTORAJATILA *** ")
-    qULS = 1.15*(g_plate + g_concrete*C*1e-3 + g_steel) + 1.5*q_live*C*1e-3
+    if q_live > 0:
+        qULS = 1.15*(g_plate + g_concrete*C*1e-3 + g_steel) + 1.5*q_live*C*1e-3
+    else:
+        qULS = 1.35*(g_plate + g_concrete*C*1e-3 + g_steel)
+
     
     MEd = qULS*(L*1e-3)**2/8    
     
