@@ -26,3 +26,8 @@ class Steel:
         self.E = steels[steel_grade]["E"]
         self.nu = steels[steel_grade]["v"]
         self.rho = steels[steel_grade]["rho"]
+    
+    def __repr__(self):
+        
+        return f"{self.name}"
+        

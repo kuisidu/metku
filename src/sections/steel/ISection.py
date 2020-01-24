@@ -36,7 +36,8 @@ class ISection(SteelSection):
         self.tf = tf
         self.tw = tw
         self.r = r
-        self.fy = fy
+        
+        #self.fy = fy
 
         A, Au, Ashear, I, It, Iw, Wpl, Wel = cross_section_properties(B, H, tf, tw, r)
         self.Iw = Iw
@@ -375,10 +376,11 @@ class HEA(ISection):
         Subclass of ISection        
     """
 
-    def __init__(self, height=100, fy=355, catalogue=True):
+    def __init__(self, height=100, fy=355, catalogue=True):        
         name = 'HE ' + str(height) + ' ' + 'A'
         # HEIGHT =! TO PROFILE NUMBER
 
+        self.name = name
         # H,B,tf,tb,r,fy=355
         if catalogue:
             H = profile[name]['h']
@@ -400,10 +402,13 @@ class HEA(ISection):
                 if H <= 690:
                     r = 27
                 else:
-                    r = 30
+                    r = 30    
 
         ISection.__init__(self, H, B, tf, tw, r, fy=fy)
 
+    def __repr__(self):
+        return self.name
+        #return "HEA " + str(self.b-(self.b%10))
 
 class HEAA(ISection):
     """ European wide flange sections
