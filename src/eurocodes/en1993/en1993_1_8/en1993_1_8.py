@@ -64,7 +64,23 @@ washer_size = {12: {"h": 2.5, "d1": 13, "d2": 24.0},
              36: {"h": 5.0, "d1": 37, "d2": 66.0},
              }
 
+""" Bolt row positions 
+
+    1. Unstiffened column flange
+"""
+INNER_ROW = 100
+END_ROW = 101
+""" 2. stiffened column flange """
+ADJACENT_TO_STIFFENER_ROW = 102
+OTHER_INNER_ROW = 103
+OTHER_END_ROW = 104
+END_ROW_ADJACENT_TO_STIFFENER = 105
+""" 3. end plate """
+ROW_OUTSIDE_BEAM_TENSION_FLANGE = 106
+FIRST_ROW_BELOW_BEAM_TENSION_FLANGE = 107
+
 import math
+import numpy as np
 
 from eurocodes.en1993.constants import gammaM0, gammaM2, gammaM5
 import eurocodes.en1993.en1993_1_8.component_method as cm
@@ -103,6 +119,7 @@ class Bolt:
         self.fyb = mat_bolt[bolt_class]["f_yb"]
         self.fub = mat_bolt[bolt_class]["f_ub"]
         self.bolt_class = bolt_class
+        
         
     def shear_resistance(self,threads_in_plane=False,verb=False):
         """ EN 1993-1-8, Table 3.4
@@ -220,21 +237,30 @@ class BoltRow:
     
     """
     
-    def __init__(self,bolt,p,z,position="inner"):
+    def __init__(self,bolt,p,z,flange_loc=INNER_ROW, plate_loc=OTHER_INNER_ROW,joint=None):
         """ Constructor
             input:
                 bolt .. Bolt class object defining the bolt
                 p .. array of distances between adjacent bolt centroids
                 z .. vertical position of bolt row
-                y .. horizontal position of one bolt
-                (the other is assumed to lie symmetrically i.e. at -y.)
-                position .. position of the bolt row, expressed verbally
+                flange_loc .. position of the row with respect to column flange in bending
+                plate_loc .. position of the row with respect to end plate in bending
+                joint .. the joint object to which the bolt row belongs
         """
         
         self.bolt = bolt
         self.p = p
         self.z = z
-        self.pos = position
+        self.loc_col_flange = flange_loc
+        self.loc_end_plate = plate_loc
+        
+        """ Location of bolt row in a group. This varies,
+            if the row belongs to several groups        
+        """
+        self.group_loc_flange = None
+        self.group_loc_plate = None
+        
+        self.joint = joint
         #self.y = y
         """ p can be a single number, in which case there are two bolts
             in the row
@@ -248,36 +274,487 @@ class BoltRow:
         else:
             self.bolts = len(p)+1
         
-    def column_web_in_tension(self,column,beta):
-        """ Resistance of component """
-        cm.column_web_tension(column, l_eff, beta)
+        """ Initialize effective lengths corresponding to
+            column flange in bending (leff_flange) and
+            end plate in bending (leff_plate), when
+            the row is treated as an individual row
+            
+            first element is for Mode 1 and second for Mode 2
+        """
+        #self.Tstub_col_flange = TStubColumnFlange([bolt,bolt],flange_loc,self.joint.col.material,tf=10,e=20,emin=20,m=10)
+        self.Tstub_col_flange = TStubColumnFlange(self,self.joint.col.material,tf=10,e=20,emin=20,m=10)
+        self.Tstub_end_plate = TStubEndPlate(self,self.joint.end_plate.material,tf=10,emin=20,m=10,e=20,w=20,bp=self.joint.bp)
+        self.leff_flange = [0.0,0.0]
+        self.leff_plate = [0.0,0.0]
+        self.FtRd = -1.0
     
+        # Dictionary of stiffness factors
+        self.stiffness_factors = {"col_web": np.inf,
+                                  "col_flange": np.inf,
+                                  "plate":np.inf,
+                                  "bolt":1.6*self.bolt.As/self.Lb}
     
-    def FtRd(self):
-        """ Tension resistance of individual row, not considered
-            As a group
+    @property
+    def Lb(self):
+        """ Ruuvirivin venymäpituus """
+        return self.joint.tp + self.joint.column.tf + 2*self.bolt.washer_t + 0.5*(self.bolt.head_t + self.bolt.nut_t)
+    
+    @property
+    def h(self):
+       """ Distance from the center of compression of the joint """
+       return self.z-self.joint.zc 
+    
+    @property
+    def emin_flange(self):
+        """ Distance 'emin' used for T-stubs for the component
+            'column flange in bending'
+        """
+        """ If the plate is narrower than column flange,
+            take 'emin' to be the distance to plate edge.
+                
+            Otheriwse, use the distance to column flange edge.
+        """
+        if self.joint.bp < self.joint.col.b:
+            emin = self.joint.ebolts
+        else:
+            emin = self.joint.ebolts - 0.5*(self.joint.bp-self.joint.col.b)
+        
+        return emin
+    
+    @property
+    def emin_plate(self):
+        """ Distance 'emin' used for T-stubs for the component
+            'end plate in bending'
+        """
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            """ For the row in the plate extension, use the
+                distance to plate end, ex.
+            """
+            emin = self.ex
+        else:
+            """ If the plate is narrower than column flange,
+                take 'emin' to be the distance to plate edge.
+                
+                Otheriwse, use the distance to column flange edge.
+            """
+            if self.joint.bp < self.joint.col.b:
+                emin = self.joint.ebolts
+            else:
+                emin = self.joint.ebolts - 0.5*(self.joint.bp-self.joint.col.b)
+        
+        return emin
+    
+    @property
+    def ex(self):
+        """ Distance from bolt row center to top edge of the end plate
         """
         
+        return 0.5*self.joint.beam.h + self.joint.etop - self.z
+    
+    @property
+    def mx(self):
+        """ Distance from bolt row center to top of the top flange
+            of the beam. This is used for bolt rows outside the
+            beam tension flange.
+        """
+        
+        return self.z - 0.5*self.joint.beam.h - 0.8*math.sqrt(2)*self.joint.weld_f
+        
+    @property
+    def col_flange_m(self):
+        """ Distance from column web to bolt hole center """
+        
+        return 0.5*(self.p-self.joint.col.tw)-0.8*self.joint.col.r
+    
+    @property
+    def col_flange_e(self):
+        """ Distance of column flange edge from the bolt hole center """
+        if self.joint.bp < self.joint.col.b:
+            e = self.joint.ebolts + 0.5*(self.joint.col.b-self.joint.bp)
+        else:
+            e = self.joint.ebolts - 0.5*(self.joint.bp-self.joint.col.b)
+        
+        return e
+    
+    @property
+    def end_plate_m(self):
+        """ Distance from beam web to bolt hole center """
+        
+        return 0.5*(self.p-self.joint.beam.tw)-0.8*math.sqrt(2)*self.joint.weld_w
+    
+    @property
+    def end_plate_m2(self):
+        """ Distance from beam flange to bolt hole center """
+        
+        return 0.5*self.joint.beam.h-self.joint.beam.tf-0.8*math.sqrt(2)*self.joint.weld_f-self.z
+    
+    @property
+    def end_plate_e(self):
+        """ Distance of end plate edge from the bolt hole center """
+        
+        return self.joint.ebolts
+    
+    def column_web_in_tension(self,verb=False):
+        """ Resistance of component """
+        self.Tstub_col_flange.tf = self.joint.col.tf
+        self.Tstub_col_flange.emin = self.emin_flange
+        self.Tstub_col_flange.m = self.col_flange_m
+        self.Tstub_col_flange.e = self.col_flange_e
+        
+        """ The effective length of the component
+            corresponds to the effective length of the column flange.
+            This is obtained only after the resistance of the column
+            flange has been determined, because the governing failure
+            mode also defines the effective width
+        """
+        #l_eff = self.Tstub_col_flange.leff(self.loc_col_flange)
+        
+        #l_eff = [0,0]
+        #l_eff[0] = self.Tstub_col_flange.leff_1()
+        #l_eff[1] = self.Tstub_col_flange.leff_2()
+        
+        l_eff = self.Tstub_col_flange.leff()
+        #print(self.Tstub_col_flange.leff)
+        
+        F_t_wc_Rd = cm.column_web_tension(self.joint.col, l_eff, self.joint.beta)
+        
+        if verb:
+            print("COlUMN WEB IN TENSION:")
+            print("l_eff  = {0:4.2f} mm".format(l_eff))
+            #print("l_eff (Mode 2) = {0:4.2f} mm".format(self.Tstub_col_flange._leff[1]))
+            print("Ft_wc_Rd = {0:4.2f} kN".format(F_t_wc_Rd*1e-3))
+        
+        return F_t_wc_Rd
+    
+    def column_flange_in_bending(self,verb=False):
+        """ Resistance of component """
+        
+        """ Set properties for the T-stub
+            This is basically for optimization purposes,
+            because the dimensions will change
+        """
+        self.Tstub_col_flange.tf = self.joint.col.tf
+        self.Tstub_col_flange.emin = self.emin_flange
+        self.Tstub_col_flange.m = self.col_flange_m
+        self.Tstub_col_flange.e = self.col_flange_e
+        
+        """ Determine effective length 
+            The 'leff_1' and 'leff_2' methods store the
+            effective length of each failure mode to the T-stub,
+            so it can be
+        """
+        if verb:
+            print("COLUMN FLANGE IN BENDING:")
+        
+        """ Calculate the effective length of the T-stub
+            The effective length will be stored in the T-stub object.
+        """
+        l_eff = [0.0,0.0]
+        l_eff[0] = self.Tstub_col_flange.leff_1
+        l_eff[1] = self.Tstub_col_flange.leff_2
+        
+        if verb:
+            print("l_eff (Mode 1) = {0:4.2f} mm".format(l_eff[0]))
+            print("l_eff (Mode 2) = {0:4.2f} mm".format(l_eff[1]))
+        
+        """ The resistance is based on the T-stub """
+        F_t_cf_Rd = cm.column_flange_bending(self.Tstub_col_flange,verb)
+        
+        if verb:            
+            print("Ft_cf_Rd = {0:4.2f} kN".format(F_t_cf_Rd*1e-3))
+        
+        return F_t_cf_Rd
+    
+    def end_plate_in_bending(self,verb=False):
+        """ Resistance of component """
+        # TODO: CHECK T-stub dimensions
+        self.Tstub_end_plate.bp = self.joint.bp
+        self.Tstub_end_plate.tf = self.joint.tp
+        self.Tstub_end_plate.w = self.p
+        
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            self.Tstub_end_plate.emin = self.ex
+            self.Tstub_end_plate.e = self.end_plate_e
+            self.Tstub_end_plate.m = self.mx
+        else:
+            self.Tstub_end_plate.emin = self.emin_plate
+            self.Tstub_end_plate.e = self.end_plate_e
+            self.Tstub_end_plate.m = self.end_plate_m
+            self.Tstub_end_plate.m2 = self.end_plate_m2
+        
+        
+        l_eff = [0.0,0.0]
+        l_eff[0] = self.Tstub_end_plate.leff_1
+        l_eff[1] = self.Tstub_end_plate.leff_2
+        
+        if verb:
+            print("END PLATE IN BENDING:")
+            self.Tstub_end_plate.info()
+            print("l_eff (Mode 1) = {0:4.2f} mm".format(l_eff[0]))
+            print("l_eff (Mode 2) = {0:4.2f} mm".format(l_eff[1]))
+        
+        F_t_ep_Rd = cm.end_plate_bending(self.Tstub_end_plate,verb)
+        
+        return F_t_ep_Rd
+    
+    def beam_web_in_tension(self,verb=False):
+        """ Resistance of component """
+        self.Tstub_end_plate.tf = self.joint.tp
+        self.Tstub_end_plate.w = self.p
+        
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            self.Tstub_end_plate.emin = self.ex
+            self.Tstub_end_plate.e = self.ex
+            self.Tstub_end_plate.m = self.mx
+        else:
+            self.Tstub_end_plate.emin = self.emin_plate
+            self.Tstub_end_plate.e = self.end_plate_e
+            self.Tstub_end_plate.m = self.end_plate_m
+            self.Tstub_end_plate.m2 = self.end_plate_m2
+        
+        
+        l_eff = self.Tstub_end_plate.leff()
+        #l_eff[0] = self.Tstub_end_plate.leff_1(self.loc_end_plate)
+        #l_eff[1] = self.Tstub_end_plate.leff_2(self.loc_end_plate)
+        
+        F_t_bw_Rd = cm.beam_web_tension(self.joint.beam, l_eff)
+        
+        if verb:
+            print("BEAM WEB IN TENSION:")
+            print("l_eff = {0:4.2f} mm".format(l_eff))
+            print("Ft_bf_Rd = {0:4.2f} kN".format(F_t_bw_Rd*1e-3))
+        
+        return F_t_bw_Rd
+    
+    def tension_resistance(self,verb=False):
+        """ Tension resistance of individual row, not considered
+            as a group.
+            
+            Evaluate first the components
+            'column flange in bending' and
+            'end plate in bending', because
+            they define the effective lengths also used in
+            'column web in tension' and
+            'beam web in tension' components
+        """
+        
+        Ft_i_Rd = np.array([0.0,0.0,0.0,0.0])
+        components = ['Column flange in bending',
+                      'End plate in bending',
+                      'Column web in tension',
+                      'Beam web in tension'
+                      ]
+        
+        Ft_i_Rd[0] = self.column_flange_in_bending(verb)
+        Ft_i_Rd[1] = self.end_plate_in_bending(verb)
+        Ft_i_Rd[2] = self.column_web_in_tension(verb)
+        Ft_i_Rd[3] = self.beam_web_in_tension(verb)
+            
+        min_comp = np.argmin(Ft_i_Rd)
+        
+        self.FtRd = Ft_i_Rd[min_comp]
+        
+        if verb:
+            print("Ft_Rd = {0:4.2f} kN ({1:s})".format(self.FtRd*1e-3,components[min_comp]))
+        
+        return self.FtRd
+    
+    def keff(self):
+        """ Effective stiffness of bolt row 
+            EN 1993-1-8, Eq. (6.30)
+        """
+        
+        # Inverse of keff
+        keff_inv = 0.0
+        
+        for k in self.stiffness_factors.values():
+            keff_inv += 1/k
+        
+        return 1/keff_inv
         
 class BoltRowGroup:
-    """ Class for group of bolt rows """
+    """ Class for group of bolt rows 
+        Bolt row group consists of the following data:
+            1) Set of bolt rows
+            2) Location of each bolt row in terms of column flange
+                and end plate. This data can be in the form of a
+                list of dictionaries:
+                    [{'flange':LOCATION, "plate": LOCATION}]
+            NOTE! For some groups, not all components are active. For example,
+            a group consisting of two rows, above and below the beam tension flange,
+            has the component 'column flange in bending' but not end plate in bending,
+            because the column flange prevents yield lines between the rows on opposite
+            sides of the beam flange.
+        
+        Each bolt row has a T-stub for column flange in bending and for end plate in bending.
+        These T-stubs can be used for bolt row groups as well.
     
-    def __init__(self,bolt_rows):
+    """
+    
+    def __init__(self,bolt_rows,row_loc):
         """ Constructor
             input:
                 bolt_rows .. array of BoltRow objects
+                row_loc .. location of rows
+                
+            attributes:
+                rows .. list of BoltRow objects
+                nrows .. number of bolt rows (MAYBE THIS IS NOT NEEDED!)
+                row_loc .. list of bolt row location codes.
+                p .. distance between adjacent bolt rows
         """
         
         self.rows = bolt_rows
         self.nrows = len(bolt_rows)
+        self.row_loc = row_loc
         self.p = []
+        
+        # Effective length of the bolt row group
+        self.leff_flange = [0.0,0.0]
+        self.leff_plate = [0.0,0.0]
         
         """ Evaluate distance between adjacent groups
             it is assumed that the rows as inserted in ordered list
         """
         for i in range(len(bolt_rows)-1):
-            self.p.append(bolt_rows[i+1].z-bolt_rows[i].z)
+            self.p.append(bolt_rows[i].z-bolt_rows[i+1].z)
 
+        
+        self.Tstub_col_flange = TStubGroupColumnFlange(self)
+        self.Tstub_end_plate = TStubGroupEndPlate(self)
+
+    def column_web_in_tension(self,verb=False):
+        """ Resistance of component 
+        
+        """
+        
+        """ The effective length of the component
+            corresponds to the sum of the effective lengths of the bolt rows
+            for column flange.
+            
+            This is obtained only after the resistance of the column
+            flange has been determined, because the governing failure
+            mode also defines the effective width
+        """
+        
+        l_eff = self.Tstub_col_flange.leff()
+        
+        F_t_wc_Rd = cm.column_web_tension(self.rows[0].joint.col, l_eff, self.rows[0].joint.beta)
+        
+        if verb:
+            print("COlUMN WEB IN TENSION:")
+            print("l_eff  = {0:4.2f} mm".format(l_eff))
+            #print("l_eff (Mode 2) = {0:4.2f} mm".format(self.Tstub_col_flange._leff[1]))
+            print("Ft_wc_Rd = {0:4.2f} kN".format(F_t_wc_Rd*1e-3))
+        
+        return F_t_wc_Rd
+        
+    def column_flange_in_bending(self,verb=False):
+        """ Resistance of component """
+        
+        """ Determine effective length as the sum of effective lengths of the bolt rows
+            leff_nc = sum_r leff_nc(r)
+            leff_cp = sum_r leff_cp(r)
+            
+            leff_1 = min(leff_nc,leff_cp)
+            leff_2 = leff_nc
+            
+        """
+        if verb:
+            print("COLUMN FLANGE IN BENDING:")
+        
+        leff_nc = self.Tstub_col_flange.leff_nc
+        leff_cp = self.Tstub_col_flange.leff_cp
+        self.leff_flange[0] = min(leff_nc,leff_cp)
+        self.leff_flange[1] = leff_nc
+        
+        
+        if verb:
+            print("l_eff (Mode 1) = {0:4.2f} mm".format(self.leff_flange[0]))
+            print("l_eff (Mode 2) = {0:4.2f} mm".format(self.leff_flange[1]))
+        
+        F_t_cf_Rd = cm.column_flange_bending(self.Tstub_col_flange,verb)
+        
+        if verb:            
+            print("Ft_cf_Rd = {0:4.2f} kN".format(F_t_cf_Rd*1e-3))
+        
+        return F_t_cf_Rd
+    
+    def end_plate_in_bending(self,verb=False):
+        """ Resistance of component 
+            It is assumed that the dimensions of the T-stubs
+            of individual rows have been set earlier
+        """
+        
+        leff_nc = self.Tstub_end_plate.leff_nc
+        leff_cp = self.Tstub_end_plate.leff_cp
+        self.leff_plate[0] = min(leff_nc,leff_cp)
+        self.leff_plate[1] = leff_nc
+        
+        
+        if verb:
+            print("END PLATE IN BENDING:")            
+            print("l_eff (Mode 1) = {0:4.2f} mm".format(self.leff_plate[0]))
+            print("l_eff (Mode 2) = {0:4.2f} mm".format(self.leff_plate[1]))
+        
+        F_t_ep_Rd = cm.end_plate_bending(self.Tstub_end_plate,verb)
+        
+        return F_t_ep_Rd
+    
+    def beam_web_in_tension(self,verb=False):
+        """ Resistance of component """
+        l_eff = self.Tstub_end_plate.leff()        
+        
+        F_t_bw_Rd = cm.beam_web_tension(self.rows[0].joint.beam, l_eff)
+        
+        if verb:
+            print("BEAM WEB IN TENSION:")
+            print("l_eff = {0:4.2f} mm".format(l_eff))
+            print("Ft_bf_Rd = {0:4.2f} kN".format(F_t_bw_Rd*1e-3))
+        
+        return F_t_bw_Rd
+    
+    def tension_resistance(self,verb=False):
+        """ Tension resistance of the bolt row group.
+        """
+        Ft_i_Rd = np.array([0.0,0.0,0.0,0.0])
+        components = ['Column flange in bending',
+                      'End plate in bending',
+                      'Column web in tension',
+                      'Beam web in tension'
+                      ]
+        
+        Ft_i_Rd[0] = self.column_flange_in_bending(verb)
+        Ft_i_Rd[2] = self.column_web_in_tension(verb)
+        
+        """ If the group has two rows and if the first row
+            is above the tension flange of the beam,
+            then end plate in bending group component can be
+            neglected as well as beam web in tension
+        """
+        
+        
+        #if self.nrows == 2 and self.row_loc[0]['plate'] == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+        if self.row_loc[0]['plate'] == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            print("First row outside tension flange.")
+            Ft_i_Rd[1] = np.inf
+            Ft_i_Rd[3] = np.inf
+        else:
+            Ft_i_Rd[1] = self.end_plate_in_bending(verb)        
+            Ft_i_Rd[3] = self.beam_web_in_tension(verb)
+            
+        min_comp = np.argmin(Ft_i_Rd)
+        
+        #print(min_comp,Ft_i_Rd,Ft_i_Rd[min_comp])
+        
+        self.FtRd = Ft_i_Rd[min_comp]
+        
+        if verb:
+            print("Ft_Rd = {0:4.2f} kN ({1:s})".format(self.FtRd*1e-3,components[min_comp]))
+        
+        return self.FtRd
+    
+    
 class TStub:
     """ Class for T-stubs 
         Abstract class that serves as a basis for the following components:
@@ -289,10 +766,12 @@ class TStub:
     
     """
     
-    def __init__(self,bolts,material,tf,emin,m):
+    #def __init__(self,bolts,row_loc,material,tf,emin,m):
+    def __init__(self,bolt_row,material,tf,emin,m):
         """ Constructor
             Input:
-                bolts .. list of bolts appearing in the stub
+                bolt_row .. BoltRow object
+                row_loc .. location of the row (e.g. INNER_ROW)
                 material .. Steel class object, for the material properties
                 tf .. thicknes of the flange
                 n .. edge distance from the centroid of bolt hole
@@ -300,11 +779,30 @@ class TStub:
                 
         """
         
+        self.bolts = bolt_row
+        
+        #self.bolts = bolts
+        #self.row_loc = row_loc
         self.mat = material
         self.tf = tf
         self.emin = emin
         self.m = m
+        self._leff = np.array([-1.0,-1.0])
+        
+        self.failure_mode = -1
     
+    def info(self,name=None):
+        """ Prints relevant information of the T-stub """
+        
+        if name is None:
+            print("T-stub:")
+        else:
+            print("Tstub (" + name + "): ")
+    
+        print("tf = {0:4.2f}".format(self.tf))
+        print("emin = {0:4.2f}".format(self.emin))
+        print("m = {0:4.2f}".format(self.m))
+        
     @property
     def fy(self):
         return self.mat.fy
@@ -312,170 +810,304 @@ class TStub:
     @property
     def n(self):
         return min(self.emin,1.25*self.m)
+            
+    def leff(self):
+        """ Returns the effective width corresponding
+            to the governing failure mode
+            
+        """
         
+        """ If no failure mode has been detected,
+            calculate resistance of the T-stub
+        """
+        if self.failure_mode == -1:
+            self.FT_Rd()
+         
+        if self.failure_mode == 0:
+            """ Complete mechanism governs """
+            leff = self._leff[0]
+        elif self.failure_mode == 1:
+            """ Flange yield with bold failure governs """
+            leff = self._leff[1]
+        else:
+            """ Bolt tension resistance governs 
+                NOTE! This is not clear!
+            """
+            leff = self._leff[1]
+        
+        return leff
     
+    @property
     def leff_1(self):
-        pass
+        """ Effective length for Mode 1 """
+            
+        self._leff[0] = min(self.leff_cp,self.leff_nc)
+        
+        return self._leff[0]
     
+    @property
     def leff_2(self):
+        """ Effective length for Mode 2 """
+        
+        self._leff[1] = self.leff_nc
+        
+        return self._leff[1]
+    
+    @property
+    def leff_nc(self):
+        """ Non-circular yield line patterns """
         pass
     
+    @property
+    def leff_cp(self):
+        """ Circular yield line patterns """
+        pass
+    
+    def leff_nc_as_group(self,position=None):
+        pass
+    
+    def leff_cp_as_group(self,position=None):
+        pass
+    
+    @property
     def MplRd_1(self):
         """ Plastic moment of mode 1 """
         
-        return 0.25*self.leff_1()*self.tf**2*self.fy/gammaM0
+        return 0.25*self.leff_1*self.tf**2*self.fy/gammaM0
     
+    @property
     def MplRd_2(self):
         """ Plastic moment of mode 2 """
         
-        return 0.25*self.leff_2()*self.tf**2*self.fy/gammaM0
+        return 0.25*self.leff_2*self.tf**2*self.fy/gammaM0
 
     def F_T_1_Rd(self):
         """ Tension resistance of mode 1 """
-        return 4*self.MplRd_1()/self.m
+        return 4*self.MplRd_1/self.m
     
     def F_T_2_Rd(self):
         """ Tension resistance of mode 2 """
-        return 4*self.MplRd_1()/self.m
+        return (2*self.MplRd_2 + self.n*self.F_T_3_Rd())/(self.m+self.n)
+        
+    def F_T_3_Rd(self):
+        """ Tension resistance of mode 3 
+            Bolt failure
+        """
+        #FRd = 0.0
+        
+        return self.bolts.bolts*self.bolts.bolt.tension_resistance()
+        
+        """
+        for bolt in self.bolts:
+            FRd += bolt.tension_resistance()
+            
+        return FRd
+        """
+    def FT_Rd(self,verb):
+        """ Design tension resistance """
+        
+        FT_Rd = np.array([0.0,0.0,0.0])
+        
+        FT_Rd[0] = self.F_T_1_Rd()
+        FT_Rd[1] = self.F_T_2_Rd()
+        FT_Rd[2] = self.F_T_3_Rd()
+        
+        if verb:
+            for i, FRd in enumerate(FT_Rd):
+                print("FT_{0:1.0f}_Rd = {1:4.2f} kN".format(i+1,FRd*1e-3))
+        
+        fmode = np.argmin(FT_Rd)
+        self.failure_mode = fmode
+        
+        return FT_Rd[fmode]
 
 class TStubColumnFlange(TStub):
     """ T-stub for column flange """
     
-    def __init__(self,bolts,material,tf,emin,m,e1=math.inf,p=0):
+    #def __init__(self,bolts,row_loc,material,tf,e,emin,m,e1=math.inf,p=0):
+    def __init__(self,bolt_row,material,tf,e,emin,m,e1=math.inf,p=0):
         """ Constructor
             
             Attributes:
                 e1 .. distance of end bolt row from column end
+                e .. distance of column flange edge from bolt hole center
                 p .. distance to the next bolt row
         """
         
-        super().__init__(bolts,material,tf,emin,m)
+        #super().__init__(bolts,row_loc,material,tf,emin,m)
+        super().__init__(bolt_row,material,tf,emin,m)
         self.e1 = e1
+        self.e = e
         self.p = p
-        
-    def leff_cp(self,row_loc="inner",as_group=False):
+    
+    
+    @property
+    def leff_cp(self):
         """ circular pattern """
         
-        if row_loc == "inner":
-            if as_group:
-                leff = 2*self.p
-            else:
-                leff = 2*math.pi*self.m
-        elif row_loc == "end":
-            if as_group:
-                leff = min(math.pi*self.m+self.p,2*self.e1+self.p)            
-            else:
-                leff = min(2*math.pi*self.m,math.pi*self.m+2*self.e1)
+        """ Treat row individually """
+        if self.bolts.loc_col_flange == INNER_ROW:                
+            leff = 2*math.pi*self.m
+        elif self.bolts.loc_col_flange == END_ROW:
+            leff = min(2*math.pi*self.m,math.pi*self.m+2*self.e1)
             
         return leff
 
-    def leff_nc(self,row_loc="inner",as_group=False):        
+    @property
+    def leff_nc(self):        
         """ non-circular pattern """
         
-        if row_loc == "inner":
-            if as_group:
-                leff = self.p
-            else:
-                leff = 4*self.m + 1.25*self.e            
-        elif row_loc == "end":
-            if as_group:
-                leff = min(2*self.m+0.625*self.e+0.5*self.p,self.e1+0.5*self.p)
-            else:
-                leff = min(4*self.m + 1.25*self.e,2*self.m + 0.625*self.e + self.e1)
+        if self.bolts.loc_col_flange == INNER_ROW:
+            leff = 4*self.m + 1.25*self.e            
+        elif self.bolts.loc_col_flange == END_ROW:
+            leff = min(4*self.m + 1.25*self.e,2*self.m + 0.625*self.e + self.e1)
 
         return leff
-    
-    def leff_1(self,row_loc="inner",as_group=False):
-        """ Effective length for Mode 1 """
-        
-        return min(self.leff_cp(row_loc,as_group),self.leff_nc(row_loc,as_group))
 
-    def leff_2(self,row_loc="inner",as_group=False):
-        """ Effective length for Mode 2 """
+    def leff_cp_as_group(self,position=None):
+        """ circular pattern for bolt row considered as part of a group """
+        """ Treat row as in a bolt row group """
+        if position is None:
+            position = self.bolts.group_loc_flange
         
-        return self.leff_nc(row_loc,as_group)
+        
+        if position == INNER_ROW:
+            leff = 2*self.p
+        elif position == END_ROW:                        
+            leff = min(math.pi*self.m+self.p,2*self.e1+self.p) 
+            
+        return leff
     
-
+    def leff_nc_as_group(self,position=None):
+        """ non-circular pattern """
+        if position is None:
+            position = self.bolts.group_loc_flange
+        
+        #print(position)
+        
+        if position == INNER_ROW:
+            leff = self.p
+        elif position == END_ROW:
+            leff = min(2*self.m+0.625*self.e+0.5*self.p, self.e1+0.5*self.p)    
+        
+        return leff
+        
 class TStubEndPlate(TStub):
     """ T-stub for end plate in bending """
     
-    def __init__(self,bolts,material,tf,emin,m,e,w,p=0):
+    #def __init__(self,bolts,row_loc,material,tf,emin,m,e,w,bp,p=0):
+    def __init__(self,bolt_row,material,tf,emin,m,e,w,bp,p=0):
         """ Constructor
             
             Attributes:
-                e1 .. distance of end bolt row from column end
+                tf .. end plate thickness
+                emin .. 'ex' for end plate extension and value from Fig. 6.8 of EN 1993-1-8 otherwise
+                m .. distance from beam web to bolt hole center
+                e .. distancef from bolt hole center to plate edge
+                w .. distance between bolts in the row
                 p .. distance to the next bolt row
+                bp .. width of end plate
         """
         
-        super().__init__(bolts,material,tf,emin,m,m2=0)
-        self.e1 = e1
+        super().__init__(bolt_row,material,tf,emin,m)
+        self.e = e
         self.p = p
+        self.w = w
+        self.m2 = 0
+        self.bp = bp
+    
+    def info(self):
+        """ Prints relevant info """
         
-    def leff_cp(self,row_loc="inner",as_group=False):
+        super().info("end plate")
+        
+        print("e = {0:4.2f}".format(self.e))
+        print("w = {0:4.2f}".format(self.w))
+        
+    
+    @property
+    def leff_cp(self):
         """ circular pattern """
         
-        if row_loc == "outside":
-            if as_group:
-                leff = 0
-            else:
-                leff = min(2*math.pi*self.m,math.pi*m+w,math.pi*m+2*e)
-        elif row_loc == "first_below":
-            if as_group:
-                leff = math.pi*self.m+self.p
-            else:
-                leff = 2*math.pi*self.m
-        elif row_loc == "other_inner":
-            if as_group:
-                leff = 2*self.p
-            else:
-                leff = 2*math.pi*self.m
-        elif row_low == "end":
-            if as_group:
-                leff = math.pi*self.m + self.p
-            else:
-                leff = 2*math.pi*self.m
+        if self.bolts.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            """ self.m is the 'mx' and
+                self.e is the 'ex' 
+                    
+                of Table 6.6. of EN 1993-1-8
+            """
+            leff = min(2*math.pi*self.m,math.pi*self.m+self.w,math.pi*self.m+2*self.e)
+        elif self.bolts.loc_end_plate == FIRST_ROW_BELOW_BEAM_TENSION_FLANGE:
+            leff = 2*math.pi*self.m
+        elif self.bolts.loc_end_plate == OTHER_INNER_ROW:
+            leff = 2*math.pi*self.m
+        elif self.bolts.loc_end_plate == OTHER_END_ROW:
+            leff = 2*math.pi*self.m
             
         return leff
 
-    def leff_nc(self,row_loc="inner",as_group=False):        
+    @property
+    def leff_nc(self):        
         """ non-circular pattern """
         
-        if row_loc == "outside":
-            if as_group:
-                leff = self.p
-            else:
-                leff = 4*self.m + 1.25*self.e            
-        elif row_loc == "first_below":
+        if self.bolts.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            leff = min(4*self.m + 1.25*self.emin,
+                       self.e+2*self.m+0.625*self.emin,
+                       0.5*self.bp,
+                       0.5*self.w+2*self.m+0.625*self.emin)
+        elif self.bolts.loc_end_plate == FIRST_ROW_BELOW_BEAM_TENSION_FLANGE:
             lambda1 = self.m/(self.m+self.e)
             lambda2 = self.m2/(self.m+self.e)
+            
+            #print(lambda1,lambda2)
             alpha = cm.par_alfa(lambda1, lambda2)
-            if as_group:
-                leff = 0.5*self.p + alpha*self.m -(2*self.m+0.625*self.e)
-            else:
-                leff = alpha*self.m
-        elif row_loc == "other_inner":
-            if as_group:
-                leff = self.p
-            else:
-                leff = 4*self.m+1.25*self.e
-        elif row_low == "end":
-            if as_group:
-                leff = math.pi*self.m + self.p
-            else:
-                leff = 2*self.m+0.625*self.e + 0.5*self.p
+            #print(alpha)
+            
+            leff = alpha*self.m
+        elif self.bolts.loc_end_plate == OTHER_INNER_ROW:           
+            leff = 4*self.m+1.25*self.e
+        elif self.bolts.loc_end_plate == OTHER_END_ROW:
+            leff = 4*self.m + 1.25*self.e
 
         return leff
     
-    def leff_1(self,row_loc="inner",as_group=False):
-        """ Effective length for Mode 1 """
+    def leff_cp_as_group(self,position=None):
         
-        return min(self.leff_cp(row_loc,as_group),self.leff_nc(row_loc,as_group))
-
-    def leff_2(self,row_loc="inner",as_group=False):
-        """ Effective length for Mode 2 """
+        if position is None:
+            position = self.bolts.group_loc_plate
         
-        return self.leff_nc(row_loc,as_group)
+        if position == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            leff = 0.0
+        elif position == FIRST_ROW_BELOW_BEAM_TENSION_FLANGE:
+            leff = math.pi*self.m+self.p
+        elif position == OTHER_INNER_ROW:
+            leff = 2*self.p
+        elif position == OTHER_END_ROW:
+            leff = math.pi*self.m + self.p
+        
+        return leff
     
+    def leff_nc_as_group(self,position=None):
+        
+        if position is None:
+            position = self.bolts.group_loc_plate
+        
+        if position == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            leff = self.p
+        elif position == FIRST_ROW_BELOW_BEAM_TENSION_FLANGE:
+            lambda1 = self.m/(self.m+self.e)
+            lambda2 = self.m2/(self.m+self.e)   
+            
+            #print(lambda1,lambda2)
+            alpha = cm.par_alfa(lambda1, lambda2)
+            leff = 0.5*self.p + alpha*self.m -(2*self.m+0.625*self.e)                
+            #print(alpha,self.p,self.m,self.e,leff)
+        elif position == OTHER_INNER_ROW:
+            leff = self.p
+        elif position == OTHER_END_ROW:
+            leff = 2*self.m+0.625*self.e + 0.5*self.p
+        
+        return leff
+        
 def block_tearing(fy,fu,Ant,Anv,concentric_load=True,verb=False):
     """ Check block tearing resistance 
         fy .. yield strength of the plate [MPa]
@@ -497,6 +1129,292 @@ def block_tearing(fy,fu,Ant,Anv,concentric_load=True,verb=False):
     
     return Veff
     
+class TStubGroup:
+    """ Class for T-stubs for bolt row groups """
+    
+    def __init__(self,row_group):
+        """ Constructor
+            input:
+                row_group .. BoltRowGroup object that constitutes the T-stub
+        """
+        
+        self.group = row_group
+        
+        self.failure_mode = -1
+        
+        self._leff = np.array([-1.0,-1.0])
+    
+    @property
+    def fy(self):
+        pass
+    
+    @property
+    def tf(self):
+        """ Thickness of the flange of the T-stub """
+        pass
+    
+    def n(self):
+        pass
+    
+    def m(self):
+        pass
+        
+    def leff(self):
+        """ Returns the effective width of the T-stub
+        """
+        
+        """ If no failure mode has been detected,
+            calculate resistance of the T-stub
+        """
+        if self.failure_mode == -1:
+            self.FT_Rd()
+         
+        if self.failure_mode == 0:
+            """ Complete mechanism governs """
+            leff = self._leff[0]
+        elif self.failure_mode == 1:
+            """ Flange yield with bold failure governs """
+            leff = self._leff[1]
+        else:
+            """ Bolt tension resistance governs 
+                NOTE! This is not clear!
+            """
+            leff = self._leff[1]
+        
+        return leff
+    
+    @property
+    def leff_1(self):
+        """ Effective length for Mode 1 """
+            
+        self._leff[0] = min(self.leff_cp,self.leff_nc)
+        
+        return self._leff[0]
+    
+    @property
+    def leff_2(self):
+        """ Effective length for Mode 2 """
+        
+        self._leff[1] = self.leff_nc
+        
+        return self._leff[1]
+    
+    @property
+    def leff_nc(self):
+        """ Non-circular yield line patterns """
+        pass
+    
+    @property
+    def leff_cp(self):
+        """ Circular yield line patterns """
+        pass
+    
+    def leff_nc_as_group(self):
+        pass
+    
+    def leff_cp_as_group(self):
+        pass
+    
+    @property
+    def MplRd_1(self):
+        """ Plastic moment of mode 1 """
+        
+        return 0.25*self.leff_1*self.tf**2*self.fy/gammaM0
+    
+    @property
+    def MplRd_2(self):
+        """ Plastic moment of mode 2 """
+        
+        return 0.25*self.leff_2*self.tf**2*self.fy/gammaM0
+
+    def F_T_1_Rd(self):
+        """ Tension resistance of mode 1 """
+        return 4*self.MplRd_1/self.m
+    
+    def F_T_2_Rd(self):
+        """ Tension resistance of mode 2 """
+        return (2*self.MplRd_2 + self.n*self.F_T_3_Rd())/(self.m+self.n)
+        
+    def F_T_3_Rd(self):
+        """ Tension resistance of mode 3 
+            Bolt failure
+        """
+        FRd = 0.0
+        
+        for row in self.group.rows:
+            FRd += row.bolts*row.bolt.tension_resistance()
+            
+        return FRd
+    
+    def FT_Rd(self,verb):
+        """ Design tension resistance """
+        
+        FT_Rd = np.array([0.0,0.0,0.0])
+        
+        FT_Rd[0] = self.F_T_1_Rd()
+        FT_Rd[1] = self.F_T_2_Rd()
+        FT_Rd[2] = self.F_T_3_Rd()
+        
+        if verb:
+            for i, FRd in enumerate(FT_Rd):
+                print("FT_{0:1.0f}_Rd = {1:4.2f} kN".format(i+1,FRd*1e-3))
+        
+        fmode = np.argmin(FT_Rd)
+        self.failure_mode = fmode
+        
+        return FT_Rd[fmode]
+    
+class TStubGroupColumnFlange(TStubGroup):
+    """ Class for T-stub of a bolt row group for the
+        component 'column flange in bending'
+    """
+    
+    def __init__(self,row_group):
+        """ Constructor """
+        
+        super().__init__(row_group)        
+        
+    
+    @property
+    def fy(self):
+        return self.group.rows[0].Tstub_col_flange.mat.fy
+    
+    @property
+    def tf(self):
+        return self.group.rows[0].Tstub_col_flange.tf
+        
+    @property
+    def n(self):
+        
+        return self.group.rows[0].Tstub_col_flange.n
+    
+    @property
+    def m(self):
+        
+        return self.group.rows[0].Tstub_col_flange.m
+    
+    @property
+    def leff_nc(self):
+    
+        leff_nc = 0.0
+        
+        for i, row in enumerate(self.group.rows):
+            position = self.group.row_loc[i]['flange']
+            if position == END_ROW:
+                if i == 0:
+                    row.Tstub_col_flange.p = self.group.p[i]
+                else:
+                    row.Tstub_col_flange.p = self.group.p[i-1]
+            elif position == INNER_ROW:
+                row.Tstub_col_flange.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+            
+            #print("p = ",row.Tstub_col_flange.p)
+            
+            leff_nc += row.Tstub_col_flange.leff_nc_as_group(position)
+            #print(leff_nc)
+        
+        return leff_nc
+    
+    @property
+    def leff_cp(self):
+        
+        leff_cp = 0.0
+        
+        for i, row in enumerate(self.group.rows):
+            position = self.group.row_loc[i]['flange']
+            
+            if position == END_ROW:
+                if i == 0:
+                    row.Tstub_col_flange.p = self.group.p[i]
+                else:
+                    row.Tstub_col_flange.p = self.group.p[i-1]
+            elif position == INNER_ROW:
+                row.Tstub_col_flange.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+            
+            leff_cp += row.Tstub_col_flange.leff_cp_as_group(position)
+        
+        return leff_cp
+    
+   
+    
+class TStubGroupEndPlate(TStubGroup):
+    """ Class for T-stub of a bolt row group for the
+        component 'end plate in bending'
+    """
+    
+    def __init__(self,row_group):
+        """ Constructor """
+        
+        super().__init__(row_group)
+    
+    @property
+    def fy(self):
+        return self.group.rows[0].Tstub_end_plate.mat.fy
+    
+    @property
+    def tf(self):
+        return self.group.rows[0].Tstub_end_plate.tf
+        
+    @property
+    def n(self):
+        
+        return self.group.rows[0].Tstub_end_plate.n
+    
+    @property
+    def m(self):
+        
+        return self.group.rows[0].Tstub_end_plate.m
+    
+    @property
+    def leff_nc(self):
+    
+        leff_nc = 0.0
+        
+        for i, row in enumerate(self.group.rows):
+            position = self.group.row_loc[i]['plate']
+            if position == FIRST_ROW_BELOW_BEAM_TENSION_FLANGE:
+                """ First row below tension flange is always
+                    the first in any group
+                """
+                row.Tstub_end_plate.p = self.group.p[i]
+            elif position == OTHER_END_ROW:
+                """ Other inner row can be the first in a group
+                    or the last
+                """
+                if i == 0:
+                    """ Row is the first in a group """
+                    row.Tstub_end_plate.p = self.group.p[i]
+                else:
+                    """ Row is the last in a group """
+                    row.Tstub_end_plate.p = self.group.p[i-1]
+                    
+            elif position == OTHER_INNER_ROW:
+                row.Tstub_end_plate.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+                
+            leff_nc += row.Tstub_end_plate.leff_nc_as_group(position)
+            #print(leff_nc)
+        
+        return leff_nc
+    
+    @property
+    def leff_cp(self):
+        
+        leff_cp = 0.0
+        
+        for i, row in enumerate(self.group.rows):
+            position = self.group.row_loc[i]['plate']
+            
+            if position == END_ROW:
+                if i == 0:
+                    row.Tstub_end_plate.p = self.group.p[i]
+                else:
+                    row.Tstub_end_plate.p = self.group.p[i-1]
+            elif position == INNER_ROW:
+                row.Tstub_end_plate.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+            
+            leff_cp += row.Tstub_end_plate.leff_cp_as_group(position)
+        
+        return leff_cp
 
     
 def bolt_shear_resistance(fub,A,bolt_class=8.8,threads_in_plane=False):

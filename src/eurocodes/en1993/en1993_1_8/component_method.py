@@ -15,6 +15,7 @@ from eurocodes.en1993.constants import gammaM0, gammaM1
 def min_coeff_w(beta, b_eff_c_wc, t_wc, A_vc):
     w = 0.0
 
+    #print("beff_c_wc = ",b_eff_c_wc)
     w_1 = 1.0/(sqrt(1.0 + 1.3*(b_eff_c_wc*t_wc/A_vc)**2.0))
     w_2 = 1.0/(sqrt(1.0 + 5.2*(b_eff_c_wc*t_wc/A_vc)**2.0))
 
@@ -72,11 +73,20 @@ def col_web_shear(column):
     """ Column web panel in shear, 6.2.6.1, 6.3.2
         Input: column .. steel_section class object
     """
-    f_y_wc = column.fy                                   # Yield strength of column material
-    A_vc = column.Ashear                                     # Shear area of column web
+    f_y_wc = column.fy    # Yield strength of column
+    A_vc = column.Ashear  # Shear area of column web
 
     # Calculating column web panel shear capacity
     return  0.9*f_y_wc*A_vc/sqrt(3.0)/gammaM0
+
+def col_web_shear_k(column,beta,z):
+    """ Stiffness factor for Column web panel in shear
+        Input: column .. steel_section class object
+               beta .. transformation parameter
+               z .. moment arm of the connection               
+    """   
+    A_vc = column.Ashear  # Shear area of column web
+    return 0.38*A_vc/beta/z    
 
 def beam_web_compression(beam):
     """ Beam web in transverse compression:
@@ -87,6 +97,7 @@ def beam_web_compression(beam):
     """
     McRd = beam.MRd[0]
     return McRd/(beam.h-beam.tf)
+
     
 def beam_web_tension(beam,beff):
     """ Beam web in tension:
@@ -98,7 +109,7 @@ def beam_web_tension(beam,beff):
                     (6.2.6.5)
     """
     return beff*beam.tw*beam.fy/gammaM0
-    
+
 def Tstub_compression_flange(fjd,beff,leff):
     """ Compression resistance of T-stub flange
         EN 1993-1-8, Eq. (6.4)
@@ -145,6 +156,12 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     s = r_c
     b_eff_c_wc = t_fb+2.0*sqrt(2.0)*a_p+5.0*(t_fc+s)+s_p
 
+    """
+    print("tbf = {0:4.2f}".format(t_fb))
+    print("weld = {0:4.2f}".format(2*sqrt(2.0)*a_p))
+    print("5.0*(t_fc+s) = {0:4.2f}".format(5.0*(t_fc+s)))
+    print("s_p= {0:4.2f}".format(s_p))
+    """
     # Slenderness of column web
     lam_p = 0.932*sqrt((b_eff_c_wc*d_wc*f_y_wc)/(E*t_wc**2.0))
 
@@ -154,6 +171,7 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     else:
         rho = (lam_p-0.2)/(lam_p**2.0)
 
+    #print("rho = {0:4.3f}".format(rho))
     # Reduction factor
     w = min_coeff_w(beta, b_eff_c_wc, t_wc, A_vc)
 
@@ -169,10 +187,17 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
 
     return F_c_wc_Rd, b_eff_c_wc
 
+def col_web_trv_comp_k(column,beff):
+    """ Stiffness of column web in compression """
+    d_wc = column.hw
+    t_wc = column.tw
+    
+    return 0.7*beff*t_wc/d_wc
 
-def column_web_tension(column, l_eff, beta):# l_eff_1f, l_eff_2f):
+
+def column_web_tension(column, l_eff, beta,verb=False):# l_eff_1f, l_eff_2f):
     """ Column web in transverse tension, 6.2.6.3, 6.3.2
-        
+        NOTE! l_eff is the effective length of column flange in bending component
     """
     # Connection using screws
     # Column information
@@ -181,12 +206,64 @@ def column_web_tension(column, l_eff, beta):# l_eff_1f, l_eff_2f):
     f_y_wc = column.fy  # Yield strength of column material
 
     # Effective width of column web in tension
-    b_eff_t_wc = min(l_eff)
+    # This is equal to the effective length of the T-stub
+    # representing column flange.
+    b_eff_t_wc = l_eff
 
     # Reduction factor
     w = min_coeff_w(beta, b_eff_t_wc, t_wc, A_vc)
+
+    if verb:
+        print("w = {0:5.5f}".format(w))
+        print("t_wc = {0:4.3f}".format(t_wc))
+        print("b_eff_tw = {0:4.3f}".format(b_eff_t_wc))
+        print("f_y_wc = {0:4.3f}".format(f_y_wc))
+        
 
     # Calculating design resistance of unstiffened column web subject to transverse tension
     F_t_wc_Rd = (w*b_eff_t_wc*t_wc*f_y_wc)/gammaM0
     
     return F_t_wc_Rd
+
+def column_web_tension_k(column,beff):
+    """ Stiffness of column web in compression """
+    d_wc = column.hw
+    t_wc = column.tw
+    
+    return 0.7*beff*t_wc/d_wc
+
+def column_flange_bending(Tstub,verb=False):
+    """ Column flange in bending, 6.2.6.4
+        input:
+            Tstub .. TStubColumnFlange object containing all the relevant information
+            
+    """
+    
+    return Tstub.FT_Rd(verb)
+
+def column_flange_bending_k(column,leff,m):
+    """ Column flange in bending
+    
+    """
+    return 0.9*leff*column.tf**3/m**3
+
+def end_plate_bending(Tstub,verb=False):
+    """ End plate in bending, 6.2.6.5
+        input:
+            Tstub .. TStubEndPlate object containing all the relevant information
+            
+    """
+    
+    return Tstub.FT_Rd(verb)
+
+def end_plate_bending_k(tp,leff,m):
+    """ Column flange in bending
+    
+    """
+    return 0.9*leff*tp**3/m**3
+
+def bolt_row_tension_k(As,Lb):
+    """ Bolt row in tension (for two bolts in a row)
+    """
+    
+    return 1.6*As/Lb

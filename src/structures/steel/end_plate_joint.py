@@ -7,12 +7,14 @@ Created on Wed Dec 11 19:41:00 2019
 
 
 import math
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as lines
 
 from plates import RectPlate
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import BoltRow
+from eurocodes.en1993.en1993_1_8.en1993_1_8 import BoltRow, BoltRowGroup
+from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW, INNER_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, OTHER_END_ROW
 import eurocodes.en1993.en1993_1_8.component_method as cm
 
 class EndPlateJoint:
@@ -20,7 +22,8 @@ class EndPlateJoint:
     
     
     
-    def __init__(self,column,beam,tp,bp,mat_p,etop,ebottom,bolt,y_bolts,e_bolts):
+    def __init__(self,column,beam,tp,bp,mat_p,etop,ebottom,bolt,y_bolts,e_bolts,
+                 bolt_row_pos, groups=[],group_pos=None):
         """ Contructor
             Input:
                 column .. ISection or WISection profile
@@ -32,7 +35,16 @@ class EndPlateJoint:
                 bolt .. Bolt class object
                 y_bolts .. array of vertical positions of bolt rows
                            (origin is located in the centroid of the beam)
-                e_bolts .. edge distance of bolts (from centroid) [mm[]]
+                e_bolts .. edge distance of bolts (from centroid of bolt hole)
+                            measured to the edge of the end plate [mm]
+                bolt_row_pos .. list of dicts notifying the position of the row
+                                for column flange in bending and end plate in bending
+                                components
+                                {"flange": flange_pos, "plate": plate_pos}
+                groups .. list of bolt row groups
+                group_pos . list of bolt row positions in groups
+                    group_pos[i] is a list of length of the number of bolt rows in group 'i'.
+                    each item in this list is a bolt row position code, e.g. INNER_ROW, see en1993_1_8.py
         """
         
         self.col = column
@@ -42,12 +54,13 @@ class EndPlateJoint:
         hp = etop + ebottom + beam.h        
 
         
-        self.end_plate = RectPlate(bp,hp,tp,material="S355")
+        self.end_plate = RectPlate(bp,hp,tp,material=mat_p)
         self.etop = etop
         self.ebottom = ebottom
         self.ebolts = e_bolts        
         # Make bolt rows
         self.bolt_rows = []
+        self.row_groups = []
         
         # Beam flange weld, throat thickness [mm] (to plate)
         self.weld_f = 5
@@ -55,13 +68,81 @@ class EndPlateJoint:
         self.weld_w = 5
         
         # Plate to column weld, throat thickness [mm]
+        # Only, if the plate is welded to the column, i.e. no bolts
         self.weld_p = 5
         
+        # Distance between centroids of bolts in a row (equal for all rows)
         self.p = bp-2*e_bolts
+        
+        # Geometrical properties
+        
         # Create bolt rows
-        for y in y_bolts:
-            self.bolt_rows.append(BoltRow(bolt,self.p,y))
+        for y, row_pos in zip(y_bolts,bolt_row_pos):
+            """ Determine location of bolt row with respect to
+                column flange in bending and
+                end plate in bending components
+            """
+            flange_pos = row_pos["flange"]
+            end_plate_pos = row_pos["plate"]
             
+            """
+            if y > 0.5*beam.h:
+                "" Row is above the beam, so it is an end row
+                    for column flange and row outside beam tension
+                    flange for end plate
+                ""
+                flange_pos = END_ROW
+                end_plate_pos = ROW_OUTSIDE_BEAM_TENSION_FLANGE
+                
+            else:
+                "" Rows below top (tension) flange of the beam:
+                    There are several possibilities:
+                        - only one bolt row below the beam flange
+                        - more than one rows below the beam flange
+                        - 
+                ""
+            """
+            self.bolt_rows.append(BoltRow(bolt,self.p,y,flange_pos,end_plate_pos,joint=self))
+    
+        # Create bolt row groups
+        for i, group in enumerate(groups):
+            self.row_groups.append(BoltRowGroup([self.bolt_rows[g] for g in group],
+                                                group_pos[i])
+                                   )
+    
+    @property
+    def zc(self):
+        """ Center of compression: located at the center line of the bottom flange
+            of the beam
+        """
+        return -0.5*(self.beam.h-self.beam.tf)
+        
+    
+    @property
+    def bp(self):
+        """ Width of end plate """
+        return self.end_plate.b
+    
+    @property
+    def tp(self):
+        """ Thickness of end plate """
+        return self.end_plate.t
+    
+    def emin(self,end_plate_extension=False):
+        """ Distance emin used for T-stubs 
+            See EN 1993-1-8, 
+            6.2.6.4.1(2) for unstiffened column flange
+            6.2.6.4.2(4) for stiffened column flange, and
+            6.2.6.5(3) for end plates
+            
+            They all refer to Fig. 6.8. of EN 1993-1-8
+            
+        """
+        
+        if end_plate_extension:
+            emin = self.ex()
+        
+        
     @property
     def beta(self):
         """ Effect of shear in the column web to moment resistance of the joint 
@@ -79,12 +160,105 @@ class EndPlateJoint:
         
         # Calculate compression stre
         sigma_com_Ed = self.col.sigma_com()
-        Fc_wc_Rd, beff_wc_Rd = cm.col_web_trv_comp(self.col, self.beam, self.end_plate.t, self.ebottom, self.weld_p, self.beta, sigma_com_Ed)
+        Fc_wc_Rd, beff_wc_Rd = cm.col_web_trv_comp(self.col, self.beam, self.end_plate.t, self.ebottom, self.weld_f, self.beta, sigma_com_Ed)
+        print("beff_wc_Rd = {0:4.2f} mm".format(beff_wc_Rd))
         return Fc_wc_Rd
     
     def Fc_fb_Rd(self):
         """ Beam flange and web in compression """        
         return cm.beam_web_compression(self.beam)
+    
+    def MjRd(self,verb=False):
+        """ Bending moment resistance """
+        
+        # Calculate column web shear resistance
+        # and compression resistances
+        V_wp_Rd = self.V_wp_Rd()
+        Fc_wc_Rd = self.Fc_wc_Rd()
+        Fc_fb_Rd = self.Fc_fb_Rd()
+        
+        Fcom_Rd = min(V_wp_Rd/self.beta,Fc_wc_Rd,Fc_fb_Rd)
+        
+        # Sum of tension forces in the bolt rows
+        Ft_total = 0.0
+        
+        # Calculate resistances of bolt rows
+        for i, row in enumerate(self.bolt_rows):
+            if verb:
+                print("  ** ROW {0:1.0f} **".format(i+1))
+    
+            FtRd = row.tension_resistance(verb)
+            
+            """ The total force in the bolt rows, including
+                the current bolt row, cannot exceed the
+                compression resistance (including shear of column web panel)
+                of the joint
+            """
+            row.FtRd = min(FtRd,Fcom_Rd-Ft_total)
+            
+            Ft_total += row.FtRd
+            
+            """ Check if the tension force in the row
+                Needs to be reduced due to compression side
+                or shear resistance in the column web
+            """
+            
+        for row in self.bolt_rows:
+            print("FtRd = {0:4.2f} kN".format(row.FtRd*1e-3))
+            
+        # Calculate resistances of bolt row groups 
+        if verb:
+            print("*** BOLT ROW GROUPS ***")
+        
+        for i, group in enumerate(self.row_groups):
+            if verb:
+                print("  * GROUP {0:4.0f} * ".format(i))
+    
+            Ft_group = group.tension_resistance(verb)
+            # TODO: REDUCE RESISTANCE OF ROWS BASED ON Ft
+            Ft_tot = sum([row.FtRd for row in group.rows])
+            
+            if verb:
+                print("Ft_Group = {0:4.2f} kN".format(Ft_group*1e-3))
+                print("Ft_rows = {0:4.2f} kN".format(Ft_tot*1e-3))
+            
+            if Ft_group < Ft_tot:
+                print("Need to reduce strength of rows")
+        
+        MjRd = 0.0
+        for row in self.bolt_rows:
+            MjRd += row.FtRd * row.h
+        
+        if verb:
+            print("MjRd = {0:4.2f} kNm".format(MjRd*1e-6))
+        
+        return MjRd
+
+    def keq(self,verb=False):
+        """ Equivalent stiffness of the tension rows """
+        keff = np.array([row.keff() for row in self.bolt_rows])
+        hr = np.array([row.h for row in self.bolt_rows])
+    
+        return sum(keff*hr)/self.zeq(verb)
+    
+    def zeq(self,verb=False):
+        """ Equivalent moment arm """
+        zeq = 0.0
+        
+        keff = np.array([row.keff() for row in self.bolt_rows])
+        hr = np.array([row.h for row in self.bolt_rows])
+        
+        zeq = sum(keff*hr**2)/sum(keff*hr)
+        
+        return zeq
+            
+
+
+    def Sj_ini(self,verb=False):
+        """ Initial rotational stiffness """
+        pass
+        
+            
     
     def info(self,draw=False):
         """ Print relevant information of the joint """
@@ -188,6 +362,8 @@ class EndPlateJoint:
         ax_side.set_aspect('equal', 'datalim')
         
         
+        ax_side.set_axis_off()
+        
         """ Draw front view """
         ax_front = ax[1]
         
@@ -237,68 +413,8 @@ class EndPlateJoint:
             #ax_front.plot([0.5 * w - 0.6 * d_m, 0.5 * w + 0.6 * d_m], [z, z], 'b-.', linewidth=0.6, zorder=5)
         
         ax_front.set_aspect('equal', 'datalim')
-        """
         
-        # Origin is located at the bottom of the steel profile center line
-        hp, bp, tp = self.plate.h, self.plate.b, self.plate.t
-        base_plate = patches.Rectangle((-0.5*hp, -tp), width=hp, height=tp, fill=False, hatch='\\')
-        
-        base_plate_plan = patches.Rectangle((-0.5*hp, -0.5*bp), width=hp,
-                                       height=bp, fill=False, hatch='//')
-        
-        
-        # Draw bolts
-        dbolt = self.anchor_bolt.d
-        lbolt = self.anchor_bolt.L
-        left_bolt = patches.Rectangle((self.xb[0]-0.5*dbolt, -tp-lbolt), width=dbolt,
-                                       height=lbolt+tp, fill=True)
-        
-        right_bolt = patches.Rectangle((self.xb[1]-0.5*dbolt, -tp-lbolt), width=dbolt,
-                                       height=lbolt+tp, fill=True)
-        """
-        
-        """
-        ax[0].add_patch(base_plate)
-        h = self.column.h
-        tf = self.column.tf
-        ax[0].vlines([-0.5*h,-0.5*h+tf,0.5*h,0.5*h-tf],0,ymax)
-        ax[0].vlines(0,0,ymax,linestyles='dashdot')
-        ax[0].add_patch(left_bolt)
-        ax[0].add_patch(right_bolt)
-        ax[0].set_xlim(-0.5*hp, 0.5*hp)
-        if self.anchor_bolt is None:
-            ymin = -self.plate.t
-        else:
-            ymin = -self.anchor_bolt.L
-        
-        ax[0].set_ylim(ymin, ymax)
-    
-        
-        ax[0].set_aspect('equal')
-        
-        xtick = ax[0].get_xticks()
-        #print(xtick)
-        
-         Draw connection from above 
-        ax[1].add_patch(base_plate_plan)
-        
-        # Draw column profile
-        
-        
-        # Draw bolts
-        xy_bolts = self.bolt_coord()
-
-        for xy in xy_bolts:
-            ax[1].add_patch(patches.Circle(xy,radius=0.5*dbolt,linestyle='solid'))
-
-        
-        ax[1].set_xticks(xtick)
-        #ax[1].set_xlim(-0.5*hp, 0.5*hp)
-        ax[1].set_ylim(-0.5*hp, 0.5*hp)
-        ax[1].set_aspect('equal')
-        
-        return ax
-        """
+        ax_front.set_axis_off()
 
 if __name__ == '__main__':
     
@@ -320,10 +436,38 @@ if __name__ == '__main__':
     y_bolts.append(hp-50-85-80-y0)
     y_bolts.append(hp-50-85-80-320-y0)
     
+    bolt_row_pos = [{"flange": END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                    {"flange": INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                    {"flange": END_ROW, "plate": OTHER_END_ROW},
+                    {"flange": END_ROW, "plate": OTHER_END_ROW},
+                    ]
+    bolt_row_groups = [[0,1],[0,1,2],[1,2]]
+    
+    # POSITION OF ROWS IN GROUPS
+    # For each row, position with respect to column flange and end plate are
+    # required.
+    group_pos = [[{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                  {"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE}
+                 ],
+                 [{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                  {"flange":INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                  {"flange":END_ROW, "plate": OTHER_END_ROW}
+                 ],
+                 [{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                  {"flange":END_ROW, "plate": OTHER_END_ROW}
+                 ]
+                 ]
     conn = EndPlateJoint(col,beam,tp=15,bp=bp,mat_p="S235",etop=85,\
                          ebottom=ebottom,bolt=bolt,y_bolts=y_bolts,\
-                         e_bolts=60)
+                         e_bolts=60,\
+                         bolt_row_pos=bolt_row_pos,
+                         groups=bolt_row_groups,
+                         group_pos=group_pos)
+        
+    conn.weld_f = 8
     
-    conn.info(draw=True)
+    conn.info(draw=False)
+    
+    conn.MjRd(True)
         
         
