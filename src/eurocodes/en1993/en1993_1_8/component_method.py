@@ -85,8 +85,7 @@ def col_web_shear_k(column,beta,z):
                beta .. transformation parameter
                z .. moment arm of the connection               
     """   
-    A_vc = column.Ashear  # Shear area of column web
-    return 0.38*A_vc/beta/z    
+    return 0.38*column.Ashear/beta/z    
 
 def beam_web_compression(beam):
     """ Beam web in transverse compression:
@@ -188,11 +187,9 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     return F_c_wc_Rd, b_eff_c_wc
 
 def col_web_trv_comp_k(column,beff):
-    """ Stiffness of column web in compression """
-    d_wc = column.hw
-    t_wc = column.tw
+    """ Stiffness of column web in compression """    
     
-    return 0.7*beff*t_wc/d_wc
+    return 0.7*beff*column.tw/column.hw
 
 
 def column_web_tension(column, l_eff, beta,verb=False):# l_eff_1f, l_eff_2f):
@@ -257,7 +254,7 @@ def end_plate_bending(Tstub,verb=False):
     return Tstub.FT_Rd(verb)
 
 def end_plate_bending_k(tp,leff,m):
-    """ Column flange in bending
+    """ End plate in bending
     
     """
     return 0.9*leff*tp**3/m**3

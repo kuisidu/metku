@@ -64,20 +64,25 @@ washer_size = {12: {"h": 2.5, "d1": 13, "d2": 24.0},
              36: {"h": 5.0, "d1": 37, "d2": 66.0},
              }
 
+""" Bolt row types """
+TENSION_ROW = 'tension row'
+SHEAR_ROW = 'shear row'
+COMBI_ROW = 'tension and shear row'
+
 """ Bolt row positions 
 
     1. Unstiffened column flange
 """
-INNER_ROW = 100
-END_ROW = 101
+INNER_ROW = 'Inner Row'
+END_ROW = 'End Row'
 """ 2. stiffened column flange """
-ADJACENT_TO_STIFFENER_ROW = 102
-OTHER_INNER_ROW = 103
-OTHER_END_ROW = 104
-END_ROW_ADJACENT_TO_STIFFENER = 105
+ADJACENT_TO_STIFFENER_ROW = "Adjacent to stiffener"
+OTHER_INNER_ROW = "Other inner row"
+OTHER_END_ROW = "Other end row"
+END_ROW_ADJACENT_TO_STIFFENER = "End row adjacent to stiffener"
 """ 3. end plate """
-ROW_OUTSIDE_BEAM_TENSION_FLANGE = 106
-FIRST_ROW_BELOW_BEAM_TENSION_FLANGE = 107
+ROW_OUTSIDE_BEAM_TENSION_FLANGE = "Outside beam tension flange"
+FIRST_ROW_BELOW_BEAM_TENSION_FLANGE = "First row below beam tension flange"
 
 import math
 import numpy as np
@@ -237,7 +242,7 @@ class BoltRow:
     
     """
     
-    def __init__(self,bolt,p,z,flange_loc=INNER_ROW, plate_loc=OTHER_INNER_ROW,joint=None):
+    def __init__(self,bolt,p,z,flange_loc=INNER_ROW, plate_loc=OTHER_INNER_ROW,joint=None, row_type=TENSION_ROW):
         """ Constructor
             input:
                 bolt .. Bolt class object defining the bolt
@@ -248,6 +253,7 @@ class BoltRow:
                 joint .. the joint object to which the bolt row belongs
         """
         
+        self.type = row_type
         self.bolt = bolt
         self.p = p
         self.z = z
@@ -284,8 +290,11 @@ class BoltRow:
         #self.Tstub_col_flange = TStubColumnFlange([bolt,bolt],flange_loc,self.joint.col.material,tf=10,e=20,emin=20,m=10)
         self.Tstub_col_flange = TStubColumnFlange(self,self.joint.col.material,tf=10,e=20,emin=20,m=10)
         self.Tstub_end_plate = TStubEndPlate(self,self.joint.end_plate.material,tf=10,emin=20,m=10,e=20,w=20,bp=self.joint.bp)
-        self.leff_flange = [0.0,0.0]
-        self.leff_plate = [0.0,0.0]
+        #self.leff_flange = [0.0,0.0]
+        #self.leff_plate = [0.0,0.0]
+        
+        
+        
         self.FtRd = -1.0
     
         # Dictionary of stiffness factors
@@ -293,11 +302,38 @@ class BoltRow:
                                   "col_flange": np.inf,
                                   "plate":np.inf,
                                   "bolt":1.6*self.bolt.As/self.Lb}
+        
+        # List of row groups that contain this row
+        # this list appended when bolt row groups are created.
+        self.groups = []
+    
+        # INITIALIZATION: CALCULATE VARIOUS GEOMETRIC QUANTITIES
+        
+        """ Effective length of column flange """
+        #self._leff_nc_flange = self.Tstub_col_flange.leff_nc()
+        #self._leff_cp_flange = self.Tstub_col_flange.leff_cp()
+        
+        """ Effective length of end plate """
+        #self._leff_nc_flange = self.Tstub_end_plate.leff_nc()
+        #self._leff_cp_flange = self.Tstub_end_plate.leff_cp()
+    
+    def __repr__(self):
+        
+        return "Bolt row"
+    
+    
+    def info(self):
+        """ Prints info """
+        
+        print("Bolt row:")
+        print("Location (flange): {0:s}".format(self.loc_col_flange))
+        print("Location (end plate): {0:s}".format(self.loc_end_plate))
+        
     
     @property
     def Lb(self):
         """ Ruuvirivin venymäpituus """
-        return self.joint.tp + self.joint.column.tf + 2*self.bolt.washer_t + 0.5*(self.bolt.head_t + self.bolt.nut_t)
+        return self.joint.tp + self.joint.col.tf + 2*self.bolt.washer_t + 0.5*(self.bolt.head_t + self.bolt.nut_t)
     
     @property
     def h(self):
@@ -393,6 +429,86 @@ class BoltRow:
         """ Distance of end plate edge from the bolt hole center """
         
         return self.joint.ebolts
+    
+    def leff_flange(self):
+        """ Effective length of column flange in bending component """
+        return self.Tstub_col_flange.leff()
+    
+    def leff_plate(self):
+        """ Effective length of end plate in bending component """
+        return self.Tstub_end_plate.leff()
+    
+    def leff_flange_group(self):
+        """ Effective length of column flange in bending for the row
+            when considered to be in a group
+            
+            IDEA:
+                for all groups that have the row:
+                    1) get row location in that group
+                    2) calculate effective width for the row
+                        considered as in a group and with the
+                        obtained location.
+                    3) add the calculated effective width to the
+                        list of effective widths
+                    4) return minimum
+    
+            QUESTION: how to know, which groups have the row
+                in them.
+        """
+        leff = 1e5
+        for group in self.groups:
+            leff_g = min(group.Tstub_col_flange._leff_rows[self].values())
+            if leff_g > 0.0:
+                leff = min(leff,leff_g)        
+            
+        return leff
+        
+    
+    def leff_plate_group(self):
+        """ Effective length of end plate in bending component
+            for the row when considered to be in a group
+        """
+        leff = 1e5
+        for group in self.groups:
+            leff_g = min(group.Tstub_end_plate._leff_rows[self].values())
+            if leff_g > 0.0:
+                leff = min(leff,leff_g)
+            
+        return leff
+    
+    def k3(self):
+        """ Stiffness factor for column web in tension component """
+        
+        beff_row = self.leff_flange()
+        beff_group = self.leff_flange_group()
+        beff = min(beff_row,beff_group)        
+        
+        return cm.column_web_tension_k(self.joint.col,beff)
+    
+    
+    def k4(self):
+        """ Stiffness factor for column flange in bending component """
+        
+        beff_row = self.leff_flange()
+        beff_group = self.leff_flange_group()
+        leff = min(beff_row,beff_group)        
+        
+        m =self.Tstub_col_flange.m
+        return cm.column_flange_bending_k(self.joint.col,leff,m)
+        
+    def k5(self):
+        """ Stiffness factor for column flange in bending component """
+        
+        beff_row = self.leff_plate()
+        beff_group = self.leff_plate_group()
+        leff = min(beff_row,beff_group)        
+        
+        
+        m = self.Tstub_end_plate.m
+        
+        print(beff_row,beff_group,m)
+        return cm.end_plate_bending_k(self.joint.tp,leff,m)
+        
     
     def column_web_in_tension(self,verb=False):
         """ Resistance of component """
@@ -562,10 +678,18 @@ class BoltRow:
     def keff(self):
         """ Effective stiffness of bolt row 
             EN 1993-1-8, Eq. (6.30)
+            
+            Requires that the stiffness factors have been evaluated
+            and stored in 'stffiness_factors' dict.
         """
         
         # Inverse of keff
         keff_inv = 0.0
+        
+        self.stiffness_factors['col_web'] = self.k3()
+        self.stiffness_factors['col_flange'] = self.k4()
+        self.stiffness_factors['plate'] = self.k5()
+        
         
         for k in self.stiffness_factors.values():
             keff_inv += 1/k
@@ -622,6 +746,19 @@ class BoltRowGroup:
         
         self.Tstub_col_flange = TStubGroupColumnFlange(self)
         self.Tstub_end_plate = TStubGroupEndPlate(self)
+
+        # Link this group to the bolt rows
+        for row in bolt_rows:
+            row.groups.append(self)
+
+    def info(self):
+        """ Prints info """
+        
+        print("Bolt row group:")
+        for i, row in enumerate(self.row_loc):
+            print(" Row {0:1.0f}".format(i))
+            print("Location (flange): {0:s}".format(row['flange']))
+            print("Location (end plate): {0:s}".format(row['plate']))
 
     def column_web_in_tension(self,verb=False):
         """ Resistance of component 
@@ -788,6 +925,7 @@ class TStub:
         self.emin = emin
         self.m = m
         self._leff = np.array([-1.0,-1.0])
+        self._leff_group = {'cp':-1.0,'nc':-1.0}
         
         self.failure_mode = -1
     
@@ -976,6 +1114,8 @@ class TStubColumnFlange(TStub):
         elif position == END_ROW:                        
             leff = min(math.pi*self.m+self.p,2*self.e1+self.p) 
             
+        self._leff_group['cp'] = leff
+        
         return leff
     
     def leff_nc_as_group(self,position=None):
@@ -989,6 +1129,8 @@ class TStubColumnFlange(TStub):
             leff = self.p
         elif position == END_ROW:
             leff = min(2*self.m+0.625*self.e+0.5*self.p, self.e1+0.5*self.p)    
+        
+        self._leff_group['nc'] = leff
         
         return leff
         
@@ -1143,6 +1285,16 @@ class TStubGroup:
         self.failure_mode = -1
         
         self._leff = np.array([-1.0,-1.0])
+        
+        # Storage for effective widths for bolt rows in the group
+        self._leff_rows = {}
+        
+        for row in self.group.rows:
+            """ In the dictionary, the bolt row objects themselves
+                act as the keys.
+            """
+            self._leff_rows[row] = {'leff_nc':0.0,
+                                    'leff_cp':0.0}
     
     @property
     def fy(self):
@@ -1214,6 +1366,17 @@ class TStubGroup:
     
     def leff_cp_as_group(self):
         pass
+    
+    def leff_nc_row(self,row):
+        pass
+    
+    def leff_cp_row(self,row):
+        pass
+    
+    def leff_row(self,row):
+       """ Calculates effective lengths for a given bolt row """
+       self.leff_nc_row(row)
+       self.leff_cp_row(row)
     
     @property
     def MplRd_1(self):
@@ -1295,7 +1458,8 @@ class TStubGroupColumnFlange(TStubGroup):
     
     @property
     def leff_nc(self):
-    
+        """ Non-circular yield lines for the group """
+        
         leff_nc = 0.0
         
         for i, row in enumerate(self.group.rows):
@@ -1310,7 +1474,9 @@ class TStubGroupColumnFlange(TStubGroup):
             
             #print("p = ",row.Tstub_col_flange.p)
             
-            leff_nc += row.Tstub_col_flange.leff_nc_as_group(position)
+            self._leff_rows[row]['leff_nc'] = row.Tstub_col_flange.leff_nc_as_group(position)
+            leff_nc += self._leff_rows[row]['leff_nc']
+            #leff_nc += row.Tstub_col_flange.leff_nc_as_group(position)
             #print(leff_nc)
         
         return leff_nc
@@ -1330,12 +1496,54 @@ class TStubGroupColumnFlange(TStubGroup):
                     row.Tstub_col_flange.p = self.group.p[i-1]
             elif position == INNER_ROW:
                 row.Tstub_col_flange.p = 0.5*(self.group.p[i-1]+self.group.p[i])
-            
-            leff_cp += row.Tstub_col_flange.leff_cp_as_group(position)
+        
+            self._leff_rows[row]['leff_cp'] = row.Tstub_col_flange.leff_cp_as_group(position)
+            leff_cp += self._leff_rows[row]['leff_cp']
+            #leff_cp += row.Tstub_col_flange.leff_cp_as_group(position)
         
         return leff_cp
     
-   
+    def leff_nc_row(self,row):
+        """ Calculates non-circular effective width for
+            the 'row' (BoltRow class object belonging to the group)
+        """
+        try:
+            i = self.group.rows.index(row)
+            
+            position = self.group.row_loc[i]['flange']
+            if position == END_ROW:
+                if i == 0:
+                    row.Tstub_col_flange.p = self.group.p[i]
+                else:
+                    row.Tstub_col_flange.p = self.group.p[i-1]
+            elif position == INNER_ROW:
+                row.Tstub_col_flange.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+            
+            self._leff_rows[row]['leff_nc'] = row.Tstub_col_flange.leff_nc_as_group(position)
+        except:
+            print("leff_nc_row: row not found in group.")
+    
+    
+    def leff_cp_row(self,row):
+        """ Calculates circular effective width for
+            the 'row' (BoltRow class object belonging to the group)
+        """
+        try:
+            i = self.group.rows.index(row)
+            
+            position = self.group.row_loc[i]['flange']
+            if position == END_ROW:
+                if i == 0:
+                    row.Tstub_col_flange.p = self.group.p[i]
+                else:
+                    row.Tstub_col_flange.p = self.group.p[i-1]
+            elif position == INNER_ROW:
+                row.Tstub_col_flange.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+            
+            self._leff_rows[row]['leff_cp'] = row.Tstub_col_flange.leff_cp_as_group(position)
+        except:
+            print("leff_nc_row: row not found in group.")
+         
     
 class TStubGroupEndPlate(TStubGroup):
     """ Class for T-stub of a bolt row group for the
@@ -1391,8 +1599,10 @@ class TStubGroupEndPlate(TStubGroup):
             elif position == OTHER_INNER_ROW:
                 row.Tstub_end_plate.p = 0.5*(self.group.p[i-1]+self.group.p[i])
                 
-            leff_nc += row.Tstub_end_plate.leff_nc_as_group(position)
-            #print(leff_nc)
+            self._leff_rows[row]['leff_nc'] = row.Tstub_end_plate.leff_nc_as_group(position)
+            leff_nc += self._leff_rows[row]['leff_nc']
+            #leff_nc += row.Tstub_end_plate.leff_nc_as_group(position)
+            
         
         return leff_nc
     
@@ -1412,9 +1622,65 @@ class TStubGroupEndPlate(TStubGroup):
             elif position == INNER_ROW:
                 row.Tstub_end_plate.p = 0.5*(self.group.p[i-1]+self.group.p[i])
             
-            leff_cp += row.Tstub_end_plate.leff_cp_as_group(position)
+            self._leff_rows[row]['leff_cp'] = row.Tstub_end_plate.leff_cp_as_group(position)
+            leff_cp += self._leff_rows[row]['leff_cp']
+            #leff_cp += row.Tstub_end_plate.leff_cp_as_group(position)
         
         return leff_cp
+    
+    def leff_nc_row(self,row):
+        """ Calculates non-circular effective width for
+            the 'row' (BoltRow class object belonging to the group)
+        """
+        try:
+            i = self.group.rows.index(row)
+            
+            position = self.group.row_loc[i]['plate']
+            
+            if position == FIRST_ROW_BELOW_BEAM_TENSION_FLANGE:
+                """ First row below tension flange is always
+                    the first in any group
+                """
+                row.Tstub_end_plate.p = self.group.p[i]
+            elif position == OTHER_END_ROW:
+                """ Other inner row can be the first in a group
+                    or the last
+                """
+                if i == 0:
+                    """ Row is the first in a group """
+                    row.Tstub_end_plate.p = self.group.p[i]
+                else:
+                    """ Row is the last in a group """
+                    row.Tstub_end_plate.p = self.group.p[i-1]
+                    
+            elif position == OTHER_INNER_ROW:
+                row.Tstub_end_plate.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+            
+            
+            self._leff_rows[row]['leff_nc'] = row.Tstub_end_plate.leff_nc_as_group(position)
+        except:
+            print("leff_nc_row: row not found in group.")
+    
+    
+    def leff_cp_row(self,row):
+        """ Calculates circular effective width for
+            the 'row' (BoltRow class object belonging to the group)
+        """
+        try:
+            i = self.group.rows.index(row)
+            
+            position = self.group.row_loc[i]['plate']
+            if position == END_ROW:
+                if i == 0:
+                    row.Tstub_end_plate.p = self.group.p[i]
+                else:
+                    row.Tstub_end_plate.p = self.group.p[i-1]
+            elif position == INNER_ROW:
+                row.Tstub_end_plate.p = 0.5*(self.group.p[i-1]+self.group.p[i])
+            
+            self._leff_rows[row]['leff_cp'] = row.Tstub_end_plate.leff_cp_as_group(position)
+        except:
+            print("leff_nc_row: row not found in group.")
 
     
 def bolt_shear_resistance(fub,A,bolt_class=8.8,threads_in_plane=False):
