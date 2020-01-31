@@ -54,6 +54,8 @@ class EndPlateJoint:
                     each item in this list is a bolt row position code, e.g. INNER_ROW, see en1993_1_8.py
         """
         
+        self.MjEd = 0.0
+        self.VjEd = 0.0
         self.col = column
         self.beam = beam
         
@@ -436,16 +438,35 @@ class EndPlateJoint:
             print("     keq = {0:4.2f} mm".format(k_eq))
             print("     kcomp = {0:4.2f} mm".format(kcomp))
         
-        
-        
-        
         Sj_ini = E*z**2/(1/kcomp+1/k_eq)
-        
         
         if verb:
             print("  Sj_ini = {0:4.2f} kNm/rad".format(Sj_ini*1e-6))
         
         return Sj_ini    
+    
+    def VjRd(self,verb=False):
+        """ Shear resistance of the joint """
+        
+        VRd = 0.0
+        
+        if verb:
+            print("-- SHEAR RESISTANCE --")
+        
+        for row in self.bolt_rows:
+            if row.FtRd > 0.0:
+                """ Rows in tension still have at least 28.6% of their
+                    shear resistance left.
+                """
+                VRd += 2*0.286*row.bolt.shear_resistance()
+            elif abs(row.FtRd) < 1e-3 or row.type == SHEAR_ROW:
+                VRd += 2*row.bolt.shear_resistance()
+        
+        if verb:
+            print("VjRd = {0:4.2f} kN".format(VRd*1e-3))
+        
+        return VRd
+        
         
     def cost(self,workshop=None,material_cost=BASIC_STEEL_PRICE,verb=False):
         """ Calculate cost of the joint
@@ -797,6 +818,7 @@ if __name__ == '__main__':
     
     conn.MjRd(True)
     conn.Sj_ini(True)
+    conn.VjRd(True)
     conn.cost(ws,verb=True)
     """
     for row in conn.bolt_rows:

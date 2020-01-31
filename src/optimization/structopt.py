@@ -690,10 +690,29 @@ class OptimizationProblem:
     @property
     def feasible(self):
         """
-        Returns problem's feasibility
+        Returns problem's feasibility at X
         :return: True/False
         """
-        return np.all(self.eval_cons(self.X) <= self.con_tol)
+        
+        res = True
+        
+        for con in self.cons:
+            g = con(self.X)
+            if con.type == '<':
+                if g > self.con_tol:
+                    res = False
+                    break
+            elif con.type == '>':
+                if g < self.con_tol:
+                    res = False
+                    break
+            else:
+                if abs(g) > self.con_tol:
+                    res = False
+                    break
+        
+        return res
+        #return np.all(self.eval_cons(self.X) <= self.con_tol)
 
     def clear_vars(self):
         """

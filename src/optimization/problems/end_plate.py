@@ -92,6 +92,29 @@ class EndPlateOpt(sopt.OptimizationProblem):
         
         return con_name, con_fun
     
+    def moment_resistance_constraints(self):
+        """ Moment resistance constraint:
+            MjEd <= MjRd(x)
+        """
+        def Mcon(x):
+            return 1-self.structure.MjRd()/self.structure.MjEd
+        
+        con_name = "1-MjRd/MjEd <= 0"
+        con_fun = Mcon
+        
+        return con_name, con_fun
+
+    def shear_resistance_constraints(self):
+        """ Moment resitance constraint:
+            VjEd <= VjRd(x)
+        """
+        def Vcon(x):
+            return 1-self.structure.VjRd()/self.structure.VjEd
+        
+        con_name = "1-VjRd/VjEd <= 0"
+        con_fun = Vcon
+        
+        return con_name, con_fun
 
     def create_constraints(self,
                            geometry=False,
@@ -123,6 +146,22 @@ class EndPlateOpt(sopt.OptimizationProblem):
                                                fea_required=False)                
                             #vars=mem)
                 self.add(con)
+        
+        if bending_resistance:
+            m_name, m_fun = self.moment_resistance_constraints()
+            mcon = sopt.NonLinearConstraint(name=m_name,
+                                            con_fun=m_fun,
+                                            con_type='<',
+                                            fea_required=False)
+            self.add(mcon)
+
+        if shear_resistance:
+            v_name, v_fun = self.shear_resistance_constraints()
+            mcon = sopt.NonLinearConstraint(name=v_name,
+                                            con_fun=v_fun,
+                                            con_type='<',
+                                            fea_required=False)
+            self.add(mcon)
 
     def create_variables(self):
         """
@@ -202,11 +241,14 @@ if __name__ == '__main__':
     #from structures.steel.end_plate_joint import example_1
     
     conn = ep.example_1()
-
+    conn.MjEd = 60.0e6
+    conn.VjEd = 200.0e3
     problem = EndPlateOpt(name="TEST",
                           structure=conn,                                
                           constraints={
-                                    'geometry': True,                                    
+                                    'geometry': True,
+                                    'bending_resistance': True ,
+                                    'shear_resistance': True
                                 })
 
     # solver = GA(pop_size=50, mut_rate=0.15)
