@@ -12,8 +12,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as lines
 
-from plates import RectPlate
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import BoltRow, BoltRowGroup
+from sections.steel.ISection import HEA, HEB, IPE
+from structures.steel.plates import RectPlate
+from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt, BoltRow, BoltRowGroup
 from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW, INNER_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, OTHER_END_ROW
 from eurocodes.en1993.en1993_1_8.en1993_1_8 import TENSION_ROW, SHEAR_ROW, COMBI_ROW
 import eurocodes.en1993.en1993_1_8.component_method as cm
@@ -29,7 +30,7 @@ class EndPlateJoint:
     
     
     def __init__(self,column,beam,tp,bp,mat_p,etop,ebottom,bolt,y_bolts,e_bolts,
-                 bolt_row_pos, groups=[],group_pos=None, row_types=[]):
+                 bolt_row_pos, groups=[],group_pos=None, row_types=[],workshop=None):
         """ Contructor
             Input:
                 column .. ISection or WISection profile
@@ -63,7 +64,8 @@ class EndPlateJoint:
         self.end_plate = RectPlate(bp,hp,tp,material=mat_p)
         self.etop = etop
         self.ebottom = ebottom
-        self.ebolts = e_bolts        
+        self._ebolts = e_bolts      
+        self._xbolts = 0.5*bp-e_bolts
         # Make bolt rows
         self.bolt_rows = []
         self.row_groups = []
@@ -116,11 +118,35 @@ class EndPlateJoint:
                                                 group_pos[i])
                                    )
         
+        self.workshop = workshop
+        
         self._cost = {'plate':0.0,                                         
                      'welding':0.0,
                      'holes':0.0,
                      'bolts':0.0}
-        
+    
+    @property
+    def ebolts(self):
+        return self._ebolts
+    
+    @ebolts.setter
+    def ebolts(self,val):
+        self._ebolts = val
+        self.p = self.bp-2*val
+        for row in self.bolt_rows:
+            row.p = self.p
+    
+    @property
+    def xbolts(self):
+        """ Distance of bolts from center of beam """
+        return self._xbolts
+
+    @xbolts.setter
+    def xbolts(self,val):
+        """ Distance of bolts from center of beam """
+        self._xbolts = val
+        self.ebolts = 0.5*self.bp-val
+    
     @property
     def nrows(self):
         """ Number of bolt rows """
@@ -421,12 +447,20 @@ class EndPlateJoint:
         
         return Sj_ini    
         
-    def cost(self,workshop,material_cost=BASIC_STEEL_PRICE,verb=False):
+    def cost(self,workshop=None,material_cost=BASIC_STEEL_PRICE,verb=False):
         """ Calculate cost of the joint
             units: e
         """
         
-        self._cost['plate'] = self.end_plate.cost(workshop,material_cost)
+        for key, value in self._cost.items():
+            self._cost[key] = 0.0
+        
+        if workshop is not None:
+            self.workshop = workshop        
+        
+        plate_cost = self.workshop.steel_price["plates"]
+        
+        self._cost['plate'] = self.end_plate.cost(self.workshop,plate_cost)
         hole_cut_length = 0.0
         for row in self.bolt_rows:
             """ Costs for bolts and hole forming 
@@ -440,22 +474,24 @@ class EndPlateJoint:
            
             #self._cost['holes'] += 2*workshop.cost_centres['cutting'].cost(self.col.tf,row.bolt.d0*math.pi)
 
-        self._cost['holes'] = workshop.cost_centres['cutting'].cost(self.tp,hole_cut_length)
+        self._cost['holes'] = self.workshop.cost_centres['cutting'].cost(self.tp,hole_cut_length)
 
         """ Welding cost """
         flange_weld_length = 2*(self.beam.b + self.beam.tf) - 2*self.beam.r - self.beam.tw + self.beam.r*math.pi
-        print(flange_weld_length)
-        self._cost['welding'] += workshop.cost_centres['assembly_welding'].cost(self.weld_f,2*flange_weld_length)
+        #print(flange_weld_length)
+        self._cost['welding'] += self.workshop.cost_centres['assembly_welding'].cost(self.weld_f,2*flange_weld_length)
         
         web_weld_length = 2*self.beam.hw
-        print(web_weld_length)
-        self._cost['welding'] += workshop.cost_centres['assembly_welding'].cost(self.weld_w,web_weld_length)
+        #print(web_weld_length)
+        self._cost['welding'] += self.workshop.cost_centres['assembly_welding'].cost(self.weld_w,web_weld_length)
         
         total_cost = 0.0
         for c in self._cost.values():
             total_cost += c
         
         self._total_cost = total_cost
+        
+        self.cost_distribution()
         
         if verb:
             self.cost_distribution()
@@ -684,6 +720,8 @@ def example_1():
         
     conn.weld_f = 8
     
+    conn.workshop = Workshop()
+    
     return conn
 
 def example_diaz():
@@ -750,7 +788,8 @@ if __name__ == '__main__':
     from sections.steel.ISection import HEA, HEB, IPE
     from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt
     
-    conn = example_diaz()
+    #conn = example_diaz()
+    conn = example_1()
     
     ws = Workshop()
     

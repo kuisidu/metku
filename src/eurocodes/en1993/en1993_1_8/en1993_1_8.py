@@ -116,6 +116,7 @@ class Bolt:
         self.head_d = bolt_size[size]["s"]
         
         self.nut_t = nut_size[size]["m"]
+        self.nut_e = nut_size[size]["e"]
         
         self.washer_t = washer_size[size]["h"]
         self.washer_d = washer_size[size]["d2"]
@@ -125,7 +126,11 @@ class Bolt:
         self.fub = mat_bolt[bolt_class]["f_ub"]
         self.bolt_class = bolt_class
         
-        
+    @property
+    def dw(self):
+        """ Maximum diameter covere by washer, bolt head or bolt nut """
+        return max(self.washer_d,self.head_d,self.nut_e)
+    
     def shear_resistance(self,threads_in_plane=False,verb=False):
         """ EN 1993-1-8, Table 3.4
         Input:
@@ -329,6 +334,18 @@ class BoltRow:
         print("Location (flange): {0:s}".format(self.loc_col_flange))
         print("Location (end plate): {0:s}".format(self.loc_end_plate))
         
+    @property
+    def z_top(self):
+        """ Distance of the bolt row from the top of the end plate """
+        return self._z_top
+    
+    @z_top.setter
+    def z_top(self,val):
+        """ Distance of the bolt row from the top of the end plate """
+        self._z_top = val
+        self.z = 0.5*self.joint.beam.h+self.joint.etop - val
+        
+    
     
     @property
     def Lb(self):

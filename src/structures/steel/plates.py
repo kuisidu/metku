@@ -16,7 +16,8 @@ from cost.cost_data import BASIC_STEEL_PRICE, steel_grade_add_on, thickness_add_
 
 from materials.steel_data import Steel
 
-
+""" Default thicknesses from SSAB """
+THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 20, 22, 25, 30]
 
 class RectPlate:
     """ Rectangular plate """

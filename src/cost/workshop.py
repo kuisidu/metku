@@ -28,6 +28,7 @@ TODO:
 """
 
 import copy
+from cost.cost_data import BASIC_STEEL_PRICE
 
 NOT_IMPLEMENTED = "NOT IMPLEMENTED YET! Add this feature: "
 
@@ -718,8 +719,10 @@ class Workshop:
         
     """
     
-    def __init__(self,cost_centres=None):
-        """ Constructor """
+    def __init__(self,steel_price={"plates":BASIC_STEEL_PRICE},cost_centres=None):
+        """ Constructor """        
+    
+        self.steel_price = steel_price
     
         if cost_centres is None:
             self.cost_centres = {'blasting':BlastingCost(),

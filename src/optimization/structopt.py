@@ -126,7 +126,7 @@ class Variable:
         if not self.locked:
             """ Substitute a new value for the variable """
             self.value = new_value
-            """ Modify target object(s) if any """
+            """ Modify target object(s) if any """            
             if self.target is not None:
                 for obj in self.target['objects']:
                     prop = self.target['property']
