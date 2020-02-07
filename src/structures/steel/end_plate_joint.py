@@ -14,7 +14,7 @@ import matplotlib.lines as lines
 
 from sections.steel.ISection import HEA, HEB, IPE
 from structures.steel.plates import RectPlate
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt, BoltRow, BoltRowGroup
+from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt, BoltRow, BoltRowGroup, stiffness_ratio, full_strength_weld_throat
 from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW, INNER_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, OTHER_END_ROW
 from eurocodes.en1993.en1993_1_8.en1993_1_8 import TENSION_ROW, SHEAR_ROW, COMBI_ROW
 import eurocodes.en1993.en1993_1_8.component_method as cm
@@ -56,6 +56,8 @@ class EndPlateJoint:
         
         self.MjEd = 0.0
         self.VjEd = 0.0
+        self._MjRd = 0.0
+        self._VjRd = 0.0
         self.col = column
         self.beam = beam
         
@@ -120,12 +122,42 @@ class EndPlateJoint:
                                                 group_pos[i])
                                    )
         
+        self.stiffeners = {"col_top_flange":None,
+                           "col_bottom_flange":None,
+                           "col_web_plate":None}
+        
         self.workshop = workshop
         
         self._cost = {'plate':0.0,                                         
                      'welding':0.0,
                      'holes':0.0,
                      'bolts':0.0}
+    
+    @property
+    def MjRd(self):
+        return self._MjRd
+    
+    @property
+    def VjRd(self):
+        return self._VjRd
+    
+    def calculate(self):
+        """ This method is for optimization:
+            In OptimizationProblem class, constraint evaluation includes
+            'fea_required' flag which signifies whether or not finite element
+            analysis is performed. The 'fea' method of OptimizationProblem
+            class includes the command 'structure.calculate()' which actually
+            performs the analysis.
+            
+            For an end plate joint, the 'calculate' method is to evaluate
+            the moment resistance. The idea is that evaluation of initial
+            stiffness and shear resistance require knowing the effective lengths,
+            etc. which are calculated during evaluating the bending
+            resistance.
+        """
+        
+        self.bending_resistance()
+        self.shear_resistance()
     
     @property
     def ebolts(self):
@@ -197,6 +229,7 @@ class EndPlateJoint:
         if end_plate_extension:
             emin = self.ex()
         
+        return emin
         
     @property
     def beta(self):
@@ -204,7 +237,26 @@ class EndPlateJoint:
             So far, only one value is given (approximation for one-sided joint)
         """
         return 1.0
+    
+    def add_stiffener(self,stiffener,**kwargs):
+        """ Adds a stiffener plate to the joint """
         
+        for key, value in kwargs.items():
+            if key == 't':
+                if stiffener.find('flange') != -1:
+                    hp = self.col.h-2*self.col.tf
+                    bp = 0.5*(self.col.b-self.col.tw)                    
+                else:
+                    hp = self.beam.h
+                    bp = self.col.hw
+                tp = value
+                plate = RectPlate(hp,bp,tp,material=self.col.material.name)
+            elif key == 'plate':
+                plate = value
+            
+            plate.weld_size = math.ceil(full_strength_weld_throat(plate.material)*plate.t)
+            
+            self.stiffeners[stiffener] = plate
         
     def V_wp_Rd(self):
         """ Column web shear resistance """
@@ -221,11 +273,14 @@ class EndPlateJoint:
     def Fc_wc_Rd(self):
         """ Column web in compression """
         
-        # Calculate compression stre
-        sigma_com_Ed = self.col.sigma_com()
-        Fc_wc_Rd, beff_wc = cm.col_web_trv_comp(self.col, self.beam, self.end_plate.t, self.ebottom, self.weld_f, self.beta, sigma_com_Ed)
-        self.beff_wc = beff_wc
-        print("beff_wc_Rd = {0:4.2f} mm".format(beff_wc))
+        if self.stiffeners["col_bottom_flange"] is None:
+            # Calculate compression stress
+            sigma_com_Ed = self.col.sigma_com()
+            Fc_wc_Rd, beff_wc = cm.col_web_trv_comp(self.col, self.beam, self.end_plate.t, self.ebottom, self.weld_f, self.beta, sigma_com_Ed)
+            self.beff_wc = beff_wc
+        else:
+            Fc_wc_Rd = cm.col_web_trv_comp_stiffened(self.col, self.stiffeners["col_bottom_flange"])
+        #print("beff_wc_Rd = {0:4.2f} mm".format(beff_wc))
         return Fc_wc_Rd
     
     def beff_c_wc(self):
@@ -262,13 +317,17 @@ class EndPlateJoint:
     def k2(self):
         """ Stiffness factor for column web in compression """
         
-        return cm.col_web_trv_comp_k(self.col,self.beff_c_wc())
+        if self.stiffeners["col_bottom_flange"] is None:
+            k = cm.col_web_trv_comp_k(self.col,self.beff_c_wc())
+        else:
+            k = np.inf
+        return k
     
     def Fc_fb_Rd(self):
         """ Beam flange and web in compression """        
         return cm.beam_web_compression(self.beam)
     
-    def MjRd(self,verb=False):
+    def bending_resistance(self,verb=False):
         """ Bending moment resistance """
         
         # Calculate column web shear resistance
@@ -297,12 +356,7 @@ class EndPlateJoint:
                 """
                 row.FtRd = min(FtRd,Fcom_Rd-Ft_total)
                 
-                Ft_total += row.FtRd
-                
-                """ Check if the tension force in the row
-                    Needs to be reduced due to compression side
-                    or shear resistance in the column web
-                """
+                Ft_total += row.FtRd                
         
         if verb:
             print("--------  ROW RESISTANCES ---------")
@@ -326,8 +380,34 @@ class EndPlateJoint:
                 print("Ft_Group = {0:4.2f} kN".format(Ft_group*1e-3))
                 print("Ft_rows = {0:4.2f} kN".format(Ft_tot*1e-3))
             
-            if Ft_group < Ft_tot:
-                print("Need to reduce strength of rows")
+            Fred = Ft_tot - Ft_group
+            if Fred > 0:
+                """ In this case, the sum of resistances of the bolt rows
+                    in the group is greater than the group resistance:
+                        the forces in the group must be reduced
+                """
+                for row in group.rows:
+                    dF = row.FtRd-Fred
+                    if dF >= 0:
+                        """ Fred can be compensated by reducing the strength
+                            of the current row.
+                        """
+                        row.FtRd = dF
+                        break
+                    else:
+                        """ The capacity of the current row is not enough to
+                            cover the difference between sum of bolt row
+                            resistances and resistance of the group
+                        """
+                        
+                        """ Subtract the resistance of the current row from
+                            the total force to be compensated. The remaining
+                            force, if any, needs to be compensated by further rows
+                        """
+                        Fred -= row.FtRd
+                        row.FtRd = 0.0
+                        
+                #print("Need to reduce strength of rows")
         
         MjRd = 0.0
         for row in self.bolt_rows:
@@ -335,6 +415,8 @@ class EndPlateJoint:
         
         if verb:
             print("MjRd = {0:4.2f} kNm".format(MjRd*1e-6))
+        
+        self._MjRd = MjRd
         
         return MjRd
     
@@ -443,9 +525,27 @@ class EndPlateJoint:
         if verb:
             print("  Sj_ini = {0:4.2f} kNm/rad".format(Sj_ini*1e-6))
         
-        return Sj_ini    
+        return Sj_ini 
     
-    def VjRd(self,verb=False):
+    def rotational_stiffness(self,verb=False):
+        """ Calculated rotational stiffness """
+        
+        MjRatio = self.MjEd/(self.MjRd*1e-6)
+        
+        mu = stiffness_ratio(MjRatio,psi=2.7)
+        
+        Sj = self.Sj_ini()/mu
+        
+        if verb:
+            print("--- Rotational stiffness ---")
+            print(" Initial: Sj_ini = {0:4.2f} kNm/rad".format(self.Sj_ini()*1e-6))
+            print(" Moment ratio: MjEd/MjRd = {0:4.2f}".format(MjRatio))
+            print(" Stiffness ratio: mu = {0:4.2f}".format(mu))
+            print(" Stiffness: Sj = {0:4.2f}".format(Sj))
+        
+        return Sj
+    
+    def shear_resistance(self,verb=False):
         """ Shear resistance of the joint """
         
         VRd = 0.0
@@ -464,6 +564,8 @@ class EndPlateJoint:
         
         if verb:
             print("VjRd = {0:4.2f} kN".format(VRd*1e-3))
+        
+        self._VjRd = VRd
         
         return VRd
         
@@ -506,13 +608,18 @@ class EndPlateJoint:
         #print(web_weld_length)
         self._cost['welding'] += self.workshop.cost_centres['assembly_welding'].cost(self.weld_w,web_weld_length)
         
+        # Add cost for stiffeners
+        for stiffener, plate in self.stiffeners.items():
+            if plate is not None:
+                self._cost[stiffener] = plate.cost(self.workshop,plate_cost)
+            
         total_cost = 0.0
         for c in self._cost.values():
             total_cost += c
         
         self._total_cost = total_cost
         
-        self.cost_distribution()
+        #self.cost_distribution()
         
         if verb:
             self.cost_distribution()
@@ -634,6 +741,15 @@ class EndPlateJoint:
             # Plot center line
             ax_side.plot([-0.5 * L_b, 0.5 * L_b], [z, z], 'b-.', linewidth=0.6, zorder=3)
         
+        """ Plot stiffeners (if any) """
+        if self.stiffeners['col_top_flange'] is not None:
+            t_stiff = self.stiffeners['col_top_flange'].t
+            ax_side.hlines([self.ebottom + h_b-0.5*t_fb-0.5*t_stiff,self.ebottom + h_b-0.5*t_fb+0.5*t_stiff],-h_c+t_fc,-t_fc,'b',zorder=2)
+        
+        if self.stiffeners['col_bottom_flange'] is not None:
+            t_stiff = self.stiffeners['col_bottom_flange'].t
+            ax_side.hlines([self.ebottom+0.5*t_fb-0.5*t_stiff,self.ebottom+0.5*t_fb+0.5*t_stiff],-h_c+t_fc,-t_fc,'b',zorder=2)
+        
         ax_side.set_aspect('equal', 'datalim')
         
         
@@ -743,6 +859,7 @@ def example_1():
     
     conn.workshop = Workshop()
     
+    
     return conn
 
 def example_diaz():
@@ -802,6 +919,8 @@ def example_diaz():
     conn.weld_f = af
     conn.weld_w = aw
     
+    conn.workshop = Workshop()
+    
     return conn
 
 if __name__ == '__main__':
@@ -814,11 +933,14 @@ if __name__ == '__main__':
     
     ws = Workshop()
     
+    conn.add_stiffener('col_bottom_flange',t=conn.beam.tf)
+    conn.add_stiffener('col_top_flange',t=conn.beam.tf)
+    
     conn.info(draw=False)
     
-    conn.MjRd(True)
+    conn.bending_resistance(True)
     conn.Sj_ini(True)
-    conn.VjRd(True)
+    conn.shear_resistance(True)
     conn.cost(ws,verb=True)
     """
     for row in conn.bolt_rows:

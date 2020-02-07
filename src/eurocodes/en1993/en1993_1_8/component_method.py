@@ -10,6 +10,7 @@ Functions of the component method as described in EN 1993-1-8
 from math import sqrt, pi
 
 from eurocodes.en1993.constants import gammaM0, gammaM1
+from eurocodes.en1993.en1993_1_1 import buckling_reduction_factor
 
 # Reduction factor, table 6.3
 def min_coeff_w(beta, b_eff_c_wc, t_wc, A_vc):
@@ -66,6 +67,10 @@ def par_alfa(lambda1, lambda2):
 
     return alfa
 
+def new_alpha(e,m,m2):
+    """ Alpha parameter according to the final document of prEN 1993-1-8:2019 """
+    return min(max(4+1.67*e/m*(m/m2)**0.67,4+1.25*e/m),8.0)
+    
 """ COMPONENTS """
 
 
@@ -191,6 +196,31 @@ def col_web_trv_comp_k(column,beff):
     
     return 0.7*beff*column.tw/column.hw
 
+def col_web_trv_comp_stiffened(column, plate):
+    """ Resistance of stiffened column web """
+    e = column.eps
+    tw = column.tw
+    bsg = plate.b
+    ts = plate.t
+    
+    fy = plate.material.fy
+    As_eff = (30*e*tw+ts)*tw + 2*bsg*ts
+    Is = (2*bsg + tw)**3*ts/12
+    
+    lcr = plate.h
+    lambda_1 = 93.9*e
+    i_s = sqrt(Is/As_eff)
+    lambda_s = lcr/i_s/lambda_1
+    
+    if lambda_s > 0.2:
+        chi = buckling_reduction_factor(lambda_s,0.49)
+        gammaM = gammaM1
+    else:
+        chi = 1.0
+        gammaM = gammaM0
+    
+    return chi*As_eff*fy/gammaM
+        
 
 def column_web_tension(column, l_eff, beta,verb=False):# l_eff_1f, l_eff_2f):
     """ Column web in transverse tension, 6.2.6.3, 6.3.2

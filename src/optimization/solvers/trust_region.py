@@ -161,7 +161,7 @@ class TrustRegionConstr(OptSolver):
         #print(constraints[-3].ub)
 
         options = {'maxiter': maxiter,
-                   'verbose': 0,
+                   'verbose': 2,
                    'xtol': VAR_TOL,
                    'gtol': CON_TOL,
                    'initial_tr_radius': 1,
@@ -192,6 +192,15 @@ class TrustRegionConstr(OptSolver):
                            # callback=self.callback
                            )
         """
+        out = minimize(self.problem.obj,
+                           x0,
+                           method='trust-constr',
+                           tol = 1e-10,
+                           bounds=bounds,
+                           constraints=constraints,
+                           options=options,
+                           callback=self.callback
+                           )
         try:
             out = minimize(self.problem.obj,
                            x0,
@@ -200,7 +209,7 @@ class TrustRegionConstr(OptSolver):
                            bounds=bounds,
                            constraints=constraints,
                            options=options,
-                           #callback=self.callback
+                           callback=self.callback
                            )
 
             #print(out)
@@ -229,6 +238,7 @@ class TrustRegionConstr(OptSolver):
     def callback(self, xk, state):
         fval = self.problem.obj(xk)
         self.problem.fvals.append(fval)
+        #self.problem.structure.draw()
         return print('CALLBACK', xk)
 
 

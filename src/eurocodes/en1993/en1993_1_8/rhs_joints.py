@@ -19,6 +19,14 @@ try:
 except:
     from eurocodes.en1993.constants import gammaM5, E
 
+def eccentricity(h0,h1,h2,t1,t2,g):
+    """ Eccentricity of a K gap joint """
+    rt1 = math.radians(t1)
+    rt2 = math.radians(t2)
+    sin1 = math.sin(rt1)
+    sin2 = math.sin(rt2)
+    sin12 = math.sin(rt1+rt2)
+    return (0.5*h1/sin1 + 0.5*h2/sin2 + g)*sin1*sin2/sin12 - 0.5*h0
 
 def rotate(v,theta=0.0):
     """ Rotates vector 'v' by the angle 'theta'

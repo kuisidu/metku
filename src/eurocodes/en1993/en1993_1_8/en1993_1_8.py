@@ -7,6 +7,13 @@ EN 1993-1-8 Rules for connections
 @author: kmela
 """
 
+import math
+import numpy as np
+
+from materials.steel_data import Steel
+from eurocodes.en1993.constants import gammaM0, gammaM2, gammaM5
+import eurocodes.en1993.en1993_1_8.component_method as cm
+
 # Bolt materials [MPa], SFS EN 1993-1-8, table 3.1
 mat_bolt = {4.6: {"f_yb": 240.0, "f_ub": 400.0},
             4.8: {"f_yb": 320.0, "f_ub": 400.0},
@@ -64,6 +71,12 @@ washer_size = {12: {"h": 2.5, "d1": 13, "d2": 24.0},
              36: {"h": 5.0, "d1": 37, "d2": 66.0},
              }
 
+correlation_coefficient = {"S235": 0.8,
+                           "S275": 0.85,
+                           "S355": 0.9,
+                           "S420": 1.0,
+                           "S460": 1.0}
+
 """ Bolt row types """
 TENSION_ROW = 'tension row'
 SHEAR_ROW = 'shear row'
@@ -84,11 +97,6 @@ END_ROW_ADJACENT_TO_STIFFENER = "End row adjacent to stiffener"
 ROW_OUTSIDE_BEAM_TENSION_FLANGE = "Outside beam tension flange"
 FIRST_ROW_BELOW_BEAM_TENSION_FLANGE = "First row below beam tension flange"
 
-import math
-import numpy as np
-
-from eurocodes.en1993.constants import gammaM0, gammaM2, gammaM5
-import eurocodes.en1993.en1993_1_8.component_method as cm
 
 """ CHAPTER 3: Bolts """
 class Bolt:
@@ -272,6 +280,8 @@ class BoltRow:
         self.group_loc_plate = None
         
         self.joint = joint
+        
+        self._z_top = 0.5*self.joint.beam.h+self.joint.etop - z
         #self.y = y
         """ p can be a single number, in which case there are two bolts
             in the row
@@ -523,7 +533,7 @@ class BoltRow:
         
         m = self.Tstub_end_plate.m
         
-        print(beff_row,beff_group,m)
+        #print(beff_row,beff_group,m)
         return cm.end_plate_bending_k(self.joint.tp,leff,m)
         
     
@@ -890,7 +900,7 @@ class BoltRowGroup:
         
         #if self.nrows == 2 and self.row_loc[0]['plate'] == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
         if self.row_loc[0]['plate'] == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
-            print("First row outside tension flange.")
+            #print("First row outside tension flange.")
             Ft_i_Rd[1] = np.inf
             Ft_i_Rd[3] = np.inf
         else:
@@ -1267,27 +1277,6 @@ class TStubEndPlate(TStub):
         
         return leff
         
-def block_tearing(fy,fu,Ant,Anv,concentric_load=True,verb=False):
-    """ Check block tearing resistance 
-        fy .. yield strength of the plate [MPa]
-        fu .. ultimate strength of the plate [MPa]
-        Ant .. net area subject to tension [mm2]
-        Anv .. net area subject to shear [mm2]
-    """
-    
-    if concentric_load:
-        Veff = fu*Ant/gammaM2 + fy/math.sqrt(3)*Anv/gammaM0
-    else:
-        Veff = 0.5*fu*Ant/gammaM2 + fy/math.sqrt(3)*Anv/gammaM0
-    
-    if verb:
-        print("Block tearing:")
-        print("fy = {0:4.2f} MPa, fu = {1:4.2f} MPa".format(fy,fu))
-        print("Ant = {0:4.2f} mm^2, Anv = {1:4.2f} mm^2".format(Ant,Anv))
-        print("Veff,Rd = {0:4.2f} kN".format(Veff*1e-3))
-    
-    return Veff
-    
 class TStubGroup:
     """ Class for T-stubs for bolt row groups """
     
@@ -1799,3 +1788,46 @@ def shear_and_tension_resistance(FvEd,FvRd,FtEd,FtRd):
     """
     U = FvEd/FvRd + FtEd/FtRd/1.4
     return U
+
+def block_tearing(fy,fu,Ant,Anv,concentric_load=True,verb=False):
+    """ Check block tearing resistance 
+        fy .. yield strength of the plate [MPa]
+        fu .. ultimate strength of the plate [MPa]
+        Ant .. net area subject to tension [mm2]
+        Anv .. net area subject to shear [mm2]
+    """
+    
+    if concentric_load:
+        Veff = fu*Ant/gammaM2 + fy/math.sqrt(3)*Anv/gammaM0
+    else:
+        Veff = 0.5*fu*Ant/gammaM2 + fy/math.sqrt(3)*Anv/gammaM0
+    
+    if verb:
+        print("Block tearing:")
+        print("fy = {0:4.2f} MPa, fu = {1:4.2f} MPa".format(fy,fu))
+        print("Ant = {0:4.2f} mm^2, Anv = {1:4.2f} mm^2".format(Ant,Anv))
+        print("Veff,Rd = {0:4.2f} kN".format(Veff*1e-3))
+    
+    return Veff
+
+def stiffness_ratio(MjRatio,psi=2.7):
+    """ Stiffness ratio (mu) of Eq. (6.28) """
+    
+    if MjRatio <= 2.0/3:
+        mu = 1
+    else:
+        mu = (1.5*MjRatio)**psi
+    
+    return mu
+
+def full_strength_weld_throat(mat=Steel("S355")):
+    """ Throat thickness of double-sided fillet weld,
+        when there is tension in the welded plate
+    """
+    
+    beta = correlation_coefficient[mat.name]
+    fy = mat.fy
+    fu = mat.fu
+    
+    return beta/math.sqrt(2)*gammaM2/gammaM0*fy/fu
+    
