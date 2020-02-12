@@ -1,5 +1,9 @@
 """
-@author: Victoria
+
+Minimum cost design of end-plate connections
+
+@author: Kristo Mela
+@date: 31.1.2020
 """
 
 import numpy as np
@@ -16,7 +20,7 @@ step_width = 10
 HEIGHTS = np.arange(MIN_HEIGHT, MAX_HEIGHT+step_height, step_height)
 WIDTHS = np.arange(MIN_WIDTH, MAX_WIDTH+step_width, step_width)
 #THICKNESSES = [5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 22, 25, 30, 35, 40, 50]
-THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 20, 22, 25, 30]
+THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20]
 MAX_THICK = max(THICKNESSES)
 MIN_THICK = min(THICKNESSES)
 
@@ -29,52 +33,21 @@ try:
     from src.optimization.solvers.bnb import BnB
     from src.optimization.solvers.lp import LP
 except:
-    from frame2d.frame2d import *
-    import frame2d.frame2d as f2d
-    from optimization.structopt import *
-    from optimization.solvers.trust_region import TrustRegionConstr
     
-    #from frame2d.frame2d import Frame2D, SteelColumn, XHingedSupport, FixedSupport, PointLoad, LineLoad
-    #from optimization.structopt import OptimizationProblem, Variable, DiscreteVariable, LinearConstraint, NonLinearConstraint
+    from optimization.structopt import *
+    from optimization.solvers.trust_region import TrustRegionConstr    
         
-
-
-class WIColumn(OptimizationProblem):
+class EndPlateJointOpt(OptimizationProblem):
     """
-        Pilarin kuormitukset ja lähtötiedot
-
-                Lpi -- pilarin pituus
-                F -- pistekuormat
-                    Fx .. vaakasuuntainen
-                    Fy .. pystysuuntainen
-                Q -- tasaiset kuormat
-                    Qx .. vaakasuuntainen
-                    Qy .. pystysuuntainen
-                Mz .. pistemomentti
-                Poikkileikkausluokat ylä- ja alalaipalle sekä uumalle
-                    top_flange_class
-                    bottom_flange_class
-                    web_class
-                symmetry .. kaksoissymmetrinen: dual tai monosymmetrinen: mono
-                buckling_z -- heikomman suunnan nurjahdus
-                    True .. rajoitusehto huomioidaan
-                    False .. rajoitusehtoa ei huomioida
-                LT_buckling -- kiepahdus
-                    True .. rajoitusehto huomioidaan
-                    False .. rajoitusehtoa ei huomioida
+        
     """
-    def __init__(self, L=30000, Lpi=6000, Fx=979, Fy=-339e3, Qx=5.85, Qy=0,
-                 Mz=0, lcr=2,
-                 top_flange_class=2, bottom_flange_class=2, web_class=2,
-                 symmetry="dual", buckling_z=False, LT_buckling=False,
-                 prob_type="continuous"):
-        super().__init__("WIColumn")
+    def __init__(self,end_plate_joint):
+        super().__init__("End plate connection")
 
         self.prob_type = prob_type
         self.cons.clear()        
         self.clear_vars()
-        self.structure = None
-        #print("WI column, variables: ",self.vars)
+        self.structure = None        
         self.LT_buckling = LT_buckling
         self.buckling_z = buckling_z
         self.symmetry = symmetry

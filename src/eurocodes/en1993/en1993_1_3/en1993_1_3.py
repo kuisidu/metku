@@ -8,8 +8,59 @@ EN 1993-1-3 Supplementary rules for cold-formed members and sheeting
 """
 
 import math
+import numpy as np
 
 from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
+
+""" Chapter 3: Materials """
+def fya(fyb,fu,t,Ag,n,k=7):
+    """ Average yield strength, Eq. (3.1) 
+        input:
+            fyb .. basic yield strength [MPa]
+            fu .. ultimate strength [MPa]
+            k .. numerical coefficient depending on the type of forming
+            n .. number of 90 degree bends
+            t .. design core thickness of steel before colf-forming [mm]
+    """
+
+    return min(fyb+(fu-fyb)*k*n*t**2/Ag,0.5*(fu+fyb))
+
+""" Chapter 5: Structural analysis """
+
+def gr(r,t,phi):
+    """ Calculate the length gr of Fig. 5.1 """
+    rm = r + 0.5*t
+    v = math.radians(phi)
+    return rm*(math.tan(v) - math-sin(v))
+
+def notional_width(b,rm,phi=np.array([90,90])):
+    """ Notional width of a part
+        input:
+            b .. length of straight part of the part
+            rm .. list or numpy array of midline radii of the corners
+                 can be also a single number, if the part has only
+                 one corner
+            phi .. list or numpy array of corner angles.
+                   can also be a single number
+    """
+    rm = np.array(rm)
+    phi = np.array(phi)
+    #print(sum(rm*np.sin(np.radians(0.5*phi))))
+    return b + sum(rm*np.sin(np.radians(0.5*phi)))
+
+def rounding_factor(r,phi,bp):
+    """ Factor 'delta' of Eq. (5.1d) 
+        input:
+            r .. inner radius of different parts (list)
+            phi .. angles (list)
+            bp .. notional widths (list)
+    """
+    r = np.array(r)
+    phi = np.array(phi)
+    bp = np.array(bp)
+    
+    return 0.43*sum(r*phi/90)/sum(bp)
+    
 
 """ Chapter 8: Design of Joints """
 

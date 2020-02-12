@@ -24,6 +24,7 @@ try:
 except:
     from eurocodes.en1993 import constants
     from eurocodes.en1993 import en1993_1_1
+    from materials.steel_data import Steel
 
 
 INFEASIBLE = 999
@@ -47,8 +48,8 @@ class SteelSection(metaclass=ABCMeta):
     """
 
     # Constructor
-    def __init__(self,
-                 fy,
+    def __init__(self,     
+                 material,
                  A,
                  I,
                  Au,
@@ -59,7 +60,12 @@ class SteelSection(metaclass=ABCMeta):
                  Med=0.0,
                  Ved=0.0,
                  design_code=en1993_1_1):
-        self.fy = fy
+        #self.fy = fy
+        
+        if isinstance(material,str):
+            self.material = Steel(material)
+        elif isinstance(material,(float,int)):
+            self.material = Steel("S" + str(int(material)))
 
         self.E = constants.E
         self.A = A
@@ -80,6 +86,12 @@ class SteelSection(metaclass=ABCMeta):
     def __repr__(self):
         return type(self).__name__
 
+
+    @property
+    def fy(self):
+        """ Yield strength """
+        
+        return self.material.fy
 
     @property
     def Iy(self):
@@ -251,7 +263,7 @@ class SteelSection(metaclass=ABCMeta):
         """
 
     def weight(self):
-        """ Weight per unit length """
+        """ Weight per unit length kg/mm """
         w = self.A * constants.density
         return w
 
@@ -270,6 +282,16 @@ class SteelSection(metaclass=ABCMeta):
         p = stmin / stmax
 
         return p
+    
+    def sigma_com(self):
+        """ Elastic compressive stress 
+            This works for double symmetric cross-sections
+        """
+        sN = -self.Ned/self.A
+        sMy = self.Med/self.Wel[0]
+        
+        return sN + sMy
+
 
     def section_class(self,verb=False):
         """ Determines cross-section class """
@@ -409,7 +431,7 @@ class SteelSection(metaclass=ABCMeta):
                 res = 1
         """
 
-    def section_resistance(self, axis='y', return_list=True):
+    def section_resistance(self, axis='y', return_list=True, verb=False):
         """ Calculates resistance of cross-section
             Checks the following:
                 Axial force
@@ -444,4 +466,12 @@ class SteelSection(metaclass=ABCMeta):
             r = [UN, UV, UM, UMN]
         else:
             r = max([UN, UV, UM, UMN])
+            
+        
+        if verb:
+            print("Cross-section design: " + self.__repr__() + " S" + str(self.fy))
+            print("NEd = {0:4.2f} kN; NRd = {1:4.2f} kN => UN = {2:4.2f}".format(self.Ned*1e-3,self.NRd*1e-3,UN))
+            print("VEd = {0:4.2f} kN; VRd = {1:4.2f} kN => UV = {2:4.2f}".format(self.Ved*1e-3,self.VRd*1e-3,UV))
+            print("MEd = {0:4.2f} kNm; MRd = {1:4.2f} kNm => UM = {2:4.2f}".format(self.Med*1e-6,self.MRd[idx]*1e-6,UM))            
+            
         return r

@@ -22,15 +22,14 @@ class OpenProf:
     def __init__(self,nodes,t):
         """ Constructor
             input:
-                nodes .. array of nodal coordinates
-                    nodes[i][0] .. y-coordinates
-                    nodes[i][1] .. z-coordinates
+                nodes .. list of nodal coordinates
+                    nodes[i] = [y_i, z_i]
                 t .. array of wall thicknesses or a single value
         """        
         n = len(nodes)
         self.nodes = np.array(nodes)
-        if len(t) == 1:
-            self.t = t[0]*np.ones(n-1)
+        if isinstance(t,float):
+            self.t = t*np.ones(n-1)
         else:
             self.t = np.array(t)
             
@@ -39,7 +38,8 @@ class OpenProf:
         self.segments = []
         
         for i in range(1,n):                      
-            self.add_segment(self.nodes[i,:],self.nodes[i-1,:],self.t[i-1])
+            self.add_segment(self.nodes[i],self.nodes[i-1],self.t[i-1])
+            #self.add_segment(self.nodes[i,:],self.nodes[i-1,:],self.t[i-1])
     
     def y_coord(self):
         """ Return y coordinates """
@@ -60,7 +60,7 @@ class OpenProf:
             plt.plot(node[0],node[1],'ro')            
         
         for i in range(self.n):
-            plt.text(self.nodes[i,0],self.nodes[i,1],str(i))
+            plt.text(self.nodes[i][0],self.nodes[i][1],str(i))
             
         
         """ draw line segments """
@@ -71,10 +71,10 @@ class OpenProf:
             plt.text(Xmid[0],Xmid[1],str(i))
                 
     
-        ygc, zgc = self.centroid()        
-        #sc = self.ShearCenter
+        ygc, zgc, A = self.centroid()        
+        ysc, zsc = self.shear_center()
         plt.plot(ygc,zgc,'+r')
-        #plot(sc(1),sc(2),'or')
+        plt.plot(ysc,zsc,'or')
         
         plt.axis('equal')
         plt.show()        
@@ -136,18 +136,107 @@ class OpenProf:
         Sy0, Sz0 = self.first_moments()
         Iyz0 = self.product_moment()
         return Iyz0-Sy0*Sz0/A
-
+    
     def sectorial_coordinates(self):
         """ Determine sectorial coordinates """
         n = self.n
         y = self.y_coord()
         z = self.z_coord()
-        w = np.zeros(n,1)
-        for i in range(n):
+        w = np.zeros(n)
+        for i in range(n-1):
             w[i+1] = w[i] + y[i]*z[i+1]-y[i+1]*z[i]
-        
+            
         return w
+    
+    def principal_axes(self):
+        """ Principal axes """
+        Iy, Iz = self.second_moments_gc()
+        Iyz = self.product_moment_gc()
+        d = Iz-Iy
+        if abs(d) > 1e-8:
+            a = .5*np.atan(2*Iyz/d)
+        else:
+            a = 0
+            
+        I1 = 0.5*(Iy+Iz+np.sqrt(d^2+4*Iyz^2))
+        I2 = .5*(Iy+Iz-np.sqrt(d^2+4*Iyz^2))
         
+        return [I1,I2], a
+    
+    def mean_sectorial_moment(self):
+        n = self.n
+        dA = [s.area() for s in self.segments]
+        Iw = 0
+        w = self.sectorial_coordinates()
+        
+        for i in range(n-1):
+            Iw += 0.5*dA[i]*(w[i+1]+w[i])
+            
+        return Iw
+    
+        
+    def mean_sectorial_coordinate(self):
+        Iw = self.mean_sectorial_moment()
+        A = self.area()
+        return Iw/A
+    
+    def sectorial_constants(self):
+        dA = [s.area() for s in self.segments]
+        Iyw0 = 0.0
+        Izw0 = 0.0
+        Iww0 = 0.0
+        
+        Iw = self.mean_sectorial_moment()
+        A = self.area()
+        Sy0, Sz0 = self.first_moments()
+        
+        y = self.y_coord()
+        z = self.z_coord()
+        w = self.sectorial_coordinates()
+        
+        for i in range(self.n-1):
+            Iyw0 += dA[i]*(2*y[i]*w[i]+2*y[i+1]*w[i+1]+y[i]*w[i+1]+y[i+1]*w[i])/6
+            Izw0 += dA[i]*(2*z[i]*w[i]+2*z[i+1]*w[i+1]+z[i]*w[i+1]+z[i+1]*w[i])/6
+            Iww0 += dA[i]*(w[i+1]**2+w[i]**2+w[i+1]*w[i])/3                    
+    
+        Iyw = Iyw0 - Sz0*Iw/A
+        Izw = Izw0 - Sy0*Iw/A
+        Iww = Iww0 - Iw**2/A
+        
+        return Iyw, Izw, Iww
+    
+    def shear_center(self):
+        
+        Iyw, Izw, Iww = self.sectorial_constants()
+        Iy, Iz = self.second_moments_gc()
+        Iyz = self.product_moment_gc()
+        
+        d = Iy*Iz-Iyz**2
+        
+        if d > 1e-8:
+            y_sc = (Izw*Iz-Iyw*Iyz)/d
+            z_sc = (-Iyw*Iy+Izw*Iyz)/d
+        else:
+            y_sc = 0.0
+            z_sc = 0.0
+        
+        return y_sc, z_sc
+    
+    def warping_constant(self):
+        
+        y_sc, z_sc = self.shear_center()        
+        Iyw, Izw, Iww = self.sectorial_constants()
+        
+        return Iww + z_sc*Iyw - y_sc*Izw
+    
+    def torsion_constant(self):
+        dA = np.array([s.area() for s in self.segments])
+        
+        return sum(dA*np.array(self.t)**2/3)
+    
+    def torsion_modulus(self):
+        
+        return self.torsion_constant()/min(self.t)
 """        
         # adds point x to the section and splits the
         # line segment that contains x
@@ -169,105 +258,14 @@ class OpenProf:
             self.t = [self.t(1:n1)self.t(n1)self.t(n1+1:)]
 """
         
-"""                
-        
-            
-        
-        
-        def Iw = Imean(self)
-           dA = self.Areas
-           Iw = 0
-           w = self.SectorialCoordinates
-           for i = 1:self.n-1
-               Iw = Iw+0.5*dA(i)*(w(i+1)+w(i))
-            
-        
-        
-        def wMean = SectorialMean(self)
-            Iw = self.Imean
-            A = self.Area
-            wMean = Iw/A
-        
-        
-        def Iw0 = SectorialConstants0(self)
-            dA = self.Areas
-            Iw0 = [000]
-            y = self.y
-            z = self.z
-            w = self.SectorialCoordinates
-            for i = 1:self.n-1
-                Iw0 = Iw0 + dA(i)*[...
-                    (2*y(i)*w(i)+2*y(i+1)*w(i+1)+y(i)*w(i+1)+y(i+1)*w(i))/6...
-                    (2*z(i)*w(i)+2*z(i+1)*w(i+1)+z(i)*w(i+1)+z(i+1)*w(i))/6...
-                    (w(i+1)^2+w(i)^2+w(i+1)*w(i))/3
-                    ]
-            
-        
-        
-        # Iww = [Iyw,Izw,Iww] (w = omega)
-        def Iww = SectorialConstants(self)
-            A = self.Area
-            S0 = self.MomentArea
-            Iw = self.Imean
-            Iw0 = self.SectorialConstants0
-            Iww = Iw0 - [S0([2,1])Iw]*Iw/A
-        
-        
-        def [sc,varargout] = ShearCenter(self)
-            I2 = self.SecondMomentArea
-            Iy = I2(1)
-            Iz = I2(2)
-            Iyz = I2(3)
-            denom = Iy*Iz-Iyz^2
-            if abs(denom) > 1e-5
-                Iww = self.SectorialConstants
-                Iyw = Iww(1)
-                Izw = Iww(2)
-                sc = [Izw*Iz-Iyw*Iyz-Iyw*Iy+Izw*Iyz]/denom
-                if nargout > 1
-                    varargout{1} = Iww
-                
-            
-        
-        
-        def Iw = WarpingConstant(self)
-            [sc,Iww] = self.ShearCenter
-            Iw = Iww(3)+sc(2)*Iww(1)-sc(1)*Iww(2)
-        
-        
-        def [It,Wt] = TorsionConstant(self)
-            t = self.t
-            dA = self.Areas
-            It = dot(dA,t.^2/3)
-            Wt = It/min(t)
-        
-        
-        def [Ip,a] = PrincipalAxis(self)
-            I2 = self.SecondMomentArea
-            Iy = I2(1)
-            Iz = I2(2)
-            Iyz = I2(3)
-            d = Iz-Iy
-            if abs(d) > 1e-3
-                a = .5*atan(2*Iyz/d)
-                if abs(a) < 1e-8
-                    a = 0
-                                    
-            else
-                a = 0
-            
-            Ip(1) = .5*(Iy+Iz+sqrt(d^2+4*Iyz^2))
-            Ip(2) = .5*(Iy+Iz-sqrt(d^2+4*Iyz^2))            
- """       
- 
 class Segment:
     """ Line segment that is a part of a cross section """
     
     def __init__(self,n1,n2,t):
         """ Constructor
             input:
-                n1 .. node 1 (coordinates)
-                n2 .. node 2 (coordinates)
+                n1 .. node 1 (list of coordinates)
+                n2 .. node 2 (list of coordinates)
                 t .. thickness
         """
         
@@ -275,8 +273,14 @@ class Segment:
             nodes[:,0] .. y coordinates
             nodes[:,1] .. z coordinates
         """
+        self._n1 = n1
+        self._n2 = n2
         self.nodes = np.array([n1,n2])
         self.t = t
+        
+    def length(self):
+        """ Length """
+        return np.sqrt(sum((self.nodes[1,:]-self.nodes[0,:])**2))
 
     def area(self):
         """ Cross-sectional area """
@@ -319,6 +323,6 @@ if __name__ == "__main__":
     n.append([20,60])
     n.append([20,57])
     
-    C = OpenProf(n,[1.5])
+    C = OpenProf(n,1.5)
     C.draw()
     

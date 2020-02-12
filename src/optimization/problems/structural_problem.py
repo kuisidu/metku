@@ -51,7 +51,7 @@ class StructuralProblem(OptimizationProblem):
     @property
     def available_constraints(self):
         """
-        Returns all available constraints anf their corresponding keyword
+        Returns all available constraints and their corresponding keyword
         :return:
         """
         return dict(joint_geometry_constraints=False,

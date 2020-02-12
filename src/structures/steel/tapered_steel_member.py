@@ -8,31 +8,33 @@ try:
     from src.eurocodes.en1993 import constants, en1993_1_1
 except:
     from eurocodes.en1993 import constants, en1993_1_1
+    from sections.steel.wi import WISection
 
 
-class SteelMember:
-    """ Steel members accroding to EN 1993
-        
-              
-        Methods implemented in separate m files       
-        % Computes the cost
-        c = MemberCost(self)
-        % Determine optimum profile
-        %[C,sOpt] = OptimizeProfile(self,S)
-        [C,sOpt] = OptimizeProfile(self,S,NLC,forceFun)
-
+class WebTaperedSteelMember:
+    """ Web tapered steel members accroding to EN 1993                     
+        TODO:
+            - NbRd
+            - MbRd            
+            - Nurjahdus
+            - Kiepahdus
 
     """
 
-    def __init__(self, profile, length, Lcr=[1.0, 1.0], mtype="beam",
-                 LT_buckling=False, symmetry='dual'):
+    def __init__(self, profile0, h1, length, Lcr=[1.0, 1.0], mtype="beam",
+                 LT_buckling=False,taper_type="right"):
         """ Constructor
             
-            profile -- member profile (of cross_section class)
+            profile0 -- smaller member profile
+            h1 -- height of the profile at the other end
             length -- member length
             lcr -- array with length 2 including the buckling
                     length factors
             type -- member type (beam, column or truss)
+            taper_type .. type of tapering
+                        "right" right hand side of the profile is tapered
+                        "left" left hand side of the profile is tapered
+                        "dual" both sides are tapered
             
             Other attributes:
             ned -- axial force in various sections (array)
@@ -47,11 +49,16 @@ class SteelMember:
             ted -- torsion moment in various sections (array)
             loc -- locations of sections along the members in
                     local coordinates (0 <= loc[i] <= 1)
+            
         """
+        
+        # create 'top profile'
+        profile1 = WISection(h1,profile0.tw,profile0.b,profile0.tf,profile0.fy,profile0.weld_throat)
 
-        self.profile = profile
+        self.profiles = [profile0,profile1]
         self.length = length
         self.lcr = np.array(Lcr)
+        self.h1 = h1
         # self.lcr[0] = Lcr[0]*length
         # self.lcr[1] = Lcr[1]*length
         self.type = mtype
@@ -63,7 +70,7 @@ class SteelMember:
         self.ted = []
         self.loc = []
         self.LT_B = LT_buckling
-        self.symmetry = symmetry
+        self.taper_type = taper_type
 
     @property
     def NbRd(self):
@@ -85,6 +92,24 @@ class SteelMember:
     @property
     def NEd(self):
         return max(abs(np.array(self.ned)))
+
+    @property
+    def Iymax(self):
+        return self.profiles[1].I[0]
+
+    @property
+    def Iymin(self):
+        return self.profiles[0].I[0]
+
+    @property
+    def Ieq(self):
+        """ Equivalent second moment of area with respect to major axis """
+        
+        Iymax = self.Iymax
+        r = math.sqrt(self.Iymin/Iymax)
+        C = 0.08+0.92*r
+        
+        return C*Iymax
 
     def nsect(self):
         """ Number of sections """
@@ -170,12 +195,10 @@ class SteelMember:
         """ Member lateral-torsional bending strength """
 
         MRd = self.profile.bending_resistance()[0]
-        """
         if axis == 'y':
             idx = 0
         else:
             idx = 1
-        """
         lambdaLT = self.LT_slenderness(Mcr) # [idx]
         
         # self.profile.define_imp_factor_LT()
@@ -196,7 +219,8 @@ class SteelMember:
             chiLT = 1.0
         else:
             p = 0.5 * (1 + alphaLT * (lambdaLT - lambdaLT0) + beta*lambdaLT ** 2)
-            chiLT = min(1. / (p + math.sqrt(p ** 2 - beta*lambdaLT ** 2)), chiLTmax)
+            chiLT = min(1. / (p + math.sqrt(p ** 2 - beta*lambdaLT ** 2)), chiLTmax
+                        )
         MbRd = chiLT * MRd
         
         if verb:
@@ -222,7 +246,7 @@ class SteelMember:
         w = self.weight_per_length * self.length
         return w
 
-    def mcrit(self, C=[1.12, 0.45, 0.525], k=[1, 1],za=0.0,verb=False):
+    def mcrit(self, C=[1.12, 0.45, 0.525], k=[1, 1]):
         """ Critical moment for lateral-torsional buckling
 
             For mono- and double-symmetric profiles
@@ -246,22 +270,16 @@ class SteelMember:
         L = self.length
         C1, C2, C3 = C
 
-    
-
-        if self.symmetry == 'dual':            
+        if self.symmetry == 'dual':
+            za = 0
             zs = 0
             zg = za - zs
             part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
-            part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + 
-                            (kz * L) ** 2 * G * It /(math.pi ** 2 * E * Iz) + 
-                            (C2 * zg) ** 2)
+            part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz + (kz * L) ** 2 * G * It /
+                            (math.pi ** 2 * E * Iz) + (C2 * zg) ** 2)
             part3 = C2 * zg
-            
-            #print("part 1 = {0:4.2f}".format(part1))
-            #print("part 2 = {0:4.2f}".format(part2))
-            #print("part 3 = {0:4.2f}".format(part3))
 
-            Mcr = part1 * (part2 - part3)            
+            Mcr = part1 * (part2 - part3)
 
         elif self.symmetry == 'mono':
             za = 0
@@ -276,10 +294,6 @@ class SteelMember:
                             (math.pi ** 2 * E * Iz) + (C2 * zg - C3 * zj) ** 2)
 
             Mcr = part1 * (part2 + part3)
-            
-        if verb:
-            print("kz = {0:4.2f}; kw = {1:4.2f}".format(kz,kw))
-            print("C1 = {0:4.2f}; C2 = {1:4.2f}".format(C1,C2))
 
         # print("Iz = {0:4.2f}".format(Iz*1e-4))
         # print("Iw = {0:4.2f}".format(Iw*1e-6))
@@ -301,27 +315,16 @@ class SteelMember:
         self.ted.append(ted)
         self.loc.append(loc)
 
-    def clear_sections(self):
-        self.ned.clear()
-        self.myed.clear()
-        self.mzed.clear()
-        self.vyed.clear()
-        self.vzed.clear()
-        self.ted.clear()
-        self.loc.clear()
-
-
-    def check_section(self, n=0, verb=False):
+    def check_section(self, n=0):
         """ Verify resistance of section 'n' """
         self.profile.Ned = self.ned[n]
         self.profile.Med = self.myed[n]
         self.profile.Ved = self.vzed[n]
-                
 
-        r = self.profile.section_resistance(verb=verb)
+        r = self.profile.section_resistance()
         return r
 
-    def check_sections(self, class1or2=True, verb=False):
+    def check_sections(self, class1or2=True):
         """ Verify resistance of all sections """
         r = np.zeros(len(self.check_section()))
         for n in range(self.nsect()):
@@ -398,50 +401,20 @@ class SteelMember:
         MyEd2 = abs(np.min(np.array(self.myed)))
         MyEd = max(MyEd1, MyEd2)
 
-        # MzEd1 = np.max(np.array(self.mzed))
-        # MzEd2 = abs(np.min(np.array(self.mzed)))
-        # MzEd = max(MzEd1, MzEd2)
-
-        MRd = self.profile.bending_resistance(C=cross_section_class)
-
-        # phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
-        #         slend[0] - 0.2) + slend[0] ** 2)
-        # chi_y = min(1 / (phi_y + math.sqrt(phi_y ** 2 - slend[0] ** 2)), 1.0)
-        #
-        # phi_z = 0.5 * (1 + self.profile.imp_factor[1] * (
-        #         slend[1] - 0.2) + slend[1] ** 2)
-        # chi_z = min(1 / (phi_z + math.sqrt(phi_z ** 2 - slend[1] ** 2)), 1.0)
-        #
-        # if cross_section_class <= 2:
-        #     if not self.LT_B:
-        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-        #         kzy = 0.6 * kyy
-        #
-        #     elif self.LT_B:
-        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-        #         if slend[1] < 0.4:
-        #             kzy = min(0.6 + slend[1], 1 - (0.1 * slend[1] / (
-        #                     CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-        #         else:
-        #             kzy = max(1 - (0.1 * slend[1] / (CmLT - 0.25)) * (
-        #                     NEd / (chi_z * NRd)),
-        #                     1 - (0.1 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-        #
-        # elif cross_section_class > 2:
-        #     if not self.LT_B:
-        #         kyy = min(Cmy * (1 + 0.6 * slend[0] * (NEd / (chi_y * NRd))),
-        #                   Cmy * (1 + 0.6 * (NEd / (chi_y * NRd))))
-        #         kzy = 0.8 * kyy
-        #
-        #     elif self.LT_B:
-        #         kzy = max(1 - (0.05 * slend[1] / (CmLT - 0.25)) * (
-        #                     NEd / (chi_z * NRd)),
-        #                   1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
+        MRd = self.profile.bending_resistance(C=cross_section_class)    
 
         com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd[0]
         com_comp_bend_z = -NEd / NbRd[1] + kzy * MyEd / MRd[0]
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
+
         return com_comp_bend
+
+if __name__ == '__main__':
+    
+    p = WISection(200, 6.0, [140.0, 140.0], [8.0, 8.0],fy=355,weld_throat=4)
+    
+    m = WebTaperedSteelMember(p, 400, 8000, Lcr=[1.0, 1.0], mtype="column",LT_buckling=True,taper_type="right")
+    
+    print(m.Iymin,m.Ieq,m.Iymax)    
+    

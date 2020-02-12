@@ -29,6 +29,13 @@ PREC = 3
 # -----------------------------------------------------------------------------
 class Frame2D:
     """ Class for 2D frame
+    
+        Methods:
+        ------------
+        add
+        generate
+        calculate
+        plot
 
         Parameters:
         ------------
@@ -52,10 +59,11 @@ class Frame2D:
         :ivar nodes:
         :ivar nodal_coordinates:
         :ivar num_elements:
-        :ivar f:
-        :ivar alpha_cr:
+        :ivar f: Finite element model of the frame (FrameFEM)
+        :ivar alpha_cr: critical load factor from linear stability analysis (list)
+        :ivar members: dict of members (FrameMember)
         :ivar num_members:
-        :ivar support_nodes:
+        :ivar support_nodes: list of supported nodes
         :ivar point_loads:
         :ivar line_loads:
         :ivar nodal_foces:
@@ -109,6 +117,7 @@ class Frame2D:
 
     @property
     def L(self):
+        """ Width/span of the frame """
         x_coordinates = [mem.coordinates[0][0] for mem in
                          self.members.values()]
         x_coordinates.extend(
@@ -120,6 +129,7 @@ class Frame2D:
 
     @property
     def H(self):
+        """ Height of the frame """
         y_coordinates = [mem.coordinates[0][1] for mem in
                          self.members.values()]
         y_coordinates.extend(
@@ -131,10 +141,12 @@ class Frame2D:
 
     @property
     def beams(self):
+        """ Returns a list of beam members """
         return [mem for mem in self.members.values() if mem.mtype == 'beam']
 
     @property
     def columns(self):
+        """ Returns a list of column members """
         return [mem for mem in self.members.values() if mem.mtype == 'column']
 
     def add(self, this):
