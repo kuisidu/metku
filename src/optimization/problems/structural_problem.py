@@ -409,12 +409,18 @@ class StructuralProblem(OptimizationProblem):
         def com_compression_bending_z(x):
             return mem.check_beamcolumn(section_class=section_class)[1] - 1
 
+        def lt_buckling(x):
+            return abs(max(mem.myed)) / mem.MbRd - 1
+
         cons = {
             'buckling_y': buckling_y,
             'buckling_z': buckling_z,
             'compression_bending_y': com_compression_bending_y,
             'compression_bending_z': com_compression_bending_z
         }
+
+        if isinstance(mem.profile, RHS):
+            cons['lt_buckling'] = lt_buckling
 
         return cons
 
@@ -497,7 +503,7 @@ class StructuralProblem(OptimizationProblem):
                            bending_moment=False,
                            buckling_y=False,
                            buckling_z=False,
-                           LT_buckling=False,
+                           lt_buckling=False,
                            compression_bending_y=False,
                            compression_bending_z=False,
                            deflection_y=None,
@@ -703,8 +709,10 @@ class StructuralProblem(OptimizationProblem):
                 raise ValueError("var_type must be either 'discrete',"
                                  " 'continuous', 'index' or 'binary")
 
-    def index_to_binary(self, params=('H', 'B', 'T'), chord_profiles=shs_profiles.keys(),
-                        web_profiles=shs_profiles.keys(), col_profiles=hea_profiles.keys()):
+    def index_to_binary(self, params=('H', 'B', 'T'),
+                        chord_profiles=shs_profiles.keys(),
+                        web_profiles=shs_profiles.keys(),
+                        col_profiles=hea_profiles.keys()):
         """
         Creates binary variables and continuous variables
         :return:

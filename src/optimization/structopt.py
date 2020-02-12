@@ -26,6 +26,7 @@ INT_TOL = 1e-4
 """ Tolerance for discreteness violation of a discrete variable
 """
 DISC_TOL = 1e-3
+X_TOL = 1e-10
 
 
 class Variable:
@@ -334,7 +335,7 @@ class Constraint:
         if self.problem is not None:
             X = np.array([var.value for var in self.problem.vars])
             x = np.asarray(x)
-            if np.linalg.norm(X - x) > 1e-2:  # Replace with norm
+            if np.linalg.norm(X - x) > X_TOL:  # Replace with norm
                 self.problem.substitute_variables(x)
 
         if self.fea_required and not self.problem.fea_done:
