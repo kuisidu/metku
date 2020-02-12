@@ -27,7 +27,12 @@ class OpenProf:
                 t .. array of wall thicknesses or a single value
         """        
         n = len(nodes)
-        self.nodes = np.array(nodes)
+        
+        self.nodes = []
+        for node in nodes:
+            self.nodes.append(Node(y=node[0],z=node[1]))
+        
+        #self.nodes = np.array(nodes)
         if isinstance(t,float):
             self.t = t*np.ones(n-1)
         else:
@@ -43,11 +48,13 @@ class OpenProf:
     
     def y_coord(self):
         """ Return y coordinates """
-        return self.nodes[:,0]
+        return np.array([node.y for node in self.nodes])
+        #return self.nodes[:,0]
     
     def z_coord(self):
         """ Return z coordinates """
-        return self.nodes[:,1]
+        return np.array([node.z for node in self.nodes])
+        #return self.nodes[:,1]
     
     def add_segment(self,n1,n2,t):
         """ Adds new line segment to cross section """
@@ -56,19 +63,22 @@ class OpenProf:
                   
     def draw(self):
         """ draw nodes """
-        for node in self.nodes:
-            plt.plot(node[0],node[1],'ro')            
+        for i, node in enumerate(self.nodes):
+            node.draw(str(i))
+            #plt.plot(node[0],node[1],'ro')            
+            #plt.text(node[0],node[1],str(i))
         
-        for i in range(self.n):
-            plt.text(self.nodes[i][0],self.nodes[i][1],str(i))
+        #for i in range(self.n):
+        #    plt.text(self.nodes[i][0],self.nodes[i][1],str(i))
             
         
         """ draw line segments """
-        for s in self.segments:            
-            X = s.nodes
-            plt.plot(X[:,0],X[:,1],'b')
-            Xmid = X[0,:]+0.5*(X[1,:]-X[0,:])
-            plt.text(Xmid[0],Xmid[1],str(i))
+        for i, s in enumerate(self.segments):
+            s.draw(str(i))
+            #X = s.nodes
+            #plt.plot(X[:,0],X[:,1],'b')
+            #Xmid = X[0,:]+0.5*(X[1,:]-X[0,:])
+            #plt.text(Xmid[0],Xmid[1],str(i))
                 
     
         ygc, zgc, A = self.centroid()        
@@ -257,6 +267,29 @@ class OpenProf:
             self.z = [self.z(1:n1)x(2)self.z(n2:)]
             self.t = [self.t(1:n1)self.t(n1)self.t(n1+1:)]
 """
+
+class Node:
+    """ Node of an open section profile """
+    
+    def __init__(self,y,z):
+        """ Constructor 
+            y is the horizontal axis and
+            z is the vertical axis
+        """
+        
+        self.y = y
+        self.z = z
+    
+    @property
+    def coord(self):
+        """ Return numpy array of coordinates """
+        return np.array([self.y,self.z])
+    
+    def draw(self,label=None):        
+        plt.plot(self.y,self.z,'or')
+        
+        if label is not None:
+            plt.text(self.y,self.z,label)
         
 class Segment:
     """ Line segment that is a part of a cross section """
@@ -277,41 +310,80 @@ class Segment:
         self._n2 = n2
         self.nodes = np.array([n1,n2])
         self.t = t
+    
+    @property
+    def y(self):
+        """ Y-coordinates of the segment """
+        return np.array([self._n1.y,self._n2.y])
+    
+    @property
+    def z(self):
+        """ Z-coordinates of the segment """
+        return np.array([self._n1.z,self._n2.z])
+    
+    def mid_point(self):
+        """ coordinates of the middle point of the segment """
         
+        return self._n1.coord + 0.5*(self._n2.coord-self._n1.coord)
+    
+    
     def length(self):
         """ Length """
-        return np.sqrt(sum((self.nodes[1,:]-self.nodes[0,:])**2))
+        return np.linalg.norm(self._n1.coord-self._n2.coord)
+        #return np.sqrt(sum((self.nodes[1,:]-self.nodes[0,:])**2))
 
     def area(self):
         """ Cross-sectional area """
-        return self.t*np.sqrt(sum((self.nodes[1,:]-self.nodes[0,:])**2))
+        return self.t*self.length()
+        #return self.t*np.sqrt(sum((self.nodes[1,:]-self.nodes[0,:])**2))
     
     def first_moment_y(self):
         """ First moment of area with respect to y axis"""
         dA = self.area()
-        return sum(self.nodes[:,1])*dA*0.5
+        return sum(self.z)*dA*0.5
+        #return sum(self.nodes[:,1])*dA*0.5
     
     def second_moment_y(self):
         """ Second moment of area with respect to y axis"""
         dA = self.area()
-        return (sum(self.nodes[:,1]**2)+self.nodes[0,1]*self.nodes[1,1])*dA/3
+        z = self.z
+        return (z[1]**2+z[0]**2+z[1]*z[0])*dA/3
+        #return (sum(self.nodes[:,1]**2)+self.nodes[0,1]*self.nodes[1,1])*dA/3
     
     def first_moment_z(self):
         """ First moment of area with respect to z axis"""
         dA = self.area()
-        return sum(self.nodes[:,0])*dA*0.5
+        return sum(self.y)*dA*0.5
+        #return sum(self.nodes[:,0])*dA*0.5
     
     def second_moment_z(self):
         """ Second moment of area with respect to z axis"""
         dA = self.area()
-        return (sum(self.nodes[:,0]**2)+self.nodes[0,0]*self.nodes[1,0])*dA/3
+        y = self.y
+        return (y[1]**2+y[0]**2+y[1]*y[0])*dA/3
+        #return (sum(self.nodes[:,0]**2)+self.nodes[0,0]*self.nodes[1,0])*dA/3
     
     def product_moment(self):
         """ Product moment of areaq with respect to original y- and z-axes """
         dA = self.area()
-        Iyz0 = (sum(2*self.nodes.prod(1))+self.nodes[0,0]*self.nodes[1,1]+\
-           self.nodes[0,1]*self.nodes[1,0])*dA/6
+        y = self.y
+        z = self.z
+        Iyz0 = (2*y[0]*z[0] + 2*y[1]*z[1] + y[0]*z[1] + y[1]*z[0])*dA/6
+        #Iyz0 = (sum(2*self.nodes.prod(1))+self.nodes[0,0]*self.nodes[1,1]+\
+        #   self.nodes[0,1]*self.nodes[1,0])*dA/6
         return Iyz0
+    
+    def draw(self,label=None):
+        """ Draw segment """
+        
+        plt.plot(self.y,self.z,'b')
+        
+        if label is not None:            
+            mid = self.mid_point()
+            plt.text(mid[0],mid[1],label)
+        
+        
+
 
 if __name__ == "__main__":
     
