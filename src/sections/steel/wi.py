@@ -50,7 +50,7 @@ class WISection(SteelSection):
         self.tw = tw
         self.weld_throat = weld_throat
         
-        self.fy = fy
+        #self.fy = fy
         
         # Reduction factors for effective width of parts
         self.rho_web = 1.0
@@ -62,7 +62,7 @@ class WISection(SteelSection):
         A = self.area()
         Au = self.paint_area()
         I = self.second_moment()
-        Ashear = self.shear_area()
+        Ashear = self.shear_area(fy)
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()
 
@@ -418,11 +418,14 @@ class WISection(SteelSection):
         """ Cross-sectional area """
         return self.Aw + self.At + self.Ab
     
-    def shear_area(self):
+    def shear_area(self,fy=None):
         """ Shear area """
         # if self.hw < 1e-6 or self.tw < 1e-3:
         #     print(self.hw, self.tw)
-        return en1993_1_5.shear_eta(self.fy)*self.hw*self.tw
+        if fy is None:
+            fy = self.fy
+        
+        return en1993_1_5.shear_eta(fy)*self.hw*self.tw
     
     def paint_area(self):
         """ Area to be painted (circumference of the section) """

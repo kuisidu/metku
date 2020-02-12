@@ -7,6 +7,7 @@ Cold-formed profiles
 @author: kmela
 """
 
+from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -24,13 +25,15 @@ class ZSection:
                  MEd=0.0, NEd=0.0, VEd=0.0):
         """ Constructor 
             input:
-                Tnom .. nominal wall thickness
-                H .. total height
-                A .. width of top flange
-                B .. width of bottom flange                
-                R .. rounding
+                t_nom .. nominal wall thickness
+                h .. total height
+                a .. width of top flange
+                b .. width of bottom flange                
+                ca .. length of top flange edge stiffener (=0 if no stiffener)
+                cb .. length of bottom flange edge stiffener (=0 if no stiffener)
+                r .. rounding
                 material .. 
-                Tcoat = 0.04 .. coating [mm]        
+                t_coat = 0.04 .. coating [mm]        
         """
         self.t_nom = t_nom
         self._h = h
@@ -46,6 +49,13 @@ class ZSection:
         self.Med = MEd
         self.Ved = VEd
         
+        """ Reduction factors for effective cross-section """
+        self._rho_t = 1.0
+        self._rho_t_lip = 1.0
+        self._rho_w = 1.0
+        self._rho_b = 1.0
+        self._rho_b_lip = 1.0
+        
         if r == 0:
             """ According to EN 10162, Table A.2;
                 S320GD+Z and S350GD+Z
@@ -54,8 +64,24 @@ class ZSection:
         else:
             self.r = r
             
+        """ Calculation models for gross cross section and
+            effective cross section.
+        """
         self.prof = None
+        self.prof_eff = None
         
+        """ Calculation models for effective top and bottom
+            edge stiffeners
+        """
+        self.edge_stiff = {'top':None, 'bottom':None}
+        
+    
+    def issymmetric(self):
+        """ Cross-section is considered symmetric if flanges have
+            equal widths and edge stiffeners have equal lengths
+        """
+        return self.a == self.b and self.ca == self.cb
+    
     @property
     def fya(self):
         """ Average yield strength """        
@@ -84,25 +110,25 @@ class ZSection:
     
     @property
     def a(self):
-        """ Design value of the height of the profile """
+        """ Design value of the width of the top flange """
         return self._a
         #return self.design_value('_a')
     
     @property
     def b(self):
-        """ Design value of the height of the profile """
+        """ Design value of the width of the bottom flange """
         return self._b
         #return self.design_value('_b')
     
     @property
     def ca(self):
-        """ Design value of the height of the profile """
+        """ Design value of the top flange edge stiffener """
         return self._ca
         #return self.design_value('_ca')
     
     @property
     def cb(self):
-        """ Design value of the height of the profile """
+        """ Design value of the bottom flange edge stiffener """
         return self._cb
         #return self.design_value('_cb')
     
@@ -114,22 +140,38 @@ class ZSection:
     @property
     def bp_t(self):
         """ Notional width of the top flange """
-        return en1993_1_3.notional_width(self.c_top,[self.rm,self.rm],[90,90])
+        if self.ca > 0.0:
+            bp = en1993_1_3.notional_width(self.c_top,[self.rm,self.rm],[90,90])
+        else:
+            bp = en1993_1_3.notional_width(self.c_top,[self.rm],[90])
+        return bp
     
     @property
     def bp_b(self):
         """ Notional width of the bottom flange """
-        return en1993_1_3.notional_width(self.c_bottom,[self.rm,self.rm],[90,90])
+        if self.cb > 0.0:
+            bp = en1993_1_3.notional_width(self.c_bottom,[self.rm,self.rm],[90,90])
+        else:
+            bp = en1993_1_3.notional_width(self.c_bottom,[self.rm],[90])
+        return bp
     
     @property
     def bp_t_lip(self):
         """ Notional width of the top flange lip"""
-        return en1993_1_3.notional_width(self.ca_straight,[self.rm],[90])
+        if self.ca > 0.0:
+            bp = en1993_1_3.notional_width(self.ca_straight,[self.rm],[90])
+        else:
+            bp = 0.0
+        return bp
     
     @property
     def bp_b_lip(self):
         """ Notional width of the bottom flange lip """
-        return en1993_1_3.notional_width(self.cb_straight,[self.rm],[90])
+        if self.cb > 0.0:
+            bp = en1993_1_3.notional_width(self.cb_straight,[self.rm],[90])
+        else:
+            bp = 0.0
+        return bp
     
     def design_value(self,attr):
         """ Calculates the design value of a dimension 
@@ -150,13 +192,20 @@ class ZSection:
         bp_bottom_lip = self.bp_b_lip
         bp_top_lip = self.bp_t_lip
         web_nodes = [[0.0,-0.5*bp_web],[0.0,0.5*bp_web]]
-        bottom_lip_nodes = [[-bp_bottom,web_nodes[0][1]+bp_bottom_lip],
+        if bp_bottom_lip > 0.0:
+            bottom_nodes = [[-bp_bottom,web_nodes[0][1]+bp_bottom_lip],
                             [-bp_bottom,web_nodes[0][1]]
                             ]
-        top_lip_nodes = [[bp_top,web_nodes[1][1]],
-                            [bp_top,web_nodes[1][1]-bp_top_lip]]
+        else:
+            bottom_nodes = [[-bp_bottom,web_nodes[0][1]]]
+            
+        if bp_top_lip > 0.0:
+            top_nodes = [[bp_top,web_nodes[1][1]],
+                             [bp_top,web_nodes[1][1]-bp_top_lip]]
+        else:
+            top_nodes = [[bp_top,web_nodes[1][1]]]
         
-        nodes = bottom_lip_nodes + web_nodes + top_lip_nodes
+        nodes = bottom_nodes + web_nodes + top_nodes
         
         self.prof = OpenProf(nodes,self.t)
                             
@@ -167,24 +216,48 @@ class ZSection:
         return self.h - 2*(self.r+self.t)
     
     @property
+    def hw_center(self):
+        """ Height of the profile from center line of the top flange
+            to the center line of the bottom flange.
+        """
+        return self.h - self.t_nom
+    
+    @property
     def c_top(self):
         """ Straight part of the top flange """
-        return self.a-2*(self.r+self.t)
+        if self.ca > 0:
+            c = self.a-2*(self.r+self.t)
+        else:
+            c = self.a-(self.r+self.t)
+        return c
     
     @property
     def c_bottom(self):
         """ Straight part of the bottom flange """
-        return self.b-2*(self.r+self.t)
+        if self.cb > 0:
+            c = self.b-2*(self.r+self.t)
+        else:
+            c = self.b-(self.r+self.t)
+        return c
     
     @property
     def ca_straight(self):
         """ Straight part of the top lip """
-        return self.ca-self.t-self.r
+        if self.ca > 0:
+            c = self.ca-self.t-self.r
+        else:
+            c = 0.0
+        return c
     
     @property
     def cb_straight(self):
         """ Straight part of the bottom lip """
-        return self.cb-self.t-self.r
+        if self.cb > 0:
+            c = self.cb-self.t-self.r
+        else:
+            c = 0.0
+        
+        return c
     
     @property
     def rm(self):
@@ -194,7 +267,14 @@ class ZSection:
     def center_line_length(self):    
         straight_parts = self.cb_straight + self.c_bottom + self.hw + self.c_top + self.ca_straight 
         
-        return straight_parts +2*np.pi*self.rm
+        n = 2
+        if self.ca > 0.0:
+            n += 1
+        
+        if self.cb > 0.0:
+            n += 1
+        
+        return straight_parts +n*np.pi*self.rm/2
     
     def Agross(self):
         """ Gross cross-sectional area """
@@ -205,12 +285,26 @@ class ZSection:
         """ Effective width of a flange """
         if flange == "top":
             bp = self.bp_t
+            edge_stiffener = abs(self.ca) > 1e-10
         else:
             bp = self.bp_b
-        ksigma = en1993_1_5.buckling_factor_internal(psi)
-        lambda_p = en1993_1_5.lambda_p(bp,self.t,self.material.eps(),ksigma)
-        rho = en1993_1_5.reduction_factor_internal(lambda_p, psi)
-        beff, be = en1993_1_5.effective_width_internal(bp,psi,rho)
+            edge_stiffener = abs(self.cb) > 1e-10
+        
+        if edge_stiffener:
+            ksigma = en1993_1_5.buckling_factor_internal(psi)
+            lambda_p = en1993_1_5.lambda_p(bp,self.t,self.material.eps(),ksigma)
+            rho = en1993_1_5.reduction_factor_internal(lambda_p, psi)
+            beff, be = en1993_1_5.effective_width_internal(bp,psi,rho)
+        else:
+            ksigma = en1993_1_5.buckling_factor_outstand(psi)
+            lambda_p = en1993_1_5.lambda_p(bp,self.t,self.material.eps(),ksigma)
+            rho = en1993_1_5.reduction_factor_outstand(lambda_p)
+            beff = en1993_1_5.effective_width_outstand(bp,psi,rho)
+            
+        if flange == 'top':
+            self._rho_t = rho
+        else:
+            self._rho_b = rho
         
         if verb:
             print("** Effective {0:s} flange **".format(flange))
@@ -219,9 +313,40 @@ class ZSection:
             print("  Slenderness: lambda_p = {0:4.3f}".format(lambda_p))
             print("  Reduction factor: rho = {0:4.3f}".format(rho))
             print("  Effective width: beff = {0:4.3f} mm".format(beff))
+            
+    def effective_width_edge_stiffener(self,flange='top',verb=False):
+        """ Effective width of an edge stiffener """
+        if flange == "top":
+            bp = self.bp_t
+            bpc = self.bp_t_lip
+        else:
+            bp = self.bp_b
+            bpc = self.bt_b_lip
+        
+        # NOTE: Buckling factor according to EN 1993-1-3, not EN 1993-1-5!
+        ksigma = en1993_1_3.buckling_factor_edge_stiffener(bpc/bp)
+        lambda_p = en1993_1_5.lambda_p(bpc,self.t,self.material.eps(),ksigma)
+        rho = en1993_1_5.reduction_factor_outstand(lambda_p)
+        ceff = en1993_1_5.effective_width_outstand(bpc,psi=1.0,rho=rho)
+            
+        if flange == 'top':
+            self._rho_t = rho
+        else:
+            self._rho_b = rho
+        
+        if verb:
+            print("** Effective {0:s} edge stiffener **".format(flange))
+            print("  Notional width of flange: bp = {0:4.2f}".format(bp))
+            print("  Notional width of stiffener: bp,c = {0:4.2f}".format(bpc))
+            print("  Buckling factor: ksigma = {0:4.3f}".format(ksigma))
+            print("  Slenderness: lambda_p = {0:4.3f}".format(lambda_p))
+            print("  Reduction factor: rho = {0:4.3f}".format(rho))
+            print("  Effective width: ceff = {0:4.3f} mm".format(ceff))
+        
+        
     
     def effective_width_web(self,psi,verb=False):
-        """ Effective width of top flange """
+        """ Effective width of web """
         bp = self.bp_w
         ksigma = en1993_1_5.buckling_factor_internal(psi)
         lambda_p = en1993_1_5.lambda_p(bp,self.t,self.material.eps(),ksigma)
@@ -237,35 +362,26 @@ class ZSection:
             print("  Reduction factor: rho = {0:4.3f}".format(rho))
             print("  Effective width: beff = {0:4.3f} mm".format(beff))
     
-    def effective_width_lip(self,psi,lip='top',verb=False):
-        """ Effective width of a lip """
-        if lip == "top":
-            bp = self.bp_t_lip
-        else:
-            bp = self.bp_b_lip
-            
-        ksigma = en1993_1_5.buckling_factor_outstand(psi)
-        lambda_p = en1993_1_5.lambda_p(bp,self.t,self.material.eps(),ksigma)
-        rho = en1993_1_5.reduction_factor_outstand(lambda_p)
-        beff = en1993_1_5.effective_width_outstand(bp,psi,rho)
-        
-        if verb:
-            print("** Effective {0:s} lip **".format(lip))
-            print("  Notional width: bp = {0:4.2f}".format(bp))
-            print("  Buckling factor: ksigma = {0:4.3f}".format(ksigma))
-            print("  Slenderness: lambda_p = {0:4.3f}".format(lambda_p))
-            print("  Reduction factor: rho = {0:4.3f}".format(rho))
-            print("  Effective width: beff = {0:4.3f} mm".format(beff))
     
     def area(self):
         """ Gross cross-sectional area """
-        r = [self.r,self.r,self.r,self.r]
-        phi = [90,90,90,90]
-        bp = [self.bp_b_lip,
-              self.bp_b,
-              self.bp_w,
-              self.bp_t,
-              self.bp_t_lip]
+        
+        r = [self.r,self.r]
+        phi = [90,90]
+        
+        bp = [self.bp_b, self.bp_w, self.bp_t]
+        
+        if self.ca > 0.0:
+            r.append(self.r)
+            phi.append(90)
+            bp.append(self.bp_t_lip)
+        
+        if self.cb > 0.0:
+            r.append(self.r)
+            phi.append(90)
+            bp.append(self.bp_b_lip)
+        
+        
         d = en1993_1_3.rounding_factor(r,phi,bp)
         
         return self.prof.area()*(1-d)
@@ -276,12 +392,109 @@ class ZSection:
         
         return ygc, zgc
     
+    def centroid_eff(self):
+        """ Centroid of the effective cross-section """
+        
+        ygc, zgc, A = self.prof_eff.centroid()
+        
+        return ygc, zgc
+    
     def second_moment(self):
         """ second moment of area for the gross cross section 
             with respect to 
         """
-        
     
+    def effective_section(self,verb=False):
+        """ Returns effective section, including local buckling
+            and distortional buckling.
+            
+            The effective section contains:
+                _rho_t .. effective top flange
+                _rho_w .. effective web
+                _rho_b .. effective bottom flange
+                _rho_t_lip .. effective top edge stiffener
+                _rho_t_bottom .. effective bottom edge stiffener
+                
+                _chid_t .. reduction factor for top edge stiffener for
+                            distortional buckling
+                _chid_b .. reduction factotr for bottom edge stiffener
+                            for distortional buckling
+        """
+        
+        if self.Med > 0.0:
+            """ Positive bending:
+                top flange in compression
+                bottom flange in tension
+            """
+            self.effective_width_flange(psi=1.0,flange='top',verb=verb)
+            """ Determine stress ratio for the web, using effecive flange """
+            self.create_effective_model()
+            psi = self.stress_ratio()
+            
+            self.effective_width_web(psi,verb=verb)
+            
+    def stress_ratio(self):
+        """ Calculates the ratio of the top flange stress and
+            bottom flange stress
+        """
+        
+        if self.prof_eff is None:
+            ygc, zgc = self.centroid()
+            print("No effective model created")
+        else:
+            ygc, zgc = self.centroid_eff()
+        
+        """ Height of the compressed part of the profile
+            NOTE:
+                zgc is determined using the simplified computational model,
+                where the height of the profile is smaller than 'h', namely
+                the thickness of the profile is reduced as notional widths
+                are employed.
+                
+                Maybe the height of the computational profile should be
+                used instead of 'h'
+        """
+        
+        # Use hw_center to go from center line to center line.
+        hc = 0.5*self.hw_center - zgc
+        
+        print("Compressed part of the profile: {0:4.2f} mm".format(hc))
+        
+        return -(self.hw_center/hc-1)
+
+    def edge_stiffness(self,flange='top'):
+        """ EN 1993-1-3, Eq. (5.10b)
+            Stiffness provided by the profile to the edge stiffener
+        """
+        
+        C = 0.25*self.material.E*self.t**3/(1-self.material.nu**2)        
+        hw = self.hw_center
+        
+        """ TODO:
+            Implement b1 and b2 (distance from far edge of the flange to
+            the centroid of effective stiffener)
+        """
+        
+        if flange == 'top':
+            f1 = 'top'
+            f2 = 'bottom'
+        else:
+            f1 = 'bottom'
+            f2 = 'top'
+        
+        if self.Ned < 0.0:
+            if self.issymmetric():
+                kf = 1.0
+            else:
+                kf = self.edge_stiff[f2].A/self.edge_stiff[f1].A
+        elif self.Med > 0.0 and flange == 'top':            
+            kf = 0.0
+        elif self.Med < 0.0 and flange == 'bottom':
+            kf = 0.0
+        
+        return C/(b1**2*hw + b1**3 + 0.5*b1*b2*hw*kf)
+        
+        
     def draw(self):
         """ Draw the profile 
             
@@ -328,20 +541,21 @@ class ZSection:
         ax.add_patch(up_corner_mid)
         
         # Draw top lip
-        y_top_lip = [0.5*hweb-(ca-tnom-r),0.5*hweb]                            
-        ax.vlines([b_top-1.5*tnom,b_top-0.5*tnom],y_top_lip[0],y_top_lip[1],colors='k',linewidth=lw)
-        ax.vlines([b_top-tnom],y_top_lip[0],y_top_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
+        if self.ca > 0.0:
+            y_top_lip = [0.5*hweb-(ca-tnom-r),0.5*hweb]                            
+            ax.vlines([b_top-1.5*tnom,b_top-0.5*tnom],y_top_lip[0],y_top_lip[1],colors='k',linewidth=lw)
+            ax.vlines([b_top-tnom],y_top_lip[0],y_top_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
         
-        # Corner of top lip
-        x_top_right = (b_top-1.5*tnom-r,0.5*h-tnom-r)
+            # Corner of top lip
+            x_top_right = (b_top-1.5*tnom-r,0.5*h-tnom-r)
         
-        top_right_corner_in = patches.Arc(x_top_right,2*r,2*r,0,0,90,color='k',linewidth=lw)
-        top_right_corner_out = patches.Arc(x_top_right,2*(r+tnom),2*(r+tnom),0,0,90,color='k',linewidth=lw)
+            top_right_corner_in = patches.Arc(x_top_right,2*r,2*r,0,0,90,color='k',linewidth=lw)
+            top_right_corner_out = patches.Arc(x_top_right,2*(r+tnom),2*(r+tnom),0,0,90,color='k',linewidth=lw)
         
-        ax.add_patch(top_right_corner_in)
-        ax.add_patch(top_right_corner_out)
+            ax.add_patch(top_right_corner_in)
+            ax.add_patch(top_right_corner_out)
         
-        ax.hlines(0.5*hweb-(ca-tnom-r),b_top-1.5*tnom,b_bot-0.5*tnom,colors='k',linewidth=lw)
+            ax.hlines(0.5*hweb-(ca-tnom-r),b_top-1.5*tnom,b_bot-0.5*tnom,colors='k',linewidth=lw)
         
         # Bottom flange
         cbottom = self.c_bottom # Straight part of the top flange
@@ -362,28 +576,31 @@ class ZSection:
         ax.add_patch(bot_corner_out)
         ax.add_patch(bot_corner_mid)
         
-        # Left lip        
-        y_bot_lip = [-(0.5*hweb-(cb-tnom-r)),-(0.5*hweb)]                            
-        ax.vlines([-(b_bot-1.5*tnom),-(b_bot-0.5*tnom)],y_bot_lip[0],y_bot_lip[1],colors='k',linewidth=lw)
-        ax.vlines([-(b_bot-tnom)],y_bot_lip[0],y_bot_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
+        # Left lip      
+        if self.cb > 0.0:
+            y_bot_lip = [-(0.5*hweb-(cb-tnom-r)),-(0.5*hweb)]                            
+            ax.vlines([-(b_bot-1.5*tnom),-(b_bot-0.5*tnom)],y_bot_lip[0],y_bot_lip[1],colors='k',linewidth=lw)
+            ax.vlines([-(b_bot-tnom)],y_bot_lip[0],y_bot_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
+            
+            # Corner of the lip
+            x_bot_left = (-(b_bot-1.5*tnom-r),-(0.5*h-tnom-r))
+            
+            bot_left_corner_in = patches.Arc(x_bot_left,2*r,2*r,0,180,270,color='k',linewidth=lw)
+            bot_left_corner_out = patches.Arc(x_bot_left,2*(r+tnom),2*(r+tnom),0,180,270,color='k',linewidth=lw)
+            bot_left_corner_mid = patches.Arc(x_bot_left,2*r+tnom,2*r+tnom,0,180,270,color='b',linewidth=lw_c,linestyle='-.')
+            
+            ax.add_patch(bot_left_corner_in)
+            ax.add_patch(bot_left_corner_out)
+            ax.add_patch(bot_left_corner_mid)
+            
+            ax.hlines(-(0.5*hweb-(cb-tnom-r)),-b_bot+0.5*tnom,-b_bot+1.5*tnom,colors='k',linewidth=lw)
         
-        # Corner of the lip
-        x_bot_left = (-(b_bot-1.5*tnom-r),-(0.5*h-tnom-r))
         
-        bot_left_corner_in = patches.Arc(x_bot_left,2*r,2*r,0,180,270,color='k',linewidth=lw)
-        bot_left_corner_out = patches.Arc(x_bot_left,2*(r+tnom),2*(r+tnom),0,180,270,color='k',linewidth=lw)
-        bot_left_corner_mid = patches.Arc(x_bot_left,2*r+tnom,2*r+tnom,0,180,270,color='b',linewidth=lw_c,linestyle='-.')
         
-        ax.add_patch(bot_left_corner_in)
-        ax.add_patch(bot_left_corner_out)
-        ax.add_patch(bot_left_corner_mid)
-        
-        ax.hlines(-(0.5*hweb-(cb-tnom-r)),-b_bot+0.5*tnom,-b_bot+1.5*tnom,colors='k',linewidth=lw)
-                
         ax.set_aspect('equal')
         
-class CSectionLipped(ZSection):
-    """ Lipped C section
+class CSection(ZSection):
+    """ C section
         This profile has many things in common with the Z section,
         so it inherits the basic functionalities
     """
@@ -404,15 +621,48 @@ class CSectionLipped(ZSection):
         bp_bottom_lip = self.bp_b_lip
         bp_top_lip = self.bp_t_lip
         web_nodes = [[0.0,-0.5*bp_web],[0.0,0.5*bp_web]]
-        bottom_lip_nodes = [[bp_bottom,web_nodes[0][1]+bp_bottom_lip],
+        if bp_bottom_lip > 0.0:
+            bottom_nodes = [[bp_bottom,web_nodes[0][1]+bp_bottom_lip],
                             [bp_bottom,web_nodes[0][1]]
                             ]
-        top_lip_nodes = [[bp_top,web_nodes[1][1]],
-                            [bp_top,web_nodes[1][1]-bp_top_lip]]
+        else:
+            """ No bottom edge stiffener """
+            bottom_nodes = [[bp_bottom,web_nodes[0][1]]]
         
-        nodes = bottom_lip_nodes + web_nodes + top_lip_nodes
+        if bp_top_lip > 0.0:
+            top_nodes = [[bp_top,web_nodes[1][1]],
+                             [bp_top,web_nodes[1][1]-bp_top_lip]]
+        else:
+            top_nodes = [[bp_top,web_nodes[1][1]]]
+            
+        nodes = bottom_nodes + web_nodes + top_nodes
         
         self.prof = OpenProf(nodes,self.t)
+    
+    def create_effective_model(self):
+        """ Create calculation model for the effective cross-section 
+            This is done based on the model of the gross cross-section
+        """
+    
+        if self.prof is None:
+            self.create_model()
+        
+        prof_eff = deepcopy(self.prof)
+        
+        if self._rho_t < 1.0:
+            """ Effective top flange
+                Top flange nodes are the last nodes in the model
+            """
+            if self.ca > 0.0:
+                """ The effective top flange is an internal element """
+                pass
+            else:
+                """ The effective top flange is an outstand element """
+                prof_eff.nodes[-1].y -= (1-self._rho_t)*self.bp_t
+                
+        
+        self.prof_eff = prof_eff
+            
     
 
     def draw(self):
@@ -461,20 +711,21 @@ class CSectionLipped(ZSection):
         ax.add_patch(up_corner_mid)
         
         # Draw top lip
-        y_top_lip = [0.5*hweb-(ca-tnom-r),0.5*hweb]                            
-        ax.vlines([b_top-1.5*tnom,b_top-0.5*tnom],y_top_lip[0],y_top_lip[1],colors='k',linewidth=lw)
-        ax.vlines([b_top-tnom],y_top_lip[0],y_top_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
-        
-        # Corner of top lip
-        x_top_right = (b_top-1.5*tnom-r,0.5*h-tnom-r)
-        
-        top_right_corner_in = patches.Arc(x_top_right,2*r,2*r,0,0,90,color='k',linewidth=lw)
-        top_right_corner_out = patches.Arc(x_top_right,2*(r+tnom),2*(r+tnom),0,0,90,color='k',linewidth=lw)
-        
-        ax.add_patch(top_right_corner_in)
-        ax.add_patch(top_right_corner_out)
-        
-        ax.hlines(0.5*hweb-(ca-tnom-r),b_top-1.5*tnom,b_bot-0.5*tnom,colors='k',linewidth=lw)
+        if self.ca > 0.0:
+            y_top_lip = [0.5*hweb-(ca-tnom-r),0.5*hweb]                            
+            ax.vlines([b_top-1.5*tnom,b_top-0.5*tnom],y_top_lip[0],y_top_lip[1],colors='k',linewidth=lw)
+            ax.vlines([b_top-tnom],y_top_lip[0],y_top_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
+            
+            # Corner of top lip
+            x_top_right = (b_top-1.5*tnom-r,0.5*h-tnom-r)
+            
+            top_right_corner_in = patches.Arc(x_top_right,2*r,2*r,0,0,90,color='k',linewidth=lw)
+            top_right_corner_out = patches.Arc(x_top_right,2*(r+tnom),2*(r+tnom),0,0,90,color='k',linewidth=lw)
+            
+            ax.add_patch(top_right_corner_in)
+            ax.add_patch(top_right_corner_out)
+            
+            ax.hlines(0.5*hweb-(ca-tnom-r),b_top-1.5*tnom,b_bot-0.5*tnom,colors='k',linewidth=lw)
         
         # Bottom flange
         cbottom = self.c_bottom # Straight part of the top flange
@@ -496,22 +747,23 @@ class CSectionLipped(ZSection):
         ax.add_patch(bot_corner_mid)
         
         # Left lip        
-        y_bot_lip = [-(0.5*hweb-(cb-tnom-r)),-(0.5*hweb)]                            
-        ax.vlines([b_bot-1.5*tnom,b_bot-0.5*tnom],y_bot_lip[0],y_bot_lip[1],colors='k',linewidth=lw)
-        ax.vlines([b_bot-tnom],y_bot_lip[0],y_bot_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
-        
-        # Corner of the lip
-        x_bot_left = (b_bot-1.5*tnom-r,-(0.5*h-tnom-r))
-        
-        bot_left_corner_in = patches.Arc(x_bot_left,2*r,2*r,0,270,360,color='k',linewidth=lw)
-        bot_left_corner_out = patches.Arc(x_bot_left,2*(r+tnom),2*(r+tnom),0,270,360,color='k',linewidth=lw)
-        bot_left_corner_mid = patches.Arc(x_bot_left,2*r+tnom,2*r+tnom,0,270,360,color='b',linewidth=lw_c,linestyle='-.')
-        
-        ax.add_patch(bot_left_corner_in)
-        ax.add_patch(bot_left_corner_out)
-        ax.add_patch(bot_left_corner_mid)
-        
-        ax.hlines(-(0.5*hweb-(cb-tnom-r)),b_bot-0.5*tnom,b_bot-1.5*tnom,colors='k',linewidth=lw)
+        if self.cb > 0.0:
+            y_bot_lip = [-(0.5*hweb-(cb-tnom-r)),-(0.5*hweb)]                            
+            ax.vlines([b_bot-1.5*tnom,b_bot-0.5*tnom],y_bot_lip[0],y_bot_lip[1],colors='k',linewidth=lw)
+            ax.vlines([b_bot-tnom],y_bot_lip[0],y_bot_lip[1],colors='b',linewidth=lw_c,linestyle='-.')
+            
+            # Corner of the lip
+            x_bot_left = (b_bot-1.5*tnom-r,-(0.5*h-tnom-r))
+            
+            bot_left_corner_in = patches.Arc(x_bot_left,2*r,2*r,0,270,360,color='k',linewidth=lw)
+            bot_left_corner_out = patches.Arc(x_bot_left,2*(r+tnom),2*(r+tnom),0,270,360,color='k',linewidth=lw)
+            bot_left_corner_mid = patches.Arc(x_bot_left,2*r+tnom,2*r+tnom,0,270,360,color='b',linewidth=lw_c,linestyle='-.')
+            
+            ax.add_patch(bot_left_corner_in)
+            ax.add_patch(bot_left_corner_out)
+            ax.add_patch(bot_left_corner_mid)
+            
+            ax.hlines(-(0.5*hweb-(cb-tnom-r)),b_bot-0.5*tnom,b_bot-1.5*tnom,colors='k',linewidth=lw)
                 
         ax.set_aspect('equal')
 
@@ -883,11 +1135,31 @@ class ZProf:
                
         
     """
+    
+def Cexample():
+    
+    c = CSection(t_nom=2.0,h=150.0,a=47,b=41,ca=0.0,cb=0.0,r=3.0,t_coat=0.04)
+    
+    c.Med = 10.0
+    #c.effective_width_flange(psi=1.0, flange='top',verb=True)
+    c.effective_section(True)
+    #c.create_model()
+    #c.create_effective_model()
+    
+    #c.prof_eff.draw()
+
+    #ygc, zgc = c.centroid_eff()
+    #print(ygc,zgc)
+
+    return c
 
 if __name__ == "__main__":
     
-    z = ZSection()
-    c = CSectionLipped(1.48,97.3,37.0,37.0,12.5,12.5,0.85,t_coat=0.0)
+    c = Cexample()
+    
+    """
+    z = ZSection(ca=0.0,cb=0.0)
+    c = CSection(1.48,97.3,37.0,37.0,12.5,12.5,0.85,t_coat=0.0)
     c.material.fy = 505.0
     #c.draw()
     z.create_model()
@@ -899,3 +1171,4 @@ if __name__ == "__main__":
     c.effective_width_flange(1.0,'top',verb=True)
     c.effective_width_flange(1.0,'bottom',verb=True)
     c.effective_width_web(1.0,verb=True)
+    """

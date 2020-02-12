@@ -60,7 +60,48 @@ def rounding_factor(r,phi,bp):
     bp = np.array(bp)
     
     return 0.43*sum(r*phi/90)/sum(bp)
+
+def distortional_buckling_reduction_factor(lambda_d):
+    """ EN 1993-1-3, Eq. (5.12)
+        Reduction factor for distortional buckling
+        
+        input:
+            lambda_d .. slenderness = sqrt(fyb/sigma_cr,s)
+    """
     
+    if lambda_d <= 0.65:
+        chi_d = 1.0
+    elif lambda_d <= 1.38:
+        chi_d = 1.47-0.723*lambda_d
+    else:
+        chi_d = 0.66/lambda_d
+        
+    return chi_d
+
+def buckling_factor_edge_stiffener(bratio):
+    """ EN 1993-1-3, Eq. (5.13b) and (5.13c)
+        Buckling factor for single edge stiffener
+        
+        input:
+            bratio = b_p,c/b_p, where
+            b_p,c = notional width of the edge stiffener
+            b_p = notional width of the flange etc.
+    """
+    
+    if bratio <= 0.35:
+        ksigma = 0.5
+    elif bratio <= 0.6:
+        ksigma = 0.5 + 0.83*(bratio-0.35)**(1/3)
+    else:
+        print("Error: bration must be at most 0.6.")
+        
+    return ksigma
+
+def distortional_buckling_stress(Is,As,E,K):
+    """ EN 1993-1-3, Eq. (5.15)
+        Critical stress for distortional buckling
+    """    
+    return 2*math.sqrt(K*E*Is)/As
 
 """ Chapter 8: Design of Joints """
 

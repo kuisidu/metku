@@ -224,6 +224,7 @@ class ConcreteFilledTube:
         """
         phi = self.concrete.creep_coefficient(h0=1e11,t=1e11,t0=28)
         
+        print(phi)
         return self.Ecm*1/(1+self.nged/self.ned*phi)
         
     
@@ -487,14 +488,17 @@ class ConcreteFilledTube:
 
         MnRd = fyd*Wpa_n + fsd*Wps_n + 0.5*fcd*Wpc_n
 
+        MplRd = self.Mpl_max_Rd() - MnRd 
+
         if verb:
             print("Plastic moment resistance:")
             print("hn = {0:4.2f} mm (z_rebar = {1:4.2f} mm)".format(hn,self.z_rebar))
             print("Wps_n = {0:4.2f} mm3".format(Wps_n))
             print("Wpc_n = {0:4.2f} mm3".format(Wpc_n))
             print("Wpa_n = {0:4.2f} mm3".format(Wpa_n))
+            print("MplRd = {0:4.2f} kNm".format(MplRd*1e-6))
 
-        return self.Mpl_max_Rd() - MnRd 
+        return MplRd 
     
     def alpha_m(self):
         
@@ -648,12 +652,34 @@ def HT2(steel,concrete,rebar,ned,nged,med):
     
     return p
 
+def Tentti():
+    
+    steel = SHS(220,8)
+    concrete = constants.Concrete("C40/50")
+    rebar = en1992_1_1.Rebar(20,"B500B")
+    
+    ned = 2.5e6
+    nged = 1.8e6
+    med = [0,0]
+    
+    p = ConcreteFilledTube(4000,steel,concrete,rebar)    
+    p.ned = ned
+    p.nged = nged
+    p.med = med
+
+    p.NplRd(True)
+    p.MplRd(True)
+    p.design(True)
+
+    p.draw()
+
+    return p
 
 if __name__ == '__main__':
     
     from sections.steel.RHS import SHS
     from eurocodes.en1992 import en1992_1_1, constants
-    
+    """
     steel = SHS(300,8)
     con = constants.Concrete("C40/50")
     rebar = en1992_1_1.Rebar(20,"B500B")
@@ -661,6 +687,8 @@ if __name__ == '__main__':
     nged = 1.7e6
     med = [0,0]
     p = HT2(steel,con,rebar,ned,nged,med)
+    """
+    p = Tentti()
     
     """
     p = ConcreteFilledTube(6500,steel,con,rebar)
