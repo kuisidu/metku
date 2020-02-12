@@ -26,11 +26,15 @@ try:
     from src.optimization.solvers import *
     from src.optimization.solvers.bnb import BnB
     from src.optimization.problems.structural_problem import StructuralProblem
+    from src.sections.steel.steel_section import SteelSection
+    from src.materials.steel_data import Steel
 except:
     from frame2d.frame2d import *
     from truss2d import Truss2D
     from optimization.solvers import *
+    from optimization.solvers.bnb import BnB
     from optimization.problems.structural_problem import StructuralProblem
+    from materials.steel_data import Steel
 
 
 def create_structure(L, H0, H1, H2, dx, n):
@@ -39,7 +43,10 @@ def create_structure(L, H0, H1, H2, dx, n):
                     supports='fixed')  # Tuet, aina fixed?
     for col in frame.columns:
         col.profile = 'WI 500-12-10X300-10X300'
-        col.material = "S355MC"
+        print(col.profile)
+        col.material = Steel("S700MC")
+        # col.material = "S700MC"
+        print(col.material)
 
     simple_truss = {
         "L1": L / 2,

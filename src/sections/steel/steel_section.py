@@ -21,6 +21,7 @@ from abc import abstractclassmethod, ABCMeta
 try:
     from src.eurocodes.en1993 import constants
     from src.eurocodes.en1993 import en1993_1_1
+    from src.materials.steel_data import Steel
 except:
     from eurocodes.en1993 import constants
     from eurocodes.en1993 import en1993_1_1
