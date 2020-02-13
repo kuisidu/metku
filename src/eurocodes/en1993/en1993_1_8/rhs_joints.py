@@ -568,18 +568,22 @@ class RHSYJoint(RHSJoint):
         self.angle = angle
         
         
+    @property
     def h(self):
         """ Brace heights """
         return self.brace.H
     
+    @property
     def b(self):
         """ Brace widths """
         return self.brace.B
     
+    @property
     def t(self):
         """ Brace thickness """
         return self.brace.T
     
+    @property
     def fy(self):
         """ Brace yield strength """
         return self.brace.fy
@@ -616,11 +620,11 @@ class RHSYJoint(RHSJoint):
         slend = self.slend()
         phi = 0.5*(1 + alpha*(slend - 0.2) + slend **2)
         chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
-        fb = chi * self.fy0()
+        fb = chi * self.fy0
         kn = self.eval_KN()
         r = self.strength_reduction()
-        t0 = self.t0()
-        h = self.h()
+        t0 = self.t0
+        h = self.h
         NRd = r**kn*fb*t0 / (np.sin(np.radians(self.angle)))
         NRd = NRd * (2*h / np.sin(np.radians(self.angle)) + 10*t0)
         NRd = NRd / gammaM5
@@ -628,15 +632,15 @@ class RHSYJoint(RHSJoint):
     
     def brace_failure(self):
         r = self.strength_reduction()
-        b = self.b()
-        h = self.h()
-        t = self.t()
-        fy = self.fy()
-        fy0 = self.fy0()
-        t0 = self.t0() 
-        beff = 10/(self.b0()/t0)*fy0*t0/(fy*t)*b
+        b = self.b
+        h = self.h
+        t = self.t
+        fy = self.fy
+        fy0 = self.fy0
+        t0 = self.t0
+        beff = 10/(self.b0/t0)*fy0*t0/(fy*t)*b
             
-        NiRd = r*self.fy()*t*(2*h-4*t+2*beff)/gammaM5
+        NiRd = r*self.fy*t*(2*h-4*t+2*beff)/gammaM5
         return NiRd
     
 
