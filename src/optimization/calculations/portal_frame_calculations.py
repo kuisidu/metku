@@ -43,10 +43,14 @@ def create_structure(L, H0, H1, H2, dx, n):
                     supports='fixed')  # Tuet, aina fixed?
     for col in frame.columns:
         col.profile = 'WI 500-12-10X300-10X300'
-        print(col.profile)
-        col.material = Steel("S700MC")
+
+        col.material.fy = 700
+        # col.material = Steel("S700MC")
         # col.material = "S700MC"
-        print(col.material)
+
+    # print(frame.columns[0].profile)
+    # print(frame.columns[0].material.fy, frame.columns[0].material.name)
+    # print(frame.columns[1].material.fy, frame.columns[1].material.name)
 
     simple_truss = {
         "L1": L / 2,
@@ -95,10 +99,10 @@ def create_structure(L, H0, H1, H2, dx, n):
     frame.add(LineLoad(columns[1], [0.17, 0.17], 'x'))
     # frame.add(LineLoad(columns), [])
 
-    frame.generate()
-    frame.f.draw()
-    frame.plot()
-    frame.calculate()
+    # frame.generate()
+    # frame.f.draw()
+    # frame.plot()
+    # frame.calculate()
 
     return frame
 
@@ -230,7 +234,7 @@ def create_discrete_variable_groups(structure):
     TC_group = {
         'name': 'TopChords',
         'var_type': 'index',
-        'value': 62,
+        'value': 66,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.top_chords,
@@ -240,7 +244,7 @@ def create_discrete_variable_groups(structure):
     BC_group = {
         'name': 'BottomChords',
         'var_type': 'index',
-        'value': 54,
+        'value': 61,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.bottom_chords
@@ -250,7 +254,7 @@ def create_discrete_variable_groups(structure):
     WEB_group = {
         'name': 'Webs',
         'var_type': 'index',
-        'value': 39,
+        'value': 41,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': list(truss.webs.values())
@@ -550,7 +554,7 @@ if __name__ == '__main__':
                                 var_groups=disc_var_groups,
                                 constraints={
                                     'joint_geometry_constraints': False,
-                                    'joint_strength_constraints': True,
+                                    'joint_strength_constraints': False,
                                     'buckling_y': True,
                                     'buckling_z': True,
                                     'lt_buckling': True,
@@ -718,8 +722,8 @@ if __name__ == '__main__':
     # g_problem(xopt, prec=5)
 
     g_problem.structure.plot()
-    g_problem.structure.plot_buckling()
-    g_problem.structure.plot_deflection()
+    # g_problem.structure.plot_buckling()
+    # g_problem.structure.plot_deflection()
     g_problem.structure.plot_loads()
 
 
