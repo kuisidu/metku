@@ -30,6 +30,7 @@ except:
     from frame2d.frame2d import *
     from truss2d import Truss2D
     from optimization.solvers import *
+    from optimization.solvers.bnb import BnB
     from optimization.problems.structural_problem import StructuralProblem
 
 

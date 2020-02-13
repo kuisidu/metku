@@ -6,6 +6,7 @@ try:
     from src.sections.steel import ISection, WISection, RHS
 except:
     from frame2d.frame2d import SteelBeam
+    from sections.steel import SteelSection
     from optimization.structopt import *
     from sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
     from sections.steel import ISection, WISection, RHS
