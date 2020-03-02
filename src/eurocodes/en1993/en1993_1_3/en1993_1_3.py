@@ -12,6 +12,24 @@ import numpy as np
 
 from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
 
+def linear_interpolation(p1,p2,x):
+    """ Performs linear interpolation.
+        p1 = (x1,y1), p2 = (x2,y2)
+        
+        The function finds the value y corresponding to x1 <= x <= x2:
+        Such that y(x) = k*x + b
+    """
+    
+    y1 = p1[1]
+    x1 = p1[0]
+    y2 = p2[1]
+    x2 = p2[0]
+    
+    k = (y2-y1)/(x2-x1)
+    b = y1-k*x1
+    
+    return k*x+b
+
 """ Chapter 3: Materials """
 def fya(fyb,fu,t,Ag,n,k=7):
     """ Average yield strength, Eq. (3.1) 
@@ -31,7 +49,7 @@ def gr(r,t,phi):
     """ Calculate the length gr of Fig. 5.1 """
     rm = r + 0.5*t
     v = math.radians(phi)
-    return rm*(math.tan(v) - math-sin(v))
+    return rm*(math.tan(v) - math.sin(v))
 
 def notional_width(b,rm,phi=np.array([90,90])):
     """ Notional width of a part
@@ -91,7 +109,7 @@ def buckling_factor_edge_stiffener(bratio):
     if bratio <= 0.35:
         ksigma = 0.5
     elif bratio <= 0.6:
-        ksigma = 0.5 + 0.83*(bratio-0.35)**(1/3)
+        ksigma = 0.5 + 0.83*((bratio-0.35)**2)**(1/3)
     else:
         print("Error: bration must be at most 0.6.")
         
@@ -113,7 +131,7 @@ def screw_validity(e1,e2,p1,p2,d,t,t1):
     else:
         return False
 
-def screw_bearing_resistance(fu,d,t,t1,e1):
+def screw_bearing_resistance(fu,d,t,t1,verb=False):
     """ Bearing resistance of a screw loaded in shear
         input:
             fu .. ultimate strength of the plate
@@ -125,17 +143,37 @@ def screw_bearing_resistance(fu,d,t,t1,e1):
                     the direction of load transfer
     """
     if t == t1:
-        alfa = min(3.6*math.sqrt(t/d),2.1)
+        alfa = min(3.2*math.sqrt(t/d),2.1)
+    elif t1 >= 2.5*t and t < 1.0:
+        alfa = min(3.2*math.sqrt(t/d),2.1)
     elif t1 >= 2.5*t:
         alfa = 2.1
     else:
         # Linear interpolation not implemented!
-        alfa = 2.1
+        if verb:
+            print("Linear interpolation for alpha")
+        p0 = (t,min(3.2*math.sqrt(t/d),2.1))
+        if t < 1.0:
+            a1 = min(3.2*math.sqrt(t/d),2.1)
+        else:
+            a1 = 2.1
+        p1 = (2.5*t,a1)
+        
+        print(p0,p1)
+        alfa = linear_interpolation(p0,p1,t1)
+        #alfa = 2.1
+    # This is for rivets!
+    #FbRdMax = fu*e1*t/1.2/gammaM2
+        
+    FbRd = alfa*fu*d*t/gammaM2 
+    if verb:
+        print("Self-tapping screw:")
+        print("  t = {0:4.2f} mm".format(t))
+        print("  t1 = {0:4.2f} mm".format(t1))
+        print(" alpha = {0:4.2f}".format(alfa))
+        print(" FbRd = {0:4.3f} kN".format(FbRd*1e-3))
     
-    FbRdMax = fu*e1*t/1.2/gammaM2
-    
-    FbRd = min(alfa*fu*d*t/gammaM2,FbRdMax)
-    return FbRd
+    return    
 
 def screw_net_secton_resistance(Anet,fu):
     """ Net-section resistance
@@ -169,3 +207,12 @@ def screw_shear_resistance_fin(diameter,material="hardened"):
         FvRd = FvRd_stainless[diameter]
         
     return FvRd
+
+if __name__ == "__main__":
+    
+    from materials.steel_data import Steel
+    
+    plate = Steel("S350GD")
+    
+    screw_bearing_resistance(fu=plate.fu,d=4.2,t=0.5,t1=3.0,verb=True)
+    

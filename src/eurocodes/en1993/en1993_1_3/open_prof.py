@@ -37,14 +37,17 @@ class OpenProf:
             self.t = t*np.ones(n-1)
         else:
             self.t = np.array(t)
-            
-        self.n = n
-        
+                        
         self.segments = []
         
         for i in range(1,n):                      
-            self.add_segment(self.nodes[i],self.nodes[i-1],self.t[i-1])
+            self.add_segment(self.nodes[i-1],self.nodes[i],self.t[i-1])
             #self.add_segment(self.nodes[i,:],self.nodes[i-1,:],self.t[i-1])
+
+    @property
+    def n(self):
+        """ Number of nodes """
+        return len(self.nodes)
     
     def y_coord(self):
         """ Return y coordinates """
@@ -153,6 +156,7 @@ class OpenProf:
         y = self.y_coord()
         z = self.z_coord()
         w = np.zeros(n)
+        #print(y,z)
         for i in range(n-1):
             w[i+1] = w[i] + y[i]*z[i+1]-y[i+1]*z[i]
             
@@ -247,26 +251,32 @@ class OpenProf:
     def torsion_modulus(self):
         
         return self.torsion_constant()/min(self.t)
-"""        
-        # adds point x to the section and splits the
-        # line segment that contains x
-        def self = Split(self,x)
-            n = find(self.y == x(1))
-            if isempty(n)
-                # find points with matching z-coordinate
-                n = find(self.z==x(2))
-                # of these points, find the ones that have lower
-                # value of y
-                nlower = n(self.y(n) < x(1))
-                n1 = nlower(1)-1
-                n2 = nlower(1)
-            
-            n1
-            n2
-            self.y = [self.y(1:n1)x(1)self.y(n2:)]
-            self.z = [self.z(1:n1)x(2)self.z(n2:)]
-            self.t = [self.t(1:n1)self.t(n1)self.t(n1+1:)]
-"""
+    
+    def split_segment(self,n,s):
+        """ Splits a segment into two by adding a point 
+            input:
+                n .. index of the segment
+                s .. local coordinate along the segment, where
+                     the new point is to be added        
+        """
+        
+        seg = self.segments[n]
+        
+        # Get nodal coordinates
+        nodal_coords = seg.coord        
+        new_point = nodal_coords[0] + s*(nodal_coords[1]-nodal_coords[0])    
+        new_node = Node(new_point[0],new_point[1])
+        
+        #print(seg.nodes[0].y,seg.nodes[0].z)
+        
+        new_seg1 = Segment(seg.nodes[0],new_node,seg.t)
+        new_seg2 = Segment(new_node,seg.nodes[1],seg.t)
+        
+        
+        self.nodes.insert(n+1,new_node)
+        self.segments.remove(seg)
+        self.segments.insert(n,new_seg1)
+        self.segments.insert(n+1,new_seg2)    
 
 class Node:
     """ Node of an open section profile """
@@ -312,6 +322,11 @@ class Segment:
         self.t = t
     
     @property
+    def coord(self):
+        """ Nodal coordinates """
+        return np.array([self._n1.coord, self._n2.coord])
+                   
+    @property
     def y(self):
         """ Y-coordinates of the segment """
         return np.array([self._n1.y,self._n2.y])
@@ -329,7 +344,7 @@ class Segment:
     
     def length(self):
         """ Length """
-        return np.linalg.norm(self._n1.coord-self._n2.coord)
+        return np.linalg.norm(self._n2.coord-self._n1.coord)
         #return np.sqrt(sum((self.nodes[1,:]-self.nodes[0,:])**2))
 
     def area(self):

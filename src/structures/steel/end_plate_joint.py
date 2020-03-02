@@ -11,17 +11,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as lines
+import os
 
 from sections.steel.ISection import HEA, HEB, IPE
 from structures.steel.plates import RectPlate
+from eurocodes.en1993.constants import gammaM0
 from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt, BoltRow, BoltRowGroup, stiffness_ratio, full_strength_weld_throat
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW, INNER_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, OTHER_END_ROW
+from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW, INNER_ROW, OTHER_INNER_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, OTHER_END_ROW
+from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW_ADJACENT_TO_STIFFENER, ADJACENT_TO_STIFFENER_ROW
 from eurocodes.en1993.en1993_1_8.en1993_1_8 import TENSION_ROW, SHEAR_ROW, COMBI_ROW
+from eurocodes.en1993.en1993_1_8.en1993_1_8 import nut_size, washer_size
 import eurocodes.en1993.en1993_1_8.component_method as cm
 
 from cost.workshop import Workshop
 from cost.cost_data import BASIC_STEEL_PRICE, steel_grade_add_on, thickness_add_on
-from cost.cost_data import bolt_unit_cost_full_thread as bolt_costs
+from cost.cost_data import bolt_unit_cost_full_thread as bolt_costs_ft
+from cost.cost_data import bolt_unit_cost_part_thread as bolt_costs_pt
 from cost.cost_data import nut_unit_cost, washer_unit_cost
 
 class EndPlateJoint:
@@ -54,6 +59,9 @@ class EndPlateJoint:
                     each item in this list is a bolt row position code, e.g. INNER_ROW, see en1993_1_8.py
         """
         
+        """ States, whether or not the column continues above the connection """
+        self.continuous_column = True
+        
         self.MjEd = 0.0
         self.VjEd = 0.0
         self._MjRd = 0.0
@@ -66,7 +74,7 @@ class EndPlateJoint:
 
         
         self.end_plate = RectPlate(bp,hp,tp,material=mat_p)
-        self.etop = etop
+        self._etop = etop
         self.ebottom = ebottom
         self._ebolts = e_bolts      
         self._xbolts = 0.5*bp-e_bolts
@@ -84,7 +92,7 @@ class EndPlateJoint:
         self.weld_p = 5
         
         # Distance between centroids of bolts in a row (equal for all rows)
-        self.p = bp-2*e_bolts
+        #self.p = bp-2*e_bolts
         
         # Geometrical properties
         
@@ -141,6 +149,15 @@ class EndPlateJoint:
     def VjRd(self):
         return self._VjRd
     
+    @property
+    def bolt_size(self):
+        return self.bolt_rows[0].bolt.d
+    
+    @bolt_size.setter
+    def bolt_size(self,val):
+        for row in self.bolt_rows:
+            row.bolt_size = val
+    
     def calculate(self):
         """ This method is for optimization:
             In OptimizationProblem class, constraint evaluation includes
@@ -160,15 +177,29 @@ class EndPlateJoint:
         self.shear_resistance()
     
     @property
+    def p(self):
+        """ Horizontal distance between bolt rows """
+        return self.bp-2*self.ebolts
+    
+    @property
     def ebolts(self):
         return self._ebolts
     
     @ebolts.setter
     def ebolts(self,val):
         self._ebolts = val
-        self.p = self.bp-2*val
+        #self.p = self.bp-2*val
         for row in self.bolt_rows:
             row.p = self.p
+    
+    @property
+    def etop(self):
+        return self._etop
+    
+    @etop.setter
+    def etop(self,val):
+        self._etop = val
+        self.end_plate.h = val + self.ebottom + self.beam.h
     
     @property
     def xbolts(self):
@@ -210,10 +241,20 @@ class EndPlateJoint:
         """ Width of end plate """
         return self.end_plate.b
     
+    @bp.setter
+    def bp(self,val):
+        """ Set width of end plate """
+        self.end_plate.b = val
+    
     @property
     def tp(self):
         """ Thickness of end plate """
         return self.end_plate.t
+    
+    @tp.setter
+    def tp(self,val):
+        self.end_plate.t = val
+    
     
     def emin(self,end_plate_extension=False):
         """ Distance emin used for T-stubs 
@@ -238,6 +279,22 @@ class EndPlateJoint:
         """
         return 1.0
     
+    def Mpl_fc_Rd(self):
+        """ Plastic moment resistance of column flange 
+            This is needed, if transverse stiffeners are used on both
+            the tension and compression sides
+        """
+        
+        return 0.25*self.col.b*self.col.tf**2*self.col.fy/gammaM0
+        
+    def Mpl_st_Rd(self,ts,fy):
+        """ Plastic moment resistance of a stiffener
+            This is needed, if transverse stiffeners are used on both
+            the tension and compression sides
+        """
+        
+        return 0.25*self.col.b*ts**2*fy/gammaM0
+    
     def add_stiffener(self,stiffener,**kwargs):
         """ Adds a stiffener plate to the joint """
         
@@ -257,10 +314,68 @@ class EndPlateJoint:
             plate.weld_size = math.ceil(full_strength_weld_throat(plate.material)*plate.t)
             
             self.stiffeners[stiffener] = plate
+            
+            if stiffener == 'col_top_flange':
+                """ Modify joint as follows:
+                    1. Find the top row. If it is above the stiffener,
+                        delete all groups that contain that row.
+                        The role of the row in column flange in bending
+                        becomes End bolt row adjacent to a stiffener
+                    2. The role of of the first row below the stiffener
+                        becomes 'Bolt-row adjacent to a stiffener'
+                """
+                
+                """ It is assumed that the bolt rows are ordered in descending
+                    value of z coordinate, i.e. row[0] is the top row.
+                """
+                
+                if self.bolt_rows[0].z > 0.5*self.beam.h:
+                    """ In this case the first row is above the top flange of the beam """
+                    if self.continuous_column:                
+                        self.bolt_rows[0].loc_col_flange = ADJACENT_TO_STIFFENER_ROW
+                    else:
+                        self.bolt_rows[0].loc_col_flange = END_ROW_ADJACENT_TO_STIFFENER
+                    self.bolt_rows[0].Tstub_col_flange.m2 = self.bolt_rows[0].top_flange_stiffener_m2
+                    self.bolt_rows[1].loc_col_flange = ADJACENT_TO_STIFFENER_ROW
+                    self.bolt_rows[1].Tstub_col_flange.m2 = self.bolt_rows[1].top_flange_stiffener_m2
+                    
+                    for group in self.row_groups:
+                        for i, row in enumerate(group.rows):
+                            if row == self.bolt_rows[0]:   
+                                if self.continuous_column:
+                                    group.row_loc[i]['flange'] = ADJACENT_TO_STIFFENER_ROW
+                                else:
+                                    group.row_loc[i]['flange'] = END_ROW_ADJACENT_TO_STIFFENER
+                            elif row == self.bolt_rows[1]: 
+                                
+                                group.row_loc[i]['flange'] = ADJACENT_TO_STIFFENER_ROW
+                                
+                        
+                else:
+                    """ In this case the first row is below the top flange of the beam """
+                    self.bolt_rows[0].loc_col_flange = ADJACENT_TO_STIFFENER_ROW
+                pass
+                
+                
         
     def V_wp_Rd(self):
         """ Column web shear resistance """
-        return cm.col_web_shear(self.col)
+        V_wp_add_Rd = [0,0]
+        if self.stiffeners['col_top_flange'] is not None and self.stiffeners['col_bottom_flange'] is not None:
+            """ Distance between center lines of the stiffeners:
+                it is assumed that the stiffeners are located at
+                beam flanges (this may not be true for top stiffener for flushed end-plat)
+            """
+            ds = self.beam.h-self.beam.tf            
+            V_wp_add_Rd[0] = 4*self.Mpl_fc_Rd()
+            fyt = self.stiffeners['col_top_flange'].fy
+            tst = self.stiffeners['col_top_flange'].t
+            fyb = self.stiffeners['col_bottom_flange'].fy
+            tsb = self.stiffeners['col_bottom_flange'].t
+            V_wp_add_Rd[1] = (2*self.Mpl_fc_Rd() + self.Mpl_st_Rd(tst,fyt) + self.Mpl_st_Rd(tsb,fyb))/ds
+            
+            
+        return cm.col_web_shear(self.col) + min(V_wp_add_Rd)
     
     def k1(self,z=None):
         """ Stiffnes factor of column web in shear """
@@ -338,6 +453,11 @@ class EndPlateJoint:
         
         Fcom_Rd = min(V_wp_Rd/self.beta,Fc_wc_Rd,Fc_fb_Rd)
         
+        if verb:
+            print("Compression side:")
+            print("Column web in shear: V_wp_Rd/beta = {0:4.2f} kN".format(V_wp_Rd*1e-3))
+            print("Column web in compression: Fc_wc_Rd = {0:4.2f} kN".format(Fc_wc_Rd*1e-3))
+            print("Beam web in compression: Fc_fb_Rd = {0:4.2f} kN".format(Fc_fb_Rd*1e-3))
         # Sum of tension forces in the bolt rows
         Ft_total = 0.0
         
@@ -354,9 +474,9 @@ class EndPlateJoint:
                     compression resistance (including shear of column web panel)
                     of the joint
                 """
-                row.FtRd = min(FtRd,Fcom_Rd-Ft_total)
+                #row.FtRd = min(FtRd,Fcom_Rd-Ft_total)
                 
-                Ft_total += row.FtRd                
+                #Ft_total += row.FtRd                
         
         if verb:
             print("--------  ROW RESISTANCES ---------")
@@ -373,41 +493,68 @@ class EndPlateJoint:
                 print("  * GROUP {0:4.0f} * ".format(i+1))
     
             Ft_group = group.tension_resistance(verb)
-            # TODO: REDUCE RESISTANCE OF ROWS BASED ON Ft
-            Ft_tot = sum([row.FtRd for row in group.rows])
             
             if verb:
                 print("Ft_Group = {0:4.2f} kN".format(Ft_group*1e-3))
-                print("Ft_rows = {0:4.2f} kN".format(Ft_tot*1e-3))
+                #print("Ft_rows = {0:4.2f} kN".format(Ft_tot*1e-3))
             
+            # Sum of forces of the bolt rows of the group, considered
+            # individually
+                        
+            #Ft_tot = sum([row.FtRd for row in group.rows])
+            Ft_tot = 0.0
+            
+            for row in group.rows:
+                row.FtRd = min(row.FtRd,Ft_group-Ft_tot)
+                Ft_tot += row.FtRd
+            
+            """
             Fred = Ft_tot - Ft_group
             if Fred > 0:
-                """ In this case, the sum of resistances of the bolt rows
+                "" In this case, the sum of resistances of the bolt rows
                     in the group is greater than the group resistance:
                         the forces in the group must be reduced
-                """
+                ""
                 for row in group.rows:
                     dF = row.FtRd-Fred
                     if dF >= 0:
-                        """ Fred can be compensated by reducing the strength
+                        "" Fred can be compensated by reducing the strength
                             of the current row.
-                        """
+                        ""
                         row.FtRd = dF
                         break
                     else:
-                        """ The capacity of the current row is not enough to
+                        "" The capacity of the current row is not enough to
                             cover the difference between sum of bolt row
                             resistances and resistance of the group
-                        """
+                        ""
                         
-                        """ Subtract the resistance of the current row from
+                        "" Subtract the resistance of the current row from
                             the total force to be compensated. The remaining
                             force, if any, needs to be compensated by further rows
-                        """
+                        ""
                         Fred -= row.FtRd
                         row.FtRd = 0.0
-                        
-                #print("Need to reduce strength of rows")
+            """
+            #print("Need to reduce strength of rows")
+        
+        if verb:
+            print("--------  ROW RESISTANCES AFTER GROUPS ---------")
+            for i, row in enumerate(self.bolt_rows):            
+                if row.type != SHEAR_ROW:
+                    print("ROW {0:1.0f}: FtRd = {1:4.2f} kN".format(i+1, row.FtRd*1e-3))
+                
+        Ft_total = 0.0
+        for row in self.bolt_rows:
+            if row.type != SHEAR_ROW:                 
+                row.FtRd = min(row.FtRd,Fcom_Rd-Ft_total)
+                Ft_total += row.FtRd
+        
+        if verb:
+            print("--------  ROW RESISTANCES COMPRESSION ---------")
+            for i, row in enumerate(self.bolt_rows):            
+                if row.type != SHEAR_ROW:
+                    print("ROW {0:1.0f}: FtRd = {1:4.2f} kN".format(i+1, row.FtRd*1e-3))
         
         MjRd = 0.0
         for row in self.bolt_rows:
@@ -541,7 +688,7 @@ class EndPlateJoint:
             print(" Initial: Sj_ini = {0:4.2f} kNm/rad".format(self.Sj_ini()*1e-6))
             print(" Moment ratio: MjEd/MjRd = {0:4.2f}".format(MjRatio))
             print(" Stiffness ratio: mu = {0:4.2f}".format(mu))
-            print(" Stiffness: Sj = {0:4.2f}".format(Sj))
+            print(" Stiffness: Sj = {0:4.2f}".format(Sj*1e-6))
         
         return Sj
     
@@ -553,11 +700,41 @@ class EndPlateJoint:
         if verb:
             print("-- SHEAR RESISTANCE --")
         
-        for row in self.bolt_rows:
+        for i, row in enumerate(self.bolt_rows):
             if row.FtRd > 0.0:
                 """ Rows in tension still have at least 28.6% of their
                     shear resistance left.
                 """
+                
+                # Bearing resistance of end plate
+                e = [0,self.ebolts]
+                p = [0,self.p]
+                if row.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+                    e[0] = self.etop
+                    lpos = 'edge'
+                else:
+                    lpos = 'inner'
+                    p[0] = abs(self.bolt_rows[i-1].z - row.z)
+                    
+                VbRd_plate = row.bolt.bearing_resistance(self.end_plate.fu,
+                                                         self.tp,
+                                                         e,p,pos_perp="edge",pos_load=lpos,verb=False)
+                # Bearing resistance of column flange
+                if row.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+                    e[0] = 1e5
+                    lpos = 'edge'
+                else:
+                    lpos = 'inner'
+                    p[0] = abs(self.bolt_rows[i-1].z - row.z)
+                    
+                VbRd_col = row.bolt.bearing_resistance(self.col.fu,
+                                                         self.tp,
+                                                         e,p,pos_perp="edge",pos_load=lpos,verb=False)
+                
+                # Bearing resistance
+                VbRd = min(VbRd_plate,VbRd_col)
+                
+                
                 VRd += 2*0.286*row.bolt.shear_resistance()
             elif abs(row.FtRd) < 1e-3 or row.type == SHEAR_ROW:
                 VRd += 2*row.bolt.shear_resistance()
@@ -589,7 +766,11 @@ class EndPlateJoint:
             """ Costs for bolts and hole forming 
                 bolt costs inlucde one nut and two washers
             """            
-            self._cost['bolts'] += 2*bolt_costs[int(row.bolt.length)][int(row.bolt.d)]
+            if row.bolt.bolt_type == "Full thread":
+                bolt_cost = 2*bolt_costs_ft[int(row.bolt.length)][int(row.bolt.d)]
+            else:
+                bolt_cost = 2*bolt_costs_pt[int(row.bolt.length)][int(row.bolt.d)]
+            self._cost['bolts'] += bolt_cost
             self._cost['bolts'] += nut_unit_cost[int(row.bolt.d)]
             self._cost['bolts'] += washer_unit_cost[int(row.bolt.d)]
             """ Hole costs include forming holes both in the plate in the column """
@@ -654,14 +835,22 @@ class EndPlateJoint:
             self.draw()
         
         
-    def draw(self, name=""):
+    def draw(self, name=None, two_views=False):
         """ Draw the connection 
             ax[1] .. front view
             ax[0] .. side view
         """
         
         grey = '0.8'
-        fig, ax = plt.subplots(1,2)
+        center_line_col = '0.3'
+        if two_views:
+            fig, ax = plt.subplots(1,2)
+            ax_side = ax[0]
+            ax_front = ax[1]
+        else:
+            fig, ax = plt.subplots(1,1)
+            ax_side = ax
+            ax_front = ax
         ymax = 150
                         
         t_fc = self.col.tf
@@ -683,8 +872,7 @@ class EndPlateJoint:
         
         #self.column.draw(axes=ax[1])
         
-        # Side view:
-        ax_side = ax[0]
+        # Side view:        
         # Origin 
         # Draw column
         #plt.figure("side " + str(self.plot_nro))
@@ -700,6 +888,9 @@ class EndPlateJoint:
         
         ax_side.vlines([0,-t_fc,-(h_c-t_fc),-h_c],column_y[0],column_y[1],'k',zorder=2)
         ax_side.vlines([-(t_fc + r_c),-(h_c - (t_fc + r_c))],column_y[0],column_y[1],grey,zorder=1)
+        # Center line
+        ax_side.vlines([-0.5*h_c],column_y[0],column_y[1],center_line_col,linestyle='dashdot',zorder=1)
+        
         
         # Plot plate in figure
         plate_x = [0.0, t_p, t_p, 0.0]
@@ -707,10 +898,11 @@ class EndPlateJoint:
         ax_side.plot(plate_x, plate_y, 'k', zorder=2)
         
         # Plot beam in figure
-        beam_x = [t_p, axis_lim - (100.0 + h_c + t_p)]
+        beam_lim = axis_lim - (100.0 + h_c + t_p)
+        beam_x = [t_p, beam_lim]
         ax_side.hlines([bot_p,bot_p+t_fb,bot_p+h_b,bot_p+h_b-t_fb],beam_x[0],beam_x[1],'k',zorder=2)
         ax_side.hlines([bot_p+t_fb+r_b,bot_p+h_b-t_fb-r_b],beam_x[0],beam_x[1],grey,zorder=1)
-
+        ax_side.hlines([bot_p+0.5*h_b],-0.5*h_c,beam_x[1],center_line_col,linestyle='dashdot',zorder=1)
         # Plot welds
         ax_side.plot([t_p, t_p + math.sqrt(2.0)*a_f], [bot_p + h_b + math.sqrt(2.0)*a_f, bot_p+h_b], 'k', zorder=1)
         ax_side.plot([t_p, t_p + math.sqrt(2.0)*a_f], [bot_p + h_b - t_fb - math.sqrt(2.0)*a_f, bot_p + h_b -t_fb], 'k', zorder=1)
@@ -755,21 +947,24 @@ class EndPlateJoint:
         
         ax_side.set_axis_off()
         
-        """ Draw front view """
-        ax_front = ax[1]
+        """ Draw front view """        
+        if two_views:
+            x_offset = 0.0
+        else:
+            x_offset = beam_lim + 200        
         
-        #axis_lim = max(b_c + 200.0, h_b + 200.0, h_p + 200.0)
-
         # Draw column
-        ax_front.vlines([-0.5*b_c, -0.5*b_c,0.5*b_c, 0.5*b_c], -100.0, axis_lim - 100.0, 'k', linewidth=1.0)
+        col_front_x = [-0.5*b_c, -0.5*b_c,0.5*b_c, 0.5*b_c]
+        col_front_x = [x+x_offset for x in col_front_x]
+        ax_front.vlines(col_front_x, column_y[0], column_y[1], 'k', linewidth=1.0)
 
         # Draw plate
-        plate_front = patches.Rectangle((-0.5*b_p, 0.0), width=b_p, height=h_p,\
+        plate_front = patches.Rectangle((-0.5*b_p+x_offset, 0.0), width=b_p, height=h_p,\
                                         linewidth=1.0, edgecolor='k', facecolor="w", zorder=2)
         ax_front.add_patch(plate_front)
         
         # Draw beam profile
-        self.beam.draw(axes=ax_front,origin=[0,self.ebottom+0.5*h_b])
+        self.beam.draw(axes=ax_front,origin=[x_offset,self.ebottom+0.5*h_b])
         
         # Draw bolt rows
         for row in self.bolt_rows:
@@ -783,20 +978,20 @@ class EndPlateJoint:
             z = row.z + z0
             d = row.bolt.d0
             
-            # Plot washers
-            ax_front.add_patch(patches.Circle((-w, z), 0.5*d_washer, edgecolor='k', facecolor="w", zorder=4))
-            ax_front.add_patch(patches.Circle((w, z), 0.5*d_washer, edgecolor='k', facecolor="w", zorder=4))
+            # Plot washers            
+            ax_front.add_patch(patches.Circle((-w+x_offset, z), 0.5*d_washer, edgecolor='k', facecolor="w", zorder=4))
+            ax_front.add_patch(patches.Circle((w+x_offset, z), 0.5*d_washer, edgecolor='k', facecolor="w", zorder=4))
             # Plot bolts            
-            ax_front.add_patch(patches.Circle((-w, z), 0.5*d_m, edgecolor='k', facecolor="w", zorder=4))
-            ax_front.add_patch(patches.Circle((w, z), 0.5*d_m, edgecolor='k', facecolor="w", zorder=4))
-            ax_front.add_patch(patches.Circle((-w, z), 0.5*d, linestyle='--', linewidth=0.6, edgecolor='k',
+            ax_front.add_patch(patches.Circle((-w+x_offset, z), 0.5*d_m, edgecolor='k', facecolor="w", zorder=4))
+            ax_front.add_patch(patches.Circle((w+x_offset, z), 0.5*d_m, edgecolor='k', facecolor="w", zorder=4))
+            ax_front.add_patch(patches.Circle((-w+x_offset, z), 0.5*d, linestyle='--', linewidth=0.6, edgecolor='k',
                                                     facecolor="w", zorder=4))
-            ax_front.add_patch(patches.Circle((w, z), 0.5*d, linestyle='--', linewidth=0.6, edgecolor='k',
+            ax_front.add_patch(patches.Circle((w+x_offset, z), 0.5*d, linestyle='--', linewidth=0.6, edgecolor='k',
                                                     facecolor="w", zorder=4))
             
-            ax_front.vlines([-w,w],z - 0.6 * d_m, z + 0.6 * d_m,'b', linewidth=0.6, zorder=5)
-            ax_front.hlines(z,-w - 0.6 * d_m, -w + 0.6 * d_m,'b', linewidth=0.6, zorder=5)
-            ax_front.hlines(z,w - 0.6 * d_m, w + 0.6 * d_m,'b', linewidth=0.6, zorder=5)
+            ax_front.vlines([-w+x_offset,w+x_offset],z - 0.6 * d_m, z + 0.6 * d_m,'b', linewidth=0.6, zorder=5)
+            ax_front.hlines(z,-w - 0.6 * d_m+x_offset, -w + 0.6 * d_m+x_offset,'b', linewidth=0.6, zorder=5)
+            ax_front.hlines(z,w - 0.6 * d_m+x_offset, w + 0.6 * d_m+x_offset,'b', linewidth=0.6, zorder=5)
         
             #ax_front.plot([-w, -w], [z - 0.6 * d_m, z + 0.6 * d_m], 'b-.', linewidth=0.6, zorder=5)
             #ax_front.plot([-0.5 * w - 0.6 * d_m, -0.5 * w + 0.6 * d_m], [z, z], 'b-.', linewidth=0.6, zorder=5)
@@ -806,6 +1001,14 @@ class EndPlateJoint:
         ax_front.set_aspect('equal', 'datalim')
         
         ax_front.set_axis_off()
+        
+        if name is not None:
+            try:
+                fig.savefig(name,format='svg',bbox_inches='tight')
+            except:
+                print("Draw unsuccessful.")
+        
+        
         
 def example_1():
     bolt = Bolt(24,10.9)
@@ -862,27 +1065,38 @@ def example_1():
     
     return conn
 
-def example_diaz():
+def example_diaz(MjEd=0.0,VjEd = 0.0,connection='A', rows=2):
     d = 12
     bolt = Bolt(d,8.8)
     col = HEB(140,fy=355)
-    beam = IPE(200,fy=355)
     
-    aw = 5.0
-    af = 3.0
+    # Connection A
+    if connection == 'A':
+        beam = IPE(200,fy=355)
+        tp = 7.15
+        e = 28.8
+        ex = 37.61
+        px = 58.01
+        MjEd = 22
+        VjEd = 26.325
+    else:    
+        beam = IPE(270,fy=355)
+        tp = 11.5
+        e = 39.3
+        ex = 35.03
+        px = 58.69
+        MjEd = 40
+        VjEd = 32
     
-    bp = col.b
-    #tp = 12
-    tp = 7.15
+    aw = 4.0
+    af = 6.0
+        
+    bp = col.b    
     ebottom = math.floor(math.sqrt(2)*af + tp)
     
-    e = 28.8
-    #ex = 22.52
-    #px = 79.32
-    ex = 37.61
-    px = 58.01
     
-    hp = beam.h + 4*d + ebottom
+    hp = beam.h + 5*d + ebottom
+    etop = 5*d
     
     """ Generate bolt rows
         y is the vertical position of a bolt row. The
@@ -892,8 +1106,10 @@ def example_diaz():
     y_bolts = []
     #y_bolts.append(hp-ex-y0)
     #y_bolts.append(hp-ex-px-y0)
-    y_bolts.append(0.5*beam.h + 4*d-ex)
+    y_bolts.append(0.5*beam.h + etop-ex)
     y_bolts.append(y_bolts[0]-px)
+    
+    p_bolts = [50,110,110,170][:rows]
     
     bolt_row_pos = [{"flange": END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
                     {"flange": INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
@@ -921,27 +1137,491 @@ def example_diaz():
     
     conn.workshop = Workshop()
     
+    conn.MjEd = MjEd
+    conn.VjEd = VjEd
+    
     return conn
+
+def diax_ex_rows(MjEd=40.0,VjEd = 32.0, rows = 4, extended=True):
+
+    steel_grade = 275
+    d = 16   
+    col = HEB(140,steel_grade)
+    beam = IPE(270,fy=steel_grade)
+    
+    ex = 27
+    px = 61
+    
+    """ Weld size 
+        aw .. web
+        af .. flange
+    """
+    aw = 4.0
+    af = 6.0
+    
+    """ Overhang distance
+        ebottom .. plate below bottom flange of the beam
+        etop .. plate above top flane of the beam
+    """
+    ebottom = math.ceil(math.sqrt(2)*af) + 2
+    if extended:
+        etop = ex + 0.5*(px-beam.tf)
+    else:
+        etop = ebottom
+    
+    """ End plate dimensions
+        hp .. height
+        bp .. width
+        tp .. thickness
+    """
+    plate_mat = "S" + str(steel_grade)
+    hp = beam.h + etop + ebottom
+    bp = 135
+    tp = 13.0
+    
+    
+    """ Distance of bolts from the edge of the end plate """    
+    e = 32.0   
+    
+    """ Distances of bolt rows:
+        [0] .. distance from top edge of plate
+        [i] .. distance between adjacent rows
+    """
+    if extended:
+        p_bolts = [ex,px,px,120][:rows]
+    else:
+        p_bolts = [etop+beam.tf+1.5*af+0.5*d + 20,80,80,120][:rows]
+
+
+    """ Generate bolt rows
+        y is the vertical position of a bolt row. The
+        origin is located in the centroid of the beam
+    """
+    y0 = ebottom + 0.5*beam.h
+    y_bolts = []
+    y = 0.5*beam.h + etop
+    for p in p_bolts:
+        y -= p
+        y_bolts.append(y)    
+    
+    """ Generate bolt row position labels """
+    if extended:
+        bolt_row_pos = [{"flange": END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": OTHER_END_ROW},
+                        {"flange": END_ROW, "plate": OTHER_END_ROW},
+                        ]
+    else:
+        bolt_row_pos = [{"flange": END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": OTHER_INNER_ROW},
+                        {"flange": INNER_ROW, "plate": OTHER_END_ROW},
+                        {"flange": END_ROW, "plate": OTHER_END_ROW},
+                        ]
+    bolt_row_pos = bolt_row_pos[:rows]
+    bolt_row_pos[-1]["flange"] = END_ROW
+    
+    """ Generate bolt row groups """
+    bolt_row_groups = [[0,1], [0,1,2], [1,2]]
+    
+    if rows == 2:
+        bolt_row_groups = [[0,1]]
+    
+    row_types = [TENSION_ROW,TENSION_ROW,TENSION_ROW,SHEAR_ROW][:rows]
+    
+    
+    # POSITION OF ROWS IN GROUPS
+    # For each row, position with respect to column flange and end plate are
+    # required.
+    if extended:
+        group_pos = [[{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE}
+                     ],
+                     [{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                      {"flange":INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ]
+                     ]
+    else:
+        group_pos = [[{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":INNER_ROW, "plate": OTHER_INNER_ROW},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": OTHER_END_ROW},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ]
+                     ]
+        
+    if rows == 2:
+        group_pos = [group_pos[0]]
+    
+    """ Minimum length of the bolt is:
+        thickness of end-plate + thickness of column flange + 10 mm to allow
+        for two threads over the nut.
+        
+        To this, the thickness of the nut and washers need to be added.
+        This is done in Bolt
+    """    
+    
+    lmin = tp + col.tf + 10 + nut_size[d]["m"] + 2*washer_size[d]["h"]
+    #print("Minimum bolt length = {0:4.2f} mm".format(lmin))
+    
+    bolt = Bolt(d,8.8,lmin)
+    
+    """ Genate connection """
+    conn = EndPlateJoint(col,beam,tp=tp,bp=bp,mat_p=plate_mat,etop=etop,\
+                         ebottom=ebottom,bolt=bolt,y_bolts=y_bolts,\
+                         e_bolts=e,\
+                         bolt_row_pos=bolt_row_pos,
+                         groups=bolt_row_groups,
+                         group_pos=group_pos,
+                         row_types=row_types)
+    
+    """ Generate welds """
+    conn.weld_f = af
+    conn.weld_w = aw
+    
+    conn.workshop = Workshop()
+    
+    conn.MjEd = MjEd
+    conn.VjEd = VjEd
+    
+    return conn
+
+def suscos_ex(MjEd=0.0,VjEd = 0.0, rows = 4, extended=True):
+
+    steel_grade = 355
+    d = 20    
+    col = HEA(300,steel_grade)
+    beam = IPE(400,fy=steel_grade)
+    
+    """ Weld size 
+        aw .. web
+        af .. flange
+    """
+    aw = 6.0
+    af = 9.0
+    
+    """ Overhang distance
+        ebottom .. plate below bottom flange of the beam
+        etop .. plate above top flane of the beam
+    """
+    ebottom = 20.0
+    if extended:
+        etop = 100.0
+    else:
+        etop = 20
+    
+    """ End plate dimensions
+        hp .. height
+        bp .. width
+        tp .. thickness
+    """
+    plate_mat = "S" + str(steel_grade)
+    hp = beam.h + etop + ebottom
+    bp = 240.0
+    tp = 16.0
+    
+    
+    """ Distance of bolts from the edge of the end plate """    
+    e = 60.0   
+    
+    """ Distances of bolt rows:
+        [0] .. distance from top edge of plate
+        [i] .. distance between adjacent rows
+    """
+    if extended:
+        p_bolts = [50,110,110,170][:rows]
+    else:
+        p_bolts = [etop+beam.tf+1.5*af+0.5*d + 20,80,80,120][:rows]
+
+
+    """ Generate bolt rows
+        y is the vertical position of a bolt row. The
+        origin is located in the centroid of the beam
+    """
+    y0 = ebottom + 0.5*beam.h
+    y_bolts = []
+    y = 0.5*beam.h + etop
+    for p in p_bolts:
+        y -= p
+        y_bolts.append(y)    
+    
+    """ Generate bolt row position labels """
+    if extended:
+        bolt_row_pos = [{"flange": END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": OTHER_END_ROW},
+                        {"flange": END_ROW, "plate": OTHER_END_ROW},
+                        ]
+    else:
+        bolt_row_pos = [{"flange": END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": OTHER_INNER_ROW},
+                        {"flange": INNER_ROW, "plate": OTHER_END_ROW},
+                        {"flange": END_ROW, "plate": OTHER_END_ROW},
+                        ]
+    bolt_row_pos = bolt_row_pos[:rows]
+    bolt_row_pos[-1]["flange"] = END_ROW
+    
+    """ Generate bolt row groups """
+    bolt_row_groups = [[0,1], [0,1,2], [1,2]]
+    
+    if rows == 2:
+        bolt_row_groups = [[0,1]]
+    
+    row_types = [TENSION_ROW,TENSION_ROW,TENSION_ROW,SHEAR_ROW][:rows]
+    
+    
+    # POSITION OF ROWS IN GROUPS
+    # For each row, position with respect to column flange and end plate are
+    # required.
+    if extended:
+        group_pos = [[{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE}
+                     ],
+                     [{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                      {"flange":INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ]
+                     ]
+    else:
+        group_pos = [[{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":INNER_ROW, "plate": OTHER_INNER_ROW},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": OTHER_END_ROW},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ]
+                     ]
+        
+    if rows == 2:
+        group_pos = [group_pos[0]]
+    
+    """ Minimum length of the bolt is:
+        thickness of end-plate + thickness of column flange + 10 mm to allow
+        for two threads over the nut.
+        
+        To this, the thickness of the nut and washers need to be added.
+        This is done in Bolt
+    """    
+    
+    lmin = tp + col.tf + 10 + nut_size[d]["m"] + 2*washer_size[d]["h"]
+    #print("Minimum bolt length = {0:4.2f} mm".format(lmin))
+    
+    bolt = Bolt(d,10.9,lmin)
+    
+    """ Genate connection """
+    conn = EndPlateJoint(col,beam,tp=tp,bp=bp,mat_p=plate_mat,etop=etop,\
+                         ebottom=ebottom,bolt=bolt,y_bolts=y_bolts,\
+                         e_bolts=e,\
+                         bolt_row_pos=bolt_row_pos,
+                         groups=bolt_row_groups,
+                         group_pos=group_pos,
+                         row_types=row_types)
+    
+    """ Generate welds """
+    conn.weld_f = af
+    conn.weld_w = aw
+    
+    conn.workshop = Workshop()
+    
+    conn.MjEd = MjEd
+    conn.VjEd = VjEd
+    
+    return conn
+
+def olivaers_ex(MjEd=0.0,VjEd = 0.0, rows = 4, extended=True):
+
+    steel_grade = 275
+    d = 16    
+    col = HEB(120,steel_grade)
+    beam = IPE(300,fy=steel_grade)
+    
+    """ Weld size 
+        aw .. web
+        af .. flange
+    """
+    aw = 4.0
+    af = 6.0
+    
+    """ Overhang distance
+        ebottom .. plate below bottom flange of the beam
+        etop .. plate above top flane of the beam
+    """
+    ebottom = 20.0
+    if extended:
+        etop = 100.0
+    else:
+        etop = 20
+    
+    """ End plate dimensions
+        hp .. height
+        bp .. width
+        tp .. thickness
+    """
+    plate_mat = "S" + str(steel_grade)
+    hp = beam.h + etop + ebottom
+    bp = col.b
+    tp = 8.0
+    
+    
+    """ Distance of bolts from the edge of the end plate """    
+    e = 60.0   
+    
+    """ Distances of bolt rows:
+        [0] .. distance from top edge of plate
+        [i] .. distance between adjacent rows
+    """
+    if extended:
+        p_bolts = [50,110,110,170][:rows]
+    else:
+        p_bolts = [etop+beam.tf+1.5*af+0.5*d + 20,80,80,120][:rows]
+
+
+    """ Generate bolt rows
+        y is the vertical position of a bolt row. The
+        origin is located in the centroid of the beam
+    """
+    y0 = ebottom + 0.5*beam.h
+    y_bolts = []
+    y = 0.5*beam.h + etop
+    for p in p_bolts:
+        y -= p
+        y_bolts.append(y)    
+    
+    """ Generate bolt row position labels """
+    if extended:
+        bolt_row_pos = [{"flange": END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": OTHER_END_ROW},
+                        {"flange": END_ROW, "plate": OTHER_END_ROW},
+                        ]
+    else:
+        bolt_row_pos = [{"flange": END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                        {"flange": INNER_ROW, "plate": OTHER_INNER_ROW},
+                        {"flange": INNER_ROW, "plate": OTHER_END_ROW},
+                        {"flange": END_ROW, "plate": OTHER_END_ROW},
+                        ]
+    bolt_row_pos = bolt_row_pos[:rows]
+    bolt_row_pos[-1]["flange"] = END_ROW
+    
+    """ Generate bolt row groups """
+    bolt_row_groups = [[0,1], [0,1,2], [1,2]]
+    
+    if rows == 2:
+        bolt_row_groups = [[0,1]]
+    
+    row_types = [TENSION_ROW,TENSION_ROW,TENSION_ROW,SHEAR_ROW][:rows]
+    
+    
+    # POSITION OF ROWS IN GROUPS
+    # For each row, position with respect to column flange and end plate are
+    # required.
+    if extended:
+        group_pos = [[{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE}
+                     ],
+                     [{"flange":END_ROW, "plate": ROW_OUTSIDE_BEAM_TENSION_FLANGE},
+                      {"flange":INNER_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ]
+                     ]
+    else:
+        group_pos = [[{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": FIRST_ROW_BELOW_BEAM_TENSION_FLANGE},
+                      {"flange":INNER_ROW, "plate": OTHER_INNER_ROW},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ],
+                     [{"flange":END_ROW, "plate": OTHER_END_ROW},
+                      {"flange":END_ROW, "plate": OTHER_END_ROW}
+                     ]
+                     ]
+        
+    if rows == 2:
+        group_pos = [group_pos[0]]
+    
+    """ Minimum length of the bolt is:
+        thickness of end-plate + thickness of column flange + 10 mm to allow
+        for two threads over the nut.
+        
+        To this, the thickness of the nut and washers need to be added.
+        This is done in Bolt
+    """    
+    
+    lmin = tp + col.tf + 10 + nut_size[d]["m"] + 2*washer_size[d]["h"]
+    #print("Minimum bolt length = {0:4.2f} mm".format(lmin))
+    
+    bolt = Bolt(d,10.9,lmin)
+    
+    """ Genate connection """
+    conn = EndPlateJoint(col,beam,tp=tp,bp=bp,mat_p=plate_mat,etop=etop,\
+                         ebottom=ebottom,bolt=bolt,y_bolts=y_bolts,\
+                         e_bolts=e,\
+                         bolt_row_pos=bolt_row_pos,
+                         groups=bolt_row_groups,
+                         group_pos=group_pos,
+                         row_types=row_types)
+    
+    """ Generate welds """
+    conn.weld_f = af
+    conn.weld_w = aw
+    
+    conn.workshop = Workshop()
+    
+    conn.MjEd = MjEd
+    conn.VjEd = VjEd
+    
+    return conn
+
 
 if __name__ == '__main__':
     
     from sections.steel.ISection import HEA, HEB, IPE
     from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt
     
-    #conn = example_diaz()
-    conn = example_1()
+    conn = diax_ex_rows(rows=4)
+    #conn = example_1()
+    #conn = olivaers_ex(extended=True, rows=3)
     
-    ws = Workshop()
+    #conn.bending_resistance(True)
+    #conn.rotational_stiffness(True)
     
-    conn.add_stiffener('col_bottom_flange',t=conn.beam.tf)
-    conn.add_stiffener('col_top_flange',t=conn.beam.tf)
-    
-    conn.info(draw=False)
+    conn.add_stiffener(stiffener='col_top_flange',t=conn.beam.tf)
+    conn.add_stiffener(stiffener='col_bottom_flange',t=conn.beam.tf)
     
     conn.bending_resistance(True)
-    conn.Sj_ini(True)
-    conn.shear_resistance(True)
-    conn.cost(ws,verb=True)
+    conn.rotational_stiffness(True)
+    
+    #ws = Workshop()
+    
+    #conn.add_stiffener('col_bottom_flange',t=conn.beam.tf)
+    #conn.add_stiffener('col_top_flange',t=conn.beam.tf)
+    
+    #conn.info(draw=True)
+    
+    #fig_dir = 'P:\\INTRA_HOME\\Tutkimus\\IXConnections\\figures\\'
+    #conn.draw(fig_dir + "testfig.svg")
+    
+    #conn.bending_resistance(True)
+    #conn.rotational_stiffness(True)
+    #conn.shear_resistance(True)
+    #conn.cost(verb=True)
     """
     for row in conn.bolt_rows:
         print(row.stiffness_factors)

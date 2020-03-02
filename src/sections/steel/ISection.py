@@ -256,7 +256,7 @@ class ISection(SteelSection):
             xdata = [x[0] for x in xrot]
             ydata = [x[1] for x in xrot]
         
-        bflange = mlines.Line2D(xdata,ydata,linewidth=lw)
+        bflange = mlines.Line2D(xdata,ydata,linewidth=lw,color='k')
                 
         ax.add_line(bflange)
         
@@ -266,12 +266,11 @@ class ISection(SteelSection):
         else:
             x0 = (0.5*tw+r+origin[0],-0.5*self.hw+origin[1])
                 
-        x1 = (-x0[0],x0[1])
-
+        x1 = (-(0.5*tw+r)+origin[0],x0[1])        
         
         
-        br_corner = patches.Arc(x0,2*r,2*r,0,180+theta,270+theta,linewidth=lw,zorder=4)
-        bl_corner = patches.Arc(x1,2*r,2*r,0,270+theta,360+theta,linewidth=lw,zorder=4)
+        br_corner = patches.Arc(x0,2*r,2*r,0,180+theta,270+theta,linewidth=lw,zorder=4,color='k')
+        bl_corner = patches.Arc(x1,2*r,2*r,0,270+theta,360+theta,linewidth=lw,zorder=4,color='k')
         
         ax.add_patch(br_corner)
         ax.add_patch(bl_corner)
@@ -285,14 +284,14 @@ class ISection(SteelSection):
         if origin[1] != 0:
             top_y_data = [y+origin[1] for y in top_y_data]
         
-        tflange =  mlines.Line2D(top_x_data,top_y_data,linewidth=lw)
+        tflange =  mlines.Line2D(top_x_data,top_y_data,linewidth=lw,color='k')
         ax.add_line(tflange)
         
         
         
         # Top chamfers
-        tr_corner = patches.Arc((0.5*tw+r+origin[0],0.5*hw+origin[1]),2*r,2*r,0,90,180,zorder=4)
-        tl_corner = patches.Arc((-0.5*tw-r+origin[0],0.5*hw+origin[1]),2*r,2*r,0,0,90,zorder=4)
+        tr_corner = patches.Arc((0.5*tw+r+origin[0],0.5*hw+origin[1]),2*r,2*r,0,90,180,zorder=4,color='k',linewidth=lw)
+        tl_corner = patches.Arc((-0.5*tw-r+origin[0],0.5*hw+origin[1]),2*r,2*r,0,0,90,zorder=4,color='k',linewidth=lw)
         
         ax.add_patch(tr_corner)
         ax.add_patch(tl_corner)
@@ -308,12 +307,12 @@ class ISection(SteelSection):
         else:
             yweb_l = yweb
         
-        lweb = mlines.Line2D(xweb_l,yweb_l,linewidth=lw)
+        lweb = mlines.Line2D(xweb_l,yweb_l,linewidth=lw,color='k')
         ax.add_line(lweb)
         
         xweb_r = [0.5*tw+origin[0],0.5*tw+origin[0]]
         
-        rweb = mlines.Line2D(xweb_r,yweb,linewidth=lw)
+        rweb = mlines.Line2D(xweb_r,yweb,linewidth=lw,color='k')
         ax.add_line(rweb)
         
         """

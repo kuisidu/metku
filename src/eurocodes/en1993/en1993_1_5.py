@@ -78,7 +78,7 @@ def buckling_factor_internal(psi=1.0):
     elif psi == -1.0:
         ksigma = 23.9
     elif psi > -3:
-        ksigma = 5.98*(1-psi**2)
+        ksigma = 5.98*(1-psi)**2
         
     return ksigma
 

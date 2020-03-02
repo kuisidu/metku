@@ -8,6 +8,7 @@ Functions of the component method as described in EN 1993-1-8
 """
 
 from math import sqrt, pi
+from scipy.optimize import root_scalar
 
 from eurocodes.en1993.constants import gammaM0, gammaM1
 from eurocodes.en1993.en1993_1_1 import buckling_reduction_factor
@@ -67,9 +68,31 @@ def par_alfa(lambda1, lambda2):
 
     return alfa
 
+def find_alpha(lambda1,lambda2):
+    """ Determine alpha parameter of Fig. 6.11 by a root finding method """
+    
+    def a_zero(a):
+        l1_lim = 1.25/(a-2.75)
+        l2_lim = 0.5*a*l1_lim
+        
+        return l1_lim + (1-l1_lim)*((l2_lim-lambda2)/l2_lim)**(0.185*a**1.785) - lambda1
+    
+    r = root_scalar(a_zero,x0=6,bracket=[4.45,8])
+
+    if r.converged:
+        res = r.root
+    else:
+        res = 4.45
+        print("Warning: alpha parameter iteration did not converge.")
+
+    return res
+    
+
 def new_alpha(e,m,m2):
     """ Alpha parameter according to the final document of prEN 1993-1-8:2019 """
+    
     return min(max(4+1.67*e/m*(m/m2)**0.67,4+1.25*e/m),8.0)
+
     
 """ COMPONENTS """
 
@@ -178,7 +201,7 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     #print("rho = {0:4.3f}".format(rho))
     # Reduction factor
     w = min_coeff_w(beta, b_eff_c_wc, t_wc, A_vc)
-
+        
     # Checking maximum longitudinal compressive stress duo to column axial force and bending moment, 6.2.6.2 (2)
     # Maximum axial stress on column web
     if sigma_com_Ed <= 0.7*f_y_wc:
@@ -186,6 +209,12 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     else:
         k_wc = 1.7-sigma_com_Ed/f_y_wc
 
+    """
+    print("d_wc = ",d_wc)
+    print("lam_p = ",lam_p)
+    print("omega = ",w)
+    print("rho = ",rho)
+    """
     # Calculating capacity of column web in transverse compression
     F_c_wc_Rd = min((w*k_wc*b_eff_c_wc*t_wc*f_y_wc)/gammaM0,(w*k_wc*rho*b_eff_c_wc*t_wc*f_y_wc)/gammaM1)
 

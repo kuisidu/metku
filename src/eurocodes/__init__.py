@@ -6,4 +6,3 @@ Eurocodes package
 
 @author: kmela
 """
-

@@ -192,6 +192,8 @@ class TrustRegionConstr(OptSolver):
                            # callback=self.callback
                            )
         """
+        
+        """
         out = minimize(self.problem.obj,
                            x0,
                            method='trust-constr',
@@ -201,6 +203,8 @@ class TrustRegionConstr(OptSolver):
                            options=options,
                            callback=self.callback
                            )
+        """
+        
         try:
             out = minimize(self.problem.obj,
                            x0,
@@ -209,7 +213,7 @@ class TrustRegionConstr(OptSolver):
                            bounds=bounds,
                            constraints=constraints,
                            options=options,
-                           callback=self.callback
+                           #callback=self.callback
                            )
 
             #print(out)
@@ -241,7 +245,7 @@ class TrustRegionConstr(OptSolver):
         #self.problem.structure.draw()
         return print('CALLBACK', xk)
 
-
+"""
 if __name__ == '__main__':
     from src.optimization.benchmarks import *
 
@@ -250,5 +254,5 @@ if __name__ == '__main__':
     xopt, fopt = solver.solve(problem, maxiter=10)
 
     problem(xopt)
-
+"""
 

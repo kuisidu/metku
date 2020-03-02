@@ -94,6 +94,12 @@ class SteelSection(metaclass=ABCMeta):
         return self.material.fy
 
     @property
+    def fu(self):
+        """ Ultimate strength """
+        
+        return self.material.fu
+
+    @property
     def Iy(self):
         if self.rotate:
             return self.I[1]
