@@ -6,6 +6,7 @@ import numpy as np
 import math
 import time
 
+# Pilarin poikkileikkauksen minimi- ja maksimiarvot sekä askelpituudet
 MIN_HEIGHT = 100
 MAX_HEIGHT = 500
 step_height = 10
@@ -521,7 +522,6 @@ class WIColumn(OptimizationProblem):
     def create_stability_constraints(self, mem, section_class):
         """
         Creates stability constraint functions
-        :return:
         """
 
         def buckling_y(x):
@@ -557,7 +557,6 @@ class WIColumn(OptimizationProblem):
     def create_section_constraints(self, sect, elem):
         """
         Creates cross-section constraints
-        :return:
         """
 
         def compression(x):
@@ -579,8 +578,9 @@ class WIColumn(OptimizationProblem):
         return compression, tension, shear, bending_moment
 
     def create_constraints(self, section_class):
-        """ Create constraints for each member 
-            (for the single column the list is a single member)
+        """
+        Create constraints for each member
+        (for the single column the list is a single member)
         """
         for mem in self.structure.members.values():
 

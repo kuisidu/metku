@@ -1,5 +1,6 @@
 """
 @author: Victoria
+Pilarin laskentatehtävä.
 """
 
 import time
@@ -34,28 +35,41 @@ except:
 class ColumnCalculation(WIColumn):
     # def ColumnCalculation():
 
+    # Määritellään kuormat
     q_wind = 0.00065  # N/mm2
     q_snow = 0.002  # N/mm2
     g_truss = 1  # N/mm
     g_roof = 0.0005  # N/mm2
 
+    # Ristikon jännevälit
     L_list = [24000, 30000, 36000]  # mm
     # L_list = [30000]  # mm
+    # Pilarin pituudet
     Lpi_list = [6000, 8000, 10000]  # mm
     # Lpi_list = [6000]  # mm
 
+    # Kehäjako
     c = 6000  # mm
+    # Nurjahduspituudet
     lcr_list = [2, 0.7]
+    # Heikomman suunnan nurjahdus
     buckling_z = [True, False]
+    # Kiepahdus
     LT_buckling = [True, False]
+    # Poikkileikkausluokat
     cross_section_class_list = [3, 2]
+    # Profiili
     sym = "dual"  # dual or mono
     prob_type = "discrete"  # continuous or discrete
 
+    # Momentti z-akselin ympäri
     Mz = 0
+    # Pystysuuntainen tasainen kuorma
     Qy = 0
+    # Vaakasuuntainen tasainen kuorma
     Qx = 1.5 * q_wind * c
 
+    # Aloituspiste
     #  x0 = [800, 50, 500, 50, 500, 50]
     #  x0 = [250, 8, 150, 10]
     #  x0 = [340, 6, 180, 10]
@@ -65,6 +79,7 @@ class ColumnCalculation(WIColumn):
     #  x0 = [300, 8, 200, 10, 200, 10]
     #  x0 = [var.ub for var in problem.vars]
 
+    # Laskentatapauksien läpikäyminen ja optimointitehtävien ratkaiseminen
     for lcr in lcr_list:
         for cross_section_class in cross_section_class_list:
             for Lpi in Lpi_list:

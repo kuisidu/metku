@@ -368,6 +368,13 @@ class Constraint:
             X = np.array([var.value for var in self.problem.vars])
             x = np.asarray(x)
 
+            """ If the new values deviate from the old values
+                in terms of L2 norm by more than X_TOL, substitute
+                new values.
+
+                NOTE: X_TOL should be small
+            """
+
             if np.linalg.norm(X - x) > X_TOL:  # Replace with norm
                 self.problem.substitute_variables(x)
 

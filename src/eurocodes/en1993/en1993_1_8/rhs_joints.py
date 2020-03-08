@@ -589,7 +589,7 @@ class RHSYJoint(RHSJoint):
         return self.brace.fy
     
     def beta(self):
-        return self.b() / self.b0
+        return self.b / self.b0
         
         
     def chord_face_failure(self):
@@ -611,7 +611,7 @@ class RHSYJoint(RHSJoint):
     
     def slend(self):
 
-        slend = 3.46*(self.h0()/(self.t0 -2) *np.sqrt(1/np.sin(np.radians(self.angle))))
+        slend = 3.46*(self.h0/(self.t0 -2) *np.sqrt(1/np.sin(np.radians(self.angle))))
         slend = slend / (np.pi * np.sqrt(E / self.fy0))
         return slend
    
