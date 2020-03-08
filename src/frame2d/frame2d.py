@@ -1813,17 +1813,14 @@ class FrameMember:
         #         # print(j, len(self.nodal_coordinates))
         #         node.coord = np.array(self.nodal_coordinates[j])
 
-        self.nodal_coordinates = []
+        self.nodal_coordinates.clear()
         self.nodal_coordinates.extend(self.added_coordinates)
         if num_elements:
             self.num_elements = num_elements
 
-        for i in range(self.num_elements + 1):
+        dloc = 1 / self.num_elements
+        for loc in np.arange(0, 1 + dloc, dloc):
 
-            if not i:
-                loc = 0
-            else:
-                loc = 1 / i
             loc = round(loc, PREC)
             if loc not in self.loc:
                 self.loc.append(loc)
@@ -2403,15 +2400,6 @@ class FrameMember:
 
     def bmd_test(self, scale=1):
 
-        def absmax(vals):
-            min_val = min(vals)
-            max_val = max(vals)
-            abs_max = max(abs(min_val), abs(max_val))
-            if abs_max == abs(min_val):
-                return min_val
-            else:
-                return max_val
-
         # Scales Nmm to kNm
         unit_scaler = 1e-6
 
@@ -2432,7 +2420,7 @@ class FrameMember:
 
         for elem in self.elements.values():
             x0, y0 = elem.nodes[0].coord
-            bending_moment = absmax(elem.bending_moment)
+            bending_moment = elem.bending_moment[0]
             val = bending_moment * unit_scaler * scale
             x, y = np.array([x0, y0]) - val * u
             X.append(x)
@@ -2444,7 +2432,7 @@ class FrameMember:
                 plt.text(x, y, f'{bending_moment * unit_scaler:.2f} kNm',
                          horizontalalignment=horzalign)
         x0, y0 = elem.nodes[1].coord
-        bending_moment = absmax(elem.bending_moment)
+        bending_moment = elem.bending_moment[1]
         val = bending_moment * unit_scaler * scale
         x, y = np.array([x0, y0]) - val * u
         X.append(x)
@@ -2753,16 +2741,16 @@ class Hinge(Support):
 
 def test():
     frame = Frame2D()
-    mem = SteelBeam([[0, 0], [2000, 1000]], num_elements=1000)
-
+    mem = SteelBeam([[0, 0], [2000, 0]], num_elements=10)
     frame.add(FixedSupport([0, 0]))
+    frame.add(FixedSupport([2000, 0]))
     frame.add(LineLoad(mem, [-10, -10], 'y'))
     frame.add(mem)
     frame.generate()
     frame.calculate()
-    print(mem.med)
+    frame.bmd(100)
 
 
 if __name__ == '__main__':
-    frame = Frame2D(simple=[2, 2, 2, 2])
-    print(frame.beams)
+    test()
+

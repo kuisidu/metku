@@ -480,7 +480,7 @@ class NonLinearConstraint(Constraint):
 
 class ObjectiveFunction:
 
-    def __init__(self, name, obj_fun, obj_type="MIN", problem=None):
+    def __init__(self, name, obj_fun, obj_type="MIN", problem=None, fea_required=False):
 
         self.name = name
         if not callable(obj_fun):
@@ -488,6 +488,7 @@ class ObjectiveFunction:
         self.obj_fun = obj_fun
         self.obj_type = obj_type[:3].upper()
         self.problem = problem
+        self.fea_required = fea_required
 
     def __call__(self, x):
         """ The method returns f(x) where x is an array with length
@@ -499,6 +500,9 @@ class ObjectiveFunction:
             Read values from 'x' and reverse them.
             Reversing is done so that 'pop' method can be employed.
         """
+        if self.fea_required and not self.problem.fea_done:
+            self.problem.fea()
+        
         X = [val for val in x]
         X.reverse()
 
@@ -697,15 +701,16 @@ class OptimizationProblem:
         """
         
         res = True
-        
+
+           
         for con in self.cons:
-            g = con(self.X)
+            g = con(self.X)            
             if con.type == '<':
                 if g > self.con_tol:
                     res = False
                     break
             elif con.type == '>':
-                if g < self.con_tol:
+                if g < -self.con_tol:
                     res = False
                     break
             else:

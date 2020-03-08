@@ -44,7 +44,15 @@ class RectPlate:
                      'drilling':0.0,
                      'welding':0.0,
                      'holes':0.0}
-        
+    
+    @property
+    def fy(self):
+        return self.material.fy
+    
+    @property
+    def fu(self):
+        return self.material.fu
+    
     def area(self):
         return self.h*self.b
     
