@@ -137,6 +137,19 @@ class ISection(SteelSection):
     def cf(self):
         """ Straight part of the flange """
         return 0.5 * (self.b - self.tw) - self.r
+    
+    @property
+    def box_section_factor(self):
+        """ Section factor for fire, considering the profile
+            as a box
+        """
+        return 2*(self.b+self.h)/self.A*1e3
+    
+    
+    def shadow_effect(self):
+        """ Shadow effect factor ksh, from EN 1993-1-2 """
+        
+        return 0.9*self.box_section_factor/self.section_factor
 
     def flange_class(self,verb=False):
         """ Determine class of compressed flange """

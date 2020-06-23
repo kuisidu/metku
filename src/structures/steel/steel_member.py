@@ -106,6 +106,17 @@ class SteelMember:
 
         return ncrit
 
+    def ncrit_T(self, verb=False):
+        """ Critical laod for torsional buckling """
+        GIt = self.profile.G*self.profile.It
+        EIw = math.pi**2*self.profile.E*self.profile.Iw/self.length**2
+        ncrit_T = 1/self.profile.i0()**2*(GIt + EIw)
+        
+        if verb:
+            print("Ncr,T = {0:4.2f} kN".format(ncrit_T * 1e-3))            
+
+        return ncrit_T
+
     def slenderness(self, verb=False):
         """ Non-dimensional slenderness according to EN 1993-1-1 """
         NRd = self.profile.A * self.fy()
@@ -445,3 +456,29 @@ class SteelMember:
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
         return com_comp_bend
+    
+    def required_shear_stiffness(self):
+        """ EN 1993-1-1, Eq. (BB.2) """
+        E = self.profile.E
+        G = self.profile.G
+        L = self.length
+        h = self.profile.h
+        
+        Sreq = (E*self.profile.Iw*math.pi**2/L**2 + G*self.profile.It + E*self.profile.Iz*math.pi**2/L**2*0.25*h**2)*70/h**2
+        
+        return Sreq
+
+if __name__ == "__main__":
+    
+    from sections.steel.ISection import HEA
+    from sections.steel.RHS import RHS
+    
+    p = HEA(240)
+    R = RHS(200,200,8)
+    p = RHS(100,100,5)
+    m = SteelMember(p,3000)
+    mr = SteelMember(R,6000)    
+    m.ncrit(True)
+    #m.ncrit_T(True)
+    #mr.ncrit_T(True)
+    #mr.ncrit(True)

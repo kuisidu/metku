@@ -208,9 +208,83 @@ def screw_shear_resistance_fin(diameter,material="hardened"):
         
     return FvRd
 
+def sheeting_shear_stiffness(t,s,hw,broof):
+    """ Eq. (10.1b) 
+        input:
+            t .. design thickness of sheeting
+            s .. distance between purlins
+            hw .. height of sheeting (between centerlines)
+            broof .. overall length of the roof diaphragm in the direction of the
+                    span of the sheeting in mm.
+    """
+    return 1000*math.sqrt(t**3)*(50 + 10*broof**(1/3))*s/hw
+
+def CD_A(ba,tnom,position,A,bT,bR,load='gravity'):
+    """ EN 1993-1-3, Eq. (10.17) """
+    if ba <= 125:
+        kba = (ba/100)**2
+    elif ba < 200:
+        kba = 1.25*(ba/100)
+    else:
+        print("Warning: width of purlin flange must not exceed 200mm!")
+        kba = 1.25*(ba/100)
+        
+    if tnom > 0.75:
+        if position == 'pos':
+            p = 1.1
+        else:
+            p = 1.5
+    else:
+        p = 1.5
+    
+    kt = (tnom/0.75)**p
+        
+    if bR <= 185:
+        kbR = 1.0
+    else:
+        kbR = 185/bR
+    
+    if load == 'gravity':
+        if position == 'pos':
+            if tnom == 0.75:
+                kA = 1.0+(A-1.0)*0.08
+            elif tnom >= 1.0:
+                kA = 1.0+(A-1.0)*0.095
+        else:
+            if tnom == 0.75:
+                kA = 1.0+(A-1.0)*0.16
+            elif tnom >= 1.0:
+                kA = 1.0+(A-1.0)*0.095
+    else:
+        kA = 1.0
+    
+    """ Table 10.3
+        Assume that pitch of fasteners is e = bR and sheet is fastened
+        through troughs.
+    """
+    if load == 'gravity':    
+        if position == 'pos':    
+            bT_max = 40
+            C100 = 5.2
+        else:
+            bT_max = 120
+            C10 = 3.1
+    else:
+        C100 = 2.6
+        bT_max = 40
+        
+    if bT > bT_max:
+        kbT = math.sqrt(bT_max/bT)
+    else:
+        kbT = 1.0
+    
+    CDA = C100*kba*kt*kbR*kA*kbT
+    
+    return CDA
+
 if __name__ == "__main__":
     
-    from materials.steel_data import Steel
+    from materials.steel_data import Steel    
     
     plate = Steel("S350GD")
     

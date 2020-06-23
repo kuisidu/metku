@@ -629,7 +629,7 @@ class BoltRow:
             
         return leff
     
-    def k3(self):
+    def k3(self,verb=False):
         """ Stiffness factor for column web in tension component """
         
         #beff_row = self.leff_flange()
@@ -637,10 +637,10 @@ class BoltRow:
         beff_group = self.leff_flange_group()
         beff = min(beff_row,beff_group)        
         
-        return cm.column_web_tension_k(self.joint.col,beff)
+        return cm.column_web_tension_k(self.joint.col,beff,verb)
     
     
-    def k4(self):
+    def k4(self,verb=False):
         """ Stiffness factor for column flange in bending component """
         
         """ This way picks that effective length that corresponds to the
@@ -656,9 +656,9 @@ class BoltRow:
         
         
         m =self.Tstub_col_flange.m
-        return cm.column_flange_bending_k(self.joint.col,leff,m)
+        return cm.column_flange_bending_k(self.joint.col,leff,m,verb)
         
-    def k5(self):
+    def k5(self,verb=False):
         """ Stiffness factor for column flange in bending component """
         
         #beff_row = self.leff_plate()
@@ -666,13 +666,12 @@ class BoltRow:
         
         beff_group = self.leff_plate_group()
                 
-        leff = min(beff_row,beff_group)        
-        
+        leff = min(beff_row,beff_group)                
         
         m = self.Tstub_end_plate.m
         
         #print(beff_row,beff_group,m)
-        return cm.end_plate_bending_k(self.joint.tp,leff,m)
+        return cm.end_plate_bending_k(self.joint.tp,leff,m,verb)
         
     
     def column_web_in_tension(self,verb=False):
@@ -697,7 +696,7 @@ class BoltRow:
         l_eff = self.Tstub_col_flange.leff()
         #print(self.Tstub_col_flange.leff)
         
-        F_t_wc_Rd = cm.column_web_tension(self.joint.col, l_eff, self.joint.beta)
+        F_t_wc_Rd = cm.column_web_tension(self.joint.col, l_eff, self.joint.beta,verb)
         
         if verb:
             print("COlUMN WEB IN TENSION:")
@@ -856,6 +855,7 @@ class BoltRow:
         self.stiffness_factors['col_flange'] = self.k4()
         self.stiffness_factors['plate'] = self.k5()
         
+        #print(self.stiffness_factors)
         
         for k in self.stiffness_factors.values():
             keff_inv += 1/k

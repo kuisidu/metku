@@ -58,7 +58,7 @@ class RHS(SteelSection):
         self.H = H
         self.B = B
         self.T = T
-        self.Iw = 0
+        self.Iw = 0.0
         self.It = self.torsional_constant()
         self.imp_factor = [en1993_1_1.buckling_curve["c"],
                            en1993_1_1.buckling_curve["c"]]
@@ -172,11 +172,10 @@ class RHS(SteelSection):
 
         # Rc .. corner radius at center line
         Rc = self.R - 0.5 * self.T
-        h = 2 * ((self.B - self.T) + (self.H - self.T)) - 2 * Rc * (
-                    4 - math.pi)
-        Ah = (self.B - self.T) * (self.H - self.T) - Rc ** 2 * (4 - math.pi)
-        K = 2 * Ah * self.T / h
-        It = (self.T ** 3 * h / 3 + 2 * K * Ah) * 1e-4
+        h = 2*((self.B-self.T) + (self.H-self.T)) - 2*Rc*(4-math.pi)
+        Ah = (self.B-self.T) * (self.H-self.T) - Rc**2*(4-math.pi)
+        K = 2*Ah*self.T/h
+        It = (self.T**3*h/3 + 2*K*Ah)
 
         return It
 

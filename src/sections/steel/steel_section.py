@@ -88,6 +88,11 @@ class SteelSection(metaclass=ABCMeta):
 
 
     @property
+    def G(self):
+        """ Shear modulus """
+        return self.material.G
+
+    @property
     def fy(self):
         """ Yield strength """
         
@@ -170,11 +175,37 @@ class SteelSection(metaclass=ABCMeta):
         if self.rotate:
             self.Wel[0] = val
         self.Wel[1] = val
+    
+    @property
+    def section_factor(self):
+        """ Section factor for unprotected profile,
+            exposed to fire on all sides
+        """
+        return self.Au/self.A*1e3
+    
+    @property
+    def box_section_factor(self):
+        """ Section factor when considering the
+            profile as a box
+        """
+        return self.section_factor
+    
+    def shadow_effect(self):
+        """ Shadow effect for fire, EN 1993-1-2 """
+        
+        return 1.0
 
+    def iy(self):
+        """ Radius of gyration of the major axis """    
+        return np.sqrt(self.Iy/self.A)
 
+    def iz(self):
+        """ Radius of gyration of the minor axis """    
+        return np.sqrt(self.Iz/self.A)
 
-
-
+    def i0(self):
+        """ Polar radius """
+        return np.sqrt(self.iy()**2+self.iz()**2)
 
     @property
     def eps(self):

@@ -36,6 +36,7 @@ class CHS(SteelSection):
         self.D = D
         self.T = T
         self.It = It
+        self.Iw = 0.0
 
         self.imp_factor = [en1993_1_1.buckling_curve["c"],en1993_1_1.buckling_curve["c"]]
 

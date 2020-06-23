@@ -11,6 +11,7 @@ EN 1993-1-3, Annex C
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 class OpenProf:
     """
@@ -64,10 +65,15 @@ class OpenProf:
         new_segment = Segment(n1,n2,t)
         self.segments.append(new_segment)
                   
-    def draw(self):
+    def draw(self,node_labels=False,seg_labels=False):
+        
+        fig, ax = plt.subplots(1)         
         """ draw nodes """
         for i, node in enumerate(self.nodes):
-            node.draw(str(i))
+            if node_labels:
+                node.draw(str(i),ax)
+            else:
+                node.draw(axes=ax)
             #plt.plot(node[0],node[1],'ro')            
             #plt.text(node[0],node[1],str(i))
         
@@ -77,7 +83,10 @@ class OpenProf:
         
         """ draw line segments """
         for i, s in enumerate(self.segments):
-            s.draw(str(i))
+            if seg_labels:
+                s.draw(str(i),axes=ax)
+            else:
+                s.draw(axes=ax)
             #X = s.nodes
             #plt.plot(X[:,0],X[:,1],'b')
             #Xmid = X[0,:]+0.5*(X[1,:]-X[0,:])
@@ -86,11 +95,11 @@ class OpenProf:
     
         ygc, zgc, A = self.centroid()        
         ysc, zsc = self.shear_center()
-        plt.plot(ygc,zgc,'+r')
-        plt.plot(ysc,zsc,'or')
+        ax.plot(ygc,zgc,'+r')
+        ax.plot(ysc,zsc,'or')
         
-        plt.axis('equal')
-        plt.show()        
+        ax.axis('equal')
+        #ax.show()        
 
     def area(self):        
         """ Cross-sectional area """
@@ -134,6 +143,32 @@ class OpenProf:
         Iy = Iy0-A*zgc**2
         Iz = Iz0-A*ygc**2
         return Iy, Iz
+    
+    def Iy0(self):
+        """ Second moment of area with respect to Y-axis """
+        Iy0 = 0.0        
+        for s in self.segments:            
+            Iy0 += s.second_moment_y()           
+        return Iy0
+    
+    def Iz0(self):
+        """ Second moment of area with respect to Z-axis """
+        Iz0 = 0.0        
+        for s in self.segments:            
+            Iz0 += s.second_moment_z()           
+        return Iz0
+    
+    def Iy(self):
+        """ Second moment of area with respect to centroid """
+        ygc, zgc, A = self.centroid()
+        Iy0 = self.Iy0()
+        return Iy0-A*zgc**2
+    
+    def Iz(self):
+        """ Second moment of area with respect to centroid """
+        ygc, zgc, A = self.centroid()
+        Iz0 = self.Iz0()
+        return Iz0-A*ygc**2
     
     def product_moment(self):
         """ Product moment with respect to original y- and z-axes """
@@ -295,11 +330,18 @@ class Node:
         """ Return numpy array of coordinates """
         return np.array([self.y,self.z])
     
-    def draw(self,label=None):        
-        plt.plot(self.y,self.z,'or')
+    def draw(self,label=None,axes=None):        
         
-        if label is not None:
-            plt.text(self.y,self.z,label)
+        if axes is None:
+            plt.plot(self.y,self.z,'ok',markersize=4)
+            if label is not None:
+                plt.text(self.y,self.z,label)
+        else:
+            axes.plot(self.y,self.z,'ok',markersize=4)
+            if label is not None:
+                axes.text(self.y,self.z,label)
+        
+        
         
 class Segment:
     """ Line segment that is a part of a cross section """
@@ -388,16 +430,28 @@ class Segment:
         #   self.nodes[0,1]*self.nodes[1,0])*dA/6
         return Iyz0
     
-    def draw(self,label=None):
+    def draw(self,label=None,axes=None):
         """ Draw segment """
         
-        plt.plot(self.y,self.z,'b')
+        if axes is None:
+            plt.plot(self.y,self.z,'b')
+            if label is not None:            
+                mid = self.mid_point()
+                plt.text(mid[0],mid[1],label)
+        else:
+            lw0 = 3
+            
+            axes.plot(self.y,self.z,linewidth=self.t*lw0,color='b')
+            
+            #xy = (self.y[0],self.z[0])        
+            #seg1 = patches.Rectangle(xy,width=self.length(),height=0.5*self.t,fill=False)            
+            #seg2 = patches.Rectangle(xy,width=self.length(),height=0.5*self.t,fill=False)            
+            #axes.add_patch(seg)
         
-        if label is not None:            
-            mid = self.mid_point()
-            plt.text(mid[0],mid[1],label)
-        
-        
+            if label is not None:     
+                if self.t > 0.0:
+                    mid = self.mid_point()
+                    axes.text(mid[0],mid[1],label)        
 
 
 if __name__ == "__main__":

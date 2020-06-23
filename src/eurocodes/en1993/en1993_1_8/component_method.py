@@ -183,12 +183,12 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     s = r_c
     b_eff_c_wc = t_fb+2.0*sqrt(2.0)*a_p+5.0*(t_fc+s)+s_p
 
-    """
+    
     print("tbf = {0:4.2f}".format(t_fb))
     print("weld = {0:4.2f}".format(2*sqrt(2.0)*a_p))
     print("5.0*(t_fc+s) = {0:4.2f}".format(5.0*(t_fc+s)))
     print("s_p= {0:4.2f}".format(s_p))
-    """
+    
     # Slenderness of column web
     lam_p = 0.932*sqrt((b_eff_c_wc*d_wc*f_y_wc)/(E*t_wc**2.0))
 
@@ -209,12 +209,12 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     else:
         k_wc = 1.7-sigma_com_Ed/f_y_wc
 
-    """
+    print("beff_c_wc = {0:4.3f} mm".format(b_eff_c_wc))
     print("d_wc = ",d_wc)
     print("lam_p = ",lam_p)
     print("omega = ",w)
     print("rho = ",rho)
-    """
+    
     # Calculating capacity of column web in transverse compression
     F_c_wc_Rd = min((w*k_wc*b_eff_c_wc*t_wc*f_y_wc)/gammaM0,(w*k_wc*rho*b_eff_c_wc*t_wc*f_y_wc)/gammaM1)
 
@@ -281,11 +281,16 @@ def column_web_tension(column, l_eff, beta,verb=False):# l_eff_1f, l_eff_2f):
     
     return F_t_wc_Rd
 
-def column_web_tension_k(column,beff):
+def column_web_tension_k(column,beff,verb=False):
     """ Stiffness of column web in compression """
     d_wc = column.hw
     t_wc = column.tw
     
+    if verb:
+        print("beff = {0:4.2f}".format(beff))
+        print("d_wc = {0:4.2f}".format(d_wc))
+        print("t_wc = {0:4.2f}".format(t_wc))
+        
     return 0.7*beff*t_wc/d_wc
 
 def column_flange_bending(Tstub,verb=False):
@@ -297,10 +302,16 @@ def column_flange_bending(Tstub,verb=False):
     
     return Tstub.FT_Rd(verb)
 
-def column_flange_bending_k(column,leff,m):
+def column_flange_bending_k(column,leff,m,verb=False):
     """ Column flange in bending
     
     """
+    
+    if verb:
+        print("leff = {0:4.2f}".format(leff))
+        print("m = {0:4.2f}".format(m))
+        print("tf = {0:4.2f}".format(column.tf))
+    
     return 0.9*leff*column.tf**3/m**3
 
 def end_plate_bending(Tstub,verb=False):
@@ -312,10 +323,15 @@ def end_plate_bending(Tstub,verb=False):
     
     return Tstub.FT_Rd(verb)
 
-def end_plate_bending_k(tp,leff,m):
+def end_plate_bending_k(tp,leff,m,verb=False):
     """ End plate in bending
     
     """
+    if verb:
+        print("leff = {0:4.2f} mm".format(leff))
+        print("m = {0:4.2f} mm".format(m))
+        print("tp = {0:4.2f} mm".format(tp))
+    
     return 0.9*leff*tp**3/m**3
 
 def bolt_row_tension_k(As,Lb):

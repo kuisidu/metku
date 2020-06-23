@@ -10,7 +10,20 @@ Created on Wed Aug  7 09:15:25 2019
 import math
 from materials.steel_data import Steel
 
-fasteners = {'SXC14-S19-5.5':{'d1':5.5,'dS':5.1}}
+fasteners = {'SXC14-S19-5.5':{'d':5.5,'dS':5.1,'d1':4.59}}
+
+def ruukki_panel(name='SPA E', thickness=100, length=6000):
+    
+    if name == 'SPA E':
+        TopFace = Face(tF=0.6,material="S280GD")
+        BottomFace = Face(tF=0.5,material="S280GD")
+        core = Core(tC=thickness-0.6-0.5,shear_modulus=3.7,density=110e-9)
+        width = 1200
+    
+    
+    panel = SandwichPanel([TopFace,BottomFace],core,width,length)
+    
+    return panel
 
 class Face:
     """ Face of sandwich panel """
@@ -34,15 +47,20 @@ class Face:
         """
         
         self.t = tF
-        self.mat = material
-        self.tcoat = tcoat
-        try:
-            self.fy = steel[material]['fy']
-            self.fu = steel[material]['fu']
-            self.E = steel[material]['E']
-        except KeyError:
-            print("Class 'Face' constructor: Material '{0:s}' not valid.".format(material))
-            
+        self.mat = Steel(material)
+        self.tcoat = tcoat        
+        
+    @property
+    def fy(self):
+        return self.mat.fy
+    
+    @property
+    def fu(self):
+        return self.mat.fu
+    
+    @property
+    def E(self):
+        return self.mat.E
     
     @property
     def tcor(self):
@@ -119,6 +137,14 @@ class SandwichPanel:
         return 0.5*self.faces[0].t + 0.5*self.faces[1].t + self.core.t
 
     @property
+    def Atop(self):        
+        return self.faces[0].A(self.width)
+
+    @property
+    def Abottom(self):        
+        return self.faces[1].A(self.width)
+
+    @property
     def S(self):
         """ Shear stiffness [N] """
         return self.core.G*self.width*self.d**2/self.core.t
@@ -134,7 +160,7 @@ class SandwichPanel:
         """ 'sandwich part' of the bending stiffness """
         EA = [face.EA(self.width) for face in self.faces]
         
-        return EA[0]*EA[1]/sum(EA)*self.d
+        return EA[0]*EA[1]/sum(EA)*self.d**2
         
 
     def fastener_transverse_stiffness(self,tsup,fastener='SXC14-S19-5.5'):
@@ -168,24 +194,62 @@ class SandwichPanel:
         print("EI = {0:4.2f}".format(EI))
         print("Csup = {0:4.2f}".format(Csup))
         print("kF2 = {0:4.2f}".format(kF2))
-        print("xF = {0:4.2f}".format(xF))
+        print("xF = {0:4.4f}".format(xF))
         
         print("1/k1 = {0:4.4g}".format(xF/kF2))
         print("1/k2 = {0:4.4g}".format((tsup**2 + 2*(1-xF*D*tsup))/4/Csup))
         print("1/k3 = {0:4.4g}".format((3*(1-xF)*D*tsup**2 + tsup**3)/24/EI))
         
         return kv
+    
+def example():
+    
+    TopFace = Face(tF=0.6,material="S280GD")
+    BottomFace = Face(tF=0.5,material="S280GD")
+    core = Core(tC=200-0.6-0.5,shear_modulus=3.7,density=110e-9)
+    
+    panel = SandwichPanel([TopFace,BottomFace],core,
+                           width=1200,length=6000)
+
+    # Tuulikuorma
+    qw = 0.6 # kN/m2
+    
+    qU = 1.5*qw*panel.width*1e-3
+    MEd = qU*panel.length**2/8
+    VEd = qU*panel.length/2
+    d = panel.d
+    
+    sF1 = MEd/d/panel.Atop
+    sF2 = MEd/d/panel.Abottom
+    tauC = VEd/d/panel.width
+    Ls = 100
+    sC = VEd/Ls/panel.width
+    
+    print("Kuorma murtorajatilassa qU = {0:4.2f} kN/m".format(qU))
+    print("Taivutusmomentti MEd = {0:4.2f} kNm".format(MEd*1e-6))
+    print("Taivutusmomentti VEd = {0:4.2f} kN".format(VEd*1e-3))
+    print("d = {0:4.2f} mm".format(d))
+    print("Atop = {0:4.2f} mm2".format(panel.Atop))
+    print("Abottom = {0:4.2f} mm2".format(panel.Abottom))
+    print("sF1 = {0:4.2f} MPa".format(sF1))
+    print("sF2 = {0:4.2f} MPa".format(sF2))
+    print("tauC = {0:4.3f} MPa".format(tauC))
+    print("SC = {0:4.3f} MPa".format(sC))
+
+    return panel
 
 if __name__ == '__main__':
     
     #f = Face(0.5,material="S250GD")
             
-    TopFace = Face(tF=0.5,material="S280GD")
-    BottomFace = Face(tF=0.5,material="S280GD")
-    Core = Core(tC=97,shear_modulus=3.7,density=110e-9)
+    p = example()
     
-    SPA100 = SandwichPanel([TopFace,BottomFace],Core,
-                           width=1200,length=6000)
+    #TopFace = Face(tF=0.5,material="S280GD")
+    #BottomFace = Face(tF=0.5,material="S280GD")
+    #Core = Core(tC=97,shear_modulus=3.7,density=110e-9)
     
-    kv = SPA100.fastener_transverse_stiffness(tsup=8)    
-    print("kv = {0:4.2f}".format(kv))
+    #SPA100 = SandwichPanel([TopFace,BottomFace],Core,
+    #                       width=1200,length=6000)
+    
+    #kv = SPA100.fastener_transverse_stiffness(tsup=8)    
+    #print("kv = {0:4.2f}".format(kv))
