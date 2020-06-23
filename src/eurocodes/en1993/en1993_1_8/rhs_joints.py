@@ -589,7 +589,7 @@ class RHSYJoint(RHSJoint):
         return self.brace.fy
     
     def beta(self):
-        return self.b/self.b0
+        return self.b / self.b0
         
         
     def chord_face_failure(self):

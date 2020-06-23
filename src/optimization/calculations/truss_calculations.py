@@ -52,17 +52,6 @@ def create_structure(L, H0, H1, H2, dx, n):
     :param n: uumasauvojen lukumäärä
     :return: frame, eli kehän rakenne
     """
-    # Luodaan kehä
-    simple_frame = [1, 1, H0, L]
-    frame = Frame2D(simple=simple_frame, create_beams=False,
-                    supports='fixed')  # Tuet, aina fixed?
-    # Vaihdetaan pilarin alkumittoja ja materiaalia
-    for col in frame.columns:
-        col.profile = 'WI 300-12-10X250-10X250'
-
-        col.material.fy = 355
-        # col.material = Steel("S700MC")
-        # col.material = "S700MC"
 
     # Luodaan ristikko
     simple_truss = {
@@ -74,7 +63,7 @@ def create_structure(L, H0, H1, H2, dx, n):
         "n": n
     }
 
-    truss = Truss2D(simple=simple_truss, fem_model=frame.f)
+    truss = Truss2D(simple=simple_truss)
 
     # Määritetään ristikon sauvojen liitosten paikat
     dloc = 1 / (n / 2)
@@ -96,34 +85,27 @@ def create_structure(L, H0, H1, H2, dx, n):
     for mem in truss.members.values():
         mem.material = "S420"
 
-    frame.add(truss)
-
     # print(frame.truss[0].webs[2].j1.e, frame.truss[0].webs[2].j1.g1)
     # frame.truss[0].webs[2].profile = "SHS 90x5"
     # print(frame.truss[0].webs[2].j1.e, frame.truss[0].webs[2].j1.g1)
 
-    columns = frame.columns
-
     # Lisätään kehälle kuorma
     for tc in truss.top_chords:
-        frame.add(LineLoad(tc, [-21.45, -21.45], 'y'))
+        truss.add(LineLoad(tc, [-21.45, -21.45], 'y'))
     for bc in truss.bottom_chords:
-        frame.add(LineLoad(bc, [-0.69, -0.69], 'y'))
-    # frame.add(PointLoad([0, 6500], [100e3, 0, 0]))
-    frame.add(LineLoad(columns[0], [3.51, 3.51], 'x'))
-    frame.add(LineLoad(columns[1], [0.17, 0.17], 'x'))
-    # frame.add(LineLoad(columns), [])
+        truss.add(LineLoad(bc, [-0.69, -0.69], 'y'))
+
 
     # Generoidaan kehä ja lasketaan voimasuureet
-    frame.generate()
+    truss.generate()
     # frame.f.draw()
     # frame.plot()
-    frame.calculate()
+    truss.calculate()
 
-    return frame
+    return truss
 
 
-def create_continuous_variable_groups(structure, col_bounds, col_values,
+def create_continuous_variable_groups(structure,
                                       tc_values, tc_bounds, bc_values,
                                       bc_bounds, web_values, web_bounds):
     # HUOM! objectit oltava poikkileikkausolioita
@@ -143,18 +125,6 @@ def create_continuous_variable_groups(structure, col_bounds, col_values,
     """
 
     groups = []
-    col_sections = [col.cross_section for col in structure.columns]
-
-    # Pilarin muuttujat
-    COL_group = {
-        'name': 'Columns',
-        'var_type': 'continuous',
-        'values': col_values,  # [300, 100, 10, 5],
-        'bounds': col_bounds,  # [[100, 800], [100, 300], [5, 50], [5, 50]],
-        'properties': ['h', 'b', 'tf', 'tw'],
-        'objects': col_sections
-    }
-    groups.append(COL_group)
 
     truss = structure.truss[0]
 
@@ -212,51 +182,6 @@ def create_index_variable_groups(structure):
     :return: indeksimuuttujat
     """
     groups = []
-    col_sections = [col.cross_section for col in structure.columns]
-
-    # Pilarin I-profiilin poikkileikkauksen korkeus
-    COL_group_h = {
-        'name': 'Columns h',
-        'var_type': 'index',
-        'value': 13,
-        'values': HEIGHTS,
-        'property': 'h',
-        'objects': col_sections
-    }
-    groups.append(COL_group_h)
-
-    # Pilarin I-profiilin uuman paksuus
-    COL_group_tw = {
-        'name': 'Columns tw',
-        'var_type': 'index',
-        'value': 2,
-        'values': THICKNESSES,
-        'property': 'tw',
-        'objects': col_sections
-    }
-    groups.append(COL_group_tw)
-
-    # Pilarin I-profiilin laipan leveys
-    COL_group_b = {
-        'name': 'Columns b',
-        'var_type': 'index',
-        'value': 14,
-        'values': WIDTHS,
-        'property': 'b',
-        'objects': col_sections
-    }
-    groups.append(COL_group_b)
-
-    # Pilarin I-profiilin laipan paksuus
-    COL_group_tf = {
-        'name': 'Columns tf',
-        'var_type': 'index',
-        'value': 5,
-        'values': THICKNESSES,
-        'property': 'tf',
-        'objects': col_sections
-    }
-    groups.append(COL_group_tf)
 
     truss = structure.truss[0]
 
@@ -275,7 +200,7 @@ def create_index_variable_groups(structure):
     TC_group = {
         'name': 'TopChords',
         'var_type': 'index',
-        'value': 50,
+        'value': 64,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.top_chords,
@@ -286,7 +211,7 @@ def create_index_variable_groups(structure):
     BC_group = {
         'name': 'BottomChords',
         'var_type': 'index',
-        'value': 40,
+        'value': 47,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': truss.bottom_chords
@@ -297,7 +222,7 @@ def create_index_variable_groups(structure):
     WEB_group = {
         'name': 'Webs',
         'var_type': 'index',
-        'value': 29,
+        'value': 33,
         'values': list(shs_profiles.keys()),
         'property': 'profile',
         'objects': list(truss.webs.values())
@@ -413,51 +338,6 @@ def create_binary_discrete_variable_groups(structure):
     :return: kehän binäärimuuttujat
     """
     groups = []
-    col_sections = [col.cross_section for col in structure.columns]
-
-    # Pilarin I-profiilin poikkileikkauksen korkeus
-    COL_group_h = {
-        'name': 'Columns h',
-        'var_type': 'discrete',
-        'value': 300,
-        'values': HEIGHTS,
-        'property': 'h',
-        'objects': col_sections
-    }
-    groups.append(COL_group_h)
-
-    # Pilarin I-profiilin uuman paksuus
-    COL_group_tw = {
-        'name': 'Columns tw',
-        'var_type': 'discrete',
-        'value': 8,
-        'values': THICKNESSES,
-        'property': 'tw',
-        'objects': col_sections
-    }
-    groups.append(COL_group_tw)
-
-    # Pilarin I-profiilin laipan leveys
-    COL_group_b = {
-        'name': 'Columns b',
-        'var_type': 'discrete',
-        'value': 150,
-        'values': WIDTHS,
-        'property': 'b',
-        'objects': col_sections
-    }
-    groups.append(COL_group_b)
-
-    # Pilarin I-profiilin laipan paksuus
-    COL_group_tf = {
-        'name': 'Columns tf',
-        'var_type': 'discrete',
-        'value': 10,
-        'values': THICKNESSES,
-        'property': 'tf',
-        'objects': col_sections
-    }
-    groups.append(COL_group_tf)
 
     truss = structure.truss[0]
 
@@ -576,22 +456,22 @@ def discrete_neighbors(structure, n, params=('A', 'Iy'),
 if __name__ == '__main__':
     # Luodaan rakenne
     # 24 m ristikko
-    structure = create_structure(L=24000,
-                                 H0=8000,
-                                 H1=1800,
-                                 H2=2400,
-                                 dx=0,
-                                 n=14
-                                 )
-
-    # 30 m ristikko
-    # structure = create_structure(L=30000,
-    #                              H0=6000,
-    #                              H1=2100,
-    #                              H2=2900,
+    # structure = create_structure(L=24000,
+    #                              H0=8000,
+    #                              H1=1800,
+    #                              H2=2400,
     #                              dx=0,
     #                              n=14
     #                              )
+
+    # 30 m ristikko
+    structure = create_structure(L=30000,
+                                 H0=8000,
+                                 H1=2100,
+                                 H2=2900,
+                                 dx=0,
+                                 n=14
+                                 )
 
     # 36 m ristikko
     # structure = create_structure(L=36000,
@@ -603,8 +483,6 @@ if __name__ == '__main__':
     #                              )
 
     # Jatkuvien muutttujien ylä- ja alarajat
-    col_bounds = [[100, 800], [100, 300], [5, 50], [5, 50]]
-    col_values = [300, 100, 10, 5]
     tc_values = [200, 10]
     tc_bounds = [[100, 300], [4, 12.5]]
     bc_values = [150, 8]
@@ -614,8 +492,6 @@ if __name__ == '__main__':
 
     # Luodaan jatkuvien muuttujien joukko
     cont_var_groups = create_continuous_variable_groups(structure=structure,
-                                                        col_bounds=col_bounds,
-                                                        col_values=col_values,
                                                         tc_bounds=tc_bounds,
                                                         tc_values=tc_values,
                                                         bc_bounds=bc_bounds,
@@ -747,7 +623,6 @@ if __name__ == '__main__':
 
     continuous_variable_g_group = create_continuous_variable_g(structure=structure)
 
-    # Luodaan tehtävä liitosten geometriaehtojen optimointiin
     g_problem = StructuralProblem(name="Example 3",
                                 structure=structure,
                                 var_groups=continuous_variable_g_group,
@@ -788,15 +663,15 @@ if __name__ == '__main__':
     # g_problem(solver.X, prec=5)
 
     # MISLP
-    solver = MISLP(move_limits=[0.05, 0.05], beta=100)
-    # problem(x0)
-    x0 = [var.value for var in g_problem.vars]
-    fopt, xopt = solver.solve(g_problem,
-                              maxiter=50,
-                              x0=x0,
-                              min_diff=1e-2,
-                              verb=True)
-    g_problem(xopt, prec=5)
+    # solver = MISLP(move_limits=[0.05, 0.05], beta=100)
+    # # problem(x0)
+    # x0 = [var.value for var in g_problem.vars]
+    # fopt, xopt = solver.solve(g_problem,
+    #                           maxiter=50,
+    #                           x0=x0,
+    #                           min_diff=1e-2,
+    #                           verb=True)
+    # g_problem(xopt, prec=5)
 
     # VNS
     # solver = VNS(pop_size=50, maxiter=5, first_improvement=True, solver="GA",
@@ -815,15 +690,6 @@ if __name__ == '__main__':
     print("")
     print("----PAINOT---------------------------------------------------")
     # Painot
-    col_weight = 0
-    col_length = 0
-    for col in structure.columns:
-        col_weight += col.weight
-        col_length = col.length
-    print("COLUMNS WEIHTS =", col_weight)
-    print("COLUMN LENGTH =", col_length)
-    print("TRUSS WEIGHT =", structure.weight - col_weight)
-
     tc_weight = 0
     for tc in structure.truss[0].top_chords:
         tc_weight += tc.weight

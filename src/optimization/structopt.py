@@ -371,7 +371,7 @@ class Constraint:
             """ If the new values deviate from the old values
                 in terms of L2 norm by more than X_TOL, substitute
                 new values.
-                
+
                 NOTE: X_TOL should be small
             """
 
