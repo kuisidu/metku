@@ -375,7 +375,7 @@ class Constraint:
                 NOTE: X_TOL should be small
             """
 
-            if np.linalg.norm(X - x) > X_TOL:  # Replace with norm
+            if np.linalg.norm(X - x) > X_TOL:
                 self.problem.substitute_variables(x)
 
         """ If structural analysis is part of the consraint evaluation
@@ -574,7 +574,9 @@ class OptimizationProblem:
                 :param objective: objective function
                 :param gradient: gradient of the objective function
                 :param hess: Hessian of the objective function
-                :param structure: structure to be optimized (optional)
+                :param structure: structure to be optimized (optional).
+                    If structural analysis is required in optimization, 'structure'
+                    must have the method 'calculate' that performs structural analysis
                 :param profiles: list of available profiles (optional)
 
                 Variables:

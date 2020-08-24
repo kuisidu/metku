@@ -56,7 +56,7 @@ class Rod(Element):
     def local_stiffness_matrix(self):
         """ Stiffness matrix in local coordinates """
         E = self.material.young
-        A = self.section.area
+        A = self.section.A
         Le = self.length()
 
         """ Stiffness matrix in local coordinates """
@@ -127,7 +127,7 @@ class Rod(Element):
         """
         q = self.local_displacements()
         E = self.material.young
-        A = self.section.area
+        A = self.section.A
         L = self.length()
         self.axial_force[0] = E * A / L * (q[1] - q[0])
 

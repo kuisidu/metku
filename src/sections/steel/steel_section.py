@@ -38,16 +38,6 @@ class SteelSection(metaclass=ABCMeta):
     
     """
 
-    """
-    methods (Abstract = true)
-        cWeb = WebClassBend(obj)
-        cWeb = WebClassComp(obj)
-        cWeb = WebClassCompBend(obj)
-        cFlange = FlangeClass(obj)
-        MNRd = MomentAxialForceInteract(obj,UN,MRd)
-    end
-    """
-
     # Constructor
     def __init__(self,     
                  material,

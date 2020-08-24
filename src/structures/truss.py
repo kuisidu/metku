@@ -249,7 +249,7 @@ class TrussNode:
 if __name__ == "__main__":
     import sys
     
-    from hollow_sections import SHS
+    from sections.steel.RHS import SHS
     
     t = Truss()
     t.add_node(0,0)

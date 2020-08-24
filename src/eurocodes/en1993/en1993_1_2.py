@@ -11,6 +11,7 @@ import math
 import numpy as np
 
 from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
+import materials.steel_data as sd
 
 # EN 1993-1-2: Table 3.1
 REDUCTION_FACTORS_CS = {20:{'ky':1.0,'kp':1.0,'kE':1.0},
@@ -89,12 +90,15 @@ def reduce_property(t,prop,steel='carbon'):
     """ Function for determining the reduction factor at temperature 't'
         of property 'prop'
     """
+    rf = 1.0
     # Check if 't' matches any of the special temperatures
     if any(SPECIAL_TEMPS == t):
         if steel == 'carbon':
             rf = REDUCTION_FACTORS_CS[t][prop]
         elif steel =='1.4301':
             rf = REDUCTION_FACTORS_14301[t][prop]
+        else:
+            print("Unidentified steel grade!")
     else:
         # t does not match any of the special temperatures;
         # Do linear interpolation
@@ -146,23 +150,27 @@ def fpT(t,fp=355,steel='carbon'):
 
 def f02pT(t,fy=210,steel="1.4301"):
     """ Temperature-dependent value for proof strength at 0.2 plastic strain """
-    
+
     k = reduce_property(t,'k02',steel)
     
     return k*fy
 
-def fuT(t,fy_T):
+def fuT(t,fy_T,steel='carbon'):
     """ EN 1993-1-2, Annex A(2) 
         Ultimate strength of carbon steel, when taking
         into account work hardening
     """
     
-    if t < 300:
-        fu_T = 1.25*fy_T
-    elif t < 400:
-        fu_T = fy_T*(2-0.0025*t)
+    if steel=='carbon':    
+        if t < 300:
+            fu_T = 1.25*fy_T
+        elif t < 400:
+            fu_T = fy_T*(2-0.0025*t)
+        else:
+            fu_T = fy_T
     else:
-        fu_T = fy_T
+        ku = reduce_property(t,'ku',steel)
+        fu_T = ku*fy_T
         
     return fu_T
     
@@ -214,50 +222,34 @@ def stress(strain,t,Ea,fya,hardening=False):
         
     return st
 
-def stress_stainless(strain,t,Ea,fya,steel='1.4031'):
+def stress_stainless(strain,t,Ea,fya,fua,steel="1.4301"):
     """ Stress-strain relationship of stainless steels at elevated temperatures """
     
     # Proportional limit and Young's modulus at temperature 't'
     f02p_t = f02pT(t,fya,steel)
+    
     Ea_t = EaT(t,Ea,steel)
+    
     
     eps_ct = f02p_t/Ea_t + 0.002
     kE_ct = reduce_property(t,'kEct',steel)
-    Ee_ct = kE_ct*Ea
+    Ect_t = kE_ct*Ea
     
-    eps_u = reduce_property(t,'epsU',steel)
+    eps_ut = reduce_property(t,'epsU',steel)
      
     
-    if strain <= eps_ct:
-        b = (1-eps_ct)
-        a = (Ea_t*eps_ct - f02p_t)/f02pt/pow(eps_ct,b)
-        st = Ea_t*strain
-    elif strain < eps_yt:        
-        fy_t = fyT(t,fya)
-        c = (fy_t-fp_t)**2/((eps_yt-eps_pt)*Ea_t-2*(fy_t-fp_t))
-        b = math.sqrt(c*(eps_yt-eps_pt)*Ea_t+c**2)
-        a = math.sqrt((eps_yt-eps_pt)*(eps_yt-eps_pt+c/Ea_t))
-        st = fp_t - c + (b/a)*math.sqrt(a**2-(eps_yt-strain)**2)
-    elif strain <= eps_tt:
-        fy_t = fyT(t,fya)
-        if hardening:
-            fu_T = fuT(t,fy_t)
-            if strain < 0.04:
-                st = 50*(fu_T-fy_t)*strain + 2*fy_t - fu_T
-            else:
-                st = fu_T
-        else:
-            st = fy_t            
-    elif strain < eps_ut:
-        fy_t = fyT(t,fya)
-        if hardening:
-            fu_T = fuT(t,fy_t)
-            st = fu_T*(1-20*(strain-0.15))
-        else:
-            st = fy_t*(1-(strain-eps_tt)/(eps_ut-eps_tt))
+    if strain <= eps_ct:        
+        b = (1-eps_ct*Ect_t/f02p_t)*Ea_t*eps_ct/(Ea_t*eps_ct/f02p_t-1)/f02p_t
+        a = (Ea_t*eps_ct - f02p_t)/f02p_t/pow(eps_ct,b)
+        st = Ea_t*strain/(1+a*pow(strain,b))
     else:
-        st = 0.0
-        
+        fu_t = fuT(t,fua,steel)
+        e = (fu_t - f02p_t)**2/((eps_ut-eps_ct)*Ect_t-2*(fu_t-f02p_t))
+        d = math.sqrt(e*(eps_ut-eps_ct)*Ect_t + e**2)
+        c = math.sqrt((eps_ut-eps_ct)*(eps_ut-eps_ct + e/Ect_t))
+        st = f02p_t - e + d/c*math.sqrt(c**2 - (eps_ut-strain)**2)
+    
+    
     return st
     
 
@@ -335,6 +327,11 @@ def steel_temp(ksh,AmV,tmax,gas_temp=standard_fire,dt=5,Tsteel_ini=20):
     Tsteel = [Tsteel_ini]
     Time = [0]
     
+    if gas_temp == standard_fire:
+        aconv = 25
+    elif gas_temp == hydrocarbon_fire:
+        aconv = 50
+    
     while t < tmax:
         """ Assume that gas_temp is a function that takes
             the time in minutes and returns the temperature
@@ -346,7 +343,41 @@ def steel_temp(ksh,AmV,tmax,gas_temp=standard_fire,dt=5,Tsteel_ini=20):
             This feature is NOT yet implemented.
         """
         t_gas = gas_temp(t/60)
-        dTsteel = ksh*AmV/spec_heat(Tsteel[-1])/rho_a*hnet(t_gas,Tsteel[-1])*dt
+        
+        dTsteel = ksh*AmV/spec_heat(Tsteel[-1])/rho_a*hnet(t_gas,Tsteel[-1],ac=aconv)*dt
+        Tsteel.append(Tsteel[-1]+dTsteel)
+        t += dt
+        Time.append(t/60)
+    
+    return Tsteel, Time
+
+def stainless_steel_temp(ksh,AmV,tmax,gas_temp=standard_fire,dt=5,Tsteel_ini=20):
+    """ Determine temperature of unprotected stainless steel at time 'T'
+        starting from t=0 in time intervals 'dT'
+    """
+    rho_a = 7850 # kg/m3
+    
+    t = 0
+    Tsteel = [Tsteel_ini]
+    Time = [0]
+    
+    if gas_temp == standard_fire:
+        aconv = 25
+    elif gas_temp == hydrocarbon_fire:
+        aconv = 50
+    
+    while t < tmax:
+        """ Assume that gas_temp is a function that takes
+            the time in minutes and returns the temperature
+            in Celsius.
+            
+            Alternatively 'gas_temp' could be a table of
+            pre-calculated temperatures. Then, dt should match
+            the time interval used to produce the table.
+            This feature is NOT yet implemented.
+        """
+        t_gas = gas_temp(t/60)
+        dTsteel = ksh*AmV/spec_heat_stainless(Tsteel[-1])/rho_a*hnet(t_gas,Tsteel[-1],eps_m=0.4,ac=aconv)*dt
         Tsteel.append(Tsteel[-1]+dTsteel)
         t += dt
         Time.append(t/60)
@@ -401,37 +432,82 @@ def stress_strain_curves(temp=[400,500,600,700],hardening=False,write=False):
 
     return strain, st
 
+def stress_strain_curves_stainless(steel="1.4301",temp=[400,600,700,800],write=False):
+    """ Plots several stree-strain curves """
+    import matplotlib.pyplot as plt
+    
+    ssteel = sd.StainlessSteel(steel,'hot_strip')
+    strains = []
+    st = []
+    points = 200
+    
+    for idx, t in enumerate(temp):
+        eps_ut = reduce_property(t,'epsU',steel)
+        strains.append(np.linspace(0,eps_ut,points))
+        st.append([])
+        for e in strains[-1]:            
+            st[idx].append(stress_stainless(e,t,ssteel.E,ssteel.fy,ssteel.fu)/ssteel.fy)
+     
+    if write:
+        f = open(r'C:\Users\kmela\OneDrive - TUNI.fi\TRY\LaTeX\figures\luku6\jannitys_venyma_rosteri.dat','w')
+        top_row = ''
+        for t in temp:
+            top_row += 'Venymä {0:4.0f}C '.format(t)
+        f.write(top_row + '\n')
+        
+        for idx in range(points):
+            row = ''
+            for e, s in zip(strains,st):
+                row += "{0:5.3f} {1:5.3f} ".format(e[idx],s[idx])
+            row += '\n'
+            
+            f.write(row)        
+        
+    for strain, stresses in zip(strains,st):
+        plt.plot(strain,stresses)
+    plt.grid(True)
+    plt.xticks(np.arange(0,0.45,0.05))
+    plt.yticks(np.arange(0,1.9,0.1))
+
+    return strains, st
+
 def unprotected_sections(write=False):
     import matplotlib.pyplot as plt
     from sections.steel.ISection import IPE, HEA, HEB, HEM
     from sections.steel.RHS import SHS
     
-    """
+    
     p1 = IPE(300)
     p2 = HEA(300)
     p3 = HEB(300)
     p4 = HEM(300)
     profiles = [p1,p2,p3,p4]
-    """
-    p1 = SHS(180,5)
-    p2 = SHS(180,8)
-    p3 = SHS(200,12.5)
     
-    profiles = [p1,p2,p3]
+    #p1 = SHS(180,5)
+    #p2 = SHS(180,8)
+    #p3 = SHS(200,12.5)
+    #p3 = SHS(200,20)
+    #profiles = [p1,p2,p3]
     Tsteel = []
+    Tstainless = []
+    
+    tmin = 30
     
     for idx, p in enumerate(profiles):
         Tsteel.append([])
+        Tstainless.append([])
         ksh = p.shadow_effect()
         AmV = p.section_factor
         
-        Tsteel[idx], times = steel_temp(ksh,AmV,30*60,gas_temp=standard_fire)
+        Tsteel[idx], times = steel_temp(ksh,AmV,tmin*60,gas_temp=hydrocarbon_fire)
+        #Tstainless[idx], times = stainless_steel_temp(ksh,AmV,tmin*60,gas_temp=standard_fire)
         Tgas = []
         for t in times:
             Tgas.append(standard_fire(t))
         
         plt.plot(times,Tsteel[idx])
         plt.plot(times,Tgas)
+        #plt.plot(times,Tstainless[idx])
         plt.grid(True)
         #plt.xticks(np.arange(0,65,5))
         #plt.yticks(np.arange(0,1050,50))
@@ -439,7 +515,7 @@ def unprotected_sections(write=False):
         plt.yticks(np.arange(0,900,50))
     
     if write:
-        f = open(r'C:\Users\kmela\OneDrive - TUNI.fi\TRY\LaTeX\figures\luku6\suojaamattomat_hiilivety.dat','w')
+        f = open(r'C:\Users\kmela\OneDrive - TUNI.fi\TRY\LaTeX\figures\luku6\suojaamattomat_IH_hiilivety.dat','w')
         """
         top_row = 'Venymä'
         for t in temp:
@@ -449,16 +525,19 @@ def unprotected_sections(write=False):
         for idx, t in enumerate(times):
             row = "{0:5.3f} ".format(t)
             for T in Tsteel:
+            #for T, Tstain in zip(Tsteel,Tstainless):
                 row += ' {0:5.3f}'.format(T[idx])
+                #row += ' {0:5.3f}'.format(Tstain[idx])
             row += '\n'
             
             f.write(row)
     
 if __name__ == "__main__":
     
-    #unprotected_sections(write=False)
+    unprotected_sections(write=True)
     #strain,st = stress_strain_curves(write=True)
-    strain,st = stress_strain_curves(temp=[300,350,400],hardening=True,write=True)
+    #strain,st = stress_strain_curves(temp=[300,350,400],hardening=True,write=True)
+    #strain,st = stress_strain_curves_stainless(steel="1.4301",temp=[400,600,700,800],write=True)
     
 
     

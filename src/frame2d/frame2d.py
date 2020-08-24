@@ -9,20 +9,20 @@ import numpy as np
 
 try:
     import src.framefem.framefem  as fem
-    from src.framefem.elements import EBBeam, EBSemiRigidBeam
+    from src.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
     from src.sections.steel import *
     from src.sections.steel.catalogue import *
     from src.frame2d.materials import MATERIALS
     from src.structures.steel.steel_member import SteelMember
 except:
     import framefem.framefem  as fem
-    from framefem.elements import EBBeam, EBSemiRigidBeam
+    from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
     from sections.steel import *
     from sections.steel.catalogue import *
     from frame2d.materials import MATERIALS
     from structures.steel.steel_member import SteelMember
 
-# Eounding precision
+# Rounding precision (number of decimals)
 PREC = 3
 
 
@@ -56,9 +56,9 @@ class Frame2D:
 
         Variables:
         ----------
-        :ivar nodes:
-        :ivar nodal_coordinates:
-        :ivar num_elements:
+        :ivar nodes: list of nodes in the FEM model
+        :ivar nodal_coordinates: list of nodal coordinates
+        :ivar num_elements: number of elements per member
         :ivar f: Finite element model of the frame (FrameFEM)
         :ivar alpha_cr: critical load factor from linear stability analysis (list)
         :ivar members: dict of members (FrameMember)
@@ -69,7 +69,7 @@ class Frame2D:
         :ivar nodal_foces:
         :ivar nodal_displacements:
         :ivar joints:
-        :ivar r:
+        :ivar r: member utilization ratios (list)
         :ivar is_generated:
         :ivar is_calculated:
         :ivar self_weight:
@@ -189,14 +189,24 @@ class Frame2D:
         # POINTLOADS
         elif isinstance(this, PointLoad):
 
+            """ If a point load with same 'name' is already included
+                in the frame, add a number to the end of the name
+                of the new load such that each point load has a unique
+                name.
+                
+                NOTE: using 'len' to provide new id number might fail,
+                if point loads are deleted such that the number of point loads
+                changes along the way.
+            """
             if this.name in self.point_loads.keys():
                 this.name += str(len(self.point_loads))
             self.point_loads[this.name] = this
 
+            """ If the location of the point load is in between
+                member end nodes, add a node to the corresponding member
+            """
             for member in self.members.values():
-                coord = member.point_intersection(this.coordinate)
-
-                if coord:
+                if member.point_intersection(this.coordinate):
                     member.add_node_coord(this.coordinate)
 
         # LINELOADS
@@ -214,9 +224,12 @@ class Frame2D:
             # self.supports[this.supp_id] = this
             self.support_nodes.append(this.coordinate)
 
+            """ If the support is located between end nodes of a member,
+                add a node to that member
+            """
             for member in self.members.values():
-                coord = member.point_intersection(this.coordinate)
-                if coord:
+                #coord = member.point_intersection(this.coordinate)
+                if member.point_intersection(this.coordinate):
                     member.add_node_coord(this.coordinate)
 
         # TRUSS
@@ -422,10 +435,11 @@ class Frame2D:
         # self.update_model()
         if self.is_calculated == False:
             self.is_calculated = True
+            """ Support ID is always 1! """
             self.f.add_loadcase(supp_id=1, load_id=load_id)
             self.f.nodal_dofs()
 
-        self.calculated = True
+        self.calculated = True # should this be: self.is_calculated?
         self.f.linear_statics()
         self.calc_nodal_forces()
         self.calc_nodal_displacements()
@@ -552,15 +566,14 @@ class Frame2D:
                     self.add(XYHingedSupport(coord))
 
     def generate(self):
-        """ Generates the frame and truss
-            FEM model
+        """ Generates the frame and truss FEM model
         """
         # If the frame hasn't been created, create members and calculate nodal
         # coordinates, otherwise initialize frame.
         if not self.is_generated:
             self.is_generated = True
         for member in self.members.values():
-            member.calc_nodal_coordinates()
+            member.calc_nodal_coordinates() # Generate FEM nodes for a member
             member.round_coordinates()
             member.generate(self.f)
             for coord in member.nodal_coordinates:
@@ -1391,8 +1404,7 @@ class FrameMember:
         :return: global coordinate
         """
         Lx = self.length * loc
-        global_coord = self.coordinates[0] + Lx * self.unit
-        return global_coord
+        return self.coordinates[0] + Lx * self.unit
 
     @property
     def perpendicular(self):
@@ -1746,8 +1758,7 @@ class FrameMember:
     def length(self):
         start_node, end_node = np.asarray(self.coordinates)
 
-        L = np.linalg.norm(end_node - start_node)
-        return L
+        return np.linalg.norm(end_node - start_node)
 
     def alpha_to_Sj(self):
         """ Change alpha value to Sj
@@ -1813,21 +1824,35 @@ class FrameMember:
         #         # print(j, len(self.nodal_coordinates))
         #         node.coord = np.array(self.nodal_coordinates[j])
 
+        # clear list of nodal coordinates
         self.nodal_coordinates.clear()
+        """ add optional coordinates that are derived from point loads and supports
+            etc. that are located between end points of the member.
+        """
         self.nodal_coordinates.extend(self.added_coordinates)
-        if num_elements:
+        
+        """ By default, 5 elements are created, but this can be changed by
+            'num_elements'
+        """
+        if num_elements > 0:
             self.num_elements = num_elements
 
-        dloc = 1 / self.num_elements
+                
+        dloc = 1 / self.num_elements # step length in local coordinate system
         for loc in np.arange(0, 1 + dloc, dloc):
-
-            loc = round(loc, PREC)
+            
+            loc = round(loc, PREC) # round local coordinate to PREC decimals
+            
+            """ WHY IS THIS if LOOP HERE? """
             if loc not in self.loc:
                 self.loc.append(loc)
 
             coord = list(self.to_global(loc))
             self.nodal_coordinates.append(coord)
 
+        """ Sort coordinates according to their distance from the
+            first end node
+        """
         c0, c1 = self.coordinates
         self.nodal_coordinates.sort(
             key=lambda c: np.linalg.norm(np.asarray(c0) - np.asarray(c)))
@@ -1838,8 +1863,8 @@ class FrameMember:
 
     def add_node_coord(self, coord):
         """
-        Adds coordinate to memeber's coordinates and
-        calculates new coordinates local location
+        Adds coordinate to member's coordinates and
+        calculates new coordinate's local location
         If coordinate is not between member's coordinates, reject it
         :param coord: array of two float values, node's coordinates
         """
@@ -1911,7 +1936,16 @@ class FrameMember:
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
                 index += 1
-
+        elif self.mtype == 'bar':
+            """ Simple bar element that carries only axial forces """
+            n1 = node_ids[0]
+            n2 = node_ids[1]
+            self.elements[index] = \
+                    Rod(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                    self.cross_section, \
+                                    self.material)
+            fem_model.add_element(self.elements[index])
+            self.element_ids.append(index)
         elif self.mtype != "column":
             if len(self.nodes) == 2:
                 n1 = node_ids[0]
@@ -2001,11 +2035,6 @@ class FrameMember:
             else:
                 return max_val
 
-
-
-        self.med = 0
-        self.ved = 0
-        self.ned = 0
 
         max_med = 0
         max_ved = 0
@@ -2535,6 +2564,9 @@ class FrameMember:
         return element_ids
 
     def round_coordinates(self, prec=PREC):
+        """ Rounds the nodal coordinates with the precision of 'prec'
+            (number of decimals)
+        """
 
         for i, coord in enumerate(self.nodal_coordinates):
             self.nodal_coordinates[i] = [round(c, prec) for c in coord]
@@ -2681,7 +2713,9 @@ class Support:
     def __init__(self, coordinate, dofs, supp_id=1):
         """ Constructor
             coordinate .. nodal coordinates [list]
-            node_id .. 
+            dofs .. list of supported degrees of freedom
+            supp_id .. each support has an ID that relates it to a given
+                    support system. NOTE! In 'calculate' method, supp_id = 1 is always assumed!
         """
         self.node = None
         self.node_id = None
@@ -2702,7 +2736,6 @@ class Support:
             self.node.coord = np.array(val)
 
     def add_support(self, fem_model):
-
         if self.coordinate in fem_model.nodal_coords:
             idx = fem_model.nodal_coords.index(self.coordinate)
             self.node_id = idx
@@ -2736,7 +2769,7 @@ class XYHingedSupport(Support):
 
 class Hinge(Support):
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [0, 0, 0], supp_id)
+        super().__init__(coordinate, [0, 1], supp_id)
 
 
 def test():
@@ -2749,8 +2782,31 @@ def test():
     frame.generate()
     frame.calculate()
     frame.bmd(100)
+    
+    return frame
+
+def test_portal():
+    frame = Frame2D()
+    H = 6000
+    L = 8000
+    X = [[0,0],[0,H],[L,H],[L,0]]
+    
+    col1 = SteelColumn([X[0],X[1]],profile="HE 240 A")
+    col2 = SteelColumn([X[3],X[2]],profile="HE 240 A")
+    beam = SteelBeam([X[1],X[2]],profile="IPE 300")
+    frame.add(FixedSupport(X[0]))
+    frame.add(FixedSupport(X[3]))
+    frame.add(LineLoad(beam, [-20, -20], 'y'))
+    frame.add(col1)
+    frame.add(col2)
+    frame.add(beam)
+    frame.generate()
+    frame.calculate()
+    frame.bmd(100)
+    
+    return frame
 
 
 if __name__ == '__main__':
-    test()
+    f = test_portal()
 

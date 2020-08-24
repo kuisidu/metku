@@ -26,14 +26,55 @@ class StructuralProblem(OptimizationProblem):
                  constraints=None,
                  profiles=None,
                  obj=None):
+        """ Constructor 
+            Parameters:
+            ------------
+            :param name: Name of the problem (tuple)
+            :param structure: Structure to be optimized (Frame2D member?)
+            :param var_groups: grouping of design variables
+            :param con_groups: constraint groups
+            :param constraints: constraints of the problem
+            :param profiles: available profiles
+            :param obj: objective function
+    
+            :type name: string
+            :type structure: Frame2D member?
+            :type var_groups: list or dict?
+            :type con_groups: list or dict?
+            :type constraints: list or dict?
+            :type profiles: list or dict?
+            :type obj: callable or string?
+    
+    
+            Variables:
+            ----------
+            :ivar vars: list of variables
+            :ivar var_groups:
+            :ivar con_groups:
+            :ivar profiles:
+            :ivar constraints:
+            :ivar
+        
+        """
         super().__init__(name=name,
                          structure=structure)
+        self.vars = []
         self.var_groups = var_groups
         self.con_groups = con_groups
         if profiles is None:
             profiles = list(ipe_profiles.keys())
         self.profiles = profiles
+        
+        """ Generate variables.
+            By default, index variables are generated. This can be overridden
+            by var_groups, which gives the variable data.
+        """
         self.create_variables()
+        
+        """ Generate constraints 
+            By default, cross-section resistance constraints are generated.
+            This can be overridden by 'constraints' dict.
+        """
         if constraints is None:
             constraints = {
                 'compression': True,
@@ -781,8 +822,11 @@ class StructuralProblem(OptimizationProblem):
                                             members=group['objects'])
 
     def create_objective(self):
-
+        """ By default, weight of the structure is taken as the
+            objective function.
+        """
         def obj_fun(x):
+            """ Variable substitution is not shown """
             return self.structure.weight
 
         obj = ObjectiveFunction(name="Weight",

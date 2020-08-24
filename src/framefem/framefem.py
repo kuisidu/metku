@@ -509,7 +509,7 @@ class FrameFEM:
         """  Plots elements and nodes using matplotlib pyplot
         """
 
-        fig = plt.figure()
+        #fig = plt.figure()
         if self.dim == 3:
             ax = plt.axes(projection='3d')
         else:

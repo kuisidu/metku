@@ -64,6 +64,25 @@ class Steel:
         """
         return en1993_1_2.fyT(t,self.fy)
     
+    def fp_temp(self,t):
+        """ Modification of proportional limit according to
+            EN 1993-1-2
+        """
+        return en1993_1_2.fpT(t,self.fy)
+    
+    def fu_temp(self,t):
+        """ Modification of ultimate strength according to
+            EN 1993-1-2
+        """
+        return en1993_1_2.fuT(t,self.fy_temp(t))
+        
+    
+    def stress_temp(self,strain,t,hardening=False):
+        """ Calculate stress in steel for given strain at temperature
+            't', possiblity with hardenin effect included.
+        """
+        return en1993_1_2.stress(strain,t,self.E,self.fy,hardening)
+    
 class StainlessSteel:
     
     def __init__(self,steel_grade="1.4301",product='sections'):
@@ -83,6 +102,6 @@ class StainlessSteel:
         return f"{self.name}"
     
     def eps(self):
-        return sqrt(235.0/self.fy*self.E/210000.0)
+        return sqrt(235.0/self.fy*self.E/200000.0)
         
         
