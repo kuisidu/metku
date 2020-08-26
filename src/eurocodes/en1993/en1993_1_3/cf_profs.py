@@ -1386,26 +1386,12 @@ def Cexample(t=2.0,ca=0,cb=0):
 
     return c
 
-def RAK_33310_HT_Orsi():
-    
-    z = ZSection(t_nom=2.0,h=250,a=71,b=63,ca=26,cb=26,r=3)
-    z.Med = 14.96 # kNm
-    z.Ved = 11.97 # kN
-    
-    z.effective_section(True)
-    z.create_effective_model()
-    z.prof_eff.draw()
-    
-    return z
-
 if __name__ == "__main__":
     
     #c = Cexample(t=1.0,ca=16,cb=16)
     
     #z = ZSection(t_nom=1.5,h=200,a=74,b=66,ca=21.2,cb=21.2,r=3,
     #             material="S350GD",t_coat=0.04)
-    
-    z = RAK_33310_HT_Orsi()
     
     #z = ruukki_z(300,2.5)
     

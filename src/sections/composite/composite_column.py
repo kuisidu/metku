@@ -637,44 +637,6 @@ class ConcreteFilledTube:
         
         ax.set_aspect('equal')
 
-def HT2(steel,concrete,rebar,ned,nged,med):
-    
-    p = ConcreteFilledTube(3600,steel,concrete,rebar)
-    #p.lcr = [0.7,0.7]
-    p.ned = ned
-    p.nged = nged
-    p.med = med
-    
-    p.NplRd(True)
-    p.NplRk(True)
-    print("Ncr = {0:4.2f} kN".format(p.Ncr()*1e-3))
-    p.design(True)
-    
-    return p
-
-def Tentti():
-    
-    steel = SHS(220,8)
-    concrete = constants.Concrete("C40/50")
-    rebar = en1992_1_1.Rebar(20,"B500B")
-    
-    ned = 2.5e6
-    nged = 1.8e6
-    med = [0,0]
-    
-    p = ConcreteFilledTube(4000,steel,concrete,rebar)    
-    p.ned = ned
-    p.nged = nged
-    p.med = med
-
-    p.NplRd(True)
-    p.MplRd(True)
-    p.design(True)
-
-    p.draw()
-
-    return p
-
 if __name__ == '__main__':
     
     from sections.steel.RHS import SHS
@@ -686,9 +648,6 @@ if __name__ == '__main__':
     ned = 2.4e6
     nged = 1.7e6
     med = [0,0]
-    p = HT2(steel,con,rebar,ned,nged,med)
-    """
-    p = Tentti()
     
     """
     p = ConcreteFilledTube(6500,steel,con,rebar)
