@@ -294,6 +294,10 @@ class SteelSection(metaclass=ABCMeta):
         """ Weight per unit length kg/mm """
         w = self.A * constants.density
         return w
+    
+    def self_weight(self):
+        """ self-weight of the section (N/mm) """
+        return self.weight()*9.81
 
     def stress_ratio(self):
         """ computes the stress ratio Psi required
