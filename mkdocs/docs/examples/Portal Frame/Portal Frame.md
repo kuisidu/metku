@@ -4,7 +4,7 @@
 
 
 ```python
-from src.frame2d.frame2d import *
+from metku.frame2d.frame2d import *
 ```
 
 ### Create simple frame
@@ -93,7 +93,7 @@ frame.bmd(10)
 
 ```python
 # Import dependencies
-from src.frame2d.frame2d import *
+from metku.frame2d.frame2d import *
 
 # Create simple frame
 num_storeys = 2

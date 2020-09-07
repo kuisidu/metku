@@ -5,7 +5,7 @@
 
 
 ```python
-from src.frame2d.frame2d import *
+from metku.frame2d.frame2d import *
 ```
 
 ### Create empty frame "envelope"
@@ -107,7 +107,7 @@ frame.calculate()
 
 
 ```python
-from src.frame2d.frame2d import *
+from metku.frame2d.frame2d import *
 
 # Create empty frame
 frame = Frame2D()

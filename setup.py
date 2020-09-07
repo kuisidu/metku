@@ -4,7 +4,7 @@ with open("README.md", 'r') as fh:
     long_desc = fh.read()
 
 setuptools.setup(
-    name="structopt",
+    name="metku",
     version="0.0.1",
     author="Kristo Mela, Jaakko Huusko",
     author_email="-",
