@@ -7,7 +7,7 @@ Created on Sun Jun 28 15:02:50 2020
 
 try:
     from metku.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, \
-        Support
+        Support, Hinge, XYHingedSupport, PREC
     from metku.framefem.elements import EBBeam, EBSemiRigidBeam
     # from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
     from metku.sections.steel import HEA
@@ -116,22 +116,41 @@ class SimpleTrussMember(FrameMember):
 def three_bar_truss(L=1000):
     """ three bar truss example """
     
+    #from metku.sections.cross_sections import CrossSection
+
+    # Nodal coordinates    
     X = [[0,0],[-L,L],[0,L],[round(np.sqrt(3)*L,PREC),L]]
+    
+    """ Member connectivities. For example, [0,1] means that the member
+        end nodes are the 0th and 1st nodes in the list.
+    """
     mems = [[0,1],[0,2],[0,3]]
     
     #profs = [SHS(50,5),SHS(50,5),SHS(50,5)]
+    """ Cross-sections
+        Here, a name for the cross-section has to be given. This has to do
+        with the way FrameMember has been implemented.
+        
+        Later, the profile data can be changed manually, e.g. by modifying
+        the cross-sectional area 'A' directly.
+    """
     profs = ['SHS 50x50x5.0','SHS 50x50x5.0','SHS 50x50x5.0']
-    
+    #profs = [CrossSection(A=100),CrossSection(A=100),CrossSection(A=100)]
 
+    # Generate truss
     t = SimpleTruss(X,mems,profs)
     
+    # Add hinged supports
     t.add(XYHingedSupport(X[1]))
     t.add(XYHingedSupport(X[2]))
     t.add(XYHingedSupport(X[3]))
+    # Add point load
     p = PointLoad(X[0],[-100,-100])
     t.add(PointLoad(X[0],[-100,-100,0]))
     
+    # Generate calculation model
     t.generate()
+    # Calculate the responses
     t.calculate()
     
     t.plot()

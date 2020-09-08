@@ -4,8 +4,9 @@ Created on Tue Jun 30 08:16:41 2020
 
 @author: kmela
 """
+import numpy as np
 
-class CrossSection(metaclass=ABCMeta):
+class CrossSection():
     """ Base class for generic cross-sections
     
     Specific cross sections are subclasses of this class
@@ -17,18 +18,17 @@ class CrossSection(metaclass=ABCMeta):
 
     # Constructor
     def __init__(self,     
-                 material,
+                 material=None,
                  A=0,
                  I=[0,0]):
         
-        if isinstance(material,str):
-            self.material = Steel(material)
-        elif isinstance(material,(float,int)):
-            self.material = Steel("S" + str(int(material)))
-
-        self.E = self.material.E
+        self.material = material
         self.A = A
         self.I = np.asarray(I)       
 
     def __repr__(self):
         return type(self).__name__
+    
+    @property
+    def E(self):
+        return self.material.E
