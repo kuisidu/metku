@@ -875,8 +875,10 @@ class OptimizationProblem:
         #print(f"Optimal values: {vals}")
 
         print(f'X: {[round(val, prec) for val in x]}')
-        g = self.eval_cons(x)
-        print(F"Max constraint: {self.cons[np.argmax(g)].name}: {max(g):.{prec}f}")
+
+        if len(self.cons):
+            g = self.eval_cons(x)
+            print(F"Max constraint: {self.cons[np.argmax(g)].name}: {max(g):.{prec}f}")
         if len(x) < 100:
             print("Variables:")
             print("----------")
@@ -890,14 +892,15 @@ class OptimizationProblem:
 
         print(f"Objective function = {fx:.{prec}f}\n")
 
-        ncons = min(len(self.cons), ncons)
-        print(f"{ncons} Maximum Constraints:")
-        print("----------")
+        if len(self.cons):
+            ncons = min(len(self.cons), ncons)
+            print(f"{ncons} Maximum Constraints:")
+            print("----------")
 
-        idx = np.argpartition(g, -ncons)[-ncons:]
-        for con in np.asarray(self.cons)[idx]:
-            gi = con(x)
-            print(f"{con.name}: {gi:.{prec}f} {con.type} 0")
+            idx = np.argpartition(g, -ncons)[-ncons:]
+            for con in np.asarray(self.cons)[idx]:
+                gi = con(x)
+                print(f"{con.name}: {gi:.{prec}f} {con.type} 0")
 
 
     def eval_cons(self, x):
@@ -1206,6 +1209,24 @@ def Linearize(fun, x, grad=None):
 
 
 if __name__ == '__main__':
+
+    prop = OptimizationProblem(name="Testi")
+
+    def obj(x):
+        a, b = x
+        return a ** 2 + b + 10
+
+    objective = ObjectiveFunction(name="Testi", obj_fun=obj)
+
+    var1 = Variable("Var1", lb=0, ub=100)
+    var2 = Variable("Var2", lb=0, ub=100)
+
+    prop.add(objective)
+    prop.add(var1)
+    prop.add(var2)
+
+    print(prop([5, 5]))
+
     # dvars = []
     # dvars.append(Variable("Height", 150, 1000))
     # dvars.append(Variable("Flange width", 150, 500))
