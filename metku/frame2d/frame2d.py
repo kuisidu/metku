@@ -1331,7 +1331,7 @@ class FrameMember:
         self.added_coordinates = []
         self.nodal_coordinates = []
         self.loc = []
-        self.__coordinates = coordinates
+        self.__coordinates = [[round(c, PREC) for c in coords] for coords in coordinates]
         # self.coordinates = coordinates
         self.material = material
         self.cross_section = None
@@ -1385,9 +1385,7 @@ class FrameMember:
     @Y.setter
     def Y(self, val):
         (x1, y1), (x2, y2) = self.coordinates
-        print(self.coordinates)
         self.coordinates = [[x1, val], [x2, val]]
-        print(self.coordinates)
 
     @property
     def start_coord(self):
@@ -2290,6 +2288,7 @@ class FrameMember:
                 b = y1 - k * x1
                 return math.isclose(y, k * x + b,
                                     rel_tol=1e-3)  # y == k * x + b
+
         return False
 
     def plot(self, print_text=True, c='k'):
@@ -2719,7 +2718,7 @@ class Support:
         """
         self.node = None
         self.node_id = None
-        self.coordinate = coordinate
+        self.coordinate = [round(c, PREC) for c in coordinate]
         self.supp_id = supp_id
         self.dofs = dofs
 
