@@ -432,7 +432,6 @@ class FrameFEM:
                         p[i] = 0
                         
         """ Solve global displacement vector """
-
         u = np.linalg.solve(K, p)
 
 
