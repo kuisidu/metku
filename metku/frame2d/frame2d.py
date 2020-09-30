@@ -422,7 +422,7 @@ class Frame2D:
                 for j in t.joints.values():
                     j.calc_nodal_coordinates()
 
-    def calculate(self, load_id=2):
+    def calculate(self, load_id=2,support_method='ZERO'):
         """ Calculates forces and displacements
             
             Parameters
@@ -440,7 +440,7 @@ class Frame2D:
             self.f.nodal_dofs()
 
         self.calculated = True # should this be: self.is_calculated?
-        self.f.linear_statics()
+        self.f.linear_statics(support_method=support_method)
         self.calc_nodal_forces()
         self.calc_nodal_displacements()
         self.check_members_strength()
@@ -2812,7 +2812,7 @@ if __name__ == '__main__':
     for b in frame.beams:
         frame.add(LineLoad(b, [-10, -10], 'y'))
     frame.generate()
-    frame.calculate()
+    frame.calculate(support_method='REM')
 
     for mem in frame.members.values():
         for key, value in mem.nodal_forces.items():

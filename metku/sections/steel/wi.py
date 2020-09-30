@@ -121,6 +121,8 @@ class WISection(SteelSection):
             return np.array([self.bt, self.bb])
         elif name == "tf":
             return np.array([self.tt, self.tb])
+        elif name == "hw":
+            return self.h - self.tt - self.tb
         else:
             return super().__getattribute__(name)
 
@@ -131,6 +133,8 @@ class WISection(SteelSection):
         elif key == "tf":
             self.tt = value
             self.tb = value
+        elif key == "hw":
+            self.h = value + self.tt + self.tb
         #elif key == "bt":
         #    self.b[0] = value
         #elif key == "bb":
@@ -138,11 +142,12 @@ class WISection(SteelSection):
         else:
             super().__setattr__(key, value)
 
+    """
     @property
     def hw(self):
-        """ Web height """
+         Web height 
         return self.h - self.tt - self.tb
-    
+    """
     @property
     def Aw(self):
         """ Area of web plate """

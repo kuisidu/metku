@@ -113,7 +113,7 @@ class SimpleTrussMember(FrameMember):
 
         super().__init__(coordinates, mem_id, profile, material, num_elements,mtype=mtype)
 
-def three_bar_truss(L=1000):
+def three_bar_truss(L=1000,F1=100,F2=100):
     """ three bar truss example """
     
     #from metku.sections.cross_sections import CrossSection
@@ -134,7 +134,7 @@ def three_bar_truss(L=1000):
         Later, the profile data can be changed manually, e.g. by modifying
         the cross-sectional area 'A' directly.
     """
-    profs = ['SHS 50x50x5.0','SHS 50x50x5.0','SHS 50x50x5.0']
+    profs = ['SHS 50x50x3.0','SHS 50x50x3.0','SHS 50x50x3.0']
     #profs = [CrossSection(A=100),CrossSection(A=100),CrossSection(A=100)]
 
     # Generate truss
@@ -145,19 +145,20 @@ def three_bar_truss(L=1000):
     t.add(XYHingedSupport(X[2]))
     t.add(XYHingedSupport(X[3]))
     # Add point load
-    p = PointLoad(X[0],[-100,-100])
-    t.add(PointLoad(X[0],[-100,-100,0]))
+    # Voima F1 on pystysuuntainen ja F2 vaakasuuntainen
+    p = PointLoad(X[0],[F2,F1,0])
+    t.add(p)
     
     # Generate calculation model
     t.generate()
     # Calculate the responses
-    t.calculate()
+    t.calculate(support_method='REM')
     
     t.plot()
     
     return t
         
 if __name__ == '__main__':
-    t = three_bar_truss()
+    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3)
         
         

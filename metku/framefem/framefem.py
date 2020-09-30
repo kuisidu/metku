@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import scipy as sp
 import time
 
 
@@ -384,12 +385,19 @@ class FrameFEM:
         # print("FrameFEM  ", '\n', global_load)
         return global_load
 
-    def linear_statics(self, lcase=0):
+    def linear_statics(self, lcase=0,support_method='ZERO'):
         """ Perform linear elastic static analysis for a given load case
 
         Parameters:
         -----------
         :param lcase: index for load case
+        :param support_method: how supported DOFS are treated
+                              'ZERO' .. columns and rows corresponding to
+                              supported DOFS are zeroed and a 1 is put
+                              to the diagonal
+                              
+                              'REM' .. columns and rows corresponding to the
+                              supported DOFS are removed.
 
         :type lcase: int
         
@@ -417,6 +425,10 @@ class FrameFEM:
         """
         supp_id = self.loadcases[lcase].support
         
+        rem_dofs = []
+        """ Vector of global unsupported dofs """
+        glob_dofs = np.arange(self.dofs)
+        
         for supp in self.supports:
             if supp.sid == supp_id:                
                 node_dofs = supp.node.dofs
@@ -426,31 +438,60 @@ class FrameFEM:
                     i = node_dofs[dof]
                     #  print(i)
                     if i > -1:
-                        K[i,:] = 0
-                        K[:,i] = 0
-                        K[i,i] = 1
-                        p[i] = 0
+                        if support_method == 'ZERO':
+                            K[i,:] = 0
+                            K[:,i] = 0
+                            K[i,i] = 1
+                            p[i] = 0
+                        elif support_method == 'REM':
+                            rem_dofs.append(i)
+        
+        if support_method == 'REM':
+            K = np.delete(K,rem_dofs,0)
+            K = np.delete(K,rem_dofs,1)
+            p = np.delete(p,rem_dofs)
+            glob_dofs = np.delete(glob_dofs,rem_dofs)
+            print(rem_dofs)
+            print(K)
+            print(p)
+            print(glob_dofs)
+            
                         
         """ Solve global displacement vector """
+
+        #Kc, low = sp.linalg.cho_factor(K)
+        #uc = sp.linalg.cho_solve((Kc, low), p)
+
         u = np.linalg.solve(K, p)
+        print(u)
 
-
-        """ Distribute displacements to nodes """
-        for node in self.nodes:
-            # Get nodal dofs
-            dofs = np.array(node.dofs)
-
-            # Find free dofs
-            free_dofs = dofs >= 0
-            # Substitute free dofs from global displacement vector                        
-            for i, free_dof in enumerate(free_dofs):
-                if free_dof:
-                    node.u[i] = u[dofs[i]]
+        if support_method == 'ZERO':
+            """ Distribute displacements to nodes """
+            for node in self.nodes:
+                # Get nodal dofs
+                dofs = np.array(node.dofs)
+    
+                # Find free dofs
+                free_dofs = dofs >= 0
+                # Substitute free dofs from global displacement vector                        
+                for i, free_dof in enumerate(free_dofs):
+                    if free_dof:
+                        node.u[i] = u[dofs[i]]
 
             """
             This substition did not work !!!
             node.u[free_dofs] = u[dofs[free_dofs]]
             """
+        elif support_method == 'REM':
+            for ui, d in zip(u,glob_dofs):                
+                for node in self.nodes:
+                    try:
+                        node.u[node.dofs.index(d)] = ui
+                    except ValueError:
+                        pass
+                    
+                    
+
 
         """ Calculate element internal forces """
         for el in self.elements:
