@@ -36,12 +36,16 @@ DISC_TOL = 1e-3
 """ Tolerance for comparing variable vectors """
 X_TOL = 1e-10
 
+""" Artificial variable upper and lower bounds """
+XUB = 1e8
+XLB = -1e8
+
 
 class Variable:
     """ Class for optimization variables
     """
 
-    def __init__(self, name, lb, ub, id=None, target=None, profiles=None, value=None):
+    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None):
         """
         Parameters:
             -----------
@@ -87,6 +91,10 @@ class Variable:
         self.branch_priority = 0
         self.id = id            # MIKÄ TÄMÄ ON?
 
+        # Lagrange multiplier for lower bound
+        self.lb_mult = 1.0
+        # Lagrange multiplier for upper bound
+        self.ub_mult = 1.0
 
     def __repr__(self):
 
@@ -355,6 +363,9 @@ class Constraint:
         if not isinstance(vars, Iterable):
             vars = [vars]
         self.vars = vars
+        
+        # Lagrange multiplier
+        self.mult = 1.0
 
     def __call__(self, x):
         """ Evaluate the constraint using the syntax con(x)
@@ -365,7 +376,7 @@ class Constraint:
             """ Collect current variable values stored in each
                 optimization variable to X
             """
-            X = np.array([var.value for var in self.problem.vars])
+            X = np.array([var.value for var in self.problem.vars])            
             x = np.asarray(x)
 
             """ If the new values deviate from the old values
@@ -1150,7 +1161,171 @@ class OptimizationProblem:
         nList = product(*neighborhood)
         return nList
 
+    def exterior_penalty_fun(self,R=10):
+        """ Return exterior quadratic penalty function """
+        
+        def penalty_fun(x):
+            
+            F = self.obj(x)
+            
+            for con in self.cons:
+                val = con(x)
+                if con.type == '=':
+                    """ For equality constraints, the penalty term
+                        is simply the value of the constraint squared
+                    """
+                    F += val**2
+                elif con.type == '<':
+                    """ For less than or equal constraints, the penalty
+                        term is square of max(0,val)
+                    """
+                    F += R*max(0,val)**2
+                elif con.type == '>':
+                    """ For geq type constraints, the penalty term is
+                        square of min(0,val)
+                    """
+                    F += R*min(0,val)**2
+            
+            
+            for (i,var) in enumerate(self.vars):                
+                if var.lb > XLB:                    
+                    #F += R*max(0,-1-x[i]/abs(var.lb))**2
+                    F += R*max(0,-x[i]+var.lb)**2
+                
+                if var.ub < XUB:
+                    #F += R*max(0,x[i]/abs(var.ub)-1)**2
+                    F += R*max(0,x[i]-var.ub)**2
+            
+            return F
+        
+        return penalty_fun
 
+    def barrier_fun(self,R,barrier_type='log'):
+        """ Returns the barrier function
+            barrier_type: 'log' or 'inverse'
+        """
+        
+        def bar_fun(x):
+            
+            F = self.obj(x)
+            
+            for con in self.cons:
+                val = con(x)
+                if con.type == '=':
+                    """ For equality constraints, the barrier term
+                        is not defined
+                    """
+                    
+                elif con.type == '<':
+                    """ For less than or equal constraints, the penalty
+                        term is -1/R*log(-val)
+                    """
+                    if barrier_type == 'log':            
+                        F -= 1/R*np.log(-val)
+                    elif barrier_type == 'inverse':
+                        F -= 1/R/val
+                elif con.type == '>':
+                    """ For geq type constraints, the penalty term is
+                        square of min(0,val)
+                    """
+                    if barrier_type == 'log':            
+                        F -= 1/R*np.log(val)
+                    elif barrier_type == 'inverse':
+                        F += 1/R/val
+            
+            for (i,var) in enumerate(self.vars):                
+                if var.lb > XLB:                    
+                    #F += R*max(0,-1-x[i]/abs(var.lb))**2
+                    F -= 1/R/(-x[i]+var.lb)
+                
+                if var.ub < XUB:
+                    #F += R*max(0,x[i]/abs(var.ub)-1)**2
+                    F -= 1/R/(x[i]-var.ub)        
+            
+            return F
+        
+            
+        
+        return bar_fun
+
+    def augmented_lagrangian(self,Rineq=1.0,Req=1.0):
+        """ Constructs the augmented Lagrangian function for the
+            problem.
+            
+            mult .. list of Lagrange multipliers
+            R .. penalty factors
+            
+            NOTE! variable bounds are treated as regular inequalities
+        """
+        
+        def aul_fun(x):
+        
+            F = self.obj(x)
+            
+            for con in self.cons:
+                val = con(x)
+                mult = con.mult
+                
+                if con.type == '=':
+                    """ Equality constraints
+                    """
+                    F += -mult*val + Req*val**2
+                    
+                elif con.type == '<':
+                    """ Less than or equal constraints
+                    """                    
+                    F += Rineq*max(0.5*mult/Rineq+val,0)**2
+                    
+                elif con.type == '>':
+                    """ Less than or equal constraints
+                        NOTE! CHECK THIS!!!!
+                    """                    
+                    F += Rineq*max(0.5*mult/Rineq-val,0)**2
+          
+            for (i,var) in enumerate(self.vars):                     
+                if var.lb > XLB:
+                    val = -x[i] + var.lb                            
+                    F += Rineq*max(0.5*var.lb_mult/Rineq + val,0)**2
+                
+                if var.ub < XUB:                    
+                    val = x[i] - var.ub
+                    F += Rineq*max(0.5*var.ub_mult/Rineq + val,0)**2
+          
+            return F
+        
+        return aul_fun
+    
+    def update_lag_mult(self,x,Rineq=1.0,Req=1.0):
+        
+        for con in self.cons:
+            val = con(x)
+            mult = con.mult
+            
+            if con.type == '=':
+                """ Equality constraints
+                """
+                con.mult -= 2*Req*val
+                    
+            elif con.type == '<':
+                """ Less than or equal constraints
+                """                           
+                con.mult = max(mult + 2*Rineq*val,0)
+                    
+            elif con.type == '>':
+                """ Less than or equal constraints
+                NOTE! CHECK THIS!!!!
+                """                    
+                con.mult =  max(mult - 2*Rineq*val,0)
+          
+        for (i,var) in enumerate(self.vars):                     
+            if var.lb > XLB:
+                val = -x[i] + var.lb                            
+                var.lb_mult = max(var.lb_mult + 2*Rineq*val,0)
+                                
+            if var.ub < XUB:                    
+                val = x[i] - var.ub
+                var.ub_mult = max(var.lb_mult + 2*Rineq*val,0)
+            
 
 def NumGrad(fun, h, x):
     """ Gradient by finite difference """
