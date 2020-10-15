@@ -1296,7 +1296,11 @@ class OptimizationProblem:
         return aul_fun
     
     def update_lag_mult(self,x,Rineq=1.0,Req=1.0):
+        """ Updates Lagrange multipliers according to the update rules
+            associated with the augmented Lagrangian method.
+        """
         
+        """ First, iterate over regular constraints """
         for con in self.cons:
             val = con(x)
             mult = con.mult
@@ -1316,7 +1320,8 @@ class OptimizationProblem:
                 NOTE! CHECK THIS!!!!
                 """                    
                 con.mult =  max(mult - 2*Rineq*val,0)
-          
+         
+        """ Iterate over variable bound constraints """
         for (i,var) in enumerate(self.vars):                     
             if var.lb > XLB:
                 val = -x[i] + var.lb                            
