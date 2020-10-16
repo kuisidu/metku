@@ -132,11 +132,11 @@ class Rod(Element):
         self.axial_force[0] = E * A / L * (q[1] - q[0])
 
 
-    def nodal_displacements(self):
+    def nodal_displacements(self,lcase=0):
         """ Get nodal displacements of an element
             Requires previously performed structural analysis such
             that nodal displacements are available.
         """
 
         d = self.dim
-        return np.hstack((self.nodes[0].u[:d], self.nodes[1].u[:d]))
+        return np.hstack((self.nodes[0].u[lcase][:d], self.nodes[1].u[lcase][:d]))

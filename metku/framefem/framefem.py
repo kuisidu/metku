@@ -1335,7 +1335,7 @@ class Element(metaclass=ABCMeta):
         """
         return np.concatenate((self.nodes[0].u[lcase], self.nodes[1].u[lcase]))
 
-    def local_displacements(self):
+    def local_displacements(self,lcase=0):
         """ Nodal displacements in local coordinates
 
             Returns:
@@ -1345,7 +1345,7 @@ class Element(metaclass=ABCMeta):
 
         """
         T = self.transformation_matrix()
-        q = self.nodal_displacements()
+        q = self.nodal_displacements(lcase)
 
         return T.dot(q)
 

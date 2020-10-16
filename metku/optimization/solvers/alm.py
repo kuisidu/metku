@@ -65,7 +65,7 @@ class ALM(OptSolver):
         """ Cineq: multiplier for penalty term for inequality constraints
             Ceq: multiplier for penalty term for equality constraints
         """
-        Cineq = 2
+        Cineq = 1.5
         Ceq = 1.5
         
         print("*** Augmented Lagrangian method ***")
