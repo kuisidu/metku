@@ -1478,6 +1478,14 @@ class FrameMember:
         self.cross_section.A = val
 
     @property
+    def Iy(self):
+        return self.cross_section.Iy
+
+    @Iy.setter
+    def Iy(self, val):
+        self.cross_section.Iy = val
+
+    @property
     def E(self):
         return self.material.young
 

@@ -45,7 +45,7 @@ class Variable:
     """ Class for optimization variables
     """
 
-    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None):
+    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None, target_fun=None):
         """
         Parameters:
             -----------
@@ -61,11 +61,18 @@ class Variable:
                 target = {"property": string, "objects": list}
                     property .. unique identifier that shows which property of
                                 the structure is affected by the variable
+                                
+                                this can also be a list of strings
                     objects .. list of objects (e.g. frame members) that are
                                 affected by the variable
 
                 if target is 'None', then the variable does not change anything
                 in the structure
+                :param target_fun: (optional) dict that provides functions for evaluating a functional relationship
+                                    between the variable and its target. For cases, where the variable substitution
+                                    is not a direct attribute insertion. For example, when the cross-sectional area
+                                    of a member is used as a variable and it also affects the second moment of area
+                                    by some function I = I(A)
 
                 Allowed values for 'property':
                     'AREA' .. cross-sectional area of a member
@@ -90,6 +97,8 @@ class Variable:
         self.locked = False
         self.branch_priority = 0
         self.id = id            # MIKÄ TÄMÄ ON?
+        self.scaling = 1.0
+        self.target_fun = target_fun
 
         # Lagrange multiplier for lower bound
         self.lb_mult = 1.0
@@ -124,6 +133,17 @@ class Variable:
         Unlocks the variable so it's value can be changed
         """
         self.locked = False
+        
+    def scale(self,scaling_factor):
+        """ Scale variable by the factor 'scaling_factor' 
+            This alters the variable bounds. In 'substitute' method, scaling
+            is reflected such that the variable value is multiplied by
+            'scaling_factor'
+        """
+        
+        self.scaling = scaling_factor
+        self.lb = self.lb/scaling_factor
+        self.ub = self.ub//scaling_factor
 
     def substitute(self, new_value):
         """
@@ -138,11 +158,26 @@ class Variable:
             if self.target is not None:
                 for obj in self.target['objects']:
                     prop = self.target['property']
+                    """ If the variable affects several properties at a time
+                        'prop' is a list of property names
+                    """
                     if isinstance(prop, list):
                         for p in prop:
-                            obj.__setattr__(p, new_value)
+                            """ If the varible has a 'target_fun',
+                                evaluate it for right properties
+                            """
+                            if self.target_fun is not None:
+                                """ If 'p' is not a property that has a functional dependency,
+                                    then do regular substitution
+                                """
+                                try:
+                                    new_val = self.target_fun[p](new_value*self.scaling)
+                                except KeyError:
+                                    new_val = new_value*self.scaling
+                                    
+                            obj.__setattr__(p, new_val)
                     else:
-                        obj.__setattr__(prop, new_value)
+                        obj.__setattr__(prop, new_value*self.scaling)
 
 
     def discrete_violation(self,x):
@@ -739,6 +774,14 @@ class OptimizationProblem:
             Deletes all variables
         """
         self.__vars.clear()
+        
+    def var_values(self):
+        """
+        Returns all current variable values
+        -------
+
+        """
+        return np.array([var.value for var in self.vars])
 
     def non_linear_constraint(self, *args, **kwargs):
         """
@@ -1030,19 +1073,21 @@ class OptimizationProblem:
     def substitute_variables(self, xvals):
         """ Substitute variable values from xval to structure """
 
-        xvals = [max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)]
-        # Save starting point
-        if not np.any(self.X):
-            self.x0 = xvals.copy()
-
-        # if np.any(self.X != xvals):
-        self.X = xvals.copy()
-        self.fea_done = False
-        for x, var in zip(xvals, self.vars):            
-            var.substitute(x)
-        #
-        # for i in range(len(xvals)):
-        #     self.substitute_variable(i, xvals[i])
+        """ Make sure all variable values are within lower and upper bounds """
+        xvals = np.array([max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)])
+        if np.linalg.norm(self.var_values()-xvals) > 1e-9:
+            # Save starting point
+            if not np.any(self.X):
+                self.x0 = xvals.copy()
+    
+            # if np.any(self.X != xvals):
+            self.X = xvals.copy()
+            self.fea_done = False
+            for x, var in zip(xvals, self.vars):            
+                var.substitute(x)
+            #
+            # for i in range(len(xvals)):
+            #     self.substitute_variable(i, xvals[i])
 
     # OBSOLETE! USE SOLVERS FROM solvers MODULE!
     def solve(self, solver="slsqp", **kwargs):
