@@ -28,6 +28,7 @@ import scipy.optimize as sciop
 from itertools import product
 from collections.abc import Iterable
 from functools import lru_cache
+from copy import deepcopy
 
 CACHE_BOUND = 2**8
 INT_TOL = 1e-4
@@ -852,14 +853,18 @@ class OptimizationProblem:
                     """ Get current value of variable """
                     prev_val = var.value
                     """ Step length """
-                    h = max(0.01 * abs(prev_val), 1e-4)
+                    
+                    h = max(1e-6 * abs(prev_val), 1e-8)
                     var.substitute(prev_val + h)
 
                 """ Make finite element analysis """
-                if self.structure and not self.fea_done:
-                    self.fea()
+                #if self.structure and not self.fea_done:
+                #    self.fea()
                 """ Get variable values """
                 xh = [var.value for var in self.vars]
+                #print(x,xh)
+                if np.linalg.norm(x-xh) == 0:
+                    print("Linearize: error with variable substitution - too small step size.")
                 """ Evaluate objective function at x + hi*ei """
                 f_val = self.obj(xh)
                 """ Evaluate constraint functions at x + hi*ei """
@@ -870,7 +875,8 @@ class OptimizationProblem:
                 var.substitute(prev_val)
 
 
-        B = A @ x.T - b
+        #B = A @ x.T - b
+        B = A.dot(x) - b
         # B = -b
 
         # Add linear constraints' values
@@ -1075,6 +1081,8 @@ class OptimizationProblem:
 
         """ Make sure all variable values are within lower and upper bounds """
         xvals = np.array([max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)])
+        #print(xvals)
+        #print(self.var_values())
         if np.linalg.norm(self.var_values()-xvals) > 1e-9:
             # Save starting point
             if not np.any(self.X):
@@ -1085,6 +1093,10 @@ class OptimizationProblem:
             self.fea_done = False
             for x, var in zip(xvals, self.vars):            
                 var.substitute(x)
+        #else:
+            #print("No variable substitution.")
+            #if self.nvars() < 10:
+            #    print(self.var_values(),xvals)
             #
             # for i in range(len(xvals)):
             #     self.substitute_variable(i, xvals[i])
@@ -1386,15 +1398,16 @@ def NumGrad(fun, h, x):
         transform it to a list
     """
 
+
     if isinstance(h, float):
         h = h * np.ones(n)
 
     df = np.zeros(n)
 
-    np.eye(3, 1, -2)
-    #
+    #    
     for i in range(len(x)):
-        xh = x + h[i] * np.eye(1, n, i)
+        xh = deepcopy(x)
+        xh[i] += h[i]
         print(xh)
         fh = fun(xh)
         #     print(fx, fh)
@@ -1435,6 +1448,7 @@ def Linearize(fun, x, grad=None):
 
 if __name__ == '__main__':
 
+    """    
     prop = OptimizationProblem(name="Testi")
 
     def obj(x):
@@ -1458,7 +1472,7 @@ if __name__ == '__main__':
     # dvars.append(Variable("Flange thickness", 5, 40))
     # dvars.append(Variable("Web thickness", 5, 40))
     #
-
+    """
     """    
     def obj_fun(x):
         return x[0]**2 + 2*x[1]**3 -4*x[2]

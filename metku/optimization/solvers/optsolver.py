@@ -196,13 +196,16 @@ class OptSolver:
 
         # Assign problem
         self.problem = problem
-        # If initial starting point is/isn't defined
-        if x0:
+        # If initial starting point is/isn't defined        
+        if x0 is not None:
             self.X = x0
             problem.substitute_variables(x0)
         else:
             self.X = self.random_feasible_point()
             problem.substitute_variables(self.X)
+
+        self.xvals.append(np.array(x0))
+        self.fvals.append(problem.obj(x0))
 
 
         if plot:
@@ -216,6 +219,8 @@ class OptSolver:
         # Start iteration
         t_total = 0
         for i in range(maxiter):
+            if verb:
+                print("*** Iteration {0:g} ***".format(i))
             if plot:
                 self.update_plot(fig, ax)
             # Check time
@@ -236,6 +241,7 @@ class OptSolver:
                 break
             # Change current state
             self.X = state
+    
             # Substitute new variables
             problem.substitute_variables(state)
             # Calculate constraints
@@ -258,12 +264,13 @@ class OptSolver:
                     print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
             # Log objective vals per iteration
             if log:
+                print("logging X = ",self.X)
                 problem.num_iters += 1
                 problem.fvals.append(problem.obj(self.X))
                 problem.states.append(list(state))
                 problem.gvals.append(list(self.constr_vals).copy())
-                self.fvals.append(problem.obj(self.X))
-                self.xvals.append(self.X)
+                self.fvals.append(problem.obj(self.X))                
+                self.xvals.append(list(self.X))
             end = time.time()
             print(f"Iteration took: {end - start :.2f} s")
 

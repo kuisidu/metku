@@ -20,9 +20,15 @@ class SLP(OptSolver):
     def __init__(self, move_limits=(0.05, 0.05), gamma=1e-2, C=2e5, beta=10):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
+        self.move_limits_hist = [np.asarray(move_limits)]
         self.gamma = gamma
         self.C = C
         self.beta = beta
+        
+        self.include_beta = True
+        
+        if beta == 0:
+            self.include_beta = False
 
     def take_action(self):
         """
@@ -45,22 +51,32 @@ class SLP(OptSolver):
         x = {}
         # Variables
         for i, var in enumerate(self.problem.vars):
+            # Delta is the range of variable values
             delta = var.ub - var.lb
-
+            
+            # 
             lb, ub = self.move_limits * delta
+            
             lb = max(var.lb, var.value - lb)
             ub = min(var.ub, var.value + ub)
             x[i] = solver.NumVar(lb,
                                  ub,
-                                 var.name)
-        # Beta
-        beta = solver.NumVar(0, self.beta, 'beta')
+                                 var.name)                     
+        # Beta        
+        if self.include_beta:
+            beta = solver.NumVar(0, self.beta, 'beta')
         # Constraints
         for i in range(n):
-            solver.Add(solver.Sum([A[i, j] * x[j] for j in range(m)]) <= B[i] + beta)
+            if self.include_beta:
+                solver.Add(solver.Sum([A[i, j] * x[j] for j in range(m)]) <= B[i] + beta)
+            else:
+                solver.Add(solver.Sum([A[i, j] * x[j] for j in range(m)]) <= B[i])
 
         # Objective
-        solver.Minimize(solver.Sum([df[j] * x[j] for j in range(m)]) + self.C * beta)
+        if self.include_beta:
+            solver.Minimize(solver.Sum([df[j] * x[j] for j in range(m)]) + self.C * beta)
+        else:
+            solver.Minimize(solver.Sum([df[j] * x[j] for j in range(m)]))
 
 
         sol = solver.Solve()
@@ -74,7 +90,7 @@ class SLP(OptSolver):
             # too similar results
             return np.zeros_like(self.X)
 
-        if beta.solution_value() < 1:
+        if self.include_beta and beta.solution_value() < 1:
             self.beta = beta.solution_value()
 
         X = []
@@ -87,7 +103,10 @@ class SLP(OptSolver):
     def step(self, action):
 
         self.C += self.C * self.gamma
-        self.move_limits -= self.move_limits * self.gamma
+        """ Reduce move limits by 'gamma'x100 percent"""        
+        self.move_limits -= self.move_limits * self.gamma        
+        self.move_limits_hist.append(list(self.move_limits))
+        #print(self.X,action)
         self.X += action
         for i in range(len(self.X)):
             self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,

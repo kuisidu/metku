@@ -1497,6 +1497,10 @@ class FrameMember:
     @property
     def fy(self):
         return self.material.fy
+    
+    @fy.setter
+    def fy(self,val):
+        self.material.fy = val
 
     @property
     def nu(self):
