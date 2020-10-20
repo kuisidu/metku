@@ -265,8 +265,7 @@ def sigma_E(t,b):
     """ Critical stress of plate
         EN 1993-1-5, A.1
     """
-    
-    return 190000*(t/b)**2
+    return 190_000*(t/b)**2
 
 def tau_crit(hw,a,t,b):
     """ Critical shear stress for shear buckling
@@ -284,7 +283,7 @@ def shear_buckling_web(chi_w,fyw,hw,t):
     """ Shear buckling: contribution from the web
         EN 1993-1-5, Eq. (5.2)
     """
-    return chi_w*fyw*hw*t/gammaM1
+    return chi_w*fyw*hw*t/ (math.sqrt(3) * gammaM1)
 
 def shear_buckling_flanges(bf,tf,fyf,a,hw,t,fyw,rM):
     """ Shear buckling: contribution from the flanges
