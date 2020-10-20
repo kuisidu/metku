@@ -609,7 +609,7 @@ class LinearObjective(ObjectiveFunction):
 class OptimizationProblem:
     """ Class for defining and operating with optimization problems """
 
-    def __init__(self, name="", variables=[], constraints=[], objective=None, \
+    def __init__(self, name="", variables=None, constraints=None, objective=None, \
                  gradient=None, hess=None, structure=None, profiles=None):
         """ Constructor
 
@@ -645,11 +645,16 @@ class OptimizationProblem:
                 :ivar states:
                 :ivar gvals:
         """
-
         self.con_tol = 1e-4
         self.name = name
-        self.vars = variables
-        self.cons = constraints
+        if variables:
+            self.vars = variables
+        else:
+            self.vars = []
+        if constraints:
+            self.cons = constraints
+        else:
+            self.cons = []
         self.obj = objective
         # Gradient and Hessian of the objective function
         # should also include the possibility that some of the variables
