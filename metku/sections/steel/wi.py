@@ -41,9 +41,13 @@ class WISection(SteelSection):
                            flanges and web (fillet weld assumed)
         """
         self.h = h
+        if isinstance(b, (int, float)):
+            b = [b, b]
         self.b = b
         self.bt = b[0]
         self.bb = b[1]
+        if isinstance(tf, (int, float)):
+            tf = [tf, tf]
         self.tf = tf
         self.tt = tf[0]
         self.tb = tf[1]
@@ -275,11 +279,24 @@ class WISection(SteelSection):
         """
         return self.Ab*self.fy
     
-    
+    @property
     def Aeff(self):
         """ Effective area of the section """
-        
+
+        # return self.Aw - self.hneg * self.tw + 2 * self.Ab
+        raise NotImplementedError("Effective area calculation not implemented")
     
+
+    @property
+    def hneg(self):
+        """
+        ineffective height
+        """
+        heff = self.effective_web()
+        he1 = 0.4 * heff
+        he2 = 0.6 * heff
+
+        return self.cw/2 - he1 - he2
     def shear_centre(self):
         """ Position of the shear centre S from centroid G
             Source: Maquoi et al. (2003)
@@ -589,7 +606,9 @@ class WISection(SteelSection):
         rho = en1993_1_5.reduction_factor_internal(lp,psi)
         
         beff, be = en1993_1_5.effective_width_internal(cw,psi,rho)
-        
+        return beff
+
+
         if verb:
             print("Effective Web:")
             print("psi = {0:4.2f}".format(psi))
@@ -625,19 +644,17 @@ class WISection(SteelSection):
             VbRd = self.VRd
         else:           
             """ Contribution from the web """
-            tau_cr = en1993_1_5.tau_crit(hw,a,tw,b)            
+            tau_cr = en1993_1_5.tau_crit(hw,a,tw,hw)
             slend_w = en1993_1_5.shear_buckling_slenderness(fyw,tau_cr)
             chi_w = en1993_1_5.shear_buckling_reduction_factor(slend_w,eta,end_post)
-            Vbw_Rd = en1993_1_5.shear_buckling_web(chi_w,fyw,hw,t)
-            
+            Vbw_Rd = en1993_1_5.shear_buckling_web(chi_w,fyw,hw,tw)
             """ Contribution from the flange """
             NEd = abs(self.Ned)
-            
             """ If axial force is present, the resistance MfRd must
                 be reduced by the factor (1-rN). (EN 1993-1-5, 5.4(2))
             """
             if NEd > 1e-6:
-                rN = NEd/((self.At+self.Ab)*fy)
+                rN = NEd/((self.At+self.Ab)*fyw)
             else:
                 rN = 0
             
@@ -651,11 +668,18 @@ class WISection(SteelSection):
                     bf = self.bb
                     tf = self.tb
                 
-                bf = min(bf,30*e*tf+tw)
+                bf = min(bf,30*self.eps*tf+tw)
                 
-                Vbf_Rd = en1993_1_5.shear_buckling_flanges(bf,tf,fy,a,hw,t,fy,rM)
-            
-    
+                Vbf_Rd = en1993_1_5.shear_buckling_flanges(bf,tf,fyw,a,hw,tw,fyw,rM)
+
+            else:
+                raise NotImplementedError("shear_buckling_resistance rM >= 1 not implemented")
+
+            VbRd = Vbw_Rd + Vbf_Rd
+
+        return VbRd
+
+
     def draw(self, name=""):
         """ Draw the profile """
         fig, ax = plt.subplots(1)
@@ -720,27 +744,5 @@ if __name__ == '__main__':
     #frame.add(col)
     
     #p = WISection(1594, 7.0, [300.0, 300.0], [22.0, 22.0],fy=235,weld_throat=3.5)    
-    p = WISection(1000, 6.0, [300.0, 300.0], [15.0, 15.0],fy=355,weld_throat=4)    
-    p.Med = 2.228e6    
-    p.section_class(verb=False)
-    p.effective_web(verb=True)
-    p.draw()
-    
-    #s = p
-    
-    s = WISection(p.h,p.tw,p.b,p.tf,p.fy,p.weld_throat)
-    s.h = 1200
-    
-    # print(s.h)
-    # print(p.h)
-    
-    #profile = "WI 200-5-200-8-100-5"
-    # frame.plot()
-    #print(col.cross_section.b)
-    #print(col.cross_section.tf)
-    #col.cross_section.b = 150
-    #col.cross_section.tf = 6
-    #print(col.cross_section.b)
-    #print(col.cross_section.tf)
-    # col.cross_section.draw()
-
+    p = WISection(600, 8, 250, 20,fy=355,weld_throat=4)
+    print(p.hw, p.tw, p.eps)
