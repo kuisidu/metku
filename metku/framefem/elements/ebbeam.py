@@ -234,7 +234,7 @@ class EBBeam(Element):
 
         return N
 
-    def internal_forces(self):
+    def internal_forces(self,lcase=0):
         """ Calculate internal forces
             NOTE: these internal forces do not take
             loads along the element into account!
@@ -246,7 +246,7 @@ class EBBeam(Element):
             and multiply them with local element stiffness matrix
             to get internal forces in member's local coordinate system.
         """
-        q = self.local_displacements()
+        q = self.local_displacements(lcase)
         # ke = self.k0
         E = self.material.young
         A = self.section.A

@@ -149,12 +149,14 @@ def three_bar_truss(L=1000,F1=100,F2=100):
     p = PointLoad(X[0],[F2,F1,0])
     t.add(p)
     
+    #t.plot()
+    
     # Generate calculation model
     t.generate()
     # Calculate the responses
-    t.calculate(support_method='REM')
+    #t.calculate(support_method='REM')
     
-    t.plot()
+    
     
     return t
         

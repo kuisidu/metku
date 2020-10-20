@@ -230,7 +230,7 @@ class SteelMember:
 
     def weight(self):
         """ Weight of the member (kg) """
-        w = self.weight_per_length * self.length
+        w = self.weight_per_length() * self.length
         return w
 
     def mcrit(self, C=[1.12, 0.45, 0.525], k=[1, 1],za=0.0,verb=False):

@@ -85,7 +85,7 @@ class SLSQP(OptSolver):
         bounds = self._create_bounds()
         eqcons = self._create_eqcons()
         ieqcons = self._create_ieqcons()
-
+        
         # Create initial guess if one isn't provided
         if x0 is None:
             x0 = []
@@ -98,8 +98,8 @@ class SLSQP(OptSolver):
         options = {'maxiter': maxiter,
                    'disp': verb,
                    'iprint': 1,
-                   'eps': 1e-4,
-                   'ftol': 1e-3}
+                   'eps': 1e-6,
+                   'ftol': 1e-5}
 
         constraints = []
 
@@ -115,11 +115,11 @@ class SLSQP(OptSolver):
         out = minimize(self.problem.obj,
                        x0,
                        method='slsqp',
-                       tol=1e-3,
+                       tol=1e-5,
                        bounds=bounds,
                        constraints=constraints,
                        options=options,
-                       callback=self.callback,
+                       #callback=self.callback,
                        )
 
         print(out)

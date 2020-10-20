@@ -195,7 +195,7 @@ class FifteenBarTruss(OptimizationProblem):
         frame.add(PointLoad(n8, [0, -self.F, 0]))
         # Change material properties
         for mem in frame.members.values():
-            mem.cross_section.fy = self.sigma_max
+            mem.fy = self.sigma_max
             mem.E = self.E  # MPa
             mem.A = FIFTEEN_BAR_AREAS_mm2[0]
             mem.Sj1 = 0

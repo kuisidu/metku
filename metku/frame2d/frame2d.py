@@ -933,7 +933,7 @@ class Frame2D:
         print(f'{filename}.str created to: \n{os.getcwd()}')
 
     def plot(self, print_text=True, show=True,
-             loads=True, color=False):
+             loads=True, color=False, axes=None):
         """ Plots the frame
             
             Parameters
@@ -955,12 +955,18 @@ class Frame2D:
                 red -- member breaks under its loads
                 black -- member is added, but not designed
         """
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
+        
+        
         if self.is_calculated and color:
             color = True
 
         # Plot members
         for member in self.members.values():
-            member.plot(print_text, color)
+            member.plot(print_text, color, ax)
 
         # Plot joints
         for joint in self.joints.values():
@@ -978,14 +984,14 @@ class Frame2D:
                     marker = '4'
             else:
                 marker = '2'
-            plt.scatter(node_coord[0], node_coord[1], s=50, c='k',
+            ax.scatter(node_coord[0], node_coord[1], s=50, c='k',
                         marker=marker)
 
         # if self.truss:
         #    self.truss.plot(show=False, print_text=print_text, color=color)
         if loads:
             self.plot_loads()
-        plt.axis('equal')
+        ax.axis('equal')
         if show:
             plt.axis('equal')
             plt.show()
@@ -1052,7 +1058,7 @@ class Frame2D:
             # x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
             # plt.plot([x0, x1], [y0, y1], c='b')
 
-    def plot_deflection(self, scale=1, prec=4, show=True):
+    def plot_deflection(self, scale=1, prec=4, show=True, lcase=0):
         """ Draws deflected shape of the frame
             
             Parameters
@@ -1078,14 +1084,21 @@ class Frame2D:
             Y = []
 
             member.calc_nodal_displacements(self.f)
+            """ For columns,  highlight maximum horizontal displacement (max_x)
+                For beams, highlight maximum vertical displacements (max_y)
+            """
             max_x = 0
             max_y = 0
+            
+            """ Calculate the deflected location of each node of the member """
             for i, node in enumerate(member.nodes.values()):
                 x0, y0 = node.coord
-                x1 = node.u[0]
-                y1 = node.u[1]
+                x1 = node.u[lcase][0]
+                y1 = node.u[lcase][1]
                 x = x0 + x1 * (scale)
                 y = y0 + y1 * (scale)
+                
+                """ Update value and location of the maximum displacmeent """
                 if abs(x1) >= abs(max_x) and member.mtype == "column":
                     max_x = abs(x1)
                     loc_max_x = x
@@ -1095,8 +1108,11 @@ class Frame2D:
                     loc_max_x = x
                     loc_max_y = y
 
+                """ Store deflected locations to X and Y """
                 X.append(x)
                 Y.append(y)
+            
+            """ Plot deflected locations """
             plt.plot(X, Y, color='gray')
             if (loc_max_x, loc_max_y) not in max_locs:
 
@@ -1105,17 +1121,18 @@ class Frame2D:
                 if member.mtype != "column":
                     plt.plot(loc_max_x, loc_max_y, 'ro')
                     plt.text(loc_max_x, loc_max_y,
-                             (str(max_y)[0:prec + 1] + " mm"))
+                             "{0:5.{1}g} mm".format(max_y,prec))                             
 
-                else:
+                else:                    
                     plt.plot(loc_max_x, loc_max_y, 'ro')
                     plt.text(loc_max_x, loc_max_y,
-                             (str(max_x)[0:prec + 1] + " mm"))
+                             "{0:5.{1}g} mm".format(max_x,prec))
+                              
 
         if show:
             plt.show()
 
-    def plot_buckling(self, scale=1, k=4, show=True):
+    def plot_buckling(self, scale=1, k=4, show=True, lcase=0, axes=None):
         """ Draws buckling shapes of the frame
             
             Parameters
@@ -1129,34 +1146,58 @@ class Frame2D:
             :type k: int
             :type show: bool
         """
+        
+        """ Perform linear buckling analysis 
+            output:
+                w .. list of eigenvalues
+                v .. list of eigenmodes (vectors)
+        """
         w, v = self.f.linear_buckling(k=k)
-        self.alpha_cr = w
-        for j in range(v.shape[1]):
-            if show:
-                self.plot(print_text=False, show=False, loads=False,
-                          color=False)
-            for member in self.members.values():
-                X = []
-                Y = []
-                for i, node in enumerate(member.nodes.values()):
-                    x0, y0 = node.coord
-                    if not isinstance(node.v[0], int):
-                        x1 = node.v[0][j]
-                        y1 = node.v[1][j]
-                    else:
-                        x1 = node.v[0]
-                        y1 = node.v[1]
-                    x = x0 + x1 * (scale)
-                    y = y0 + y1 * (scale)
-                    X.append(x)
-                    Y.append(y)
-
-                plt.plot(X, Y, color='m')
-            plt.title(f'Buckling shape {j + 1},  ' r"$\alpha_{cr}$" f' = {w[j] * 1000:.2f}')
-            # if self.truss:
-            #    self.truss.plot_buckling(show=False)
-
-            plt.show()
+        
+        """ Find the buckling mode corresponding to the smallest eigenvalue """
+        nd = np.argmin(w)
+        vcrit = v[nd]
+        acrit = np.min(w).real
+        print("w=",acrit)
+        print("v=",vcrit)
+        self.alpha_cr = acrit
+        
+        sorted_nd = np.argsort(w)
+        
+        #for j in range(v.shape[1]):
+        for j in sorted_nd[:1]:
+            if w[j] < 1e5:
+                if axes is None:
+                    fig, ax = plt.subplots(1)
+                else:
+                    ax = axes
+                if show:
+                    self.plot(print_text=False, show=False, loads=False,
+                              color=False,axes=ax)
+                for member in self.members.values():
+                    X = []
+                    Y = []
+                    for i, node in enumerate(member.nodes.values()):
+                        x0, y0 = node.coord
+                        if not isinstance(node.v[0], int):
+                            x1 = node.v[j][0]
+                            y1 = node.v[j][1]
+                        else:
+                            x1 = node.v[0]
+                            y1 = node.v[1]
+                        
+                        print(x1,y1)
+                        x = x0 + x1 * (scale)
+                        y = y0 + y1 * (scale)
+                        X.append(x)
+                        Y.append(y)
+    
+                    ax.plot(X, Y, color='m')
+                ax.set_title(f'Buckling shape {j + 1},  ' r"$\alpha_{cr}$" f' = {w[j].real:.2f}')
+                # if self.truss:
+                #    self.truss.plot_buckling(show=False)
+    
+                plt.show()
 
     def bmd(self, scale=1):
         """ Draws bending moment diagram
@@ -1435,6 +1476,14 @@ class FrameMember:
         self.cross_section.A = val
 
     @property
+    def Iy(self):
+        return self.cross_section.Iy
+
+    @Iy.setter
+    def Iy(self, val):
+        self.cross_section.Iy = val
+
+    @property
     def E(self):
         return self.material.young
 
@@ -1446,6 +1495,10 @@ class FrameMember:
     @property
     def fy(self):
         return self.material.fy
+    
+    @fy.setter
+    def fy(self,val):
+        self.material.fy = val
 
     @property
     def nu(self):
@@ -1837,7 +1890,8 @@ class FrameMember:
 
                 
         dloc = 1 / self.num_elements # step length in local coordinate system
-        for loc in np.arange(0, 1 + dloc, dloc):
+        #for loc in np.arange(0, 1 + dloc, dloc):
+        for loc in np.linspace(0, 1 , self.num_elements + 1):
             
             loc = round(loc, PREC) # round local coordinate to PREC decimals
             
@@ -2291,7 +2345,13 @@ class FrameMember:
 
         return False
 
-    def plot(self, print_text=True, c='k'):
+    def plot(self, print_text=True, c='k',axes=None):
+
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
+                
 
         X = self.coordinates
         if c:
@@ -2302,7 +2362,7 @@ class FrameMember:
         else:
             color = 'k'
         # Plot members
-        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
+        ax.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
         # Plot text
 
         # Calculate text location
@@ -2335,11 +2395,11 @@ class FrameMember:
         rot = np.degrees(self.angle)
 
         if print_text:
-            plt.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
+            ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
         else:
-            plt.text(x, y, str(self.mem_id),
+            ax.text(x, y, str(self.mem_id),
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
 
@@ -2808,12 +2868,28 @@ def test_portal():
 
 if __name__ == '__main__':
     # f = test_portal()
-    frame = Frame2D(simple=[1, 1, 10000, 10000], supports='fixed', num_elements=4)
-    for b in frame.beams:
-        frame.add(LineLoad(b, [-10, -10], 'y'))
+    L = 4000
+    H = 4000
+    F = -100e3
+    frame = Frame2D(simple=[1, 1, H, L], supports='fixed', num_elements=6)
+    frame.add(PointLoad([0,H],[0,F,0]))
+    frame.add(PointLoad([L,H],[0,F,0]))
+    #for b in frame.beams:
+    #    frame.add(LineLoad(b, [-10, -10], 'y'))
+    for mem in frame.members.values():
+        mem.profile = 'IPE 220'
+    
+    print(frame.members[0].nodal_coordinates)
+    
     frame.generate()
     frame.calculate(support_method='REM')
 
+    frame.plot_deflection(scale=1)
+
+    #frame.plot_buckling(scale=1000,k=4)
+
+    """
     for mem in frame.members.values():
         for key, value in mem.nodal_forces.items():
             print(key, value)
+    """

@@ -53,6 +53,7 @@ class SteelSection(metaclass=ABCMeta):
                  design_code=en1993_1_1):
         #self.fy = fy
         
+        #print(material)
         if isinstance(material,str):
             self.material = Steel(material)
         elif isinstance(material,(float,int)):

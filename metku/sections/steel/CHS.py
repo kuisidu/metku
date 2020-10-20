@@ -2,7 +2,7 @@
 """
 Created on Wed Mar 14 23:12:31 2018
 
-Rectangular hollow sections
+Circular hollow sections
 
 @author: kmela
 """
@@ -24,21 +24,57 @@ class CHS(SteelSection):
             T -- wall thickness
             fy -- yield strength
         """
-        A = CHS_area(D,T)
-        Au = CHS_paint_area(D)
-        I = CHS_second_moment(D,T)
-        Ashear = CHS_shear_area(A)
-        Wel = CHS_elastic_modulus(D,I)
-        Wpl = CHS_plastic_modulus(D,T)
-        It = CHS_torsion_modulus(D,T)
-
-        SteelSection.__init__(self,fy,A,I,Au,Wpl,Wel,Ashear)
         self.D = D
         self.T = T
-        self.It = It
+        
+        A = self.area()
+        Au = self.paint_area()
+        I = self.second_moment()
+        Ashear = self.shear_area()
+        Wel = self.elastic_modulus()
+        Wpl = self.plastic_modulus()
+        self.It = self.torsion_modulus()
         self.Iw = 0.0
 
+        super().__init__(fy,A,I,Au,Wpl,Wel,Ashear)
+        
+
         self.imp_factor = [en1993_1_1.buckling_curve["c"],en1993_1_1.buckling_curve["c"]]
+
+    def __repr__(self):
+        return f"{type(self).__name__} {self.D:.0f}X{self.T:.1f}"
+
+    def area(self):
+        r = 0.5*self.D
+        return math.pi*r**2 - math.pi*(r-self.T)**2
+
+        
+    def paint_area(self):
+        return math.pi*self.D
+
+    def shear_area(self):
+        return 2*self.area()/math.pi
+
+
+    def second_moment(self):
+        r2 = 0.5*self.D
+        r1 = r2-self.T
+        return 0.25*math.pi*(r2**4-r1**4)
+
+    def elastic_modulus(self):
+        return self.second_moment()/(0.5*self.D)
+
+    def plastic_modulus(self):
+        D2 = self.D
+        D1 = self.D-2*self.T
+        return (D2**3-D1**3)/6
+
+    
+    def torsion_modulus(self):
+        Iv2 = math.pi*self.D**4/32
+        Iv1 = math.pi*(self.D-2*self.T)**4/32
+        Iv = Iv2-Iv1
+        return Iv
 
     def web_class_bend(self):
         r = self.D/self.T
@@ -110,3 +146,40 @@ def CHS_torsion_modulus(D,T):
     Iv1 = math.pi*(D-2*T)**4/32
     Iv = Iv2-Iv1
     return Iv
+
+class CustomCHS(CHS):
+    """ Class for custom CHS profiles, mainly for optimization """
+    
+    def __init__(self,D,T,fy=355):
+        
+        super().__init__(D,T,fy)
+    
+    def __getattribute__(self, name):
+        """ override the attribute access for those attributes
+            that depend on the section dimensions and that are
+            constant for rolled sections
+        """
+        if name == "A":
+            if self.area() < 0:
+                print(self.D, self.T)
+                
+            return self.area()
+        elif name == "I":
+            I = self.second_moment()
+            #if I[1] < 0:
+            #    print(self.h, self.b, self.tt, self.tb, self.tw)
+            return self.second_moment()
+        elif name == "Wel":
+            return self.section_modulus()
+        elif name == "Wpl":
+            return self.plastic_section_modulus()
+        elif name == "Ashear":
+            return self.shear_area()
+        elif name == "Au":
+            return self.paint_area()
+        elif name == "It":
+            return self.torsion_modulus()
+        else:
+            return super().__getattribute__(name)
+    
+    

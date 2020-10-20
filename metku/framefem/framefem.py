@@ -63,6 +63,11 @@ class FrameFEM:
             Problem is 3D if any node as three coordinates
         """
         self.dim = 2
+        """ Supported degrees of freedom """
+        self.supp_dofs = []
+        
+        self.load_factors = []
+        self.buckling_modes = []
         
     def nels(self):
         """ Number of elements
@@ -232,15 +237,25 @@ class FrameFEM:
         self.loadcases.append(new_case)
 
         """ Add displacements to nodes for the new load case """
+        ncases = self.nloadcases()
         for node in self.nodes:
-            if len(node.u):
+            node.u.append(np.zeros(len(node.dofs)))
+            """
+            if ncases == 1:
+                print(node.u[0])
+                node.u[0] = np.zeros(len(node.dofs))
+            else:
+                node.u.append(np.zeros(len(node.dofs)))
+            """
+            """    
+            if len(node.u) > 0:
                 # node.u = [0.0, 0.0, 0.0]
                 # node.u = np.vstack((node.u, [0.0, 0.0, 0.0]))
                 node.u = np.vstack(node.u,[0 for i in range(len(node.dofs))])
             else:
                 node.u = [0 for i in range(len(node.dofs))]
                 # node.u = np.vstack((node.u, [0.0, 0.0, 0.0]))
-
+            """
     def nodal_dofs(self):
         """ Assign nodal degrees of freedom
         """
@@ -288,6 +303,10 @@ class FrameFEM:
 
         return ndx
 
+    def global_free_dofs(self):
+        """ List of free degrees of freedom """
+        
+        return list(set(np.arange(self.dofs))-set(self.supp_dofs))
 
     def global_stiffness_matrix(self):
         """ Constructs the global stiffness matrix
@@ -446,15 +465,17 @@ class FrameFEM:
                         elif support_method == 'REM':
                             rem_dofs.append(i)
         
+        self.supp_dofs = rem_dofs
+        
         if support_method == 'REM':
             K = np.delete(K,rem_dofs,0)
             K = np.delete(K,rem_dofs,1)
             p = np.delete(p,rem_dofs)
             glob_dofs = np.delete(glob_dofs,rem_dofs)
-            print(rem_dofs)
-            print(K)
-            print(p)
-            print(glob_dofs)
+            #print(rem_dofs)
+            #print(K)
+            #print(p)
+            #print(glob_dofs)
             
                         
         """ Solve global displacement vector """
@@ -463,8 +484,9 @@ class FrameFEM:
         #uc = sp.linalg.cho_solve((Kc, low), p)
 
         u = np.linalg.solve(K, p)
-        print(u)
+        #print(u)
 
+        """ Substitute obtained displacements to nodes """
         if support_method == 'ZERO':
             """ Distribute displacements to nodes """
             for node in self.nodes:
@@ -476,7 +498,7 @@ class FrameFEM:
                 # Substitute free dofs from global displacement vector                        
                 for i, free_dof in enumerate(free_dofs):
                     if free_dof:
-                        node.u[i] = u[dofs[i]]
+                        node.u[lcase][i] = u[dofs[i]]
 
             """
             This substition did not work !!!
@@ -486,7 +508,7 @@ class FrameFEM:
             for ui, d in zip(u,glob_dofs):                
                 for node in self.nodes:
                     try:
-                        node.u[node.dofs.index(d)] = ui
+                        node.u[lcase][node.dofs.index(d)] = np.array(ui)
                     except ValueError:
                         pass
                     
@@ -516,36 +538,100 @@ class FrameFEM:
         :return: Array of k alpha_cr values and an vector representing buckling displacements
 
         :rtype: (np.array, np.array)
+        
+        TODO!!!
+            the global geometric stiffness matrix does not include any fixing of
+            supported dofs now.
+            
+            This is because the logic for fixing supported dofs in linear statics was
+            changed from row and column elimination to setting elements to zero or one.
+            
+            Solution:
+                when using linear buckling analysis, always use "REM" as method of
+                support handling. Then, remove the rows and columns of the global
+                geometric stiffness matrix as well.
         """
 
         """ Solve internal forces of members 
             and return stiffness matrix
         """
-        u, K = self.linear_statics(lcase)
+        u, K = self.linear_statics(lcase,support_method="REM")
         KG = self.global_geometric_stiffness_matrix()
+        
+        """
+        for supp in self.supports:
+            if supp.sid == supp_id:                
+                node_dofs = supp.node.dofs
+                for dof in supp.dof:
+                    # Get the global degree of freedom of the supported
+                    # node's degree of freedom.
+                    i = node_dofs[dof]
+                    #  print(i)
+                    if i > -1:
+                        if support_method == 'ZERO':
+                            KG[i,:] = 0
+                            KG[:,i] = 0
+                            KG[i,i] = 1                            
+                        elif support_method == 'REM':
+                            rem_dofs.append(i)
+        
+        if support_method == 'REM':
+            KG = np.delete(K,rem_dofs,0)
+            KG = np.delete(K,rem_dofs,1)            
+            glob_dofs = np.delete(glob_dofs,rem_dofs)
+        """
+        KG = np.delete(KG,self.supp_dofs,0)
+        KG = np.delete(KG,self.supp_dofs,1) 
+        
+        
         # v0 -- initial guess is set to np.ones -matrix,
         # this makes sure that w and v values doesn't change
         # after consecutive runs, default v0 is matrix with random values
-        w, v = eigsh(K, k=k, M=-KG, sigma=0.0, which='LA', mode='normal', v0=np.ones(self.dofs))
-        # w,v = sp.eigvals(K,b=-KG)
+        (w, buckling_modes) = eigsh(K, k=k, M=-KG, sigma=1.0, which='LA', mode='buckling')
+        #w = sp.linalg.eigvals(K,b=-KG)
+        #(w,buckling_modes) = sp.linalg.eig(K,b=-KG)
+        #(w,buckling_modes) = sp.sparse.linalg.eigs(K,k=6,M=-KG,which='SM',sigma=0)
+
+        self.load_factors = w
+        self.buckling_modes = buckling_modes
 
         """ Distribute buckling displacements to nodes """
+        
+        """
         for node in self.nodes:
+               
             # Get nodal dofs
+            
             dofs = np.array(node.dofs)
-
+            
             # Find free dofs
             free_dofs = dofs >= 0
-
+    
             # Substitute free dofs from global displacement vector
-                                    
+                                        
             for i in range(len(free_dofs)):
                 if free_dofs[i]:
                     node.v[i] = v[dofs[i]]
+        """
         
-        return w, v
+        for node in self.nodes:
+            node.v = np.zeros((buckling_modes.shape[1],len(node.v)))
+        
+        
+        glob_dofs = self.global_free_dofs()
+        
+        for i in range(buckling_modes.shape[1]):
+            v = buckling_modes[:,i]
+            for vi, d in zip(v,glob_dofs):                
+                for node in self.nodes:
+                    try:
+                        node.v[i][node.dofs.index(d)] = vi
+                    except ValueError:
+                        pass
+        
+        return w, buckling_modes, KG
 
-    def draw(self, show=True):
+    def draw(self, show=True, deformed=False, buckling_mode=None, scale=1.0):
         """  Plots elements and nodes using matplotlib pyplot
         """
 
@@ -556,6 +642,7 @@ class FrameFEM:
             ax = plt.axes()
 
         """ draw nodes """
+        """
         for n in self.nodes:
             if self.dim == 2:
                 ax.plot(n.coord[0], n.coord[1], 'ro')
@@ -568,19 +655,61 @@ class FrameFEM:
                 plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
             #else:
                 #plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], self.nodes[i].coord[2], str(i))
-
+        """
         """ draw members """
+        el_col = 'k'
+        if deformed or buckling_mode is not None:
+            lstyle = '--' #+ el_col
+        else:
+            lstyle = '-' + el_col
+            
         for i in range(self.nels()):
             # X = self.member_coord(i)
             X = self.elements[i].coord()
             Xmid = X[0, :] + 0.5 * (X[1, :] - X[0, :])            
             
+            
             if self.dim == 2:
-                ax.plot(X[:, 0], X[:, 1], 'b')
-                ax.text(Xmid[0], Xmid[1], str(i))
+                ax.plot(X[:, 0], X[:, 1], lstyle, color=(0.6,0.6,0.6))
+                #ax.text(Xmid[0], Xmid[1], str(i))
             else:
-                ax.plot3D(X[:, 0], X[:, 1], X[:,2], 'b')
+                ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
                 ax.text(Xmid[0], Xmid[1], Xmid[2], str(i))
+                
+        if deformed:
+            """
+            for n in self.nodes:
+                if self.dim == 2:
+                    ax.plot(n.coord[0]+scale*n.u[0], n.coord[1]+scale*n.u[1], 'bo')
+                else:
+                    ax.scatter3D(n.coord[0], n.coord[1], n.coord[2],'ro')
+            """
+            lstyle = '-k'
+            for el in self.elements:
+                X = np.zeros((2,2))
+                for i, n in enumerate(el.nodes):
+                    X[i,:] = (n.coord + scale * np.array(n.u[:2]))
+                    
+                if self.dim == 2:
+                    ax.plot(X[:, 0], X[:, 1], lstyle)                  
+                else:
+                    ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
+                
+        
+        if buckling_mode is not None:
+            lstyle = '-k'
+            for el in self.elements:
+                X = np.zeros((2,2))
+                for i, n in enumerate(el.nodes):
+                    X[i,:] = (n.coord + scale * np.array(n.v[buckling_mode][:2]))
+                    
+                if self.dim == 2:
+                    ax.plot(X[:, 0], X[:, 1], lstyle)                  
+                else:
+                    ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
+        
+        ax.set_aspect('equal')
+        
         if show:
             plt.show()
 
@@ -998,8 +1127,9 @@ class FEMNode:
 
         """ Node's degrees of freedom """
         # NOTE: for multiple load cases, the dimension of u must be increased for each load case
-        self.u = np.array([])
-
+        #self.u = np.array([])
+        self.u = []
+        
         """ Nodal coordinates"""
         if z is not None:
             self.coord = np.array([x, y, z])
@@ -1008,12 +1138,12 @@ class FEMNode:
             
             # Nodal displacements
             # [Ux, Uy, Uz, Rx, Ry, Rz]
-            self.v = [0, 0, 0, 0, 0, 0]
+            self.v = np.array([0, 0, 0, 0, 0, 0])
         else:
             self.coord = np.array([x, y])
             self.dofs = [0, 0, 0]
             # [Ux, Uy, Uz]
-            self.v = [0,0,0]
+            self.v = np.array([0,0,0])
         
             
         """ Nodal displacement vector (linear buckling)"""
@@ -1193,7 +1323,7 @@ class Element(metaclass=ABCMeta):
         """
         pass
 
-    def nodal_displacements(self):
+    def nodal_displacements(self,lcase=0):
         """ Get nodal displacements of an element 
             Requires previously performed structural analysis such
             that nodal displacements are available.
@@ -1203,9 +1333,9 @@ class Element(metaclass=ABCMeta):
             :return: Element's nodal displacements
             :rtype: np.array
         """
-        return np.concatenate((self.nodes[0].u, self.nodes[1].u))
+        return np.concatenate((self.nodes[0].u[lcase], self.nodes[1].u[lcase]))
 
-    def local_displacements(self):
+    def local_displacements(self,lcase=0):
         """ Nodal displacements in local coordinates
 
             Returns:
@@ -1215,7 +1345,7 @@ class Element(metaclass=ABCMeta):
 
         """
         T = self.transformation_matrix()
-        q = self.nodal_displacements()
+        q = self.nodal_displacements(lcase)
 
         return T.dot(q)
 

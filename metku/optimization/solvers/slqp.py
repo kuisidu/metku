@@ -15,11 +15,11 @@ is solved.
 """
 
 
-from scipy.optimize import linprog
+import scipy.optimize as sciop
 import numpy as np
 import time
 
-#  import gurobipy as grb
+import gurobipy as grb
 
 try:
     from metku.optimization.solvers.optsolver import OptSolver
@@ -50,12 +50,74 @@ class SLQP(OptSolver):
             df .. gradient of the objective function
             fx .. f(x_k)
         """
-        A, B, df, fx = self.problem.linearize(self.X)
+        #print(self.X)
+        A, B, df, fx = self.problem.linearize(*self.X)
 
         # bounds = [x*self.move_limits for x in self.X]
         #
         # res = linprog(df, A, B, bounds=bounds)
 
+        
+        qp_fun = lambda x: 0.5*(x-self.X).dot(x-self.X) + df.dot(x-self.X)
+        qp_jac = lambda x: (x-self.X) + df
+        
+        qp_con = {"type":'ineq',"fun":lambda x: A.dot(x) - B,"jac":lambda x: A}
+
+    
+        x_bnd = []
+        for var in self.problem.vars:
+            x_bnd.append((var.lb,var.ub))
+            
+        print(x_bnd)
+
+        print(qp_fun(self.X))
+        print(qp_jac(self.X))
+        print(qp_con["fun"](self.X))
+        print(qp_con["jac"](self.X))
+
+        qp_res = sciop.minimize(qp_fun,self.X,method='SLSQP',constraints=qp_con,bounds=x_bnd)        
+        print(qp_res)
+
+        if qp_res.success == True:
+            xnew = qp_res.x
+        else:
+            print('Something happened with qp problem.')
+            xnew = qp_res.x
+        
+        #print(self.X)
+        #return xnew - self.X
+        """    
+        print(A,B)
+        qp_fun = lambda d: 0.5*d.dot(d) + df.dot(d)
+        qp_jac = lambda d: d + df
+        
+        qp_con = {"type":'ineq',"fun":lambda d: A.dot(d) - B}#,"jac":lambda x: A.T}
+
+        d0 = -df
+        d_bnd = []
+        for i, var in enumerate(self.problem.vars):
+            d_bnd.append((var.lb-self.X[i],var.ub-self.X[i]))
+            
+        #print(x_bnd)
+
+        #print(qp_fun(self.X))
+        #print(qp_jac(self.X))
+        #print(qp_con["fun"](self.X))
+        #print(qp_con["jac"](self.X))
+
+        qp_res = sciop.minimize(qp_fun,d0,method='SLSQP',jac=qp_jac,constraints=qp_con,bounds=d_bnd)    
+        print(qp_res)
+
+        if qp_res.success == True:
+            dnew = qp_res.x
+        else:
+            print('Something happened with qp problem.')
+            dnew = qp_res.x
+            
+        return dnew
+        """
+
+        
         qp = grb.Model("qp")
         
         # Number of constraints
@@ -75,13 +137,13 @@ class SLQP(OptSolver):
             # add terms to the objective function
             qpobj.append(0.5*(x[i]-self.X[i])*(x[i]-self.X[i])+df[i]*x[i])
             #qpobj.append(0.5*d[i]*d[i]+df[i]*d[i])
-            
+        
         """ Prepare quadratic part of the objective function:
             square terms
         """
         #qpobj = [0.5*va*va for va in qpvars]
         
-
+        
         qp.setObjective(grb.quicksum(qpobj))
         
         # Constraints
@@ -104,34 +166,15 @@ class SLQP(OptSolver):
 
         X = np.asarray(X)
         
-        self.qp = qp
+        #self.qp = qp
         
-        #d = X-self.X
-        #print(d)
+        d = X-self.X
+        print(d)
         #return X
         return X-self.X
-
-        """
-        # If solution if infeasible
-        if sol == 2:
-            print("Solution found was infeasible!")
-            self.move_limits += np.array([-self.gamma, self.gamma])
-            # Return something != 0, otherwise iteration will
-            # stop because two consecutive iterations produce
-            # too similar results
-            return np.ones_like(self.X)
-        else:
-            X = []
-            for i in range(len(x)):
-                if self.problem.prob_type == 'discrete':
-                    X.append(int(x[i].solution_value()))
-                else:
-                    X.append(x[i].solution_value())
-            X = np.asarray(X)
-
-            return X - self.X
-        # return res.x - self.X
-        """
+        
+       
+        
     def step(self, action):
         
         self.X += action

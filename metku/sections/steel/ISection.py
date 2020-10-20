@@ -194,14 +194,24 @@ class ISection(SteelSection):
 
     def web_class_comp_bend(self, Ned, verb=False):
         """ Determine class of web in combined bending and compression 
-            TODO
+            
+            Approach:
+                Take Ned as given and fix it. Then see how large the
+                bending moment can be such that the entire section
+                has been plastified.
         """
         # cw = self.h-2*self.tf-2*self.r
         rw = self.hw / self.tw
-        Ac = 0.5 * (self.A + Ned / (self.fy / constants.gammaM0))
-        a = Ac / self.A
-        p = -1
-
+        NRweb = self.hw*self.tw*self.fy
+        if -Ned >= NRweb:
+            a = 1.0
+        elif -Ned <= -NRweb:
+            a = 0.0
+        else:
+            a = 0.5*(1-Ned/NRweb)
+        #Ac = 0.5 * (self.A + Ned / (self.fy / constants.gammaM0))
+        #a = Ac / self.A
+        p = -1        
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, a, p)
         
         if verb:

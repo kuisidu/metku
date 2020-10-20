@@ -22,19 +22,6 @@ except:
     from optimization.solvers.optsolver import OptSolver
 
 
-GRAD_TOL = 1e-8
-ABS_F_TOL = 1e-8
-REL_F_TOL = 1e-4
-X_TOL = 1e-8
-
-def line_search_obj(fun,xk,dk):
-    """ Objectve function for line search """
-    
-    def line_fun(a):
-        #print(xk + a*dk)
-        return fun(xk + a*dk)
-    
-    return line_fun
 
 class ALM(OptSolver):
     """ Augmented Lagrangian method """
@@ -50,9 +37,18 @@ class ALM(OptSolver):
     def solve(self, x0, maxiter=200, Rineq=1.0,Req=1.0):
         """ Augmented Lagrangian method iteration """
         
+        """ Display commands:
+                'latex' .. print iteration results as a LaTeX table
+                'multpliers' .. print Lagrange multipliers over iterations
+                'iteration' .. print iteration data
+        """
         #disp = 'latex'
         #disp = 'multipliers'
         disp = 'iteration'
+        
+        """ Flag for displaying results of each minimization of the
+            augmented Lagrangian
+        """
         disp_min = True
         
         k = 0
@@ -61,10 +57,15 @@ class ALM(OptSolver):
         self.xvals.append(x0)
         self.fvals.append(self.problem.obj(x0))
         
+        """ Initialize augmented Lagrangian """
         aug_fun = self.problem.augmented_lagrangian(Rineq,Req)
         
         f_stop = 0
-        Cineq = 2
+        
+        """ Cineq: multiplier for penalty term for inequality constraints
+            Ceq: multiplier for penalty term for equality constraints
+        """
+        Cineq = 1.5
         Ceq = 1.5
         
         print("*** Augmented Lagrangian method ***")
@@ -98,7 +99,10 @@ class ALM(OptSolver):
                 smult += ' \\\\'
                 print(smult)
             
-            """ Minimize augmented Lagrangian function """
+            """ Minimize augmented Lagrangian function 
+                By default, gradient is evaluated by differences
+                and conjugate gradient method is used
+            """
             res = minimize(aug_fun,x[k],method='CG',jac='2-point',
                            options={'disp':disp_min,'finite_diff_rel_step':1e-8})
             
@@ -139,12 +143,16 @@ class ALM(OptSolver):
                 print(siter)
             
             """ Check stopping criterion """
-            if np.linalg.norm(x[k+1]-x[k]) <= X_TOL*np.linalg.norm(x[k]):
-                break            
+            if self.stopping_criterion('x',x=[x[k+1],x[k]]):
+                break
+                                       
+            #if np.linalg.norm(x[k+1]-x[k]) <= X_TOL*np.linalg.norm(x[k]):
+            #    break            
             
-            #print(x)
-            if abs(self.fvals[k+1]-self.fvals[k]) <= ABS_F_TOL + REL_F_TOL*abs(self.fvals[k]):
+            if self.stopping_criterion('f',f=self.fvals[k:k+2]):
                 f_stop += 1
+            #if abs(self.fvals[k+1]-self.fvals[k]) <= ABS_F_TOL + REL_F_TOL*abs(self.fvals[k]):
+            #    f_stop += 1
                 
             if f_stop == 2:
                 break

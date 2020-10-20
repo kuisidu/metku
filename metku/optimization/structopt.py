@@ -28,6 +28,7 @@ import scipy.optimize as sciop
 from itertools import product
 from collections.abc import Iterable
 from functools import lru_cache
+from copy import deepcopy
 
 CACHE_BOUND = 2**8
 INT_TOL = 1e-4
@@ -45,7 +46,7 @@ class Variable:
     """ Class for optimization variables
     """
 
-    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None):
+    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None, target_fun=None):
         """
         Parameters:
             -----------
@@ -61,11 +62,18 @@ class Variable:
                 target = {"property": string, "objects": list}
                     property .. unique identifier that shows which property of
                                 the structure is affected by the variable
+                                
+                                this can also be a list of strings
                     objects .. list of objects (e.g. frame members) that are
                                 affected by the variable
 
                 if target is 'None', then the variable does not change anything
                 in the structure
+                :param target_fun: (optional) dict that provides functions for evaluating a functional relationship
+                                    between the variable and its target. For cases, where the variable substitution
+                                    is not a direct attribute insertion. For example, when the cross-sectional area
+                                    of a member is used as a variable and it also affects the second moment of area
+                                    by some function I = I(A)
 
                 Allowed values for 'property':
                     'AREA' .. cross-sectional area of a member
@@ -90,6 +98,8 @@ class Variable:
         self.locked = False
         self.branch_priority = 0
         self.id = id            # MIKÄ TÄMÄ ON?
+        self.scaling = 1.0
+        self.target_fun = target_fun
 
         # Lagrange multiplier for lower bound
         self.lb_mult = 1.0
@@ -124,6 +134,17 @@ class Variable:
         Unlocks the variable so it's value can be changed
         """
         self.locked = False
+        
+    def scale(self,scaling_factor):
+        """ Scale variable by the factor 'scaling_factor' 
+            This alters the variable bounds. In 'substitute' method, scaling
+            is reflected such that the variable value is multiplied by
+            'scaling_factor'
+        """
+        
+        self.scaling = scaling_factor
+        self.lb = self.lb/scaling_factor
+        self.ub = self.ub//scaling_factor
 
     def substitute(self, new_value):
         """
@@ -138,11 +159,26 @@ class Variable:
             if self.target is not None:
                 for obj in self.target['objects']:
                     prop = self.target['property']
+                    """ If the variable affects several properties at a time
+                        'prop' is a list of property names
+                    """
                     if isinstance(prop, list):
                         for p in prop:
-                            obj.__setattr__(p, new_value)
+                            """ If the varible has a 'target_fun',
+                                evaluate it for right properties
+                            """
+                            if self.target_fun is not None:
+                                """ If 'p' is not a property that has a functional dependency,
+                                    then do regular substitution
+                                """
+                                try:
+                                    new_val = self.target_fun[p](new_value*self.scaling)
+                                except KeyError:
+                                    new_val = new_value*self.scaling
+                                    
+                            obj.__setattr__(p, new_val)
                     else:
-                        obj.__setattr__(prop, new_value)
+                        obj.__setattr__(prop, new_value*self.scaling)
 
 
     def discrete_violation(self,x):
@@ -739,6 +775,14 @@ class OptimizationProblem:
             Deletes all variables
         """
         self.__vars.clear()
+        
+    def var_values(self):
+        """
+        Returns all current variable values
+        -------
+
+        """
+        return np.array([var.value for var in self.vars])
 
     def non_linear_constraint(self, *args, **kwargs):
         """
@@ -809,14 +853,18 @@ class OptimizationProblem:
                     """ Get current value of variable """
                     prev_val = var.value
                     """ Step length """
-                    h = max(0.01 * abs(prev_val), 1e-4)
+                    
+                    h = max(1e-6 * abs(prev_val), 1e-8)
                     var.substitute(prev_val + h)
 
                 """ Make finite element analysis """
-                if self.structure and not self.fea_done:
-                    self.fea()
+                #if self.structure and not self.fea_done:
+                #    self.fea()
                 """ Get variable values """
                 xh = [var.value for var in self.vars]
+                #print(x,xh)
+                if np.linalg.norm(x-xh) == 0:
+                    print("Linearize: error with variable substitution - too small step size.")
                 """ Evaluate objective function at x + hi*ei """
                 f_val = self.obj(xh)
                 """ Evaluate constraint functions at x + hi*ei """
@@ -827,7 +875,8 @@ class OptimizationProblem:
                 var.substitute(prev_val)
 
 
-        B = A @ x.T - b
+        #B = A @ x.T - b
+        B = A.dot(x) - b
         # B = -b
 
         # Add linear constraints' values
@@ -1030,19 +1079,27 @@ class OptimizationProblem:
     def substitute_variables(self, xvals):
         """ Substitute variable values from xval to structure """
 
-        xvals = [max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)]
-        # Save starting point
-        if not np.any(self.X):
-            self.x0 = xvals.copy()
-
-        # if np.any(self.X != xvals):
-        self.X = xvals.copy()
-        self.fea_done = False
-        for x, var in zip(xvals, self.vars):            
-            var.substitute(x)
-        #
-        # for i in range(len(xvals)):
-        #     self.substitute_variable(i, xvals[i])
+        """ Make sure all variable values are within lower and upper bounds """
+        xvals = np.array([max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)])
+        #print(xvals)
+        #print(self.var_values())
+        if np.linalg.norm(self.var_values()-xvals) > 1e-9:
+            # Save starting point
+            if not np.any(self.X):
+                self.x0 = xvals.copy()
+    
+            # if np.any(self.X != xvals):
+            self.X = xvals.copy()
+            self.fea_done = False
+            for x, var in zip(xvals, self.vars):            
+                var.substitute(x)
+        #else:
+            #print("No variable substitution.")
+            #if self.nvars() < 10:
+            #    print(self.var_values(),xvals)
+            #
+            # for i in range(len(xvals)):
+            #     self.substitute_variable(i, xvals[i])
 
     # OBSOLETE! USE SOLVERS FROM solvers MODULE!
     def solve(self, solver="slsqp", **kwargs):
@@ -1296,7 +1353,11 @@ class OptimizationProblem:
         return aul_fun
     
     def update_lag_mult(self,x,Rineq=1.0,Req=1.0):
+        """ Updates Lagrange multipliers according to the update rules
+            associated with the augmented Lagrangian method.
+        """
         
+        """ First, iterate over regular constraints """
         for con in self.cons:
             val = con(x)
             mult = con.mult
@@ -1316,7 +1377,8 @@ class OptimizationProblem:
                 NOTE! CHECK THIS!!!!
                 """                    
                 con.mult =  max(mult - 2*Rineq*val,0)
-          
+         
+        """ Iterate over variable bound constraints """
         for (i,var) in enumerate(self.vars):                     
             if var.lb > XLB:
                 val = -x[i] + var.lb                            
@@ -1336,15 +1398,16 @@ def NumGrad(fun, h, x):
         transform it to a list
     """
 
+
     if isinstance(h, float):
         h = h * np.ones(n)
 
     df = np.zeros(n)
 
-    np.eye(3, 1, -2)
-    #
+    #    
     for i in range(len(x)):
-        xh = x + h[i] * np.eye(1, n, i)
+        xh = deepcopy(x)
+        xh[i] += h[i]
         print(xh)
         fh = fun(xh)
         #     print(fx, fh)
@@ -1385,6 +1448,7 @@ def Linearize(fun, x, grad=None):
 
 if __name__ == '__main__':
 
+    """    
     prop = OptimizationProblem(name="Testi")
 
     def obj(x):
@@ -1408,7 +1472,7 @@ if __name__ == '__main__':
     # dvars.append(Variable("Flange thickness", 5, 40))
     # dvars.append(Variable("Web thickness", 5, 40))
     #
-
+    """
     """    
     def obj_fun(x):
         return x[0]**2 + 2*x[1]**3 -4*x[2]

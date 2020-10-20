@@ -12,6 +12,11 @@ try:
 except:
     from optimization.structopt import OptimizationProblem
 
+GRAD_TOL = 1e-8
+ABS_F_TOL = 1e-8
+REL_F_TOL = 1e-4
+X_TOL = 1e-8
+
 
 class OptSolver:
     """
@@ -27,6 +32,7 @@ class OptSolver:
         self.best_f = np.inf
         self.best_x = None
         self.feasible = False
+        self.message = None
 
     def calc_constraints(self, x=[]):
         """
@@ -85,6 +91,48 @@ class OptSolver:
             bounds.append(bound)
 
         return bounds
+    
+    def stopping_criterion(self,criterion='x',**kwargs):
+        """ Check various stopping criteria.
+            input:
+                criterion .. string that states which criterion
+                            is checked. Possible values:
+                                'x' .. compare two design variable vectors
+                                'f' .. compare two objective function values
+        """
+        
+        res = False
+        
+        if criterion == 'x':
+            xtol = X_TOL
+            for key, value in kwargs.items():
+                if key == 'x':
+                    x = value
+                elif key == 'xtol':
+                    xtol = value
+    
+            if np.linalg.norm(x[1]-x[0]) <  xtol*np.linalg.norm(x[0]):
+                res = True
+                self.message = "Stopping criterion fulfilled: relative change to x smaller than tolerance."
+        elif criterion == 'f':
+            abs_f_tol = ABS_F_TOL
+            rel_f_tol = REL_F_TOL
+            
+            for key, value in kwargs.items():
+                
+                if key == 'f':
+                    f = value
+                elif key == 'abs_f_tol':
+                    abs_f_tol = value
+                elif key == 'rel_f_tol':
+                    rel_f_tol = value
+                
+            
+            if abs(f[1]-f[0]) <= abs_f_tol + rel_f_tol*abs(f[1]):
+                res = True
+                self.message = "Stopping criterion fulfilled: relative change to x smaller than tolerance."
+        
+        return res
 
     def take_action(self):
         pass
@@ -148,13 +196,16 @@ class OptSolver:
 
         # Assign problem
         self.problem = problem
-        # If initial starting point is/isn't defined
-        if x0:
+        # If initial starting point is/isn't defined        
+        if x0 is not None:
             self.X = x0
             problem.substitute_variables(x0)
         else:
             self.X = self.random_feasible_point()
             problem.substitute_variables(self.X)
+
+        self.xvals.append(np.array(x0))
+        self.fvals.append(problem.obj(x0))
 
 
         if plot:
@@ -168,6 +219,8 @@ class OptSolver:
         # Start iteration
         t_total = 0
         for i in range(maxiter):
+            if verb:
+                print("*** Iteration {0:g} ***".format(i))
             if plot:
                 self.update_plot(fig, ax)
             # Check time
@@ -188,6 +241,7 @@ class OptSolver:
                 break
             # Change current state
             self.X = state
+    
             # Substitute new variables
             problem.substitute_variables(state)
             # Calculate constraints
@@ -210,12 +264,13 @@ class OptSolver:
                     print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
             # Log objective vals per iteration
             if log:
+                print("logging X = ",self.X)
                 problem.num_iters += 1
                 problem.fvals.append(problem.obj(self.X))
                 problem.states.append(list(state))
                 problem.gvals.append(list(self.constr_vals).copy())
-                self.fvals.append(problem.obj(self.X))
-                self.xvals.append(self.X)
+                self.fvals.append(problem.obj(self.X))                
+                self.xvals.append(list(self.X))
             end = time.time()
             print(f"Iteration took: {end - start :.2f} s")
 
