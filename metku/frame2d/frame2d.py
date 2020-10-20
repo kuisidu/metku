@@ -443,6 +443,7 @@ class Frame2D:
         self.f.linear_statics(support_method=support_method)
         self.calc_nodal_forces()
         self.calc_nodal_displacements()
+        self.assign_forces()
         self.check_members_strength()
         # self.alpha_cr, _ = self.f.linear_buckling(k=4)
         end = time.time()
@@ -959,8 +960,8 @@ class Frame2D:
             fig, ax = plt.subplots(1)
         else:
             ax = axes
-        
-        
+
+
         if self.is_calculated and color:
             color = True
 
@@ -1089,7 +1090,7 @@ class Frame2D:
             """
             max_x = 0
             max_y = 0
-            
+
             """ Calculate the deflected location of each node of the member """
             for i, node in enumerate(member.nodes.values()):
                 x0, y0 = node.coord
@@ -1097,7 +1098,7 @@ class Frame2D:
                 y1 = node.u[lcase][1]
                 x = x0 + x1 * (scale)
                 y = y0 + y1 * (scale)
-                
+
                 """ Update value and location of the maximum displacmeent """
                 if abs(x1) >= abs(max_x) and member.mtype == "column":
                     max_x = abs(x1)
@@ -1111,7 +1112,7 @@ class Frame2D:
                 """ Store deflected locations to X and Y """
                 X.append(x)
                 Y.append(y)
-            
+
             """ Plot deflected locations """
             plt.plot(X, Y, color='gray')
             if (loc_max_x, loc_max_y) not in max_locs:
@@ -1121,13 +1122,13 @@ class Frame2D:
                 if member.mtype != "column":
                     plt.plot(loc_max_x, loc_max_y, 'ro')
                     plt.text(loc_max_x, loc_max_y,
-                             "{0:5.{1}g} mm".format(max_y,prec))                             
+                             "{0:5.{1}g} mm".format(max_y,prec))
 
-                else:                    
+                else:
                     plt.plot(loc_max_x, loc_max_y, 'ro')
                     plt.text(loc_max_x, loc_max_y,
                              "{0:5.{1}g} mm".format(max_x,prec))
-                              
+
 
         if show:
             plt.show()
@@ -1146,14 +1147,14 @@ class Frame2D:
             :type k: int
             :type show: bool
         """
-        
+
         """ Perform linear buckling analysis 
             output:
                 w .. list of eigenvalues
                 v .. list of eigenmodes (vectors)
         """
         w, v = self.f.linear_buckling(k=k)
-        
+
         """ Find the buckling mode corresponding to the smallest eigenvalue """
         nd = np.argmin(w)
         vcrit = v[nd]
@@ -1161,9 +1162,9 @@ class Frame2D:
         print("w=",acrit)
         print("v=",vcrit)
         self.alpha_cr = acrit
-        
+
         sorted_nd = np.argsort(w)
-        
+
         #for j in range(v.shape[1]):
         for j in sorted_nd[:1]:
             if w[j] < 1e5:
@@ -1185,18 +1186,18 @@ class Frame2D:
                         else:
                             x1 = node.v[0]
                             y1 = node.v[1]
-                        
+
                         print(x1,y1)
                         x = x0 + x1 * (scale)
                         y = y0 + y1 * (scale)
                         X.append(x)
                         Y.append(y)
-    
+
                     ax.plot(X, Y, color='m')
                 ax.set_title(f'Buckling shape {j + 1},  ' r"$\alpha_{cr}$" f' = {w[j].real:.2f}')
                 # if self.truss:
                 #    self.truss.plot_buckling(show=False)
-    
+
                 plt.show()
 
     def bmd(self, scale=1):
@@ -1263,6 +1264,11 @@ class Frame2D:
         for member in self.members.values():
             member.remove_self_weight()
         self.generate_frame()
+
+    def assign_forces(self):
+
+        for member in self.members.values():
+            member.assign_forces()
 
     def check_members_strength(self):
         """ Checks if members can bear their loads
@@ -1495,7 +1501,7 @@ class FrameMember:
     @property
     def fy(self):
         return self.material.fy
-    
+
     @fy.setter
     def fy(self,val):
         self.material.fy = val
@@ -2222,46 +2228,70 @@ class FrameMember:
             locs.append(round(loc, PREC))
         return locs
 
+
+    def assign_forces(self):
+        """
+        Assigns forces to SteelMember -object.
+        Creates new sections if none are created,
+        otherwise updates old values
+        """
+        self.steel_member.length = self.length
+        self.steel_member.profile = self.cross_section
+        self.steel_member.clear_sections()
+        for i, element in enumerate(self.elements.values()):
+            M1, M2 = element.bending_moment
+            N1, N2 = element.axial_force
+            V1, V2 = element.shear_force
+            loc = self.locs[i]
+            self.steel_member.add_section(ned=N1, vzed=V1,
+                                          myed=M1, loc=loc)
+        loc = self.locs[i + 1]
+        self.steel_member.add_section(ned=N2, vzed=V2,
+                                      myed=M2, loc=loc)
+
+        #
+        # if not self.steel_member.nsect():
+        #     for i, node in enumerate(self.nodal_forces.keys()):
+        #         forces = self.nodal_forces[node]
+        #         ned = forces[0]
+        #         ved = forces[1]
+        #         med = forces[2]
+        #         loc = self.locs[i]
+        #         self.steel_member.add_section(ned=ned, vzed=ved,
+        #                                       myed=med, loc=loc)
+        #
+        # else:
+        #     for i, node in enumerate(self.nodal_forces.keys()):
+        #         Fx, Fy, Mz = self.nodal_forces[node]
+        #         self.steel_member.ned[i] = Fx
+        #         self.steel_member.vzed[i] = Fy
+        #         self.steel_member.myed[i] = Mz
+
+
     def check_cross_section(self):
         """ Checks if cross-section is strong enough.
             Gives boolean value for self.is_strong_enough
             Saves list of stress ratios to self.r
         """
-        self.steel_member.length = self.length
-        self.steel_member.profile = self.cross_section
-        if not self.steel_member.nsect():
-            for i, node in enumerate(self.nodal_forces.keys()):
-                forces = self.nodal_forces[node]
-                ned = forces[0]
-                ved = forces[1]
-                med = forces[2]
-                loc = self.locs[i]
-                self.steel_member.add_section(ned=ned, vzed=ved,
-                                              myed=med, loc=loc)
-        else:
-            for i, node in enumerate(self.nodal_forces.keys()):
-                Fx, Fy, Mz = self.nodal_forces[node]
-                self.steel_member.ned[i] = Fx
-                self.steel_member.vzed[i] = Fy
-                self.steel_member.myed[i] = Mz
 
-        # # Cross-sectional stress ratios in member's nodes' locations
-        # self.r[:4] = self.steel_member.check_sections()
-        # # Buckling about y - and z - axis
-        # buckling_r = self.steel_member.check_buckling()
-        # self.r[4] = buckling_r[0]
-        # self.r[5] = buckling_r[1]
-        # # Lateral-Torsional buckling
-        # self.r[6] = self.steel_member.check_LT_buckling()
-        # # Set cross-section's maximum forces for getting results later
-        # self.cross_section.Ned = self.ned
-        # self.cross_section.Ved = self.ved
-        # self.cross_section.Med = self.med
-        #
-        # if max(self.r) > 1.0:
-        #     self.is_strong_enough = False
-        # else:
-        #     self.is_strong_enough = True
+        self.r = np.zeros_like(self.r)
+        # Cross-sectional stress ratios in member's nodes' locations
+        self.r[:4] = self.steel_member.check_sections()
+        # Buckling about y - and z - axis
+        buckling_r = self.steel_member.check_buckling()
+        self.r[4] = buckling_r[0]
+        self.r[5] = buckling_r[1]
+        # Lateral-Torsional buckling
+        self.r[6] = self.steel_member.check_LT_buckling()
+        # Set cross-section's maximum forces for getting results later
+        self.cross_section.Ned = self.ned
+        self.cross_section.Ved = self.ved
+        self.cross_section.Med = self.med
+
+        if max(self.r) > 1.0:
+            self.is_strong_enough = False
+        else:
+            self.is_strong_enough = True
 
     def design_member(self, prof_type):
         """ Goes through all profiles in list and stops iterating when 
@@ -2351,7 +2381,7 @@ class FrameMember:
             fig, ax = plt.subplots(1)
         else:
             ax = axes
-                
+
 
         X = self.coordinates
         if c:
@@ -2877,10 +2907,10 @@ if __name__ == '__main__':
     #for b in frame.beams:
     #    frame.add(LineLoad(b, [-10, -10], 'y'))
     for mem in frame.members.values():
-        mem.profile = 'IPE 220'
-    
+        mem.profile = 'CHS 100x3'
+
     print(frame.members[0].nodal_coordinates)
-    
+
     frame.generate()
     frame.calculate(support_method='REM')
 
