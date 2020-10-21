@@ -16,11 +16,24 @@ except:
 from ortools.linear_solver import pywraplp
 
 class SLP(OptSolver):
-
-    def __init__(self, move_limits=(0.05, 0.05), gamma=1e-2, C=2e5, beta=10):
+    """ Solver class for Sequential Linear Programming Method (SLP) """
+    
+    def __init__(self, move_limits=(0.05, 0.05), gamma=1e-2, C=2e5, beta=10, move_limit_type='range'):
+        """ Constructor 
+            :param move_limits: (tuple) relative lower and upper move limits
+            :param gamma: parameter for reducing the relative move limits at each iteration
+            :param C: penalty factor for safe-guarding againts potential infeasibility of LP problems
+            :param beta: upper bound for the feasibility variable 'beta'. If beta = 0, then the feasibility variable
+                        is ignored
+            :param move_limit_type: type of move limits. 
+                        Possible values: 
+                            'range' .. move limits are taken with respect to the entire range of variable values. 
+                            'relative' .. move limits are taken with respect to the current variable values.
+        """
         super().__init__()
         self.move_limits = np.asarray(move_limits)
         self.move_limits_hist = [np.asarray(move_limits)]
+        self.move_limit_type = move_limit_type
         self.gamma = gamma
         self.C = C
         self.beta = beta
@@ -52,11 +65,17 @@ class SLP(OptSolver):
         # Variables
         for i, var in enumerate(self.problem.vars):
             # Delta is the range of variable values
-            delta = var.ub - var.lb
+            # First, lb and ub are the allowable changes in the variable value
+            if self.move_limit_type == "range":
+                delta = var.ub - var.lb        
+                #lb, ub = self.move_limits * delta
+            elif self.move_limit_type == 'relative':
+                delta = var.value
+                #lb = self.move_limits[0]*var.value
+                #ub = self.move_limits[1]*var.value
             
-            # 
             lb, ub = self.move_limits * delta
-            
+            """ Set variable bounds, taking into account true upper and lower bounds """
             lb = max(var.lb, var.value - lb)
             ub = min(var.ub, var.value + ub)
             x[i] = solver.NumVar(lb,

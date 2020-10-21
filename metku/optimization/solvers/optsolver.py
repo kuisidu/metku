@@ -218,15 +218,16 @@ class OptSolver:
         done = False
         # Start iteration
         t_total = 0
-        for i in range(maxiter):
-            if verb:
-                print("*** Iteration {0:g} ***".format(i))
+        for i in range(maxiter):            
+            #if verb:
+            #    print("*** Iteration {0:g} ***".format(i+1))
             if plot:
                 self.update_plot(fig, ax)
             # Check time
             start = time.time()
             t_0 = time.process_time()
             if t_total >= maxtime or done:
+                print("T_total - Stopping criterion fulfilled.")
                 break
             # Save previous state
             prev_state = self.X.copy()
@@ -235,10 +236,16 @@ class OptSolver:
             # Take step
             state, reward, done, info = self.step(action)
             # If new state is almost same as previous
-            if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff or \
-                np.all(prev_state == state)):
+            if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff):
+                print("Suffuciently small change in variable values in consecutive iterations.")
+                print(state,prev_state)
                 done = True
-                break
+                #break
+            
+            if np.all(prev_state == state):
+                print("No change in variable values.")
+                done = True
+                #break
             # Change current state
             self.X = state
     
@@ -273,6 +280,9 @@ class OptSolver:
                 self.xvals.append(list(self.X))
             end = time.time()
             print(f"Iteration took: {end - start :.2f} s")
+            
+            if done:
+                break
 
         if self.best_x is None:
             self.best_x = self.X

@@ -892,6 +892,22 @@ class OptimizationProblem:
         # print("Linearization took: ", end - start, " s")
 
         return A, B, df, fx
+    
+    def conlin(self,x):
+        """ Generates convex-linear approximation of the problem
+            around point 'x'
+        """
+        
+        Pconlin = OptimizationProblem(name="conlin")
+        
+        for i, var in enumerate(self.vars):
+            """ Create variables for the conlin problem """
+            Pconlin.add(Variable(name=var.name,lb=var.lb,ub=var.ub,value=x[i]))
+        
+        # Approximate objective
+        
+        
+        # Approximate constraints
 
     def nnonlincons(self):
         """ Returns number of non linear constraints"""
@@ -1415,6 +1431,36 @@ def NumGrad(fun, h, x):
         df[i] = (fh - fx) / h[i]
 
     return df
+
+def conlin_fun(xk,fk,dfk,pos_vars=True):
+    """ Generates convex-linear approximation for a function
+        at point 'xk'
+        
+        :param xk: approximation point
+        :param fk: value of the function at 'xk'
+        :parm dfk: value of the gradient at 'xk'
+    """
+    n = len(xk)
+
+    a = np.zeros(n)
+    for i, Xk in enumerate(xk):
+        if dfk[i] >= 0:
+                a[i] = 1
+
+    def generate_a(x):
+        
+        a = np.ones(n)
+        for i, Xk in enumerate(xk):
+            if x[i]*dfk[i] < 0:
+                a[i] = Xk/x[i]
+                
+    
+    def eval_conlin(x):
+        
+        fC = fk
+        
+
+            
 
 
 def Linearize(fun, x, grad=None):
