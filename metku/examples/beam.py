@@ -3,7 +3,7 @@ This is an example for creating and analyzing
 a simply supported beam
 """
 
-from metku.frame2d.frame2d import *
+from metku.frame2d import *
 
 # Create empty frame
 frame = Frame2D()
@@ -53,7 +53,7 @@ for node_id, forces in beam.nodal_forces.items():
 
 # Print displacements at each node
 for node_id, forces in beam.nodal_displacements.items():
-    dx, dy, r = forces
+    dx, dy, r = forces[0]
     print(f'Displacements at node {node_id}: \n'
           f'X: {dx:.2f} mm '
           f'Y: {dy:.2f} mm '

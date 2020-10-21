@@ -334,7 +334,7 @@ class SteelMember:
 
     def check_sections(self, class1or2=True, verb=False):
         """ Verify resistance of all sections """
-        r = np.zeros(len(self.check_section()))
+        r = np.zeros_like(self.check_section())
         for n in range(self.nsect()):
             r = np.vstack((r, self.check_section(n)))
             # r.append(self.check_section(n))
@@ -470,8 +470,8 @@ class SteelMember:
 
 if __name__ == "__main__":
     
-    from sections.steel.ISection import HEA
-    from sections.steel.RHS import RHS
+    from metku.sections.steel.ISection import HEA
+    from metku.sections.steel.RHS import RHS
     
     p = HEA(240)
     R = RHS(200,200,8)
@@ -479,6 +479,7 @@ if __name__ == "__main__":
     m = SteelMember(p,3000)
     mr = SteelMember(R,6000)    
     m.ncrit(True)
+    print(m.weight())
     #m.ncrit_T(True)
     #mr.ncrit_T(True)
     #mr.ncrit(True)
