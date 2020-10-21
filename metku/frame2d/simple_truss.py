@@ -156,11 +156,40 @@ def three_bar_truss(L=1000,F1=100,F2=100):
     # Calculate the responses
     #t.calculate(support_method='REM')
     
-    
-    
     return t
         
+def ten_bar_truss(L,F):
+    """ Classic 10-bar truss """
+    nodes = []
+    nodes.append([2 * L, L])
+    nodes.append([2 * L, 0])
+    nodes.append([L, L])
+    nodes.append([L, 0])
+    nodes.append([0, 0])
+    nodes.append([0, L])
+    
+    mems = [[4,2],[2,0],[5,3],[3,1],[2,3],[0,1],[4,3],[5,2],[2,1],[3,0]]
+    
+    profs = []
+    for i in range(10):
+        profs.append('SHS 50x50x3.0')
+    
+    t = SimpleTruss(nodes,mems,profs)
+    
+    t.add(PointLoad(nodes[1],[0,-F,0]))
+    t.add(PointLoad(nodes[3],[0,-F,0]))
+    
+    t.add(XYHingedSupport(nodes[4]))
+    t.add(XYHingedSupport(nodes[5]))
+    
+    t.generate()
+    t.calculate()
+    
+    #t.plot()
+    return t
+    
 if __name__ == '__main__':
-    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3)
+    #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3)
+    t = ten_bar_truss(L=3000,F=200e3)
         
         
