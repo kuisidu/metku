@@ -173,7 +173,7 @@ def screw_bearing_resistance(fu,d,t,t1,verb=False):
         print(" alpha = {0:4.2f}".format(alfa))
         print(" FbRd = {0:4.3f} kN".format(FbRd*1e-3))
     
-    return    
+    return FbRd, alfa
 
 def screw_net_secton_resistance(Anet,fu):
     """ Net-section resistance

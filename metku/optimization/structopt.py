@@ -788,6 +788,27 @@ class OptimizationProblem:
 
         """
         return np.array([var.value for var in self.vars])
+    
+    def random_values(self):
+        """
+        Generates random variable values within the range of allowable values
+        --------
+        
+        Returns
+        -------
+        None.
+
+        """
+        xrand = np.zeros(self.nvars())
+        rng = np.random.default_rng()    
+        
+        for i, var in enumerate(self.vars):
+            if isinstance(var,IntegerVariable) or isinstance(var,IndexVariable):
+                xrand[i] = rng.integers(var.lb,var.ub+1)
+            else:
+                xrand[i] = (var.ub-var.lb)*rng.random() + var.lb
+        
+        return xrand
 
     def non_linear_constraint(self, *args, **kwargs):
         """
@@ -844,8 +865,11 @@ class OptimizationProblem:
         """
         A = np.zeros((m, n))
         df = np.zeros(n)
+        
+        if self.grad is not None:
+            df = self.grad(x)
+        
         for i, var in enumerate(self.vars):
-
             if not isinstance(var, BinaryVariable):
                 if isinstance(var, IndexVariable):
                     h = 1
@@ -871,11 +895,14 @@ class OptimizationProblem:
                 if np.linalg.norm(x-xh) == 0:
                     print("Linearize: error with variable substitution - too small step size.")
                 """ Evaluate objective function at x + hi*ei """
-                f_val = self.obj(xh)
+                if self.grad is None:
+                    f_val = self.obj(xh)
+                    df[i] = (f_val - fx) / h
+                    
                 """ Evaluate constraint functions at x + hi*ei """
                 a = self.eval_nonlin_cons(xh)
                 A[:, i] = (a - b) / h
-                df[i] = (f_val - fx) / h
+                
                 """ Substitute the original value x[i] to current variable """
                 var.substitute(prev_val)
 
@@ -901,6 +928,10 @@ class OptimizationProblem:
     def conlin(self,x):
         """ Generates convex-linear approximation of the problem
             around point 'x'
+            
+            Assumption: all variables are positive
+            
+            Note: Linear function remain linear
         """
         
         Pconlin = OptimizationProblem(name="conlin")
@@ -910,7 +941,7 @@ class OptimizationProblem:
             Pconlin.add(Variable(name=var.name,lb=var.lb,ub=var.ub,value=x[i]))
         
         # Approximate objective
-        
+        Pconlin.obj = conlin_fun(x,self.obj(x))
         
         # Approximate constraints
 
@@ -1238,8 +1269,50 @@ class OptimizationProblem:
         """
         nList = product(*neighborhood)
         return nList
+    
+    def exact_penalty_fun(self,R=1.0):
+        """ Exact penalty function 
+            NOTE: Returns only the sum of constraint violations!
+        """
+        
+        def penalty_fun(x):
+            
+            F = 0.0
+            
+            for con in self.cons:
+                val = con(x)
+                if con.type == '=':
+                    """ For equality constraints, the penalty term
+                        is simply the value of the constraint squared
+                    """
+                    F += abs(val)
+                elif con.type == '<':
+                    """ For less than or equal constraints, the penalty
+                        term is max(0,val)
+                    """
+                    F += R*max(0,val)
+                elif con.type == '>':
+                    """ For geq type constraints, the penalty term is
+                         min(0,val)
+                    """
+                    F += R*min(0,val)
+            
+            """ Variable bounds are treated separately """
+            for (i,var) in enumerate(self.vars):                
+                if var.lb > XLB:                    
+                    #F += R*max(0,-1-x[i]/abs(var.lb))**2
+                    F += R*max(0,-x[i]+var.lb)
+                
+                if var.ub < XUB:
+                    #F += R*max(0,x[i]/abs(var.ub)-1)**2
+                    F += R*max(0,x[i]-var.ub)
+            
+            return F
+        
+        return penalty_fun
+            
 
-    def exterior_penalty_fun(self,R=10):
+    def exterior_penalty_fun(self,R=10,p=2):
         """ Return exterior quadratic penalty function """
         
         def penalty_fun(x):
@@ -1252,12 +1325,12 @@ class OptimizationProblem:
                     """ For equality constraints, the penalty term
                         is simply the value of the constraint squared
                     """
-                    F += val**2
+                    F += val**p
                 elif con.type == '<':
                     """ For less than or equal constraints, the penalty
                         term is square of max(0,val)
                     """
-                    F += R*max(0,val)**2
+                    F += R*max(0,val)**p
                 elif con.type == '>':
                     """ For geq type constraints, the penalty term is
                         square of min(0,val)
@@ -1445,12 +1518,20 @@ def conlin_fun(xk,fk,dfk,pos_vars=True):
         :param fk: value of the function at 'xk'
         :parm dfk: value of the gradient at 'xk'
     """
+    if isinstance(xk,float) or isinstance(xk,int):
+        xk = np.array([xk])
+        dfk = np.array([dfk])
+        
     n = len(xk)
 
+    """ Initialize 'alpha' as zeros. """
     a = np.zeros(n)
     for i, Xk in enumerate(xk):
+        """ If the derivative of f with respect to xk is non-negative,
+            set a[i] = 1
+        """
         if dfk[i] >= 0:
-                a[i] = 1
+            a[i] = 1
 
     def generate_a(x):
         
@@ -1459,12 +1540,23 @@ def conlin_fun(xk,fk,dfk,pos_vars=True):
             if x[i]*dfk[i] < 0:
                 a[i] = Xk/x[i]
                 
-    
     def eval_conlin(x):
-        
         fC = fk
+        if isinstance(x,float) or isinstance(x,int):
+            x = np.array([x])
         
-
+        for i in range(n):
+            if dfk[i] >= 0:
+                a[i] = 1.0
+            else:
+                a[i] = xk[i]/x[i]
+                
+        
+        fC += (a*dfk).dot(x-xk)
+        
+        return fC          
+            
+    return eval_conlin
             
 
 

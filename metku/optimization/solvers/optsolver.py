@@ -15,6 +15,7 @@ except:
 GRAD_TOL = 1e-8
 ABS_F_TOL = 1e-8
 REL_F_TOL = 1e-4
+G_TOL = 1e-8
 X_TOL = 1e-8
 
 

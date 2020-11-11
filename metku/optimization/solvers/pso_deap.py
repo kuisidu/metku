@@ -1,57 +1,39 @@
-""" Genetic algorithm 
-    Solver for optimization problems
+""" Particle swarm optimization """
 
-"""
-
-try:
-    from metku.optimization.solvers import OptSolver
-    from metku.optimization.structopt import Variable, OptimizationProblem, \
-        IndexVariable, DiscreteVariable, IntegerVariable
-except:
-    from optimization.solvers import OptSolver
-    from optimization.structopt import Variable, OptimizationProblem, \
-        IndexVariable, DiscreteVariable, IntegerVariable
-
+import operator
 import random
 
 import matplotlib.pyplot as plt
 import numpy as np
 from deap import base, creator, tools
 
-import time
+from optimization.solvers.optsolver import OptSolver
 
-class GA(OptSolver):
 
-    def __init__(self, pop_size=10, mut_rate=0.05, cx_rate=0.8, penalty=None,
-                 mut_fun=tools.mutShuffleIndexes,
-                 mutation_kwargs={'indpb': 0.05},
-                 cx_fun=tools.cxTwoPoint,
-                 cx_kwargs={},
-                 first_improvement=False,
-                 best_f=1e100):
+class PSO(OptSolver):
+    """ Particle swarm optimization solver """
+    def __init__(self,pop_size=10, c = [2.05,2.05], inertia=0.9, craziness=0.1, 
+                 penalty=None,best_f = np.inf):
         """ Constructor
             :param pop_size: population size
-            :mut_rate: mutation rate
-            :cx_rate: cross over rate
-            :penalty: penalty function?
-            :mut_fun: mutation function
-            :cx_fun: cross over function
-            :cx_kwargs: arguments for the cross over function
-            :first_improvement:
-            :best_f:
+            :c: [c1,c2] weighting factors
+            :inertia: initial value for the inertia term
+            :craziness: craziness probability            
         
         """
+
+        self.xbest = None
+        self.fbest = np.inf
+        
         super().__init__()
 
         """ Toolbox contains basic evolutionary operators """
         self.toolbox = base.Toolbox()
         self.pop_size = pop_size
         self.mut_rate = mut_rate
-        self.cx_rate = cx_rate
-        self.mut_fun = mut_fun
-        self.mutation_kwargs = mutation_kwargs
-        self.cx_kwargs = cx_kwargs
-        self.cx_fun = cx_fun
+        self.c = c
+        self.inertia = w
+        self.craziness = craziness
         self.plot = False
         self.best_f = best_f
         self.prev_best = best_f
@@ -120,10 +102,17 @@ class GA(OptSolver):
             The weight -1.0 corresponds to minimization problem
         """
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-        """ Create class Individual that inherits the list class and
-            has the FitnessMin as its fitness attribute.
+        """ Create class Particle for a single particle in the swarm.
+            Inherits the list class and has the FitnessMin as its fitness attribute.
+            
+            Also has the attributes
+            speed .. current speed vector
+            smin .. lower bound for speed
+            smax .. upper bound for speed
+            best .. reference to a copy of the best location the particle has been so far.
         """
-        creator.create("Individual", list, fitness=creator.FitnessMin)
+        creator.create("Particle", list, fitness=creator.FitnessMax, speed=list, 
+                       smin=None, smax=None, best=None)
 
     def attribute_generator(self, counter_list=[0]):
         """
@@ -145,6 +134,13 @@ class GA(OptSolver):
             val = np.random.uniform(var.lb, var.ub)
 
         return val
+    
+    def generate(self, pmin, pmax, smin, smax):
+        part = creator.Particle(random.uniform(pmin, pmax) for _ in range(size)) 
+        part.speed = [random.uniform(smin, smax) for _ in range(size)]
+        part.smin = smin
+        part.smax = smax
+        return part
 
     def register(self):
         """ Registers a set of functions to be used in the algorithm 
@@ -160,22 +156,10 @@ class GA(OptSolver):
                               creator.Individual,
                               self.toolbox.attribute, len(self.problem.vars))
 
-        # Evaluation function
-        self.toolbox.register("evaluate", self.eval_individual)
-        # Crossover operator
-        self.toolbox.register("mate", self.cx_fun, **self.cx_kwargs)
-        # Mutation
-        self.toolbox.register("mutate", self.mut_fun, **self.mutation_kwargs)
-
-        # operator for selecting individuals for breeding the next
-        # generation: each individual of the current generation
-        # is replaced by the 'fittest' (best) of three individuals
-        # drawn randomly from the current generation.
-        self.toolbox.register("select", tools.selBest, k=2)
-
-        # Define the population to be a list of individuals
-        self.toolbox.register("population", tools.initRepeat,
-                              list, self.toolbox.individual)
+        self.toolbox.register("particle", generate, size=2, pmin=-6, pmax=6, smin=-3, smax=3)
+        self.toolbox.register("population", tools.initRepeat, list, toolbox.particle)
+        self.toolbox.register("update", updateParticle, phi1=2.0, phi2=2.0)
+        self.toolbox.register("evaluate", benchmarks.h1)
 
     def new_population(self, offspring):
         """
@@ -317,10 +301,42 @@ class GA(OptSolver):
 
         return self.best_f, self.best_x
 
+class Population:
+    """ Class for population (swarm) 
+        
+    """
+    
+    def __init__(self,pop_size):
+        self.xbest = None
+        self.fbest = np.inf
+        self.parts = [0 for _ in range(pop_size)]
+    
+    
 
-if __name__ == "__main__":
-    from metku.optimization.benchmarks import *
+class Particle:
 
-    problem = TenBarTruss('index')
-    solver = GA(pop_size=100)
-    solver.solve(problem, maxiter=50)
+    def __init__(self, X, obj, parent):
+        self.X = X
+        self.obj = obj
+        self.best_X = X
+
+    @property
+    def velocity(self):
+        pass
+
+    @property
+    def best_f(self):
+        return self.obj(self.best_X)
+
+    @property
+    def swarm_best_X(self):
+        return self.parent.best_X
+
+    def move(self):
+        """
+        Moves particle
+        """
+        self.X += self.velocity
+
+
+if __name__ == '__main__':

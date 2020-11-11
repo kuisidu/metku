@@ -769,7 +769,19 @@ chs_profiles = {'CHS 26.9X2.0': {'d': 26.9, 't': 2.0},
                  'CHS 323.9X10.0': {'d': 323.9, 't': 10.0},
                  'CHS 323.9X12.5': {'d': 323.9, 't': 12.5}}
 
+def print_shs():
+    
+    from RHS import SHS
 
+    n = 0    
+    for key, value in shs_profiles.items():
+        if value['t'] > 2.5 and value['b'] < 180:
+            n += 1
+            s = SHS(value['b'],value['t'])        
+            print(str(n) + ' & ' + key + ' & '  + '{0:5.3f} & {1:5.3f} \\\\'.format(s.A*1e-2,s.Iy*1e-4))
+    
+    print(n)
+    
 
 """
 # Creates dict from dimensions txt -file
