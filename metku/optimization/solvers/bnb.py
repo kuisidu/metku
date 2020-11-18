@@ -360,20 +360,47 @@ class BnB(OptSolver):
             If problem is infeasible, the node can be fathomed.
             If the problem is feasible, update the lower bound and set xR
         """
+        nvars = self.problem.nvars()
+        locked_vars = []
+        locked_nd = []
+        for i,var in enumerate(self.problem.vars):
+            if abs(var.ub-var.lb) < 1e-6:
+                var.lock(var.ub)
+                locked_vars.append(var)
+                locked_nd.append(i)
 
+        if len(locked_nd) > 1:
+            locked_nd.reverse()
+        
+        for n in locked_nd:
+            x0 = np.delete(x0,n)        
+    
         if x0 is not None:
-            flb, xlb, nit = self.lb_solver.solve(self.problem,x0=x0)
+            flb, xlb = self.lb_solver.solve(self.problem,x0=x0)
         else:
-            flb, xlb, nit = self.lb_solver.solve(self.problem)
+            flb, xlb = self.lb_solver.solve(self.problem)
+
+        xnew = np.zeros(nvars)
+        
+        i = 0
+        for j, var in enumerate(self.problem.all_vars):
+            if var.locked:
+                xnew[j] = var.value
+            else:
+                xnew[j] = xlb[i]
+                i +=1
 
         #print(self.lb_solver.result)
         if self.lb_solver.result.success == True:
             self.tree[node.identifier].data.lb = flb
-            self.tree[node.identifier].data.xR = xlb   
+            self.tree[node.identifier].data.xR = xnew   
         elif self.lb_solver.feasible:
             self.tree[node.identifier].data.lb = flb
-            self.tree[node.identifier].data.xR = xlb 
+            self.tree[node.identifier].data.xR = xnew
             
+        """ unlock variables at their bounds in this node """
+        for var in locked_vars:
+            var.unlock()
         
         return self.lb_solver.feasible
         
@@ -417,7 +444,7 @@ class BnB(OptSolver):
         """ 
         xR = node.xR
             
-        print(xR)
+        #print(xR)
         res = []
         
         for i, var in enumerate(self.problem.vars):
@@ -507,7 +534,7 @@ class BnB(OptSolver):
                             var.lb = min(np.array(var.values)[np.array(var.values)>=var.lb])
         
         xlb, xub = self.problem.var_bounds()
-        print(xlb,xub)
+        #print(xlb,xub)
     
     def optimality_tightening(self):
         """ Optimality-based bounds tightening
@@ -580,10 +607,12 @@ class BnB(OptSolver):
         """ Post-processing of a node """
         pass    
     
-    def solve(self, problem, x0=None, verb = 0):
+    def solve(self, problem, x0=None, maxiter=200, verb = 0):
         """ Runs the Branch and Bound algorithm """
         
         self.problem = problem
+        
+        self.max_iters = maxiter
         
         iteration = 0
         
@@ -651,6 +680,8 @@ class BnB(OptSolver):
                             if node.data.lb < self.best_f:
                                 self.best_f = node.data.lb
                                 self.best_x = node.data.xR
+                            
+                            self.remove_node(node.identifier)
                         else:
                             """ In this case, some of the discrete variables
                                 have non-integer/non-discrete values at xR.
@@ -674,4 +705,4 @@ class BnB(OptSolver):
         # Wrap up: set original variable bounds
         self.set_variable_bounds()
     
-        
+        return self.best_f, self.best_x

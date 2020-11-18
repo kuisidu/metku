@@ -647,10 +647,12 @@ class OptimizationProblem:
         """
         self.con_tol = 1e-4
         self.name = name
-        if variables:
-            self.vars = variables
-        else:
-            self.vars = []
+        self.vars = []
+        if variables:            
+            for var in variables:
+                self.add(var)
+            #self.vars = variables
+    
         if constraints:
             self.cons = constraints
         else:
@@ -1240,8 +1242,9 @@ class OptimizationProblem:
                     """ Sort values in ascending order of distance from 'x' 
                         np.argsort returns the indices of 'values'
                     """
-                
+                    print(x)
                     sorted_ndx = np.argsort(abs(values-x[i]))
+    
                     """ Get k actual values closest to x and transform
                         the Numpy array to list.
                         

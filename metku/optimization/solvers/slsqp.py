@@ -86,6 +86,8 @@ class SLSQP(OptSolver):
         eqcons = self._create_eqcons()
         ieqcons = self._create_ieqcons()
         
+        print(bounds)
+        
         # Create initial guess if one isn't provided
         if x0 is None:
             x0 = []
@@ -124,11 +126,16 @@ class SLSQP(OptSolver):
 
         print(out)
 
-        print(self.calc_constraints(out.x))
+        #print(self.calc_constraints(out.x))
+        if out.success == True:
+            self.feasible = True
+        else:
+            self.feasible = False
+        self.result = out
         self.best_x = out.x
         self.best_f = out.fun
         self.X = out.x
-        return out.fun, out.x
+        return self.best_f, self.best_x
 
     def callback(self, xk, iterations=[]):
         i = len(iterations)

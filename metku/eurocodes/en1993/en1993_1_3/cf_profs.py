@@ -1021,6 +1021,7 @@ class ZSection:
         
         ax.hlines(y_top,x_top[0],x_top[1],colors='k',linewidth=lw)
         ax.hlines([0.5*(h-tnom)],x_top[0],x_top[1],colors='b',linewidth=lw_c,linestyle='-.')
+    
         
         # Corner from web to top flange
         x_web = (0.5*tnom+r,0.5*h-tnom-r)

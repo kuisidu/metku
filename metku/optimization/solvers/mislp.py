@@ -11,13 +11,15 @@ except:
 
 class MISLP(OptSolver):
 
-    def __init__(self, move_limits=(0.1, 0.1), gamma=1e-3, C=2e5, beta=100):
+    def __init__(self, move_limits=(0.1, 0.1), gamma=1e-3, C=2e5, beta=100, move_limit_type='range'):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
+        self.move_limit_type = move_limit_type
         self.gamma = gamma
         self.C = C
         self.beta = beta
-
+        self.milp = None
+        
     def take_action(self):
         """
         Defines action to take
@@ -25,7 +27,9 @@ class MISLP(OptSolver):
         """
 
         # Linearize problem
-        A, B, df, fx = self.problem.linearize(*self.X.copy())
+        #print("X= ",self.X)
+        #A, B, df, fx = self.problem.linearize(*self.X.copy())
+        A, B, df, fx = self.problem.linearize(*self.X)
         # Create CBC solver
         CBC_solver = pywraplp.Solver('MISLP',
                            pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
@@ -41,33 +45,55 @@ class MISLP(OptSolver):
         # these relaxed variables
         discrete_ids = []
         for i, var in enumerate(self.problem.vars):
-            delta = var.ub - var.lb
-            lb, ub = delta * self.move_limits
+            #delta = var.ub - var.lb
+            #lb, ub = delta * self.move_limits
+            
+            # The variables in the linearized problem are direction vector
+            # components, i.e. d[i] = x[i] - X[i]
+            if self.move_limit_type == "range":
+                delta = var.ub - var.lb                        
+            elif self.move_limit_type == 'relative':
+                delta = var.value
+            
+            lb, ub = self.move_limits * delta
+            
+            
+            
             if isinstance(var, DiscreteVariable):
                 discrete_ids.append(i)
+                # Find discrete value closest to current variable value
                 idx = np.argmin((np.asarray(var.values) - var.value)**2)
 
                 if idx == 0:
+                    # The first value is closest
                     ub = max(ub, var.values[1] - var.value)
                 elif idx == len(var.values) -1:
+                    # The last value is closest
                     lb = max(lb, var.value - var.values[idx - 1])
                 else:
+                    # Closest value is not the first or last in the list
                     lb = max(lb, var.value - var.values[idx - 1])
                     ub = max(ub, var.values[idx + 1] - var.value)
             lb = max(var.value - lb, var.lb)
             ub = min(var.value + ub, var.ub)
+            
+            
             name = str(var.target['property']) + str(i)
             x[i] = CBC_solver.NumVar(float(lb),
                                      float(ub),
                                      name)
+            
+            
 
+        
         beta = CBC_solver.NumVar(0, self.beta, 'Beta')
         # Linear Constraints
         # Ax <= B
+        
         for i in range(n):
             CBC_solver.Add(CBC_solver.Sum([A[i, j] * x[j]
                                            for j in range(m)]) <= B[i] + beta)
-
+        
         # Create binary variables
         discrete_vars = [var for var in
                          self.problem.vars if isinstance(var, DiscreteVariable)]
@@ -76,16 +102,16 @@ class MISLP(OptSolver):
             for j in range(len(var.values)):
                 if (var.id, j) not in y.keys():
                     y[var.id, j] = CBC_solver.BoolVar(f'y{var.id},{j}')
-
+        #print(y)
         # Create binary constraints
         for i, var in enumerate(discrete_vars):
             # Binary constraint
-            # sum(bin_vars) == 1
+            # sum(bin_vars) == 1            
             CBC_solver.Add(CBC_solver.Sum([y[var.id, j]
-                                           for j in range(len(var.values))]) == 1)
+                                           for j in range(len(var.values))]) == 1)            
             # Binary property constraint
             # Ai == sum(A[i][bin_idx])
-            idx = discrete_ids[i]
+            idx = discrete_ids[i]            
             CBC_solver.Add(CBC_solver.Sum([y[var.id, j] * var.values[j]
                                            for j in range(len(var.values))]) == x[idx])
 
@@ -94,12 +120,15 @@ class MISLP(OptSolver):
 
         # Solve
         sol = CBC_solver.Solve()
+        self.beta = beta.solution_value()
+        self.milp = CBC_solver
+                
+        
         if sol == 2:
             print("SOLUTION INFEASIBLE")
             return np.zeros_like(self.X)
 
-        self.beta = beta.solution_value()
-
+        
         # X = [j for i, var in enumerate(discrete_vars)
         #      for j in range(len(var.values)) if y[var.id, j].solution_value() == 1.0]
         #
