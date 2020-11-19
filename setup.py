@@ -5,7 +5,7 @@ with open("README.md", 'r') as fh:
 
 setuptools.setup(
     name="metku",
-    version="0.0.6",
+    version="0.0.9",
     author="Kristo Mela, Jaakko Huusko",
     author_email="-",
     description="Module for structural analysis and optimization",
