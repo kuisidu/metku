@@ -53,7 +53,7 @@ for node_id, forces in beam.nodal_forces.items():
 
 # Print displacements at each node
 for node_id, forces in beam.nodal_displacements.items():
-    dx, dy, r = forces[0]
+    dx, dy, r = forces[2]
     print(f'Displacements at node {node_id}: \n'
           f'X: {dx:.2f} mm '
           f'Y: {dy:.2f} mm '
