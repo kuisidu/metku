@@ -2,7 +2,7 @@
 
 ## Installation
 
-Build wheel
+Build wheel in main folder
 ```
 python setup.py sdist bdist_wheel
 ```
