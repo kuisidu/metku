@@ -209,12 +209,14 @@ class Frame2D:
                 if member.point_intersection(this.coordinate):
                     member.add_node_coord(this.coordinate)
 
+
         # LINELOADS
         elif isinstance(this, LineLoad):
 
             if this.name in self.line_loads.keys():
                 this.name += str(len(self.line_loads))
             self.line_loads[this.name] = this
+
 
         # SUPPORTS
         elif isinstance(this, Support):
@@ -422,32 +424,37 @@ class Frame2D:
                 for j in t.joints.values():
                     j.calc_nodal_coordinates()
 
-    def calculate(self, load_id=2,support_method='ZERO'):
+    def calculate(self, load_id=2, support_method='ZERO'):
         """ Calculates forces and displacements
             
             Parameters
             ----------
             :param load_id: Id of the loads to be added in the calculation model
             
-            :type load_id: int
+            :type load_id: int / str
         """
-        start = time.time()
-        # self.update_model()
+
+        lcase_ids = [lc.load for lc in self.f.loadcases.values()]
+
         if self.is_calculated == False:
             self.is_calculated = True
             """ Support ID is always 1! """
-            self.f.add_loadcase(supp_id=1, load_id=load_id)
             self.f.nodal_dofs()
 
-        self.calculated = True # should this be: self.is_calculated?
-        self.f.linear_statics(support_method=support_method)
-        self.calc_nodal_forces()
-        self.calc_nodal_displacements()
-        self.assign_forces()
-        self.check_members_strength()
-        # self.alpha_cr, _ = self.f.linear_buckling(k=4)
-        end = time.time()
-        # print("CALCULATE TIME: ", end - start)
+        # If load_id == 'ALL' calculates all load cases
+        # calls recursively itself for each case
+        if str(load_id).upper() == 'ALL':
+            for lid in lcase_ids:
+                self.calculate(load_id=lid,
+                               support_method=support_method)
+        else:
+            self.f.linear_statics(support_method=support_method,
+                                  lcase=load_id)
+            self.calc_nodal_forces()
+            self.calc_nodal_displacements()
+            self.assign_forces()
+            self.check_members_strength()
+            # self.alpha_cr, _ = self.f.linear_buckling(k=4)
 
     def design_members(self, prof_type="IPE"):
         """ Desgins frame's members
@@ -602,6 +609,11 @@ class Frame2D:
         # Add point loads (if any)
         for pointLoad in self.point_loads.values():
             pointLoad.add_load(self.f)
+            # Creates new loadcase if one with same load_id does not exist
+            lcase_ids = [lc.load for lc in self.f.loadcases.values()]
+            if pointLoad.load_id not in lcase_ids:
+                self.f.add_loadcase(supp_id=1,
+                                    load_id=pointLoad.load_id)
 
         # Add line loads (if any)
         for lineLoad in self.line_loads.values():
@@ -609,6 +621,12 @@ class Frame2D:
             lineLoad.element_ids = member.lineload_elements(
                 lineLoad.coordinates)
             lineLoad.add_load(self.f)
+            # Creates new loadcase if one with same load_id does not exist
+            lcase_ids = [lc.load for lc in self.f.loadcases.values()]
+            if lineLoad.load_id not in lcase_ids:
+                self.f.add_loadcase(supp_id=1,
+                                    load_id=lineLoad.load_id)
+
 
     def to_csv(self, filename, num_frames=0, s=1):
 
@@ -1059,7 +1077,7 @@ class Frame2D:
             # x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
             # plt.plot([x0, x1], [y0, y1], c='b')
 
-    def plot_deflection(self, scale=1, prec=4, show=True, lcase=0):
+    def plot_deflection(self, scale=1, prec=4, show=True, load_id=2):
         """ Draws deflected shape of the frame
             
             Parameters
@@ -1094,8 +1112,8 @@ class Frame2D:
             """ Calculate the deflected location of each node of the member """
             for i, node in enumerate(member.nodes.values()):
                 x0, y0 = node.coord
-                x1 = node.u[lcase][0]
-                y1 = node.u[lcase][1]
+                x1 = node.u[load_id][0]
+                y1 = node.u[load_id][1]
                 x = x0 + x1 * (scale)
                 y = y0 + y1 * (scale)
 
@@ -1133,7 +1151,7 @@ class Frame2D:
         if show:
             plt.show()
 
-    def plot_buckling(self, scale=1, k=4, show=True, lcase=0, axes=None):
+    def plot_buckling(self, scale=1, k=4, show=True, load_id=2, axes=None):
         """ Draws buckling shapes of the frame
             
             Parameters
@@ -1556,6 +1574,32 @@ class FrameMember:
                 mem.calc_nodal_coordinates()
             for mem in self.n2.parents:
                 mem.calc_nodal_coordinates()
+
+    @property
+    def dx(self):
+        vals = {}
+        dx_max = 0
+        for displacements in self.nodal_displacements.values():
+            for load_id, disp_vals in displacements.items():
+                dx, dy, rz = disp_vals
+                if abs(dx) > abs(dx_max):
+                    vals[load_id] = dx
+                    dx_max = dx
+
+        return vals
+
+    @property
+    def dy(self):
+        vals = {}
+        dy_max = 0
+        for displacements in self.nodal_displacements.values():
+            for load_id, disp_vals in displacements.items():
+                dx, dy, rz = disp_vals
+                if abs(dy) > abs(dy_max):
+                    vals[load_id] = dy
+                    dy_max = dy
+
+        return vals
 
 
     @property
@@ -2375,13 +2419,12 @@ class FrameMember:
 
         return False
 
-    def plot(self, print_text=True, c='k',axes=None):
+    def plot(self, print_text=True, c='k', axes=None):
 
         if axes is None:
             fig, ax = plt.subplots(1)
         else:
             ax = axes
-
 
         X = self.coordinates
         if c:
@@ -2395,33 +2438,19 @@ class FrameMember:
         ax.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
         # Plot text
 
-        # Calculate text location
-        delta_y = X[1][1] - X[0][1]
-        delta_x = X[1][0] - X[0][0]
-        if delta_x == 0:
-            rot = 90
-        elif delta_y == 0:
-            rot = 0
-        else:
-            rot = math.degrees(math.atan(delta_y / delta_x))
         if self.mtype == 'beam':
-            x = (X[0][0] + X[1][0]) / 2
-            y = (X[1][1] + X[0][1]) / 2
             horzalign = 'center'
             vertalign = 'bottom'
+
         elif self.mtype == 'column':
-            x = (X[0][0] + X[1][0]) / 2
-            y = (X[1][1] + X[0][1]) / 2
             horzalign = 'right'
             vertalign = 'center'
 
         else:
-            x = (X[0][0] + X[1][0]) / 2
-            y = (X[1][1] + X[0][1]) / 2
-            horzalign = 'right'
+            horzalign = 'center'
             vertalign = 'center'
 
-        x, y = self.to_global(0.3)
+        x, y = self.to_global(0.3) - self.perpendicular * 50
         rot = np.degrees(self.angle)
 
         if print_text:
@@ -2709,6 +2738,62 @@ class SteelColumn(FrameMember):
 
 
 # --------------------------- LOAD CLASSES ----------------------------
+
+class LoadCombination:
+
+    def __init__(self, name="", desc=""):
+        self.name = name
+        self.desc = desc
+        self.idx = None
+        self.loadcases = []
+
+
+    def add(self, loadcase):
+
+
+        if isinstance(loadcase, LoadCase):
+            self.loadcases.append(loadcase)
+        else:
+            raise ValueError(f"Can't add {type(loadcase)},"
+                             f"added load must be a LoadCase -object!")
+
+
+
+class LoadCase:
+    """
+    Class for constructing load cases.
+    LoadCase can have multiple different loads acting on members
+
+    :param name: name of the load case
+    :param desc: description
+    """
+
+    def __init__(self, name="", desc="", ltype="A"):
+        """
+
+
+        """
+        self.name = name
+        self.desc = desc
+        self.idx = None
+        self.ltype = ltype
+        self.loads = []
+
+
+    def add(self, load):
+        """
+        Adds load to load case
+        :param load: load to be added
+
+        """
+        if isinstance(load, Load):
+            self.loads.append(load)
+
+        else:
+            raise ValueError(f"Can't add {type(load)},"
+                             f"added load must be a Load -object!")
+
+
 class Load:
     """ General class for loads """
 
@@ -2716,7 +2801,7 @@ class Load:
         """ Constructor """
         self.load_id = load_id
         self.name = name
-        self.type = ''
+        self.ltype = ltype
 
 
 class PointLoad(Load):
@@ -2880,9 +2965,9 @@ def test_portal():
     L = 8000
     X = [[0,0],[0,H],[L,H],[L,0]]
     
-    col1 = SteelColumn([X[0],X[1]],profile="HE 240 A")
-    col2 = SteelColumn([X[3],X[2]],profile="HE 240 A")
-    beam = SteelBeam([X[1],X[2]],profile="IPE 300")
+    col1 = SteelColumn([X[0],X[1]], profile="HE 240 A")
+    col2 = SteelColumn([X[3],X[2]], profile="HE 240 A")
+    beam = SteelBeam([X[1],X[2]], profile="IPE 300")
     frame.add(FixedSupport(X[0]))
     frame.add(FixedSupport(X[3]))
     frame.add(LineLoad(beam, [-20, -20], 'y'))
@@ -2900,21 +2985,17 @@ if __name__ == '__main__':
     # f = test_portal()
     L = 4000
     H = 4000
-    F = -100e3
-    frame = Frame2D(simple=[1, 1, H, L], supports='fixed', num_elements=6)
-    frame.add(PointLoad([0,H],[0,F,0]))
-    frame.add(PointLoad([L,H],[0,F,0]))
-    #for b in frame.beams:
-    #    frame.add(LineLoad(b, [-10, -10], 'y'))
-    for mem in frame.members.values():
-        mem.profile = 'CHS 100x3'
+    F = -10e3
+    frame = Frame2D(simple=[1, 1, H, L], supports='fixed')
 
-    print(frame.members[0].nodal_coordinates)
-
+    for b in frame.beams:
+        frame.add(LineLoad(b, [-10, -10], 'y', load_id='MRT'))
+        frame.add(LineLoad(b, [-20, -20], 'y', load_id=2))
     frame.generate()
-    frame.calculate(support_method='REM')
+    frame.calculate(load_id='all')
+    print(frame.beams[0].dy)
 
-    frame.plot_deflection(scale=1)
+
 
     #frame.plot_buckling(scale=1000,k=4)
 
