@@ -90,7 +90,7 @@ class StructuralProblem(OptimizationProblem):
         else:
             self.create_objective()
 
-    @property
+    @classmethod
     def available_constraints(self):
         """
         Returns all available constraints and their corresponding keyword
@@ -109,6 +109,8 @@ class StructuralProblem(OptimizationProblem):
                     compression_bending_z=False,
                     deflection_y=None,
                     deflection_x=None,
+                    web_class=None,
+                    flange_class=None,
                     alpha_cr=None)
 
     def joint_geometry_constraints(self, joint):
@@ -255,18 +257,14 @@ class StructuralProblem(OptimizationProblem):
 
             def theta2_max(x):
                 val = np.degrees(joint.theta2) / 90 - 1
-                # val = 30 - np.degrees(w2.angle - joint.chord.angle)
                 return val
 
             def e_pos(x):
                 return joint.e / ((0.25 * joint.chord.cross_section.H)) - 1
 
-                # return joint.e - ((0.25 * joint.chord.cross_section.H))
 
             def e_neg(x):
                 return -1 - joint.e / (0.55 * joint.chord.cross_section.H)
-
-                # return  - joint.e - (0.55 * joint.chord.cross_section.H)
 
             con_funs = {
                 f'Joint {joint.jid} beta': beta,
@@ -382,8 +380,8 @@ class StructuralProblem(OptimizationProblem):
                 f'Joint {joint.jid} punching shear 1': punching_shear_1,
                 f'Joint {joint.jid} punching shear 2': punching_shear_2,
                 f'Joint {joint.jid} chord shear 0': chord_shear_0,
-                # f'Joint {joint.jid} chord shear 1': chord_shear_1,
-                # f'Joint {joint.jid} chord shear 2': chord_shear_2,
+                f'Joint {joint.jid} chord shear 1': chord_shear_1,
+                f'Joint {joint.jid} chord shear 2': chord_shear_2,
                 f'Joint {joint.jid} brace failure 1': brace_failure_1,
                 f'Joint {joint.jid} brace failure 2': brace_failure_2,
             }
@@ -477,13 +475,13 @@ class StructuralProblem(OptimizationProblem):
 
         def deflection_y(x):
             displacements = mem.nodal_displacements.values()
-            vals = [abs(l[1]) for l in displacements]
+            vals = [abs(l[0][1]) for l in displacements]
             abs_max = max(vals)
             return abs_max / limit_y - 1
 
         def deflection_x(x):
             displacements = mem.nodal_displacements.values()
-            vals = [abs(l[0]) for l in displacements]
+            vals = [abs(l[0][0]) for l in displacements]
             abs_max = max(vals)
             return abs_max / limit_x - 1
 
@@ -501,8 +499,8 @@ class StructuralProblem(OptimizationProblem):
         :param mem: FrameMember -object
         :return:
         """
-        K_web = [0,33,38,42]
-        K_flange = [0,9,10,14]
+        K_web = [0,33,38,42, np.inf]
+        K_flange = [0,9,10,14, np.inf]
 
         def web_class(x):
             if isinstance(mem.cross_section, (ISection, WISection)):
@@ -604,18 +602,18 @@ class StructuralProblem(OptimizationProblem):
                             vars=mem)
                         self.add(con)
 
-                # CROSS-SECTION CONSTRAINTS
-                for eid, elem in mem.elements.items():
-                    section_cons = self.cross_section_constraints(mem, elem)
-                    for key, val in section_cons.items():
-                        if eval(key.lower()):
-                            con = NonLinearConstraint(
-                                name=f"{key}: {mem.mem_id}|{eid}",
-                                con_fun=val,
-                                con_type='<',
-                                fea_required=True,
-                                vars=mem)
-                            self.add(con)
+            # CROSS-SECTION CONSTRAINTS
+            for eid, elem in mem.elements.items():
+                section_cons = self.cross_section_constraints(mem, elem)
+                for key, val in section_cons.items():
+                    if eval(key.lower()):
+                        con = NonLinearConstraint(
+                            name=f"{key}: {mem.mem_id}|{eid}",
+                            con_fun=val,
+                            con_type='<',
+                            fea_required=True,
+                            vars=mem)
+                        self.add(con)
 
             # CROSS-SECTION CLASS CONSTRAINTS
             class_cons = self.cross_section_class_constraints(mem)
@@ -665,6 +663,7 @@ class StructuralProblem(OptimizationProblem):
                             con_type='<',
                             fea_required=True)
                         self.add(con)
+
 
     def create_variables(self):
         """
@@ -835,49 +834,34 @@ class StructuralProblem(OptimizationProblem):
         self.add(obj)
 
 
-if __name__ == '__main__':
 
-    try:
-        from metku.frame2d.frame2d import *
-        from metku.truss2d import Truss2D
-        from metku.optimization.solvers import *
-    except:
-        from frame2d.frame2d import *
-        from truss2d import Truss2D
-        from optimization.solvers import *
 
-    n_bays = 1
-    n_storeys = 1
-    L_bay = 24000
-    H_storey = 8000
+def test1():
+    from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, \
+        hea_profiles, rhs_profiles
+    import metku.truss2d as t2d
+    import metku.frame2d as f2d
 
-    simple_frame = [n_storeys, n_bays, H_storey, L_bay]
-
-    frame = Frame2D(simple=simple_frame, create_beams=False, supports='fixed')
-
-    simple_truss = dict(
-        H0=H_storey,
+    simple = dict(
+        H0=0,
         H1=1800,
         H2=2400,
-        L1=L_bay / 2,
+        L1=10000,
         dx=400,
         n=16
     )
 
-    truss = Truss2D(simple=simple_truss, fem_model=frame.f)
-    frame.add(truss)
+    truss = t2d.Truss2D(simple=simple)
 
+    # Kuormat
     for tc in truss.top_chords:
-        frame.add(LineLoad(tc, [-30, -30], 'y'))
-    for bc in truss.bottom_chords:
-        frame.add(LineLoad(bc, [-1, -1], 'y'))
-    col1, col2 = frame.columns
-    # frame.add(LineLoad(col1, [3.5, 3.5], 'x'))
-    # frame.add(LineLoad(col2, [0.2, 0.2], 'x'))
-    frame.generate()
-    # truss.generate()
-    frame.calculate()
-    # truss.f.draw()
+        truss.add(f2d.LineLoad(tc, [-25, -25], 'y'))
+
+    # Tuet
+    truss.add(f2d.XYHingedSupport([0, truss.H0 + truss.H1]))
+    truss.add(f2d.XYHingedSupport([truss.L, truss.H0 + truss.H1]))
+    truss.generate()
+    truss.calculate()
 
     TC_group = {
         'name': 'TopChords',
@@ -885,13 +869,7 @@ if __name__ == '__main__':
         'value': 10,
         'values': list(rhs_profiles.keys()),
         'property': 'profile',
-        'objects': truss.top_chords,
-        'constraints': {
-            'buckling_y': True,
-            'buckling_z': False,
-            'deflection_y': frame.L / 300,
-            'deflection_x': frame.H / 300
-        }
+        'objects': truss.top_chords
     }
 
     BC_group = {
@@ -906,45 +884,131 @@ if __name__ == '__main__':
     WEB_group = {
         'name': 'Webs',
         'var_type': 'index',
-        'value': 10,
+        'value': 0,
         'values': list(rhs_profiles.keys()),
         'property': 'profile',
         'objects': list(truss.webs.values())
     }
 
-    COL_group = {
-        'name': 'Columns',
-        'var_type': 'index',
-        'value': 10,
-        'values': list(ipe_profiles.keys()),
-        'property': 'profile',
-        # 'properties': ['h', 'b', 'tf', 'tw'],
-        'objects': frame.columns
+    constraints = {
+        'flange_class': 1,
+        'web_class': 1,
+        'deflection_y': 500,
+        'joint_strength_constraints': True
+
     }
 
-    # # truss.f.draw()
-    frame.to_robot("PROTAL_TEST")
-    # frame.bmd(100)
-
     problem = StructuralProblem(name="TEST",
-                                structure=frame,
-                                var_groups=[TC_group, BC_group, WEB_group,
-                                            COL_group],
-                                con_groups=[TC_group],
-                                constraints={
-                                    'buckling_y': True,
-                                    'buckling_z': True,
-                                    'compression_bending_y': True,
-                                    'compression_bending_z': True,
-                                    'compression': True,
-                                    'tension': True,
-                                    'shear': True,
-                                    'deflection_y': frame.L / 200,
-                                    'deflection_x': frame.H / 300
-                                })
+                                structure=truss,
+                                var_groups=[TC_group, BC_group, WEB_group],
+                                constraints=constraints
+                                )
+    problem([50, 50, 30])
 
-    # solver = GA(pop_size=50, mut_rate=0.15)
-    # x0 = [1 for var in problem.vars]
-    # fopt, xopt = solver.solve(problem, x0=x0, maxiter=10, plot=True)
-    # problem(xopt)
-    # frame.plot_deflection(100)
+if __name__ == '__main__':
+
+    test1()
+
+    # from metku.frame2d.frame2d import *
+    # from metku.truss2d import Truss2D
+    # from metku.optimization.solvers import *
+    #
+    # n_bays = 1
+    # n_storeys = 1
+    # L_bay = 24000
+    # H_storey = 8000
+    #
+    # simple_frame = [n_storeys, n_bays, H_storey, L_bay]
+    #
+    # frame = Frame2D(simple=simple_frame, create_beams=False, supports='fixed')
+    #
+    # simple_truss = dict(
+    #     H0=H_storey,
+    #     H1=1800,
+    #     H2=2400,
+    #     L1=L_bay / 2,
+    #     dx=400,
+    #     n=16
+    # )
+    #
+    # truss = Truss2D(simple=simple_truss, fem_model=frame.f)
+    # frame.add(truss)
+    #
+    # for tc in truss.top_chords:
+    #     frame.add(LineLoad(tc, [-30, -30], 'y'))
+    # for bc in truss.bottom_chords:
+    #     frame.add(LineLoad(bc, [-1, -1], 'y'))
+    # col1, col2 = frame.columns
+    # # frame.add(LineLoad(col1, [3.5, 3.5], 'x'))
+    # # frame.add(LineLoad(col2, [0.2, 0.2], 'x'))
+    # frame.generate()
+    # # truss.generate()
+    # frame.calculate()
+    # # truss.f.draw()
+    #
+    # TC_group = {
+    #     'name': 'TopChords',
+    #     'var_type': 'index',
+    #     'value': 10,
+    #     'values': list(rhs_profiles.keys()),
+    #     'property': 'profile',
+    #     'objects': truss.top_chords,
+    #     'constraints': {
+    #         'buckling_y': True,
+    #         'buckling_z': False,
+    #         'deflection_y': frame.L / 300,
+    #         'deflection_x': frame.H / 300
+    #     }
+    # }
+    #
+    # BC_group = {
+    #     'name': 'BottomChords',
+    #     'var_type': 'index',
+    #     'value': 10,
+    #     'values': list(rhs_profiles.keys()),
+    #     'property': 'profile',
+    #     'objects': truss.bottom_chords
+    # }
+    #
+    # WEB_group = {
+    #     'name': 'Webs',
+    #     'var_type': 'index',
+    #     'value': 10,
+    #     'values': list(rhs_profiles.keys()),
+    #     'property': 'profile',
+    #     'objects': list(truss.webs.values())
+    # }
+    #
+    # COL_group = {
+    #     'name': 'Columns',
+    #     'var_type': 'index',
+    #     'value': 10,
+    #     'values': list(ipe_profiles.keys()),
+    #     'property': 'profile',
+    #     # 'properties': ['h', 'b', 'tf', 'tw'],
+    #     'objects': frame.columns
+    # }
+    #
+    #
+    # problem = StructuralProblem(name="TEST",
+    #                             structure=frame,
+    #                             var_groups=[TC_group, BC_group, WEB_group,
+    #                                         COL_group],
+    #                             con_groups=[TC_group],
+    #                             constraints={
+    #                                 'buckling_y': True,
+    #                                 'buckling_z': True,
+    #                                 'compression_bending_y': True,
+    #                                 'compression_bending_z': True,
+    #                                 'compression': True,
+    #                                 'tension': True,
+    #                                 'shear': True,
+    #                                 'deflection_y': frame.L / 200,
+    #                                 'deflection_x': frame.H / 300
+    #                             })
+    #
+    # # solver = GA(pop_size=50, mut_rate=0.15)
+    # # x0 = [1 for var in problem.vars]
+    # # fopt, xopt = solver.solve(problem, x0=x0, maxiter=10, plot=True)
+    # # problem(xopt)
+    # # frame.plot_deflection(100)
