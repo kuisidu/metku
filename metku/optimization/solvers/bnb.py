@@ -407,16 +407,19 @@ class BnB(OptSolver):
     
     def upper_bound(self,node):
         """ Try to find feasible solution using a heuristic etc. """
-        N = self.problem.discrete_neighborhood(node.data.xR, k=3)
+        N = self.problem.discrete_neighborhood(node.data.xR, k=2)
         f0 = deepcopy(self.best_f)
-        f_new = None
+        f_new = None        
         for xi in N:
-            gxi = self.problem.eval_cons(xi)
+            
+            gxi = self.problem.eval_cons(xi)            
+            
             if all(gxi<=self.problem.con_tol):
                 #print("Upper bounding found feasible solution")
                 #print(self.problem.eval_cons(xi))
                 """ Feasible point found """
                 f_new = self.problem.obj(xi)
+                
                 if f_new < self.best_f:
                     print("Better feasible solution found:")
                     print("Current: {0:4.2f}, New: {1:4.2f}".format(self.best_f,f_new))
@@ -652,7 +655,7 @@ class BnB(OptSolver):
                 if feasible_lower_bound:
                     if verb > 0:
                         print("Lower bounding problem is feasible:")
-                        print("Lower bounding obtained: {0:4.2f} (f_incumbent = {1:4.2f})".format(node.data.lb,self.best_f))                
+                        print("Lower bound obtained: {0:4.2f} (f_incumbent = {1:4.2f})".format(node.data.lb,self.best_f))                
                 
                     if node.data.lb > self.best_f:
                         # Node can be fathomed

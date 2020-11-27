@@ -420,8 +420,7 @@ class Constraint:
                 new values.
 
                 NOTE: X_TOL should be small
-            """
-
+            """            
             if np.linalg.norm(X - x) > X_TOL:
                 self.problem.substitute_variables(x)
 
@@ -1242,7 +1241,7 @@ class OptimizationProblem:
                     """ Sort values in ascending order of distance from 'x' 
                         np.argsort returns the indices of 'values'
                     """
-                    print(x)
+                    #print(x)
                     sorted_ndx = np.argsort(abs(values-x[i]))
     
                     """ Get k actual values closest to x and transform

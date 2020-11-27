@@ -65,7 +65,7 @@ class OpenProf:
         new_segment = Segment(n1,n2,t)
         self.segments.append(new_segment)
                   
-    def draw(self,node_labels=False,seg_labels=False):
+    def draw(self,node_labels=False,seg_labels=False,axes_on=True):
         
         fig, ax = plt.subplots(1)         
         """ draw nodes """
@@ -99,7 +99,12 @@ class OpenProf:
         ax.plot(ysc,zsc,'or')
         
         ax.axis('equal')
+        
+        if axes_on is False:
+            plt.axis('off')
         #ax.show()        
+
+        return fig
 
     def area(self):        
         """ Cross-sectional area """

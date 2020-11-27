@@ -57,10 +57,9 @@ class WISection(SteelSection):
         #self.fy = fy
         
         # Reduction factors for effective width of parts
-        self.rho_web = 1.0
-        self.rho_top = 1.0
-        self.rho_bottom = 1.0
-        
+        self.eff_top = {'rho':1.0,'bneg':0.0}
+        self.eff_bottom = {'rho':1.0,'bneg':0.0}
+        self.eff_web = {'rho':1.0,'bneg':0.0,'be':[1.0,1.0],'bc':0.5*self.cw}    
         
         
         A = self.area()
@@ -281,11 +280,37 @@ class WISection(SteelSection):
     
     @property
     def Aeff(self):
-        """ Effective area of the section """
+        """ Effective area of the section 
+            Assume pure central compression in the entire section
+        """
 
-        # return self.Aw - self.hneg * self.tw + 2 * self.Ab
-        raise NotImplementedError("Effective area calculation not implemented")
-    
+        """ Calculate effective flanges """
+        self.effective_flange('top')
+        self.effective_flange('bottom')
+        
+        """ Calculate effective web """
+        self.effective_web(psi=1.0)
+
+        """ Reduce non-effective parts from the area """
+        Aeff = self.A - 2*self.eff_top['bneg']*self.tt \
+                - 2*self.eff_bottom['bneg']*self.tb \
+                    - self.eff_web['bneg']*self.tw
+        return Aeff
+        
+    def Ieffy(self):
+        """ Effective second moment of area of the section in pure bending. """
+        
+        """ If bending moment is positive, then top flange is in compression """
+        if self.Med > 0.0:
+            """ Calculate effective flange """
+            self.effective_flange('top')
+            """ Calculate effective web when flange is effective. 
+                This takes into account the shift in neutral axis due to effective flange.
+            """
+            self.effective_web()
+            
+            """ Calculate second moment of area with respect to the shifted neutral axis """
+            # TODO!!!
 
     @property
     def hneg(self):
@@ -461,6 +486,28 @@ class WISection(SteelSection):
         zel = (self.zb*self.Ab + self.zw*self.Aw + self.zt*self.At)/self.area()
         return zel
     
+    def effective_neutral_axis(self):
+        """ Effective neutral axis
+            measured from the bottom of the section
+        """
+        
+        Aneg_b = 2*self.eff_bottom['bneg']*self.tb
+        Aneg_t = 2*self.eff_top['bneg']*self.tt
+        
+        zbeff = self.zb*(self.Ab-Aneg_b)
+        zteff = self.zt*(self.At-Aneg_t)
+        zweb = self.zw*self.Aw
+        
+        """ Centroid of the negative part of the web """
+        zweb_neg = self.h - self.tt- self.weld_throat*np.sqrt(2) \
+            - self.eff_web['be'][0] - 0.5*self.eff_web['bneg']
+        Aneg_w = self.eff_web['bneg']*self.tw
+        
+        Aef = self.A - Aneg_b-Aneg_t-Aneg_w
+        
+        zeff = (zbeff + zteff + zweb - zweb_neg*Aneg_w)/Aef
+        return zeff
+    
     def plastic_neutral_axis(self):
         """ Plastic neutral axis
             measured from the bottom of the section
@@ -574,21 +621,42 @@ class WISection(SteelSection):
 
         return Iw
 
-    def effective_flange(self, flange="Top"):
-        """ Effective flange, assumed to be in pure compression """
+    def effective_flange(self, flange="top", axis='y'):
+        """ Effective flange, assumed to be in pure compression 
+            
+            :param flange: 'top' or 'bottom'
+            :param axis: 'y' (strong) or 'z' (weak)
+            
+            It is assumed that is axis = 'y', the flange is in constant compression.
+            If axis = 'z', the flange can be either in constant compression or
+            there might be a stress gradient
+            
+            TODO! Implement z-axis behaviour
+        
+        """
         
         ksigma = en1993_1_5.buckling_factor_outstand(psi=1.0)
                 
-        if flange == "Top":
+        """ Calculate straigth part of the outstand flange """
+        if flange == "top":
             c = self.cf_top
             t = self.tt
         else:
             c = self.cf_bottom
             t = self.tb
 
+        """ Calculate slenderness and reduction factor """
         lp = en1993_1_5.lambda_p(c, t, self.eps, ksigma)
         rho = en1993_1_5.reduction_factor_outstand(lp)
-
+        
+        """ Store reduction factor and negative part of the flange """
+        if flange == "top":
+            self.eff_top['rho'] = rho
+            self.eff_top['bneg'] = (1-rho)*c
+        else:
+            self.eff_bottom['rho'] = rho
+            self.eff_bottom['bneg'] = (1-rho)*c
+        
         return rho
     
     def effective_web(self,psi=None,verb=False):
@@ -598,7 +666,7 @@ class WISection(SteelSection):
         
         """ If stress ratio is not provided, calculate it """
         if psi == None:
-            zel = self.elastic_neutral_axis()
+            zel = self.effective_neutral_axis()
             psi = (-zel+self.tb)/(self.h-zel-self.tt)
         
         ksigma = en1993_1_5.buckling_factor_internal(psi)
@@ -606,9 +674,19 @@ class WISection(SteelSection):
         rho = en1993_1_5.reduction_factor_internal(lp,psi)
         
         beff, be = en1993_1_5.effective_width_internal(cw,psi,rho)
-        return beff
-
-
+        
+        self.eff_web['rho'] = rho
+        self.eff_web['be'] = be        
+        if psi < 0:
+            self.eff_web['bc'] = cw/(1-psi)
+        else:
+            self.eff_web['bc'] = cw
+        
+        
+        self.eff_web['bneg'] = (1-rho)*cw
+        
+        
+        
         if verb:
             print("Effective Web:")
             print("psi = {0:4.2f}".format(psi))
@@ -618,7 +696,7 @@ class WISection(SteelSection):
             print("beff = {0:4.3f}".format(beff))
             print("be1 = {0:4.3f}, be2 = {1:4.3f} ".format(be[0],be[1]))
         
-        
+        return beff
 
     
     def shear_buckling_resistance(self,stiffener_spacing=10e5,end_post="non-rigid"):
@@ -744,5 +822,7 @@ if __name__ == '__main__':
     #frame.add(col)
     
     #p = WISection(1594, 7.0, [300.0, 300.0], [22.0, 22.0],fy=235,weld_throat=3.5)    
-    p = WISection(600, 8, 250, 20,fy=355,weld_throat=4)
+    p = WISection(600, 6, 250, 8,fy=355,weld_throat=4)
+    p.Med = 10
+    p.section_class(True)
     print(p.hw, p.tw, p.eps)
