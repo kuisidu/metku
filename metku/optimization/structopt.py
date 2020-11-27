@@ -176,7 +176,12 @@ class Variable:
                                 except KeyError:
                                     new_val = new_value*self.scaling
                                     
-                            obj.__setattr__(p, new_val)
+                                obj.__setattr__(p, new_val)
+                            else:
+                                obj.__setattr__(p, new_value)
+
+                    elif isinstance(self, IndexVariable):
+                        obj.__setattr__(prop, new_value)
                     else:
                         obj.__setattr__(prop, new_value*self.scaling)
 
@@ -646,12 +651,10 @@ class OptimizationProblem:
         """
         self.con_tol = 1e-4
         self.name = name
-        self.vars = []
-        if variables:            
-            for var in variables:
-                self.add(var)
-            #self.vars = variables
-    
+        if variables:
+            self.vars = variables
+        else:
+            self.__vars = []
         if constraints:
             self.cons = constraints
         else:
@@ -736,7 +739,9 @@ class OptimizationProblem:
         """
             Sets variables, to 'vals' (list of Variable objects)            
         """
-        self.__vars = vals
+        self.clear_vars()
+        for val in vals:
+            self.add(val)
 
     @property
     def fixed_vals(self):
@@ -975,10 +980,12 @@ class OptimizationProblem:
         self.fea_done = True
         self.num_fem_analyses += 1
 
-    def __call__(self, x, prec=2, ncons=5):
+    def __call__(self, x=None, prec=2, ncons=5):
         """ Call method evaluates the objective function and all constraints
             at x and returns their values
-        """        
+        """
+        if x is None:
+            x = [var.value for var in self.vars]
         self.substitute_variables(x)
         fx = self.obj(x)
         print("** {0} **".format(self.name))
@@ -1136,16 +1143,16 @@ class OptimizationProblem:
         xvals = np.array([max(var.lb, min(x, var.ub)) for x, var in zip(xvals, self.vars)])
         #print(xvals)
         #print(self.var_values())
-        if np.linalg.norm(self.var_values()-xvals) > 1e-9:
-            # Save starting point
-            if not np.any(self.X):
-                self.x0 = xvals.copy()
-    
-            # if np.any(self.X != xvals):
-            self.X = xvals.copy()
-            self.fea_done = False
-            for x, var in zip(xvals, self.vars):            
-                var.substitute(x)
+        #if np.linalg.norm(self.var_values()-xvals) > 1e-9:
+        # Save starting point
+        if not np.any(self.X):
+            self.x0 = xvals.copy()
+
+        # if np.any(self.X != xvals):
+        self.X = xvals.copy()
+        self.fea_done = False
+        for x, var in zip(xvals, self.vars):
+            var.substitute(x)
         #else:
             #print("No variable substitution.")
             #if self.nvars() < 10:
@@ -1241,9 +1248,7 @@ class OptimizationProblem:
                     """ Sort values in ascending order of distance from 'x' 
                         np.argsort returns the indices of 'values'
                     """
-                    #print(x)
                     sorted_ndx = np.argsort(abs(values-x[i]))
-    
                     """ Get k actual values closest to x and transform
                         the Numpy array to list.
                         

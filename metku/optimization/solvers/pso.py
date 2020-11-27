@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from deap import base, creator, tools
 
-from optimization.solvers.optsolver import OptSolver, G_TOL
+from metku.optimization.solvers.optsolver import OptSolver, G_TOL
 
 
 class PSO(OptSolver):
@@ -96,7 +96,6 @@ class PSO(OptSolver):
             Assumption is that all particle of the swarm have already been
             evaluated.
         """
-        
         self.counter += 1
         self.inertia_cnt += 1
         
@@ -120,6 +119,13 @@ class PSO(OptSolver):
                     self.best_part = copy.deepcopy(part)
                     self.counter = 0
                     self.inertia_cnt = 0
+
+        # This makes sure iteration can begin even though
+        # no feasible particle is found
+        if self.best_x is None:
+            SCV = [p.scv for p in self.swarm]
+            best_idx = np.argmin(SCV)
+            self.best_x = self.swarm[best_idx].x
     
     def update_velocity(self,part,verb=False,part_nd=0):
         """ Apply the velocity update rule for particle 'part' """
@@ -398,5 +404,13 @@ class Particle:
         s += 'SCV &= {0:5.3f} &'.format(self.scv)
         s += 'f &= {0:5.3f}\\\\'.format(self.fval)
         return s
-        
-        
+
+
+if __name__ == '__main__':
+    from metku.optimization.benchmarks import TenBarTruss
+
+    solver = PSO()
+    problem = TenBarTruss('continuous')
+    fopt, xopt = solver.solve(problem, maxiter=10, verb=False)
+    print(fopt, xopt)
+    problem(xopt)

@@ -122,10 +122,10 @@ class Rod(Element):
         return fglob
 
 
-    def internal_forces(self):
+    def internal_forces(self, lcase=0):
         """ Calculates internal forces (axial force)
         """
-        q = self.local_displacements()
+        q = self.local_displacements(lcase)
         E = self.material.young
         A = self.section.A
         L = self.length()

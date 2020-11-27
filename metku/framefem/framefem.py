@@ -34,7 +34,7 @@ class FrameFEM:
         :vartype materials: list
         :vartype supports: list
         :vartype loads: list
-        :vartype loadcases: list
+        :vartype loadcases: dict
         :vartype dofs: int
 
     """
@@ -55,8 +55,8 @@ class FrameFEM:
         self.supports = []
         """ List of loads """
         self.loads = []
-        """ List of load cases"""
-        self.loadcases = []
+        """ Dict of load cases"""
+        self.loadcases = {}
         """ Number of degrees of freedom """
         self.dofs = 0
         """ Dimension of the problem (either 2 or 3) 
@@ -223,7 +223,7 @@ class FrameFEM:
         self.loads.append(load)
 
     def add_loadcase(self, supp_id=1, load_id=2):
-        """ Add load case
+        """ Adds new load case, if load id is same replaces old one
 
         Parameters:
         -----------
@@ -234,12 +234,12 @@ class FrameFEM:
         :type load_id: int
         """
         new_case = LoadCase(supp_id, load_id)
-        self.loadcases.append(new_case)
+        self.loadcases[load_id] = new_case
 
         """ Add displacements to nodes for the new load case """
         ncases = self.nloadcases()
         for node in self.nodes:
-            node.u.append(np.zeros(len(node.dofs)))
+            node.u[load_id] = np.zeros(len(node.dofs))
             """
             if ncases == 1:
                 print(node.u[0])
@@ -404,7 +404,7 @@ class FrameFEM:
         # print("FrameFEM  ", '\n', global_load)
         return global_load
 
-    def linear_statics(self, lcase=0,support_method='ZERO'):
+    def linear_statics(self, lcase=0, support_method='ZERO'):
         """ Perform linear elastic static analysis for a given load case
 
         Parameters:
@@ -517,7 +517,7 @@ class FrameFEM:
 
         """ Calculate element internal forces """
         for el in self.elements:
-            el.internal_forces()
+            el.internal_forces(lcase=lcase)
         end = time.time()
         # print("FRAMEFEM TIME: ", end - start)
         return u, K
@@ -1128,7 +1128,7 @@ class FEMNode:
         """ Node's degrees of freedom """
         # NOTE: for multiple load cases, the dimension of u must be increased for each load case
         #self.u = np.array([])
-        self.u = []
+        self.u = {}
         
         """ Nodal coordinates"""
         if z is not None:
@@ -1333,9 +1333,10 @@ class Element(metaclass=ABCMeta):
             :return: Element's nodal displacements
             :rtype: np.array
         """
-        return np.concatenate((self.nodes[0].u[lcase], self.nodes[1].u[lcase]))
+        return np.concatenate((self.nodes[0].u[lcase],
+                               self.nodes[1].u[lcase]))
 
-    def local_displacements(self,lcase=0):
+    def local_displacements(self, lcase=0):
         """ Nodal displacements in local coordinates
 
             Returns:
