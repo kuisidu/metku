@@ -111,7 +111,7 @@ def buckling_factor_edge_stiffener(bratio):
     elif bratio <= 0.6:
         ksigma = 0.5 + 0.83*((bratio-0.35)**2)**(1/3)
     else:
-        print("Error: bration must be at most 0.6.")
+        print("Error: b ratio must be at most 0.6.")
         
     return ksigma
 
@@ -281,6 +281,25 @@ def CD_A(ba,tnom,position,A,bT,bR,load='gravity'):
     CDA = C100*kba*kt*kbR*kA*kbT
     
     return CDA
+
+class GrooveStiffener():
+    """ Class for a plane element with intermediate stiffener
+        EN 1993-1-3 (2006): 5.5.3.3
+    """
+    
+    def __init__(self,nodes,t):
+        """ Contructor
+            :param nodes: list of [y,z] coordinates of the points
+            :param t: calculation thickness
+        """
+        self.nodes = nodes
+        self.t = t
+    
+    def bp1(self):
+        """ Determine the first notional width """
+
+    def bp2(self):
+        """ Determine the second notional width """
 
 if __name__ == "__main__":
     

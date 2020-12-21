@@ -330,6 +330,10 @@ class Node:
         self.y = y
         self.z = z
     
+    def __repr__(self):
+        
+        return "y = {0:4.3f}, z = {1:4.3f}".format(self.y,self.z)
+    
     @property
     def coord(self):
         """ Return numpy array of coordinates """
@@ -367,6 +371,13 @@ class Segment:
         self._n2 = n2
         self.nodes = np.array([n1,n2])
         self.t = t
+        
+    def __repr__(self):
+        
+        n1 = 'n1 = [{0:4.2f}, {1:4.2f} '.format(self._n1.y,self._n1.z)
+        n2 = 'n2 = [{0:4.2f}, {1:4.2f}] '.format(self._n2.y,self._n2.z)
+        
+        return n1 + n2 + " t = {0:4.2f}".format(self.t)
     
     @property
     def coord(self):
