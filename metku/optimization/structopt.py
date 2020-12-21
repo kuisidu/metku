@@ -652,6 +652,7 @@ class OptimizationProblem:
         self.con_tol = 1e-4
         self.name = name
         if variables:
+            self.__vars = []
             self.vars = variables
         else:
             self.__vars = []
