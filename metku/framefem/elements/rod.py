@@ -74,18 +74,19 @@ class Rod(Element):
 
         return ke
 
-    def local_geometric_stiffness_matrix(self):
+    def local_geometric_stiffness_matrix(self,lcase=0):
         """ Geometric stiffness matrix in local coordinates
             From: Cook et. al 1989, Section 14.2
             
             TODO: Modify for 3D!
         """
-        P = self.axial_force[1]
+        #P = self.axial_force[1]
+        P = self.find[lcase]['fx'][0]
         Le = self.length()
 
         return P / Le * np.array([[0, 0, 0, 0], [0, 1, 0, -1], [0, 0, 0, 0], [0, -1, 0, 1]])
 
-    def geometric_stiffness_matrix(self):
+    def geometric_stiffness_matrix(self,lcase=0):
         """ Geometric stiffness matrix in global coordinates
             From: Cook et. al (1989), Section 14.2
         """
@@ -98,7 +99,7 @@ class Rod(Element):
         c = self.direction_cosines()
         L = np.array([[c, 0, 0], [-c[1], c[0], 0, 0], [0, 0, c], [0, 0, -c[1], c[0]]])
 
-        kG0 = self.local_geometric_stiffness_matrix()
+        kG0 = self.local_geometric_stiffness_matrix(lcase)
 
         kG = L.transpose().dot(kG0.dot(L))
 
@@ -129,7 +130,8 @@ class Rod(Element):
         E = self.material.young
         A = self.section.A
         L = self.length()
-        self.axial_force[0] = E * A / L * (q[1] - q[0])
+        self.fint[lcase]['fx'][0] = E * A / L * (q[1] - q[0])
+        self.fint[lcase]['fx'][1] = self.fint[lcase]['fx'][0]
 
 
     def nodal_displacements(self,lcase=0):

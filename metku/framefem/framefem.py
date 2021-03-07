@@ -55,7 +55,10 @@ class FrameFEM:
         self.supports = []
         """ List of loads """
         self.loads = []
-        """ Dict of load cases"""
+        """ Dict of load cases
+            The key is the load id of the corresponding load case
+            Value is a LoadCase object
+        """
         self.loadcases = {}
         """ Number of degrees of freedom """
         self.dofs = 0
@@ -233,6 +236,7 @@ class FrameFEM:
         :type supp_id: int
         :type load_id: int
         """
+        #print('Create Load case.')
         new_case = LoadCase(supp_id, load_id)
         self.loadcases[load_id] = new_case
 
@@ -255,7 +259,11 @@ class FrameFEM:
             else:
                 node.u = [0 for i in range(len(node.dofs))]
                 # node.u = np.vstack((node.u, [0.0, 0.0, 0.0]))
-            """
+            """        
+        for el in self.elements:
+            el.add_loadcase(load_id)
+            
+        
     def nodal_dofs(self):
         """ Assign nodal degrees of freedom
         """
@@ -424,7 +432,7 @@ class FrameFEM:
         if not self.dofs:
             self.nodal_dofs()
 
-        start = time.time()
+        #start = time.time()
         K = self.global_stiffness_matrix()
 
 
@@ -518,7 +526,7 @@ class FrameFEM:
         """ Calculate element internal forces """
         for el in self.elements:
             el.internal_forces(lcase=lcase)
-        end = time.time()
+        #end = time.time()
         # print("FRAMEFEM TIME: ", end - start)
         return u, K
 
@@ -1207,6 +1215,7 @@ class Element(metaclass=ABCMeta):
         :vartype nodes: list
         :vartype material: Material
         :vartype section: Section
+        :vartype fint: dict .. internal forces
         :vartype axial_force: list
         :vartype shear_force: list
         :vartype bending_moment: list
@@ -1218,10 +1227,11 @@ class Element(metaclass=ABCMeta):
         self.nodes = [n1, n2]
         self.material = material
         self.section = section
-        self.axial_force = [0.0, 0.0]
-        self.shear_force = [0.0, 0.0]
-        self.bending_moment = [0.0, 0.0]
-        self.floc = np.array([])
+        self.fint = {}
+        #self.axial_force = [0.0, 0.0]
+        #self.shear_force = [0.0, 0.0]
+        #self.bending_moment = [0.0, 0.0]
+        self.floc = {} #np.array([])
 
     def coord(self):
         """ Nodal coordinates of the element
@@ -1350,6 +1360,22 @@ class Element(metaclass=ABCMeta):
 
         return T.dot(q)
 
+    def add_loadcase(self,lcase=0):
+        """ Creates a place holder for internal forces 
+            fx .. axial force
+            fy .. shear force with respect to horizontal axis
+            fz .. shear force with respect to vertical axis
+            mx .. torsion
+            my .. bending moment with respect to horizontal axis
+            mz .. bending moment with respect to vertical axis
+            
+            In 2d, the following internal forces are present
+            fx, fz, my
+        """
+        
+        self.fint[lcase] = {'fx': [0,0], 'fy': [0,0], 'fz': [0,0],\
+                            'mx': [0,0], 'my': [0,0], 'mz': [0,0]}
+        
     @abstractclassmethod
     def transformation_matrix(self):
         """ Calculates transformation matrix from local to global coordinates

@@ -94,8 +94,8 @@ class Frame2D:
         self.supports = {}
         self.nodes = []
         self.nodal_coordinates = []
-        self.nodal_forces = {}
-        self.nodal_displacements = {}
+        self.nodal_forces = {}          # For storing nodal forces in various load cases
+        self.nodal_displacements = {}   # For storing nodal displacements in various load cases
         self.joints = {}
         self.r = []
         self.is_generated = False
@@ -2141,7 +2141,7 @@ class FrameMember:
             # rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[idx])
 
-    def calc_nodal_forces(self):
+    def calc_nodal_forces(self,load_id=2):
         """ Gets calculated nodal forces on member's elements and
             adds them to dict where node is the key and froces are value
             self.nodal_forces[node_id] = [Fx, Fy, Mz]
@@ -2156,24 +2156,29 @@ class FrameMember:
             else:
                 return max_val
 
-
+        """ Store also maximum bending moment, shear force and axial force """
         max_med = 0
         max_ved = 0
         max_ned = 0
 
-        i = 0
+        """ i is node index """
+        i = 0        
+        """ node_ids is a list of node indices for the member """
         node_ids = list(self.nodes.keys())
         for element in self.elements.values():
             node_id = node_ids[i]
-            axial_force = absmax(element.axial_force)
+            #axial_force = absmax(element.axial_force)
+            axial_force = absmax(element.fint[load_id]['fx'])
             if abs(axial_force) > abs(max_ned):
                 max_ned = axial_force
 
-            shear_force = absmax(element.shear_force)
+            #shear_force = absmax(element.shear_force)
+            shear_force = absmax(element.fint[load_id]['fz'])
             if abs(shear_force) > abs(max_ved):
                 max_ved = shear_force
 
-            bending_moment = absmax(element.bending_moment)
+            #bending_moment = absmax(element.bending_moment)
+            bending_moment = absmax(element.fint[load_id]['my'])
             if abs(bending_moment) > abs(max_med):
                 max_med = bending_moment
 
@@ -2185,15 +2190,18 @@ class FrameMember:
             if i == len(self.elements):
 
                 node_id = node_ids[i]
-                axial_force = absmax(element.axial_force)
+                #axial_force = absmax(element.axial_force)
+                axial_force = absmax(element.fint[load_id]['fx'])
                 if abs(axial_force) > abs(max_ned):
                     max_ned = axial_force
 
-                shear_force = absmax(element.shear_force)
+                #shear_force = absmax(element.shear_force)
+                shear_force = absmax(element.fint[load_id]['fz'])
                 if abs(shear_force) > abs(max_ved):
                     max_ved = shear_force
 
-                bending_moment = absmax(element.bending_moment)
+                #bending_moment = absmax(element.bending_moment)
+                bending_moment = absmax(element.fint[load_id]['my'])
                 if abs(bending_moment) > abs(max_med):
                     max_med = bending_moment
 
@@ -2292,7 +2300,7 @@ class FrameMember:
         return locs
 
 
-    def assign_forces(self):
+    def assign_forces(self,load_id=2):
         """
         Assigns forces to SteelMember -object.
         Creates new sections if none are created,
@@ -2302,9 +2310,12 @@ class FrameMember:
         self.steel_member.profile = self.cross_section
         self.steel_member.clear_sections()
         for i, element in enumerate(self.elements.values()):
-            M1, M2 = element.bending_moment
-            N1, N2 = element.axial_force
-            V1, V2 = element.shear_force
+            #M1, M2 = element.bending_moment
+            #N1, N2 = element.axial_force
+            #V1, V2 = element.shear_force
+            M1, M2 = element.fint[load_id]['my']
+            N1, N2 = element.fint[load_id]['fx']
+            V1, V2 = element.fint[load_id]['fz']
             loc = self.locs[i]
             self.steel_member.add_section(ned=N1, vzed=V1,
                                           myed=M1, loc=loc)
@@ -2564,7 +2575,7 @@ class FrameMember:
         Y.append(self.nodal_coordinates[i + 1][1])
         plt.plot(X, Y, color='gray')
 
-    def bmd_test(self, scale=1):
+    def bmd_test(self, scale=1, load_id = 2):
 
         # Scales Nmm to kNm
         unit_scaler = 1e-6
@@ -2586,7 +2597,8 @@ class FrameMember:
 
         for elem in self.elements.values():
             x0, y0 = elem.nodes[0].coord
-            bending_moment = elem.bending_moment[0]
+            #bending_moment = elem.bending_moment[0]
+            bending_moment = elem.fint[load_id]['my'][0]
             val = bending_moment * unit_scaler * scale
             x, y = np.array([x0, y0]) - val * u
             X.append(x)
@@ -2598,7 +2610,8 @@ class FrameMember:
                 plt.text(x, y, f'{bending_moment * unit_scaler:.2f} kNm',
                          horizontalalignment=horzalign)
         x0, y0 = elem.nodes[1].coord
-        bending_moment = elem.bending_moment[1]
+        #bending_moment = elem.bending_moment[1]
+        bending_moment = elem.fint[load_id]['my'][1]
         val = bending_moment * unit_scaler * scale
         x, y = np.array([x0, y0]) - val * u
         X.append(x)
@@ -3051,7 +3064,7 @@ if __name__ == '__main__':
     fr.add(FixedSupport(x1))
 
     fr.generate()
-    fr.calculate()
+    fr.calculate(support_method="REM")
     fr.bmd(5)
 
     #frame.plot_buckling(scale=1000,k=4)

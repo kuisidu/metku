@@ -45,8 +45,8 @@ class EBBeam(Element):
     def __init__(self, n1, n2, section, material):
         Element.__init__(self, n1, n2, section, material)
 
-        self.bending_moment = [0.0, 0.0]
-        self.shear_force = [0.0, 0.0]
+        #self.bending_moment = [0.0, 0.0]
+        #self.shear_force = [0.0, 0.0]
 
 
     def transformation_matrix(self):
@@ -135,7 +135,7 @@ class EBBeam(Element):
 
         return ke
 
-    def local_geometric_stiffness_matrix(self):
+    def local_geometric_stiffness_matrix(self,lcase=0):
         """ Geometric stiffness matrix in local coordinates
             source: Cook et. al 1989, Section 14.2
 
@@ -145,7 +145,8 @@ class EBBeam(Element):
             :rtype: np.array
 
         """
-        P = self.axial_force[1]
+        #P = self.axial_force[1]
+        P = self.fint[lcase]['fx'][1]
         Le = self.length()
 
         g0 = P / 30 / Le
@@ -159,7 +160,7 @@ class EBBeam(Element):
 
         return kg0
 
-    def geometric_stiffness_matrix(self):
+    def geometric_stiffness_matrix(self,lcase=0):
         """ Geometric stiffness matrix in global coordinates \n
             From: Cook et. al (1989), Section 14.2
 
@@ -173,7 +174,7 @@ class EBBeam(Element):
         # local-global transformation matrix
         L = self.transformation_matrix()
 
-        kG0 = self.local_geometric_stiffness_matrix()
+        kG0 = self.local_geometric_stiffness_matrix(lcase)
 
         kG = L.transpose().dot(kG0.dot(L))
 
@@ -253,7 +254,7 @@ class EBBeam(Element):
                 #print(floc)
 
         # Store local loads
-        self.floc = floc
+        self.floc[load.sid] = floc
 
         # print(self.floc)
 
@@ -301,9 +302,9 @@ class EBBeam(Element):
         Le = self.length()
         ke = self.local_stiffness_matrix(E, A, I1, Le)
 
-        if self.floc.size > 0:
-            R = ke.dot(q) - self.floc
-        else:
+        try:
+            R = ke.dot(q) - self.floc[lcase]
+        except:
             R = ke.dot(q)
 
         """ Any load on the element not acting on a node must be
@@ -317,9 +318,14 @@ class EBBeam(Element):
             saved there, when they are first calculated for analysis
         """
 
+        """
         self.axial_force[:2] = [-R[0], R[3]]
         self.bending_moment[:2] = [-R[2], R[5]]
         self.shear_force[:2] = [R[1], -R[4]]
+        """
+        self.fint[lcase]['fx'] = [-R[0], R[3]]
+        self.fint[lcase]['my'] = [-R[2], R[5]]
+        self.fint[lcase]['fz'] = [R[1], -R[4]]
         
 class EBBeam3D(Element):
     """ Euler-Bernoulli beam element in 3D

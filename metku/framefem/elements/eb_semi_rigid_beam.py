@@ -187,11 +187,12 @@ class EBSemiRigidBeam(EBBeam):
 
         return ke
 
-    def local_geometric_stiffness_matrix(self):
+    def local_geometric_stiffness_matrix(self,lcase=0):
         """ Geometric stiffness matrix in local coordinates
             From: Cook et. al 1989, Section 14.2
         """
-        P = self.axial_force[1]
+        #P = self.axial_force[1]
+        P = self.fint[lcase]['fx'][1]
         Le = self.length()
 
         g0 = P / 30 / Le
@@ -205,7 +206,7 @@ class EBSemiRigidBeam(EBBeam):
 
         return kg0
 
-    def geometric_stiffness_matrix(self):
+    def geometric_stiffness_matrix(self,lcase=0):
         """ Geometric stiffness matrix in global coordinates
             From: Cook et. al (1989), Section 14.2
         """
@@ -213,7 +214,7 @@ class EBSemiRigidBeam(EBBeam):
         # local-global transformation matrix
         L = self.transformation_matrix()
 
-        kG0 = self.local_geometric_stiffness_matrix()
+        kG0 = self.local_geometric_stiffness_matrix(lcase)
 
         kG = L.transpose().dot(kG0.dot(L))
 
