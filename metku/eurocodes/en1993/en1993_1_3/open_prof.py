@@ -65,7 +65,8 @@ class OpenProf:
         new_segment = Segment(n1,n2,t)
         self.segments.append(new_segment)
                   
-    def draw(self,node_labels=False,seg_labels=False,axes_on=True):
+    def draw(self,node_labels=False,seg_labels=False,axes_on=True,
+             sc_on=True,gc_on=True,coord_axes=False):
         
         fig, ax = plt.subplots(1)         
         """ draw nodes """
@@ -93,16 +94,30 @@ class OpenProf:
             #plt.text(Xmid[0],Xmid[1],str(i))
                 
     
-        ygc, zgc, A = self.centroid()        
-        ysc, zsc = self.shear_center()
-        ax.plot(ygc,zgc,'+r')
-        ax.plot(ysc,zsc,'or')
+        if gc_on:
+            ygc, zgc, A = self.centroid()        
+            ax.plot(ygc,zgc,'+r')
+        
+        if sc_on:
+            ysc, zsc = self.shear_center()        
+            ax.plot(ysc,zsc,'or')
         
         ax.axis('equal')
         
         if axes_on is False:
             plt.axis('off')
         #ax.show()        
+
+        if coord_axes:
+            x = self.y_coord()
+            y = self.z_coord()
+            dx = 0.5*(np.max(x)-np.min(x))
+            dy = 0.5*(np.max(y)-np.min(y))
+            hw = 3
+            ax.arrow(0,0,min(dx,dy),0,head_width=hw,facecolor='k')
+            ax.text(min(dx,dy),0.05*dy,'y',verticalalignment='bottom')
+            ax.arrow(0,0,0,min(dx,dy),head_width=hw,facecolor='k')
+            ax.text(-0.05*dy,min(dx,dy),'z',horizontalalignment='right')
 
         return fig
 
@@ -316,7 +331,20 @@ class OpenProf:
         self.nodes.insert(n+1,new_node)
         self.segments.remove(seg)
         self.segments.insert(n,new_seg1)
-        self.segments.insert(n+1,new_seg2)    
+        self.segments.insert(n+1,new_seg2)
+    
+    def export_cufsm(self):
+        """ Write data to be exported to cufsm in Matlab """
+        
+        """ Write nodes """
+        print("Nodes:")
+        for i, node in enumerate(self.nodes):        
+            print('{0:3g} {1:6.4f} {2:6.4f} 1 1 1 1 1.000'.format(i+1,node.y,node.z))
+
+        """ Write elements """
+        print("Elements:")
+        for i, seg in enumerate(self.segments):        
+            print('{0:3g} {1:6.4f} {2:6.4f} {3:6.5f} 100'.format(i+1, i+1, i+2,seg.t))
 
 class Node:
     """ Node of an open section profile """

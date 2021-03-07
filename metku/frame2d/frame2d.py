@@ -1378,7 +1378,7 @@ class FrameMember:
     """
 
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
-                 material="S355", num_elements=5,
+                 material="S355", num_elements=6,
                  Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False,
                  reverse=False):
 
@@ -1387,6 +1387,9 @@ class FrameMember:
         self.ecc_elements = {}
         self.ecc_coordinates = []
         self.ecc_element_nodes = {}
+        """ To modify this to accommodate timber members, change the name
+            from steel_member to 'member'
+        """
         self.steel_member = None
         # start node, FEMNode object
         self.n1 = None
@@ -1431,6 +1434,9 @@ class FrameMember:
         self.q0 = 0
         self.q1 = 0
         # Create SteelMember object
+        """ Add check here for creating appropriate member
+            SteelMember or TimberMember
+        """
         self.steel_member = SteelMember(self.cross_section, self.length,
                                         Lcr=[1.0, 1.0], mtype=self.mtype)
 
@@ -2048,7 +2054,7 @@ class FrameMember:
                                     self.material)
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
-        elif self.mtype != "column":
+        elif self.mtype == "beam":
             if len(self.nodes) == 2:
                 n1 = node_ids[0]
                 n2 = node_ids[1]
@@ -2091,6 +2097,19 @@ class FrameMember:
                     fem_model.add_element(self.elements[index])
                     self.element_ids.append(index)
                     index += 1
+        else:
+            for i in range(len(self.nodes) - 1):
+                n1 = node_ids[i]
+                n2 = node_ids[i + 1]
+
+                self.elements[index] = \
+                    EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                           self.cross_section, \
+                           self.material)
+
+                fem_model.add_element(self.elements[index])
+                self.element_ids.append(index)
+                index += 1
 
     def generate_eccentricity_elements(self, fem_model):
         """ Generates eccentricity elements to connections
@@ -2841,14 +2860,27 @@ class PointLoad(Load):
 
 class LineLoad(Load):
     def __init__(self, coordinates, values, direction, load_id=2, f=1.0,
-                 ltype='live', name='LineLoad'):
+                 ltype='live', name='LineLoad',coord_sys="global"):
+        """ Class for line loads. Line load can be uniform or trapezoidal
+        
+            input:
+                coordinates .. FrameMember type object that is the subject of the load
+                values .. list type object. values[0] and values[1] are the magnitudes
+                          of the load at the ends of the member
+                direction .. 'x' or 'y'
+                load_id .. integer type load identifier
+                f .. scaling factor
+                ltype .. type of load
+                name .. name of load
+                coord_sys .. "global" or 'local'. If 'local' the load is given in the
+                             local coordinate system of the member.
+        """
         super().__init__(load_id, ltype, name, f)
         if isinstance(coordinates, FrameMember):
             self.member = coordinates
             self.member.has_load = True
             self.member.q0 = values[0]
-            self.member.q1 = values[1]
-            coordinates = self.member.coordinates
+            self.member.q1 = values[1]            
             self.member.loads.append(self)
         else:
             self.mem_id = None
@@ -2858,26 +2890,34 @@ class LineLoad(Load):
         self.direction = direction
         self.f = f
         self.element_ids = None
+        self.coord_sys = coord_sys
 
     @property
     def coordinates(self):
         return self.member.coordinates
 
     def calc_k(self):
+        """ Evaluate the change in the value of a line load
+            per element on a member
+        """
         v0, v1 = self.values
         k = (v1 - v0) / len(self.member.elements)
         return k
 
     def add_load(self, fem_model):
-        k = self.calc_k()
+        """ Add the load to the FEM model """
+        #k = self.calc_k()
         v0, v1 = self.values
+        qvals = np.linspace(v0,v1,len(self.member.elements)+1)        
         for i, elem_id in enumerate(self.member.elements.keys()):
-            v1 = (i * k) + v0
+            #v1 = (i * k) + v0
             load = fem.LineLoad(self.load_id,
                                 fem_model.elements[elem_id],
                                 [0.0, 1.0],
-                                [v0, v1],
-                                self.direction)
+                                [qvals[i],qvals[i+1]],
+                                #[v0, v1],
+                                self.direction,
+                                self.coord_sys)
             fem_model.add_load(load)
             v0 = v1
 
@@ -2983,6 +3023,8 @@ def test_portal():
 
 if __name__ == '__main__':
     # f = test_portal()
+    
+    """
     L = 4000
     H = 4000
     F = -10e3
@@ -2994,8 +3036,23 @@ if __name__ == '__main__':
     frame.generate()
     frame.calculate(load_id='all')
     print(frame.beams[0].dy)
+    """
+    
+    fr = Frame2D()
+    x0 = [0,0]
+    x1 = [8000,0]
+    fr.add(FrameMember([x0,[0,6000]]))
+    fr.add(FrameMember([[0,6000],[8000,6000]],mtype='rigid_beam'))
+    fr.add(FrameMember([[8000,6000],x1]))
+                        
+    fr.add(LineLoad(fr.members[1],[-10,-16],'y',coord_sys='local'))
+    fr.add(LineLoad(fr.members[0],[8,8],'x'))
+    fr.add(FixedSupport(x0))
+    fr.add(FixedSupport(x1))
 
-
+    fr.generate()
+    fr.calculate()
+    fr.bmd(5)
 
     #frame.plot_buckling(scale=1000,k=4)
 

@@ -232,11 +232,13 @@ if __name__ == "__main__":
     
     vb = basic_wind_velocity()
     
-    H = 6
-    qp = peak_velocity_pressure(H, 0, vb)
+    #H = 6
+    H = 10
+    qp = peak_velocity_pressure(H, 2, vb)
 
     #wind = rect_building_wall_pressure(length=72,width=24,h=8,qp=qp,wind_dir="long")
     #wind = rect_building_wall_pressure(length=15,width=12,h=7,qp=qp,wind_dir="long")
-    wind = rect_building_wall_pressure(length=30,width=18,h=H,qp=qp,wind_dir="long")
+    #wind = rect_building_wall_pressure(length=30,width=18,h=H,qp=qp,wind_dir="long")
+    wind = rect_building_wall_pressure(length=12*6,width=5*4.8,h=H,qp=qp,wind_dir="short")
 
     print(qp)    

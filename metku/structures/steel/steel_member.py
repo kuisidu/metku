@@ -211,12 +211,12 @@ class SteelMember:
         MbRd = chiLT * MRd
         
         if verb:
-            print("lambdaLT = {0:4.2f}".format(lambdaLT))
-            print("alphaLT = {0:4.2f}".format(alphaLT))
+            print("lambdaLT = {0:5.4f}".format(lambdaLT))
+            print("alphaLT = {0:5.4f}".format(alphaLT))
             # print("phi = {0:4.2f}".format(p))
-            print("chi_LT = {0:4.2f}".format(chiLT))
-            print("MbRd = {0:4.2f}".format(MbRd*1e-6))
-            print("MRd = {0:4.2f}".format(MRd * 1e-6))
+            print("chi_LT = {0:5.4f}".format(chiLT))
+            print("MbRd = {0:5.3f}".format(MbRd*1e-6))
+            print("MRd = {0:5.3f}".format(MRd * 1e-6))
 
         return MbRd
 
@@ -289,8 +289,10 @@ class SteelMember:
             Mcr = part1 * (part2 + part3)
             
         if verb:
+            print("Critical moment for LT buckling")
             print("kz = {0:4.2f}; kw = {1:4.2f}".format(kz,kw))
             print("C1 = {0:4.2f}; C2 = {1:4.2f}".format(C1,C2))
+            print("Mcr = {0:6.4f}".format(Mcr*1e-6))
 
         # print("Iz = {0:4.2f}".format(Iz*1e-4))
         # print("Iw = {0:4.2f}".format(Iw*1e-6))

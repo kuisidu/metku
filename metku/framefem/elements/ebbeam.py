@@ -13,7 +13,7 @@ from functools import lru_cache
 CACHE_BOUND = 2**10
 
 try:
-    from metku.framefem import Element
+    from metku.framefem import Element, LineLoad
 except:
     from framefem import Element
 
@@ -179,8 +179,11 @@ class EBBeam(Element):
 
         return kG
 
-    def equivalent_nodal_loads(self, q):
-        """ Equivalent nodal loads for load in vector q
+    def equivalent_nodal_loads(self, load):
+        """ Equivalent nodal loads for a load 
+        
+            'load' is a Load type object. By default, it is assumed that
+            'load' is LineLoad
 
             Returns:
             ---------
@@ -193,19 +196,61 @@ class EBBeam(Element):
         T = self.transformation_matrix()
         L = self.length()
 
-        # Load vector transformed into element local coordinate system
-        qloc = T[:3, :3].dot(q)
+        if isinstance(load,LineLoad):
+            q1 = load.qval[0]
+            q2 = load.qval[1]
+            #print(q1,q2)
+            if load.coords == 'local':
+                #print('local coordinates')
+                """ Load is given in local coordinates """
+                if load.dir == "x":
+                    """ Load is in the axial direction """
+                elif load.dir == 'y':
+                    """ Load is perpendicular to the member """
+                    floc[1] = 7/20*q1*L + 3/20*q2*L
+                    floc[4] = 3/20*q1*L + 7/20*q2*L                    
+                    floc[2] = L**2*(1/20*q1+1/30*q2)
+                    floc[5] = -L**2*(1/30*q1+1/20*q2)
+                #print(floc)
+            else:
+                """ Load is given in global coordinates: it has to be transformed
+                    first into local coordinates.
+                """
+                if load.dir == "x":
+                    #q = np.array([q1, 0, 0])
+                    q = np.array([1, 0, 0])
+                else:
+                    #q = np.array([0, q1, 0])
+                    q = np.array([0, 1, 0])
+                # Load vector transformed into element local coordinate system
+                qloc = T[:3, :3].dot(q)
+                
+                """ Loads perpendicular to the axis of the element """
+                qy1 = q1*qloc[1]
+                qy2 = q2*qloc[1]
+                floc[1] = 7/20*qy1*L + 3/20*qy2*L
+                floc[4] = 3/20*qy1*L + 7/20*qy2*L
+                floc[2] = L**2*(1/20*qy1+1/30*qy2)
+                floc[5] = -L**2*(1/30*qy1+1/20*qy2)
+                
+                """ Loads parallel to the axis of the element """
+                qx1 = q1*qloc[0]
+                qx2 = q2*qloc[0]
+                floc[0] = 0.5*L*(0.5*(qx1+qx2)-1/6*(qx2-qx1))
+                floc[3] = 0.5*L*(0.5*(qx1+qx2)+1/6*(qx2-qx1))
+                
+                # Construct nodal load in local coordinates
+                # qloc[0,1,2] = axial, shear, moment of node 1
+                # qloc[3,4,5] = axial, shear, moment ofnode 2
+                # Axial force
+                #floc[[0, 3]] = 0.5 * qloc[0] * L
+                # Shear force
+                #floc[[1, 4]] = 0.5 * qloc[1] * L
+                # Moment
+                #floc[2] = qloc[1] * L ** 2 / 12.0
+                #floc[5] = -floc[2]
 
-        # Construct nodal load in local coordinates
-        # qloc[0,1,2] = axial, shear, moment of node 1
-        # qloc[3,4,5] = axial, shear, moment ofnode 2
-        # Axial force
-        floc[[0, 3]] = 0.5 * qloc[0] * L
-        # Shear force
-        floc[[1, 4]] = 0.5 * qloc[1] * L
-        # Moment
-        floc[2] = qloc[1] * L ** 2 / 12.0
-        floc[5] = -floc[2]
+                #print(floc)
 
         # Store local loads
         self.floc = floc
@@ -213,6 +258,8 @@ class EBBeam(Element):
         # print(self.floc)
 
         fglob = T.transpose().dot(floc)
+        
+        
         return fglob
 
     def shape_fun(self, x):

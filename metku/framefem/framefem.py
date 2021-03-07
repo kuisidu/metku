@@ -1008,7 +1008,7 @@ class LineLoad(Load):
 
     """
 
-    def __init__(self, sid, eid, xloc, qval, direction, coords=1):
+    def __init__(self, sid, eid, xloc, qval, direction, coords='global'):
 
         Load.__init__(self, sid)
 
@@ -1043,7 +1043,7 @@ class LineLoad(Load):
             q = np.array([0, self.qval[0], 0])
 
         # Get equivalent nodal loads
-        F = self.elem.equivalent_nodal_loads(q)
+        F = self.elem.equivalent_nodal_loads(self)
 
         # Number of degrees of freedom
         dofs = np.array(self.elem.global_dofs())
