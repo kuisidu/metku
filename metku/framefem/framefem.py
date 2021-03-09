@@ -263,7 +263,16 @@ class FrameFEM:
         for el in self.elements:
             el.add_loadcase(load_id)
             
+    def add_release(self,eid,dofs):
+        """ Adds releases to an element
+            input: eid .. element number
+                   dofs .. list of degrees of freedom for the given element
+                           for which the corresponding internal forces
+                           are released (set to zero)
+        """
         
+        self.elements[eid].releases = dofs
+    
     def nodal_dofs(self):
         """ Assign nodal degrees of freedom
         """
@@ -282,11 +291,17 @@ class FrameFEM:
         """
         for n in self.nodes:
             for i in range(len(n.dofs)):
-                if n.dofs[i] > 0:
+                #if n.dofs[i] > 0:
+                """if not n.dofs[i]:
+                    print('Not dof')
                     n.dofs[i] = -1
                 else:
+                """
+                if n.dofs[i] >= 0:
+                    #print('Dof')
                     n.dofs[i] = self.dofs
                     self.dofs += 1
+            #print(n.dofs)
 
 
 
@@ -347,6 +362,8 @@ class FrameFEM:
             # row = np.vstack(a[nz])
             # col = a[nz]
             # K[np.vstack(q), q] += ke[row, col]
+            #print(ke[np.ix_(nz, nz)])
+            #print(q)
             K[np.ix_(q, q)] += ke[np.ix_(nz, nz)]
 
 
@@ -491,6 +508,7 @@ class FrameFEM:
         #Kc, low = sp.linalg.cho_factor(K)
         #uc = sp.linalg.cho_solve((Kc, low), p)
 
+        
         u = np.linalg.solve(K, p)
         #print(u)
 
@@ -516,7 +534,8 @@ class FrameFEM:
             for ui, d in zip(u,glob_dofs):                
                 for node in self.nodes:
                     try:
-                        node.u[lcase][node.dofs.index(d)] = np.array(ui)
+                        #node.u[lcase][node.dofs.index(d)] = np.array(ui)
+                        node.u[lcase][np.where(node.dofs==d)] = np.array(ui)
                     except ValueError:
                         pass
                     
@@ -650,7 +669,7 @@ class FrameFEM:
             ax = plt.axes()
 
         """ draw nodes """
-        """
+        
         for n in self.nodes:
             if self.dim == 2:
                 ax.plot(n.coord[0], n.coord[1], 'ro')
@@ -663,7 +682,7 @@ class FrameFEM:
                 plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
             #else:
                 #plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], self.nodes[i].coord[2], str(i))
-        """
+        
         """ draw members """
         el_col = 'k'
         if deformed or buckling_mode is not None:
@@ -679,7 +698,7 @@ class FrameFEM:
             
             if self.dim == 2:
                 ax.plot(X[:, 0], X[:, 1], lstyle, color=(0.6,0.6,0.6))
-                #ax.text(Xmid[0], Xmid[1], str(i))
+                ax.text(Xmid[0], Xmid[1], str(i))
             else:
                 ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
                 ax.text(Xmid[0], Xmid[1], Xmid[2], str(i))
@@ -802,7 +821,7 @@ class Section:
     """
 
     def __init__(self, A):
-        self.area = A
+        self.A = A
         """ cross-sectional area [mm^2] """
 
 
@@ -831,12 +850,27 @@ class BeamSection(Section):
     def __init__(self, A, Iy, Iz=None, J=None):
         Section.__init__(self, A)
         """ Second moment of area [mm^4]"""
-        self.Iy = Iy
-        self.Iz = Iz
+        
+        self.I = [0,0]
+        self.I[0] = Iy
+        
+        if Iz is not None:
+            self.I[1] = Iz
+        
+        #self.Iy = Iy
+        #self.Iz = Iz
         """ Torsional constant """
         self.J = J
+    
+    @property
+    def Iy(self):
         
+        return self.I[0]
 
+    @property
+    def Iz(self):
+        
+        return self.I[1]
 
 class Support:
     """ Supported nodes / degrees of freedom
@@ -1050,7 +1084,7 @@ class LineLoad(Load):
         else:
             q = np.array([0, self.qval[0], 0])
 
-        # Get equivalent nodal loads
+        # Get equivalent nodal loads        
         F = self.elem.equivalent_nodal_loads(self)
 
         # Number of degrees of freedom
@@ -1149,7 +1183,7 @@ class FEMNode:
             self.v = np.array([0, 0, 0, 0, 0, 0])
         else:
             self.coord = np.array([x, y])
-            self.dofs = [0, 0, 0]
+            self.dofs = np.array([-1, -1, -1])
             # [Ux, Uy, Uz]
             self.v = np.array([0,0,0])
         
@@ -1232,6 +1266,11 @@ class Element(metaclass=ABCMeta):
         #self.shear_force = [0.0, 0.0]
         #self.bending_moment = [0.0, 0.0]
         self.floc = {} #np.array([])
+        
+        """ Releases is a list of degrees of freedom for those
+            internal forces that should be set to zero
+        """
+        self.releases = []
 
     def coord(self):
         """ Nodal coordinates of the element

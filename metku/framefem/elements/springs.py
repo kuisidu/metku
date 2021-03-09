@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Mar 15 18:12:04 2018
+Created on Tue Mar  9 10:51:01 2021
 
-Rod element, for pin-jointed members with only axial forces
+Spring elements
 
 @author: kmela
 """
@@ -16,11 +16,19 @@ except:
         
 
 
-class Rod(Element):
-    """ Rod element, carries only axial loads """
+class LinearSpring(Element):
+    """ Linear spring element, carries only axial loads """
 
-    def __init__(self, n1, n2, section, material):
-        Element.__init__(self, n1, n2, section, material)
+    def __init__(self, n1, n2, k):
+        """ Constructor
+            n1 .. node 1
+            n2 .. node 2
+            k .. spring constant
+        """
+        
+        Element.__init__(self, n1, n2, section=None, material=None)
+        
+        self.k = k
         
         # Dimension of the element
         self.dim = len(n1.coord)
@@ -35,25 +43,21 @@ class Rod(Element):
 
     def global_dofs(self):
         """ Get numbering of element global degrees of freedom """
-        d = self.dim            
+        d = self.dim
         return np.append(self.nodes[0].dofs[:d],self.nodes[1].dofs[:d])
         #return self.nodes[0].dofs[:d] + self.nodes[1].dofs[:d]
 
 
     def init_dofs(self):
-        """ For truss members there are no rotational degrees of freedom
+        """ For linear springs there are no rotational degrees of freedom
             so these can be set to be neglected (=1)
         """
         for n in self.nodes:
-            n.dofs[0] = 0
-            n.dofs[1] = 0
-            
-            if self.dim == 3:
-                n.dofs[2] = 0
+            n.dofs[:self.dim] = 0
             
             """
             if self.dim == 2:
-                n.dofs[2] = 1                
+                n.dofs[2] = 1
             else:
                 n.dofs[3] =  1
                 n.dofs[4] =  1
@@ -64,12 +68,9 @@ class Rod(Element):
 
     def local_stiffness_matrix(self):
         """ Stiffness matrix in local coordinates """
-        E = self.material.young
-        A = self.section.A
-        Le = self.length()
-
-        """ Stiffness matrix in local coordinates """
-        return E * A / Le * np.array([[1, -1], [-1, 1]])
+        
+        
+        return self.k * np.array([[1, -1], [-1, 1]])
 
     def stiffness_matrix(self):
         """ Compute the stiffness matrix """
@@ -115,31 +116,16 @@ class Rod(Element):
         return kG
 
     def equivalent_nodal_loads(self, q):
-        """ Equivalent nodal loads for load in vector q
-            Ignore bending moment
-            
-            TODO: Modify for 3D!
+        """ Not needed for springs
         """
-
-        fglob = np.zeros(4)
-
-        dc = self.direction_cosines()
-        L = self.length()
-
-        fglob[[0, 2]] = 0.5 * dc[1] * q[0] * L
-        fglob[[1, 3]] = 0.5 * dc[0] * q[1] * L
-
-        return fglob
-
-
+        pass
+    
     def internal_forces(self, lcase=0):
         """ Calculates internal forces (axial force)
         """
         q = self.local_displacements(lcase)
-        E = self.material.young
-        A = self.section.A
-        L = self.length()
-        self.fint[lcase]['fx'][0] = E * A / L * (q[1] - q[0])
+        
+        self.fint[lcase]['fx'][0] = self.k * (q[1] - q[0])
         self.fint[lcase]['fx'][1] = self.fint[lcase]['fx'][0]
 
 

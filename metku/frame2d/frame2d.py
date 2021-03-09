@@ -1228,7 +1228,7 @@ class Frame2D:
         """
         self.plot(print_text=False, show=False, color=False)
         for member in self.members.values():
-            member.bmd_test(scale)
+            member.bmd(scale)
         # for truss in self.truss:
         #     truss.bmd(scale)
         plt.show()
@@ -1441,6 +1441,8 @@ class FrameMember:
                                         Lcr=[1.0, 1.0], mtype=self.mtype)
 
         self.steel_members = [self.steel_member]
+        
+        self.hinges = [False,False]
 
     def copy(self):
         return type(self)(self.coordinates)
@@ -2098,7 +2100,8 @@ class FrameMember:
                     self.element_ids.append(index)
                     index += 1
         else:
-            for i in range(len(self.nodes) - 1):
+            N = len(self.nodes)
+            for i in range(N - 1):
                 n1 = node_ids[i]
                 n2 = node_ids[i + 1]
 
@@ -2109,6 +2112,15 @@ class FrameMember:
 
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
+                
+                if i == 0 and self.hinges[0]:
+                    """ There is a hinge in the first end """
+                    fem_model.add_release(index,[2])
+                
+                if i == N-2 and self.hinges[1]:
+                    """ There is a hinge in the first end """
+                    fem_model.add_release(index,[5])
+                
                 index += 1
 
     def generate_eccentricity_elements(self, fem_model):
@@ -2219,40 +2231,6 @@ class FrameMember:
         """
         for node in self.nodes:
             self.nodal_displacements[node] = fem_model.nodes[node].u
-
-    def testbmd(self, scale):
-        """ Plots member's bending moment diagram
-            Plots currently only horizontal diagrams
-            :param scale: float, scales the diagram
-        """
-        try:
-            x1 = []
-            y1 = []
-            i = 0
-            for node in self.nodes:
-                forces = self.nodal_forces[node]
-                bending_moment = forces[2]
-                x1.append(i)
-                y1.append(bending_moment)
-                i += self.length / len(self.elements)
-            x2 = [0] * len(x1)
-            max_val = max(y1)
-            min_val = min(y1)
-            if abs(max_val) > abs(min_val) and max_val != y1[0] \
-                    and max_val != y1[-1]:
-                val = min_val
-            else:
-                val = max_val
-            max_loc = int(y1.index(val))
-            plt.gca().invert_yaxis()
-            plt.fill_between(x1, y1, color='lightgray')
-            plt.plot(x1, y1)
-            plt.plot(x1, x2, color='black')
-            plt.text(x1[0], y1[0], str(y1[0]) + "kNm")
-            plt.text(x1[-1], y1[-1], str(y1[-1]) + "kNm")
-            plt.text(x1[max_loc], y1[max_loc], str(val) + "kNm")
-        except ValueError:
-            print("Error! Calculate results first.")
 
     def add_self_weight(self, frame):
         """ Adds self-weight to the member's loads
@@ -2518,64 +2496,7 @@ class FrameMember:
         plt.plot(line_x, line_y, '--', c='k')
         plt.show()
 
-    def bmd(self, scale):
-        """
-        Plots bending moment diagram
-        :param scale: float, scaling factor
-        """
-        X = []
-        Y = []
-        self.calc_nodal_forces()
-
-        moment_values = [x[2] for x in self.nodal_forces.values()]
-        node_ids = list(self.nodes.keys())
-        x = self.nodal_coordinates[0][0]
-        y = self.nodal_coordinates[0][1]
-        X.append(x)
-        Y.append(y)
-        for i in range(len(self.nodes)):
-            node = node_ids[i]
-            if self.mtype == "beam":
-                x0, y0 = self.nodal_coordinates[i + 1].coord
-                bending_moment = self.nodal_forces[node][2]
-                y1 = bending_moment / (1000 / scale)
-                x = x0
-                y = y0 - y1
-                X.append(x)
-                Y.append(y)
-                if i == 0 or i == len(self.nodes) - 1 or bending_moment == max(
-                        moment_values) or \
-                        bending_moment == min(moment_values):
-                    if bending_moment > 0:
-                        vert = 'top'
-                    else:
-                        vert = 'bottom'
-                    plt.text(x, y, f'{bending_moment:.2f} kNm',
-                             verticalalignment=vert)
-
-            elif self.mtype == "column":
-                x0 = self.nodal_coordinates[i + 1][0]
-                y0 = self.nodal_coordinates[i + 1][1]
-                bending_moment = self.nodal_forces[node][2]
-                x1 = bending_moment / (1000 / scale)
-                x = x0 + x1
-                y = y0
-                X.append(x)
-                Y.append(y)
-                if i == 0 or i == len(self.nodes) - 1 or bending_moment == max(
-                        moment_values) or \
-                        bending_moment == min(moment_values):
-                    if bending_moment > 0:
-                        horz = 'left'
-                    else:
-                        horz = 'right'
-                    plt.text(x, y, f'{bending_moment:.2f} kNm',
-                             horizontalalignment=horz)
-        X.append(self.nodal_coordinates[i + 1][0])
-        Y.append(self.nodal_coordinates[i + 1][1])
-        plt.plot(X, Y, color='gray')
-
-    def bmd_test(self, scale=1, load_id = 2):
+    def bmd(self, scale=1, load_id = 2):
 
         # Scales Nmm to kNm
         unit_scaler = 1e-6
@@ -2721,6 +2642,17 @@ class FrameMember:
         for i, coord in enumerate(self.nodal_coordinates):
             self.nodal_coordinates[i] = [round(c, prec) for c in coord]
 
+    def add_hinge(self,loc=0):
+        """ Adds a hinge to the member 
+            input:
+                loc .. location along the member (should be 0 or 1)
+        """
+        if loc == 0:
+            self.hinges[0] = True
+        else:
+            self.hinges[1] = True
+        
+        #self.hinges.append(loc)
 
 class SteelBeam(FrameMember):
     def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
@@ -3056,16 +2988,18 @@ if __name__ == '__main__':
     x1 = [8000,0]
     fr.add(FrameMember([x0,[0,6000]]))
     fr.add(FrameMember([[0,6000],[8000,6000]],mtype='rigid_beam'))
+    #fr.members[1].add_hinge(0)
+    #fr.members[1].add_hinge(1)
     fr.add(FrameMember([[8000,6000],x1]))
                         
-    fr.add(LineLoad(fr.members[1],[-10,-16],'y',coord_sys='local'))
-    fr.add(LineLoad(fr.members[0],[8,8],'x'))
+    fr.add(LineLoad(fr.members[1],[-10,-10],'y',coord_sys='local'))
+    #fr.add(LineLoad(fr.members[0],[8,8],'x'))
     fr.add(FixedSupport(x0))
     fr.add(FixedSupport(x1))
 
     fr.generate()
     fr.calculate(support_method="REM")
-    fr.bmd(5)
+    fr.bmd(6)
 
     #frame.plot_buckling(scale=1000,k=4)
 

@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 import metku.framefem as ff
 from metku.framefem.elements.ebbeam import EBBeam 
+from metku.framefem.elements.springs import LinearSpring
 from metku.sections.steel.ISection import IPE, HEA
 
 class TestFrameFEM(unittest.TestCase):
@@ -161,12 +162,133 @@ def simple_column(L,ne=6):
     """
     return pf #, KG
     
+def test_hinge():
     
+    a = 5000
+    b = 2000
+    
+    f = ff.FrameFEM()
+    
+    sect = IPE(200)
+    
+    f.add_section(sect)
+    
+    f.add_material(sect.E,sect.material.nu,sect.density)
+    
+    f.add_node(0,0)
+    f.add_node(a,0)
+    f.add_node(a+b,0)
+    
+    f.add_element(EBBeam(f.nodes[0],f.nodes[1],sect,f.materials[0]))
+    f.add_element(EBBeam(f.nodes[1],f.nodes[2],sect,f.materials[0]))
+
+    f.add_support(sid=0,nid=0,dof=[0,1,2],val=0.0)
+    f.add_support(sid=0,nid=2,dof=[0,1,2],val=0.0)
+    
+    F = -200e3
+    
+    pl1 = ff.PointLoad(sid=1,node=f.nodes[1],v=[0,F,0],f=1.0)
+    f.add_load(pl1)
+    
+    ll1 = ff.LineLoad(sid=1,eid=f.elements[0],xloc=[0,1],qval=[-10,-10],direction='y')
+    #f.add_load(ll1)    
+    f.add_loadcase(supp_id=0,load_id=1)
+    
+    # Vapautetaan momentti
+    f.add_release(0,[5])
+    #f.add_release(1,[2])
+    
+    f.nodal_dofs()
+    f.linear_statics(lcase=1,support_method="REM")
+
+    f.draw()
+    
+    return f
+
+def test_springs():
+    
+    f = ff.FrameFEM()
+    
+    a = 1.0
+    
+    f.add_node(0,0)
+    f.add_node(a,0)
+    f.add_node(2*a,0)
+    f.add_node(3*a,0)
+    
+    f.add_element(LinearSpring(f.nodes[0],f.nodes[1],k=1000))
+    f.add_element(LinearSpring(f.nodes[1],f.nodes[2],k=2000))
+    f.add_element(LinearSpring(f.nodes[2],f.nodes[3],k=3000))
+
+    f.add_support(sid=0,nid=0,dof=[0,1,2],val=0.0)
+    f.add_support(sid=0,nid=3,dof=[0,1,2],val=0.0)
+    
+    F = 5000
+    
+    pl1 = ff.PointLoad(sid=1,node=f.nodes[2],v=[F,0,0],f=1.0)
+    f.add_load(pl1)
+    
+    f.add_loadcase(supp_id=0,load_id=1)
+    
+    
+    f.nodal_dofs()
+    f.linear_statics(lcase=1,support_method="REM")
+
+    return f
+
+def test_beam_and_spring():
+    
+    a = 3
+    
+    f = ff.FrameFEM()
+    
+    sect = ff.BeamSection(A=0.01,Iy=2e-4)
+    
+    f.add_section(sect)
+    
+    f.add_material(E=210e6,nu=.3,density=7850)
+    
+    f.add_node(0,0)
+    f.add_node(a,0)
+    f.add_node(2*a,0)
+    f.add_node(2*a,-1e-3)
+    
+    f.add_element(EBBeam(f.nodes[0],f.nodes[1],sect,f.materials[0]))
+    f.add_element(EBBeam(f.nodes[1],f.nodes[2],sect,f.materials[0]))
+    f.add_element(LinearSpring(f.nodes[2],f.nodes[3],k=200))
+
+    f.add_support(sid=0,nid=0,dof=[0,1,2],val=0.0)
+    f.add_support(sid=0,nid=1,dof=[1],val=0.0)
+    f.add_support(sid=0,nid=3,dof=[0,1],val=0.0)
+    
+    F = -50
+    
+    pl1 = ff.PointLoad(sid=1,node=f.nodes[2],v=[0,F,0],f=1.0)
+    f.add_load(pl1)
+    
+    #ll1 = ff.LineLoad(sid=1,eid=f.elements[0],xloc=[0,1],qval=[-10,-10],direction='y')
+    #f.add_load(ll1)    
+    f.add_loadcase(supp_id=0,load_id=1)
+    
+    # Vapautetaan momentti
+    #f.add_release(0,[5])
+    #f.add_release(1,[2])
+    
+    f.nodal_dofs()
+    f.linear_statics(lcase=1,support_method="REM")
+
+    #f.draw()
+    
+    return f
 
 if __name__ == '__main__':
     
-    pf, KG = simple_portal_fem(L=4000,H=4000,ne=20)
+    #pf, KG = simple_portal_fem(L=4000,H=4000,ne=20)
     
     #pf = simple_column(L=8000,ne=6)
     
+    #f = test_hinge()
 
+    #f = test_springs()
+    
+    f = test_beam_and_spring()

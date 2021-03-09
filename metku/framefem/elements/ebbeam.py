@@ -47,6 +47,8 @@ class EBBeam(Element):
 
         #self.bending_moment = [0.0, 0.0]
         #self.shear_force = [0.0, 0.0]
+        
+        self.Krel = {'K11':None, 'K12':None, 'K21':None, 'K22':None}
 
 
     def transformation_matrix(self):
@@ -67,6 +69,15 @@ class EBBeam(Element):
         L[3:6, 3:6] = L[0:3, 0:3]
         return L
 
+
+    def init_dofs(self):
+        """ For beam members all degrees of freedom
+            are in play.
+        """
+        for n in self.nodes:
+            n.dofs[:3] = 0
+                        
+
     def global_dofs(self):
         """ Get numbering of element's global degrees of freedom
 
@@ -75,7 +86,8 @@ class EBBeam(Element):
             :return: list of end nodes dofs added together
             :rtype: list
         """
-        return self.nodes[0].dofs + self.nodes[1].dofs
+        return np.append(self.nodes[0].dofs,self.nodes[1].dofs)
+        #return self.nodes[0].dofs + self.nodes[1].dofs
 
     @lru_cache(CACHE_BOUND)
     def local_stiffness_matrix(self, E, A, I1, Le):
@@ -107,6 +119,49 @@ class EBBeam(Element):
         k0[[2, 5], [5, 2]] = 2 * EI1 / Le
         #
         k0[[2, 5], [2, 5]] = 4 * EI1 / Le
+        
+        if len(self.releases) > 0:
+            """ There are releases in the element, so the stiffness matrix
+                is modified.
+            """
+            rel = self.releases
+            # nrel is the list of non-released forces
+            nrel = np.setdiff1d(np.arange(6),rel)
+            K22 = k0[np.ix_(rel,rel)]
+            K11 = k0[np.ix_(nrel,nrel)]
+            K12 = k0[np.ix_(nrel,rel)]
+            K21 = k0[np.ix_(rel,nrel)]
+            
+            self.Krel['K11'] = K11
+            self.Krel['K12'] = K12
+            self.Krel['K21'] = K21
+            self.Krel['K22'] = K22
+            
+            """
+            print(rel,nrel)
+            print('k0')
+            print(k0)
+            print('K22')
+            print(K22)
+            print('K11')
+            print(K11)
+            print('K12')
+            print(K12)
+            print('K21')
+            print(K21)
+            """
+            #K221K21inv = np.linalg.inv(K22).dot(K21)
+            kc = K11 - K12.dot(np.linalg.inv(K22).dot(K21))
+            
+            """
+            print('kc = ')
+            print(kc)
+            print(kc.shape)
+            """
+            k0[np.ix_(nrel,nrel)] = kc
+            k0[rel,:] = 0
+            k0[:,rel] = 0
+            #print(k0)
 
         return k0
 
@@ -253,6 +308,18 @@ class EBBeam(Element):
 
                 #print(floc)
 
+        if len(self.releases) > 0:
+            """ There are releases in the element, so the local load vector
+                is modified.
+            """
+            rel = self.releases
+            # nrel is the list of non-released forces
+            nrel = np.setdiff1d(np.arange(6),rel)            
+            
+            #print(np.linalg.inv(self.Krel['K22']).dot(floc[rel]))
+            floc[nrel] -= self.Krel['K12'].dot(np.linalg.inv(self.Krel['K22']).dot(floc[rel]))
+            floc[rel] = 0            
+
         # Store local loads
         self.floc[load.sid] = floc
 
@@ -302,7 +369,7 @@ class EBBeam(Element):
         Le = self.length()
         ke = self.local_stiffness_matrix(E, A, I1, Le)
 
-        try:
+        try:            
             R = ke.dot(q) - self.floc[lcase]
         except:
             R = ke.dot(q)
@@ -372,6 +439,13 @@ class EBBeam3D(Element):
         """
         self.nref = nref
         
+    def init_dofs(self):
+        """ For beam members all degrees of freedom
+            are in play.
+        """
+        for n in self.nodes:
+            n.dofs[:6] = 0
+            
     def direction_cosines(self):
         """ Calculates direction cosines for a 3D-beam element """
         
@@ -423,7 +497,8 @@ class EBBeam3D(Element):
             :return: list of end nodes dofs added together
             :rtype: list
         """
-        return self.nodes[0].dofs + self.nodes[1].dofs
+        return np.append(self.nodes[0].dofs,self.nodes[1].dofs)
+        #return self.nodes[0].dofs + self.nodes[1].dofs
     
     
     def local_stiffness_matrix(self):
