@@ -71,7 +71,59 @@ class WindLoad(Load):
         return "Wind load: basic value {0:3.1f} kN/m2".format(self.value)
 
 
+class AccidentalLoads():
+    """
+
+    """
+
+    def __init__(self, *args, comb_factors=[0.3, 0.3, 0.3]):
+        """ Constructor
+
+            :param value: value of characteristic load [kN/m2]
+        """
+
+        self.loads = args
+        self.gamma_G = 1.15
+        self.gamma_Q = 1.5
+        psi_fi = comb_factors
+
+        #self.value = value
+        self.comb_factors = comb_factors
+        #G_k = value1                                  #self.weight()
+        #Q_k = value2
+
+        #eta_fi = (G_k + psi_fi * Q_k) / (gamma_G * G_k + gamma_Q * Q)
+
+        #return G_k + psi_fi * Q_k
+
+    def combined(self, combi=0):
+        """ Returns the combined value
+            :param combi: integer (0, 1, 2) for choosing the combination factor
+        """
+
+        return self.gamma_G * self.loads[0].combined(0) + self.gamma_Q * self.loads[1].combined(1) +\
+               self.gamma_Q * self.loads[2].combined(2) + self.gamma_Q * self.loads[3].combined(2)
+
+
+#
+#
+#
+#
+#
+# class LoadsAccrual(Load):
+#     """
+#     Class for loads accumulation from a given span and frame spacing
+#     """
+#     pass
+
+
 if __name__ == "__main__":
-    
-    s = SnowLoad(2.5)
-    w = WindLoad(0.6)
+
+    SW = Load(1)
+    Qs = SnowLoad(20)
+    Qw = WindLoad(0.6)
+    Hk = ImposedLoad(10)
+    print((Qs.combined(1) + Hk.combined(0)))
+    print(Hk.combined(1))
+    Acc = AccidentalLoads(SW, Qs, Qw, Hk)
+    print(Acc.combined())

@@ -534,11 +534,11 @@ class WIColumn(OptimizationProblem):
 
         def com_compression_bending_y(x):
             self.substitute_variables(x)
-            return mem.steel_member.check_beamcolumn(section_class=section_class)[0] - 1
+            return mem.member.check_beamcolumn(section_class=section_class)[0] - 1
 
         def com_compression_bending_z(x):
             self.substitute_variables(x)
-            return mem.steel_member.check_beamcolumn(section_class=section_class)[1] - 1
+            return mem.member.check_beamcolumn(section_class=section_class)[1] - 1
 
         def lt_buckling(x):
             self.substitute_variables(x)

@@ -18,14 +18,14 @@ Class for general steel cross sections
 import numpy as np
 from abc import abstractclassmethod, ABCMeta
 
-# try:
-from metku.eurocodes.en1993 import constants
-from metku.eurocodes.en1993 import en1993_1_1
-from metku.materials.steel_data import Steel
-# except:
-#     from eurocodes.en1993 import constants
-#     from eurocodes.en1993 import en1993_1_1
-#     from materials.steel_data import Steel
+try:
+    from metku.eurocodes.en1993 import constants
+    from metku.eurocodes.en1993 import en1993_1_1
+    from metku.materials.steel_data import Steel
+except:
+    from eurocodes.en1993 import constants
+    from eurocodes.en1993 import en1993_1_1
+    from materials.steel_data import Steel
 
 
 INFEASIBLE = 999

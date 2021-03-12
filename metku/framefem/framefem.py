@@ -155,7 +155,7 @@ class FrameFEM:
         self.nodes.append(newNode)
         return newNode
 
-    def add_material(self, E, nu, density):
+    def add_material(self, E, nu, density, G=None):
         """ Adds new material
 
         Parameters:
@@ -168,7 +168,7 @@ class FrameFEM:
         :type nu: float
         :type density: float
         """
-        newMat = Material(E, nu, density)
+        newMat = Material(E, density, nu=nu, G=G)
         self.materials.append(newMat)
         return newMat
 
@@ -365,7 +365,6 @@ class FrameFEM:
             #print(ke[np.ix_(nz, nz)])
             #print(q)
             K[np.ix_(q, q)] += ke[np.ix_(nz, nz)]
-
 
         return K
 
@@ -784,7 +783,7 @@ class Material:
         :vartype shear_modulus: float
     """
 
-    def __init__(self, E, nu, rho, G=None):
+    def __init__(self, E, rho, nu=None, G=None):
         """ Young's modulus """
         self.young = E
         """ Poisson ratio """

@@ -3,24 +3,31 @@
 """
 
 import os
+import sys
 import time
-
 import numpy as np
 
-# try:
-import metku.framefem.framefem  as fem
-from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-from metku.sections.steel import *
-from metku.sections.steel.catalogue import *
-from metku.frame2d.materials import MATERIALS
-from metku.structures.steel.steel_member import SteelMember
-# except:
-#     import framefem.framefem  as fem
-#     from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-#     from sections.steel import *
-#     from sections.steel.catalogue import *
-#     from frame2d.materials import MATERIALS
-#     from structures.steel.steel_member import SteelMember
+try:
+    import metku.framefem.framefem  as fem
+    from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+    from metku.sections.steel import *
+    from metku.sections.steel.catalogue import *
+    from metku.frame2d.materials import MATERIALS
+    from metku.structures.steel.steel_member import SteelMember
+    from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki
+    from metku.structures.timber.timber_member import TimberMember
+    from metku.materials.timber_data import T, Timber
+except:
+    import framefem.framefem as fem
+    from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+    from materials.steel_data import Steel
+    from sections.steel import *
+    from sections.steel.catalogue import *
+    from frame2d.materials import MATERIALS
+    from structures.steel.steel_member import SteelMember
+    from sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki
+    from structures.timber.timber_member import TimberMember
+    from materials.timber_data import T, Timber
 
 # Rounding precision (number of decimals)
 PREC = 3
@@ -179,11 +186,15 @@ class Frame2D:
                 if isinstance(coord, list):
                     this.add_node_coord(coord)
                     member.add_node_coord(coord)
-
+            '''
+            TODO
+            '''
             if str(this.nodal_coordinates) not in [str(c) for c in
                                                    self.nodal_coordinates]:
                 self.nodal_coordinates.extend(this.nodal_coordinates)
                 self.nodal_coordinates.sort()
+
+
 
 
         # POINTLOADS
@@ -376,6 +387,7 @@ class Frame2D:
             member.add_material(self.f)
             member.add_section(self.f)
 
+    # This method is not utilized later in code ?!?!?!
     def calc_nodal_coordinates(self):
         """ Calculates nodal coordinates and saves values to a list.
             These values are later used for creating the nodes.
@@ -573,7 +585,7 @@ class Frame2D:
                 if coord[1] == 0:
                     self.add(XYHingedSupport(coord))
 
-    def generate(self):
+    def generate(self, self_weight=False):
         """ Generates the frame and truss FEM model
         """
         # If the frame hasn't been created, create members and calculate nodal
@@ -588,6 +600,9 @@ class Frame2D:
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
             self.nodes.extend(list(member.nodes.values()))
+
+        for member in self.members.values():
+            member.member.add_neighbours_support()
 
         # Generate TrussJoints
         if len(self.truss):
@@ -614,6 +629,9 @@ class Frame2D:
             if pointLoad.load_id not in lcase_ids:
                 self.f.add_loadcase(supp_id=1,
                                     load_id=pointLoad.load_id)
+
+        if self_weight:
+            self.add_self_weight()
 
         # Add line loads (if any)
         for lineLoad in self.line_loads.values():
@@ -1264,7 +1282,7 @@ class Frame2D:
     def add_self_weight(self):
         """ Adds self weight to frame's members
         """
-        if self.self_weight == False:
+        if self.self_weight is False:
             self.self_weight = True
             for member in self.members.values():
                 member.add_self_weight(self)
@@ -1387,10 +1405,7 @@ class FrameMember:
         self.ecc_elements = {}
         self.ecc_coordinates = []
         self.ecc_element_nodes = {}
-        """ To modify this to accommodate timber members, change the name
-            from steel_member to 'member'
-        """
-        self.steel_member = None
+        self.member = None
         # start node, FEMNode object
         self.n1 = None
         # end node, FEMNode object
@@ -1434,14 +1449,10 @@ class FrameMember:
         self.q0 = 0
         self.q1 = 0
         # Create SteelMember object
-        """ Add check here for creating appropriate member
-            SteelMember or TimberMember
-        """
-        self.steel_member = SteelMember(self.cross_section, self.length,
-                                        Lcr=[1.0, 1.0], mtype=self.mtype)
+        self.member = SteelMember(self.cross_section, self.length,
+                                  Lcr=[1.0, 1.0], mtype=self.mtype)
 
-        self.steel_members = [self.steel_member]
-        
+        self.members = [self.member]
         self.hinges = [False,False]
 
     def copy(self):
@@ -1622,7 +1633,7 @@ class FrameMember:
         """ Returns LT buckling resistance
             Units: Nmm
         """
-        return self.steel_member.MbRd
+        return self.member.MbRd
 
     @property
     def NRd(self):
@@ -1636,7 +1647,7 @@ class FrameMember:
         """ Returns buckling resistance
             Units: N
         """
-        return self.steel_member.NbRd
+        return self.member.NbRd
 
     @property
     def VRd(self):
@@ -1809,8 +1820,8 @@ class FrameMember:
                 element.section.A = self.cross_section.A
                 element.section.Iy = self.cross_section.I[0]
         # Change steel_member objects properties
-        if self.steel_member:
-            self.steel_member.profile = self.cross_section
+        if self.member:
+            self.member.profile = self.cross_section
 
     @property
     def Sj1(self):
@@ -1866,7 +1877,6 @@ class FrameMember:
     @property
     def length(self):
         start_node, end_node = np.asarray(self.coordinates)
-
         return np.linalg.norm(end_node - start_node)
 
     def alpha_to_Sj(self):
@@ -1949,7 +1959,7 @@ class FrameMember:
                 
         dloc = 1 / self.num_elements # step length in local coordinate system
         #for loc in np.arange(0, 1 + dloc, dloc):
-        for loc in np.linspace(0, 1 , self.num_elements + 1):
+        for loc in np.linspace(0, 1, self.num_elements + 1):
             
             loc = round(loc, PREC) # round local coordinate to PREC decimals
             
@@ -2038,10 +2048,21 @@ class FrameMember:
                 n1 = node_ids[i]
                 n2 = node_ids[i + 1]
 
-                self.elements[index] = \
-                    EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                           self.cross_section, \
-                           self.material)
+                if isinstance(self.cross_section, TaperedSection):
+                    # TODO ei laske oiken jos nodet ei ole tasavälein
+                    A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+                    I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+
+                    new_section = SmallElementSection(A, I)
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                               new_section, \
+                               self.material)
+                else:
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                               self.cross_section, \
+                               self.material)
 
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
@@ -2051,9 +2072,9 @@ class FrameMember:
             n1 = node_ids[0]
             n2 = node_ids[1]
             self.elements[index] = \
-                    Rod(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                    self.cross_section, \
-                                    self.material)
+                Rod(fem_model.nodes[n1], fem_model.nodes[n2], \
+                        self.cross_section, \
+                        self.material)
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
         elif self.mtype == "beam":
@@ -2075,24 +2096,54 @@ class FrameMember:
 
                     # EBSemiRigid -element, first element
                     if i == 0:
-                        self.elements[index] = \
-                            EBSemiRigidBeam(fem_model.nodes[n1],
+                        if isinstance(self.cross_section, TaperedSection):
+                            A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+                            I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+
+                            new_section = SmallElementSection(A, I)
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                       new_section, \
+                                       self.material, rot_stiff=[self.Sj1, np.inf])
+                        else:
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1],
                                             fem_model.nodes[n2], \
                                             self.cross_section, \
                                             self.material, \
                                             rot_stiff=[self.Sj1, np.inf])
                     # EBSemiRigid -element, last element
                     elif i == (len(self.nodes) - 2):
-                        self.elements[index] = \
-                            EBSemiRigidBeam(fem_model.nodes[n1],
+                        if isinstance(self.cross_section, TaperedSection):
+                            A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+                            I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+
+                            new_section = SmallElementSection(A, I)
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                       new_section, \
+                                       self.material, rot_stiff=[np.inf, self.Sj2])
+                        else:
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1],
                                             fem_model.nodes[n2], \
                                             self.cross_section, \
                                             self.material, \
                                             rot_stiff=[np.inf, self.Sj2])
                     # EBBeam -elements
                     else:
-                        self.elements[index] = \
-                            EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                        if isinstance(self.cross_section, TaperedSection):
+                            A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+                            I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
+
+                            new_section = SmallElementSection(A, I)
+                            self.elements[index] = \
+                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
+                                       new_section, \
+                                       self.material)
+                        else:
+                            self.elements[index] = \
+                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
                                    self.cross_section, \
                                    self.material)
 
@@ -2284,9 +2335,9 @@ class FrameMember:
         Creates new sections if none are created,
         otherwise updates old values
         """
-        self.steel_member.length = self.length
-        self.steel_member.profile = self.cross_section
-        self.steel_member.clear_sections()
+        self.member.length = self.length
+        self.member.profile = self.cross_section
+        self.member.clear_sections()
         for i, element in enumerate(self.elements.values()):
             #M1, M2 = element.bending_moment
             #N1, N2 = element.axial_force
@@ -2295,11 +2346,11 @@ class FrameMember:
             N1, N2 = element.fint[load_id]['fx']
             V1, V2 = element.fint[load_id]['fz']
             loc = self.locs[i]
-            self.steel_member.add_section(ned=N1, vzed=V1,
-                                          myed=M1, loc=loc)
+            self.member.add_section(ned=N1, vzed=V1,
+                                    myed=M1, loc=loc)
         loc = self.locs[i + 1]
-        self.steel_member.add_section(ned=N2, vzed=V2,
-                                      myed=M2, loc=loc)
+        self.member.add_section(ned=N2, vzed=V2,
+                                myed=M2, loc=loc)
 
         #
         # if not self.steel_member.nsect():
@@ -2328,13 +2379,13 @@ class FrameMember:
 
         self.r = np.zeros_like(self.r)
         # Cross-sectional stress ratios in member's nodes' locations
-        self.r[:4] = self.steel_member.check_sections()
+        self.r[:4] = self.member.check_sections()
         # Buckling about y - and z - axis
-        buckling_r = self.steel_member.check_buckling()
+        buckling_r = self.member.check_buckling()
         self.r[4] = buckling_r[0]
         self.r[5] = buckling_r[1]
         # Lateral-Torsional buckling
-        self.r[6] = self.steel_member.check_LT_buckling()
+        self.r[6] = self.member.check_LT_buckling()
         # Set cross-section's maximum forces for getting results later
         self.cross_section.Ned = self.ned
         self.cross_section.Ved = self.ved
@@ -2368,7 +2419,7 @@ class FrameMember:
         for profile in profiles:
             self.profile = profile
             self.check_cross_section()
-            for smem in self.steel_members:
+            for smem in self.members:
                 r1 = smem.check_sections()
 
                 r2 = max(smem.check_beamcolumn())
@@ -2474,8 +2525,8 @@ class FrameMember:
 
         UN, UV, UM, UMN = self.cross_section.section_resistance(
             return_list=True)
-        B = max(self.steel_member.check_buckling())
-        LT = self.steel_member.check_LT_buckling()
+        B = max(self.member.check_buckling())
+        LT = self.member.check_LT_buckling()
 
         x = np.arange(6)
         Y = [UN, UV, UM, UMN, B, LT]
@@ -2642,19 +2693,195 @@ class FrameMember:
         for i, coord in enumerate(self.nodal_coordinates):
             self.nodal_coordinates[i] = [round(c, prec) for c in coord]
 
-    def add_hinge(self,loc=0):
-        """ Adds a hinge to the member 
-            input:
-                loc .. location along the member (should be 0 or 1)
+    def add_hinge(self, loc=0):
+        """ Adds a hinge to the member
+        input:
+            loc .. location along the member (should be 0 or 1)
         """
         if loc == 0:
             self.hinges[0] = True
         else:
             self.hinges[1] = True
-        
-        #self.hinges.append(loc)
 
-class SteelBeam(FrameMember):
+class SteelFrameMember(FrameMember):
+    def __init__(self, coordinates, mem_id='', profile='IPE 100', material="S355", num_elements=4, **kwargs):
+        super().__init__(coordinates, mem_id, profile, material, num_elements, **kwargs)
+        self.member = SteelMember(self.cross_section, self.length,
+                                        Lcr=[1.0, 1.0], mtype=self.mtype)
+
+        self.members = [self.member]
+
+class TimberFrameMember(FrameMember):
+    def __init__(self, coordinates, profile, mem_id='', material=T.C16, num_elements=5, LT_buckling=False,
+                 varnished=False, ldc='inst', sc=1, Sj1=np.inf, Sj2=np.inf, mtype="", lateral_support_y=None,
+                 lateral_support_z=None, edge_load='compression', beta=None):
+        """
+
+        @param coordinates:
+        @param profile:
+        @param mem_id:
+        @param material:
+        @param num_elements:
+        @param LT_buckling:
+        @param varnished:
+        @param ldc: Load duration class. options: 'perm' = permanent, 'lt' = long-term, 'mt' = medium-term,
+                    'st' = short-term, 'inst' = instantaneous
+        @param sc: Service class.
+        @param Sj1:
+        @param Sj2:
+        @param mtype:
+        @param support_nodes: number of nodes that support the beam from z direction (This has nothing to do with FEM)
+        @param edge_load: 'compression' or 'tension'
+        """
+        super().__init__(coordinates, mem_id, profile, material, num_elements, Sj1, Sj2, mtype, LT_buckling)
+        profile.material = self.material
+        self.r = np.ones(10)
+        if lateral_support_z is None:
+            lateral_support_z = []
+        if lateral_support_y is None:
+            lateral_support_y = []
+        self.member = TimberMember(self.cross_section, self.material, self.length,
+                                   ldc, sc, mtype=mtype, varnished=varnished, Sj1=self.Sj1, Sj2=self.Sj2,
+                                   nodes=self.nodes, parent=self, lateral_support_y=lateral_support_y,
+                                   lateral_support_z=lateral_support_z, edge_load=edge_load, beta=beta)
+        self.members = [self.member]
+
+    @property
+    def R(self):
+        return self.cross_section.R
+
+    @R.setter
+    def R(self, val):
+        self.cross_section.R = val
+
+    @property
+    def profile(self):
+        return str(self.__profile)
+
+    @profile.setter
+    def profile(self, val):
+        if isinstance(val, TimberSection):
+            self.__profile = val
+            self.cross_section = val
+        else:
+            raise NotImplementedError
+
+    @property
+    def material(self):
+        """
+        Returns member's material e.g. S355
+        """
+        return self.__material
+
+    @material.setter
+    def material(self, val):
+        """
+        Changes member's matrial and gets new material properties
+        from tables_and_tuples.mat -dict
+        """
+        self.__material = Timber(val)
+
+    def add_material(self, fem_model):
+        """ Adds member's material information to calculation model
+            Young's modulus MPa
+            TODO tarkista G parametri (sen suuntaus ja arvo)
+            Density kg/m^3
+        """
+        fem_model.add_material(self.member.E0mean, None, self.member.material.rhomean, G=self.member.material.Gmean)
+
+    def add_self_weight(self, frame):
+        """ Adds self-weight to the member's loads
+        """
+        if not self.self_weight:
+            self.self_weight = True
+
+            if isinstance(self.cross_section, PulpettiPalkki):
+                multiplier = 10
+                value1 = -1 * multiplier * self.cross_section.get_A(0) * self.rho * 1e-9
+                value2 = -1 * multiplier * self.cross_section.get_A(1) * self.rho * 1e-9
+                direction = 'y'
+                print(f'val1 {value1} val2 {value2}')
+                frame.add(LineLoad(self, [value1, value2], direction))
+            elif isinstance(self.cross_section, HarjaPalkki):
+                raise NotImplementedError
+            elif isinstance(self.cross_section, TimberSection):
+                # TODO load id
+                load_id = "self_weight"
+                # self.weight is kg's, multiplier changes it to N's
+                multiplier = 10
+                value = -1 * multiplier * self.A * self.rho * 1e-9
+                direction = 'y'
+                frame.add(LineLoad(self, [value, value], direction))
+
+
+
+
+    def check_cross_section(self):
+        """ Checks if cross-section is strong enough.
+            Gives boolean value for self.is_strong_enough
+            Saves list of stress ratios to self.r
+        """
+
+        self.r = np.zeros_like(self.r) # [0, 1, 2, .. 8]
+        # Cross-sectional stress ratios in member's nodes' locations
+        self.r[:7] = self.member.check_sections()
+        # Buckling about y - and z - axis
+        buckling_r = self.member.check_buckling()
+        self.r[7] = buckling_r[0]
+        self.r[8] = buckling_r[1]
+        # Lateral-Torsional buckling
+        self.r[9] = self.member.check_LT_buckling()
+
+        if max(self.r) > 1.0:
+            self.is_strong_enough = False
+        else:
+            self.is_strong_enough = True
+
+    def print_utility_factor(self):
+        END = '\033[0m'
+        print(f'{self.cross_section.__class__.__name__} käyttöasteet')
+        print('______________________________________')
+        COLOR = self.get_printing_color(self.r[0])
+        print(f'{COLOR}EC5(6.1)\t  UN\t\t {round(self.r[0] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(self.r[1])
+        print(f'{COLOR}EC5(6.13)\t  UV\t\t {round(self.r[1] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(self.r[2])
+        print(f'{COLOR}EC5(6.11)\t  UM\t\t {round(self.r[2] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(self.r[3])
+        print(f'{COLOR}EC5(6.14)\t  UT\t\t {round(self.r[3] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(self.r[4])
+        print(f'{COLOR}EC5(6.17)\t  UBT\t\t {round(self.r[4] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(self.r[5])
+        print(f'{COLOR}EC5(6.19)\t  UBC\t\t {round(self.r[5] * 100, PREC)} %{END}')
+
+        COLOR = self.get_printing_color(self.r[7])
+        print(f'{COLOR}EC5(6.23)  buckling y\t {round(self.r[7] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(self.r[8])
+        print(f'{COLOR}EC5(6.24)  buckling z\t {round(self.r[8] * 100, PREC)} %{END}')
+        print('sauvan hoikkuus', '\u03BBy', '=', round(self.member.lamda()[0][0], PREC))
+        print('sauvan hoikkuus', '\u03BBz', '=', round(self.member.lamda()[1][0], PREC))
+        if self.mtype == 'beam':
+            COLOR = self.get_printing_color(self.r[9])
+            print(f'{COLOR}EC5(6.35) tai (6.33) LT buckling\t {round(self.r[9] * 100, PREC)} %{END}')
+            COLOR = self.get_printing_color(self.r[6])
+            print(f'{COLOR}EC5(6.2)\t  UNcp\t\t {round(self.r[6] * 100, PREC)} %{END}')
+            loc = self.member.check_perpendicular_compression(location=True)
+            if isinstance(loc, list):
+                print('leimapaineen solmu: x:', loc[1].x, 'y:', loc[1].y)
+        print('--------------------------------------')
+
+    def get_printing_color(self, val):
+        GREEN = '\033[92m'
+        YELLOW = '\033[93m'
+        RED = '\033[91m'
+        if val > 1:
+            return RED
+        elif 0.8 < val <= 1:
+            return YELLOW
+        else:
+            return GREEN
+
+class SteelBeam(SteelFrameMember):
     def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
                  profile="IPE 100", material="S355", num_elements=4, **kwargs):
         super().__init__(coordinates, mem_id, profile, material, num_elements,
@@ -2679,11 +2906,11 @@ class SteelBeam(FrameMember):
             self.mtype = 'column'
 
 
-class SteelColumn(FrameMember):
+class SteelColumn(SteelFrameMember):
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
                  material="S355", num_elements=4, LT_buckling=False):
         super().__init__(coordinates, mem_id, profile, material, num_elements,
-                         LT_buckling)
+                         LT_buckling=LT_buckling)
 
         self.mtype = 'column'
         self.check_mtype()
@@ -2906,29 +3133,45 @@ class Support:
 
 
 class FixedSupport(Support):
+    '''
+    In ROBOT this setting means that UX, UZ and RY check marks are present in the support dialog
+    '''
     def __init__(self, coordinate, supp_id=1):
         # super().__init__(coordinate, [1, 1, 1], supp_id)
         super().__init__(coordinate, [0, 1, 2], supp_id)
 
 
 class XHingedSupport(Support):
+    '''
+    In ROBOT this setting means that UX direction check marks is present in the support dialog, but UZ and RY are empty
+    '''
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [0], supp_id)
 
 
 class YHingedSupport(Support):
+    '''
+    In ROBOT this setting means that UZ direction check mark is present in the support dialog, but UX and RY are empty
+    '''
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [1], supp_id)
 
 
 class XYHingedSupport(Support):
+    '''
+    In ROBOT this setting means that UX and UZ direction check marks are present in the support dialog, but RY is empty
+    '''
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [0, 1], supp_id)
 
 
 class Hinge(Support):
+    '''
+    In ROBOT this setting means all of the check marks removed from the support dialog
+    '''
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [0, 1], supp_id)
+        super().__init__(coordinate, [], supp_id)
+
 
 
 def test():
@@ -2967,40 +3210,22 @@ def test_portal():
 
 
 if __name__ == '__main__':
-    # f = test_portal()
-    
-    """
-    L = 4000
-    H = 4000
-    F = -10e3
-    frame = Frame2D(simple=[1, 1, H, L], supports='fixed')
-
-    for b in frame.beams:
-        frame.add(LineLoad(b, [-10, -10], 'y', load_id='MRT'))
-        frame.add(LineLoad(b, [-20, -20], 'y', load_id=2))
-    frame.generate()
-    frame.calculate(load_id='all')
-    print(frame.beams[0].dy)
-    """
-    
     fr = Frame2D()
-    x0 = [0,0]
-    x1 = [8000,0]
-    fr.add(FrameMember([x0,[0,6000]]))
-    fr.add(FrameMember([[0,6000],[8000,6000]],mtype='rigid_beam'))
-    #fr.members[1].add_hinge(0)
-    #fr.members[1].add_hinge(1)
-    fr.add(FrameMember([[8000,6000],x1]))
-                        
-    fr.add(LineLoad(fr.members[1],[-10,-10],'y',coord_sys='local'))
-    #fr.add(LineLoad(fr.members[0],[8,8],'x'))
-    fr.add(FixedSupport(x0))
-    fr.add(FixedSupport(x1))
 
+    # coord1 = [[0,0], [0, 5000]]
+    # coord2 = [[0,5000], [10000, 7000]]
+    # coord3 = [[10000, 0], [10000, 7000]]
+    coord1 = [[0, 0], [10000, 0]]
+    fr.add(FrameMember(coord1))
+#    fr.add(FrameMember(coord2))
+#    fr.add(FrameMember(coord3))
+    fr.add(PointLoad([5000, 0], [0, -2000, 0]))
+    fr.add(XYHingedSupport(coord1[0]))
+    fr.add(XYHingedSupport(coord1[1]))
     fr.generate()
-    fr.calculate(support_method="REM")
-    fr.bmd(6)
-
+    fr.calculate()
+    fr.bmd(50)
+    fr.plot()
     #frame.plot_buckling(scale=1000,k=4)
 
     """

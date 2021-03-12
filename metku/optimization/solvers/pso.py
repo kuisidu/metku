@@ -8,8 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from deap import base, creator, tools
 
-from metku.optimization.solvers.optsolver import OptSolver, G_TOL
-
+try:
+    from metku.optimization.solvers.optsolver import OptSolver, G_TOL
+except:
+    from optimization.solvers.optsolver import OptSolver, G_TOL
 
 class PSO(OptSolver):
     """ Particle swarm optimization solver """

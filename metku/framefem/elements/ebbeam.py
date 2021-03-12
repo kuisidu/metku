@@ -53,7 +53,7 @@ class EBBeam(Element):
 
     def transformation_matrix(self):
         """ Calculates transformation matrix from local to global coordinates
-
+            Chandrupatla 3rd. Edition, p. 249
             Returns:
             --------
             :return: element's transformation matrix

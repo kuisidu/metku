@@ -10,9 +10,14 @@ EN 1993-1-2 Supplementary rules for fire design
 import math
 import numpy as np
 
-from metku.eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
-# import metku.materials.steel_data as sd
-from metku.materials import steel_data as sd
+try:
+    from metku.eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
+    # import metku.materials.steel_data as sd
+    from metku.materials import steel_data as sd
+except:
+    from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
+    # import metku.materials.steel_data as sd
+    from materials import steel_data as sd
 # EN 1993-1-2: Table 3.1
 REDUCTION_FACTORS_CS = {20:{'ky':1.0,'kp':1.0,'kE':1.0,'kp02':1.0},
                         100:{'ky':1.0,'kp':1.0,'kE':1.0,'kp02':1.0},
