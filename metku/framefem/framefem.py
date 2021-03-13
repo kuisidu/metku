@@ -354,7 +354,7 @@ class FrameFEM:
             
             # find non-zero dofs
             nz = ve >= 0
-            q = ve[nz]
+            q = ve[nz].astype(int)
             """ extract the submatrix of the element
                 and add it to the global stiffness matrix
             """
@@ -363,7 +363,7 @@ class FrameFEM:
             # col = a[nz]
             # K[np.vstack(q), q] += ke[row, col]
             #print(ke[np.ix_(nz, nz)])
-            #print(q)
+            print(ve,q)                        
             K[np.ix_(q, q)] += ke[np.ix_(nz, nz)]
 
 
@@ -424,7 +424,7 @@ class FrameFEM:
             """
             if load.sid == sid:
                 v, vdofs = load.load_and_dofs()
-                global_load[vdofs] += v
+                global_load[vdofs.astype(int)] += v
 
         # print("FrameFEM  ", '\n', global_load)
         return global_load
@@ -451,12 +451,10 @@ class FrameFEM:
 
         #start = time.time()
         K = self.global_stiffness_matrix()
-
-
+        
         load_id = self.loadcases[lcase].load
         p = self.global_load_vector(load_id)
-
-
+       
         
         """ Take supports into account
             The method is based on Filippa's Lecture Notes (3.5.2)
@@ -492,14 +490,20 @@ class FrameFEM:
         
         self.supp_dofs = rem_dofs
         
+        
         if support_method == 'REM':
+            rem_dofs = np.array(rem_dofs,dtype=int)
+            
             K = np.delete(K,rem_dofs,0)
             K = np.delete(K,rem_dofs,1)
             p = np.delete(p,rem_dofs)
             glob_dofs = np.delete(glob_dofs,rem_dofs)
+                        
             #print(rem_dofs)
             #print(K)
             #print(p)
+            self.K = K
+            self.p = p
             #print(glob_dofs)
             
                         
@@ -510,6 +514,7 @@ class FrameFEM:
 
         
         u = np.linalg.solve(K, p)
+        self.u = u
         #print(u)
 
         """ Substitute obtained displacements to nodes """
@@ -664,7 +669,9 @@ class FrameFEM:
 
         #fig = plt.figure()
         if self.dim == 3:
-            ax = plt.axes(projection='3d')
+            #ax = plt.axes(projection='3d')
+            fig = plt.figure()
+            ax = Axes3D(fig)
         else:
             ax = plt.axes()
 
@@ -679,9 +686,9 @@ class FrameFEM:
 
         for i in range(self.nnodes()):
             if self.dim == 2:
-                plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
-            #else:
-                #plt.text(self.nodes[i].coord[0], self.nodes[i].coord[1], self.nodes[i].coord[2], str(i))
+                ax.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
+            else:
+                ax.text(self.nodes[i].coord[0], self.nodes[i].coord[1], self.nodes[i].coord[2], str(i))
         
         """ draw members """
         el_col = 'k'
@@ -735,7 +742,13 @@ class FrameFEM:
                 else:
                     ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
         
-        ax.set_aspect('equal')
+        if self.dim == 2:
+            ax.set_aspect('equal')
+            
+        if self.dim == 3:
+            ax.set_xlabel('x')
+            ax.set_ylabel('y')
+            ax.set_zlabel('z')
         
         if show:
             plt.show()
@@ -1176,8 +1189,8 @@ class FEMNode:
         if z is not None:
             self.coord = np.array([x, y, z])
             # Degrees of freedom (integer values)
-            self.dofs = [0, 0, 0, 0, 0, 0]
-            
+            #self.dofs = [0, 0, 0, 0, 0, 0]
+            self.dofs = -np.ones(6)
             # Nodal displacements
             # [Ux, Uy, Uz, Rx, Ry, Rz]
             self.v = np.array([0, 0, 0, 0, 0, 0])
@@ -1283,7 +1296,7 @@ class Element(metaclass=ABCMeta):
         """
         X = np.array([self.nodes[0].coord, self.nodes[1].coord])
         return X
-
+    
     def direction_cosines(self):
         """ Calculates element's direction cosines
 
@@ -1373,7 +1386,7 @@ class Element(metaclass=ABCMeta):
         pass
 
     def nodal_displacements(self,lcase=0):
-        """ Get nodal displacements of an element 
+        """ Get nodal displacements of an element in global coordinates
             Requires previously performed structural analysis such
             that nodal displacements are available.
 

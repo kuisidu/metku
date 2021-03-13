@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 import metku.framefem as ff
-from metku.framefem.elements.ebbeam import EBBeam 
+from metku.framefem.elements.ebbeam import EBBeam, EBBeam3D
 from metku.framefem.elements.springs import LinearSpring
 from metku.sections.steel.ISection import IPE, HEA
 
@@ -281,6 +281,191 @@ def test_beam_and_spring():
     
     return f
 
+def test3d_frame():
+    
+    L1 = 3000
+    L2 = 6000
+    h = 4500
+    X = []
+    X.append([0,0,0])
+    X.append([0,L2,0])
+    X.append([L1,L2,0])
+    X.append([L1,0,0])
+    X.append([0,0,h])
+    X.append([0,L2,h])
+    X.append([L1,L2,h])
+    X.append([L1,0,h])
+        
+    col_sect = HEA(240)
+    beam_sect = IPE(220)
+    
+    #col = ff.BeamSection(col_sect.A,col_sect.Iy)
+    #beam = ff.BeamSection(beam_sect.A,beam_sect.Iy)
+    
+    f = ff.FrameFEM()
+    
+
+
+    for x in X:
+        f.add_node(x[0],x[1],x[2])
+
+    f.add_section(col_sect)
+    f.add_section(beam_sect)
+    
+    f.add_material(col_sect.E,col_sect.material.nu,col_sect.density)
+
+    for i in range(4):
+        n1 = f.nodes[i]
+        n2 = f.nodes[i+4]
+        f.add_element(EBBeam3D(n1, n2, col_sect,f.materials[0]))
+
+    for i in range(4,7):
+        n1 = f.nodes[i]
+        n2 = f.nodes[i+1]
+        f.add_element(EBBeam3D(n1, n2, beam_sect,f.materials[0]))
+        
+        if i+1 == 7:
+            n1 = f.nodes[i+1]
+            n2 = f.nodes[4]
+            f.add_element(EBBeam3D(n1, n2, beam_sect,f.materials[0]))
+        
+    for i in range(4):        
+        f.add_support(sid=0,nid=i,dof=[0,1,2,3,4,5])
+    
+    F = -50e3
+    
+    pl1 = ff.PointLoad(sid=1,node=f.nodes[7],v=[0,0,F,0,0,0],f=1.0)
+    f.add_load(pl1)
+    
+    #ll1 = ff.LineLoad(sid=1,eid=f.elements[0],xloc=[0,1],qval=[-10,-10],direction='y')
+    #f.add_load(ll1)    
+    f.add_loadcase(supp_id=0,load_id=1)
+    
+    # Vapautetaan momentti
+    #f.add_release(0,[5])
+    #f.add_release(1,[2])
+    
+    f.nodal_dofs()
+    f.linear_statics(lcase=1,support_method="REM")
+    
+    f.draw()
+    
+
+    return f
+
+def test3d_frame2():
+    
+    L1 = 3000
+    L2 = 6000
+    h = 4500
+    X = []
+
+    X.append([L2,L1,0])
+    X.append([L2,L1,h])
+    X.append([0,L1,h])    
+    #X.append([L2,0,h])
+    
+    col_sect = HEA(240)
+    beam_sect = IPE(220)
+    
+    #col = ff.BeamSection(col_sect.A,col_sect.Iy)
+    #beam = ff.BeamSection(beam_sect.A,beam_sect.Iy)
+    
+    f = ff.FrameFEM()
+    
+    for x in X:
+        f.add_node(x[0],x[1],x[2])
+
+    f.add_section(col_sect)
+    f.add_section(beam_sect)
+    
+    f.add_material(col_sect.E,col_sect.material.nu,col_sect.density)
+
+    f.add_element(EBBeam3D(f.nodes[0], f.nodes[1], col_sect,f.materials[0]))
+    f.add_element(EBBeam3D(f.nodes[2], f.nodes[1], beam_sect,f.materials[0]))
+    #f.add_element(EBBeam3D(f.nodes[2], f.nodes[1], beam_sect,f.materials[0]))
+
+          
+    f.add_support(sid=0,nid=0,dof=[0,1,2,3,4,5])
+    f.add_support(sid=0,nid=2,dof=[0,1,2,3,4,5])
+    #f.add_support(sid=0,nid=3,dof=[0,1,2,3,4,5])
+    
+    F = -100e3
+    
+    pl1 = ff.PointLoad(sid=1,node=f.nodes[1],v=[0,0,F,0,0,0],f=1.0)
+    f.add_load(pl1)
+    
+    #ll1 = ff.LineLoad(sid=1,eid=f.elements[0],xloc=[0,1],qval=[-10,-10],direction='y')
+    #f.add_load(ll1)    
+    f.add_loadcase(supp_id=0,load_id=1)
+    
+    # Vapautetaan momentti
+    #f.add_release(0,[5])
+    #f.add_release(1,[2])
+    
+    f.draw()
+    
+    f.nodal_dofs()
+    f.linear_statics(lcase=1,support_method="REM")
+    
+    
+    
+
+    return f
+
+def test3d_beam():
+    
+    L1 = 3000
+    L2 = 6000
+    h = 4500
+    X = []
+    X.append([0,0,0])
+    X.append([0,0,h])
+        
+    col_sect = HEA(240)
+    beam_sect = IPE(220)
+    
+    #col = ff.BeamSection(col_sect.A,col_sect.Iy)
+    #beam = ff.BeamSection(beam_sect.A,beam_sect.Iy)
+    
+    f = ff.FrameFEM()
+    
+
+    for x in X:
+        f.add_node(x[0],x[1],x[2])
+
+    f.add_section(col_sect)
+    #f.add_section(beam_sect)
+    
+    f.add_material(col_sect.E,col_sect.material.nu,col_sect.density)
+
+    f.add_element(EBBeam3D(f.nodes[0], f.nodes[1], col_sect,f.materials[0]))
+
+    f.add_support(sid=0,nid=0,dof=[0,1,2,3,4,5])
+    
+    F = 100e3
+    
+    pl1 = ff.PointLoad(sid=1,node=f.nodes[1],v=[0,0,-F,0,0,0],f=1.0)
+    f.add_load(pl1)
+    
+    #ll1 = ff.LineLoad(sid=1,eid=f.elements[0],xloc=[0,1],qval=[-10,-10],direction='z',coords='local')
+    #f.add_load(ll1)    
+    f.add_loadcase(supp_id=0,load_id=1)
+    
+    # Vapautetaan momentti
+    #f.add_release(0,[5])
+    #f.add_release(1,[2])
+    
+    f.draw()
+    
+    f.nodal_dofs()
+    f.linear_statics(lcase=1,support_method="REM")
+    
+    
+    
+
+    return f
+
 if __name__ == '__main__':
     
     #pf, KG = simple_portal_fem(L=4000,H=4000,ne=20)
@@ -291,4 +476,8 @@ if __name__ == '__main__':
 
     #f = test_springs()
     
-    f = test_beam_and_spring()
+    #f = test_beam_and_spring()
+    
+    f = test3d_frame()
+    #f = test3d_frame2()
+    #f = test3d_beam()
