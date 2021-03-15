@@ -4,6 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import scipy as sp
 import time
+from copy import deepcopy
 
 
 from abc import ABCMeta, abstractclassmethod
@@ -363,7 +364,7 @@ class FrameFEM:
             # col = a[nz]
             # K[np.vstack(q), q] += ke[row, col]
             #print(ke[np.ix_(nz, nz)])
-            print(ve,q)                        
+            #print(ve,q)                        
             K[np.ix_(q, q)] += ke[np.ix_(nz, nz)]
 
 
@@ -452,6 +453,7 @@ class FrameFEM:
         #start = time.time()
         K = self.global_stiffness_matrix()
         
+        #print(lcase)
         load_id = self.loadcases[lcase].load
         p = self.global_load_vector(load_id)
        
@@ -663,7 +665,9 @@ class FrameFEM:
         
         return w, buckling_modes, KG
 
-    def draw(self, show=True, deformed=False, buckling_mode=None, scale=1.0):
+    #def draw(self, deformed=False, buckling_mode=None, scale=1.0, axes=None):
+    def draw(self, axes=None,**kwargs):
+        #deformed=False, buckling_mode=None, scale=1.0, axes=None):
         """  Plots elements and nodes using matplotlib pyplot
         """
 
@@ -673,43 +677,49 @@ class FrameFEM:
             fig = plt.figure()
             ax = Axes3D(fig)
         else:
-            ax = plt.axes()
+            if axes is None:
+                fig, ax = plt.subplots(1)
+            else:
+                ax = axes
 
         """ draw nodes """
         
-        for n in self.nodes:
-            if self.dim == 2:
-                ax.plot(n.coord[0], n.coord[1], 'ro')
-            else:
-                ax.scatter3D(n.coord[0], n.coord[1], n.coord[2],'ro')
-                
-
-        for i in range(self.nnodes()):
-            if self.dim == 2:
-                ax.text(self.nodes[i].coord[0], self.nodes[i].coord[1], str(i))
-            else:
-                ax.text(self.nodes[i].coord[0], self.nodes[i].coord[1], self.nodes[i].coord[2], str(i))
+        for i, node in enumerate(self.nodes):
+            node.plot(print_text=str(i),axes=ax)
         
-        """ draw members """
+        """ draw elements """
+        if 'deformed' in kwargs:
+            deformed = False
+        
+        if 'buckling_mode' in kwargs:
+            buckling_mode = True
+        else:
+            buckling_mode = False
+        
+        if 'scale' in kwargs:
+            scale = kwargs['scale']
+        else:
+            scale = 1.0
+        
+        """ Draw elements """
+        for i, el in enumerate(self.elements):
+            """ Draw deformed shape is requested.
+                the value of 'deformed' is the load case to be plotted
+            """
+            if 'deformed' in kwargs:
+                lcase = kwargs['deformed']
+                
+                el.plot(print_text=str(i),axes=ax,deformed=lcase,scale=scale)
+            else:
+                el.plot(print_text=str(i),axes=ax)
+                
         el_col = 'k'
         if deformed or buckling_mode is not None:
             lstyle = '--' #+ el_col
         else:
             lstyle = '-' + el_col
-            
-        for i in range(self.nels()):
-            # X = self.member_coord(i)
-            X = self.elements[i].coord()
-            Xmid = X[0, :] + 0.5 * (X[1, :] - X[0, :])            
-            
-            
-            if self.dim == 2:
-                ax.plot(X[:, 0], X[:, 1], lstyle, color=(0.6,0.6,0.6))
-                ax.text(Xmid[0], Xmid[1], str(i))
-            else:
-                ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
-                ax.text(Xmid[0], Xmid[1], Xmid[2], str(i))
-                
+        
+        # Harmaa: color = (0.6,0.6,0.6)
         if deformed:
             """
             for n in self.nodes:
@@ -730,7 +740,7 @@ class FrameFEM:
                     ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
                 
         
-        if buckling_mode is not None:
+        if buckling_mode:
             lstyle = '-k'
             for el in self.elements:
                 X = np.zeros((2,2))
@@ -750,9 +760,10 @@ class FrameFEM:
             ax.set_ylabel('y')
             ax.set_zlabel('z')
         
+        """
         if show:
             plt.show()
-
+        """
     def print_displacements(self):
         """ Prints nodal displacements
         """
@@ -1234,6 +1245,21 @@ class FEMNode:
     def __repr__(self):
         return f'FEMNode(nid={self.nid}, x={self.x}, y={self.y}, z={self.z})'
 
+    def plot(self, print_text='', c='k', axes=None, style='.r'):
+
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
+
+        if self.z is None:
+            #ax.plot(X[:, 0], X[:, 1], lstyle, color=(0.6,0.6,0.6))
+            ax.plot(self.x, self.y, style)
+            ax.text(self.x, self.y, print_text)
+        else:
+            ax.scatter3D(self.x, self.y, self.z, style)
+            ax.text(self.x, self.y, self.z, print_text)
+
 class Element(metaclass=ABCMeta):
     """ Class for 1D finite elements: bars and beams
 
@@ -1284,6 +1310,9 @@ class Element(metaclass=ABCMeta):
             internal forces that should be set to zero
         """
         self.releases = []
+        
+        """ Dimension of the element """
+        self.dim = 2
 
     def coord(self):
         """ Nodal coordinates of the element
@@ -1449,3 +1478,66 @@ class Element(metaclass=ABCMeta):
             bending_moment = [n1, n2] -- bending moment on node1 and node2
         """
         pass
+    
+    def plot(self, print_text='', c='k', axes=None, lstyle='-',
+             deformed=None,buckling_mode=None,scale=1.0):
+
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
+
+        X = self.coord()
+        
+        # Plot members
+        #ax.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], c)
+        # Plot text
+
+        Xmid = X[0, :] + 0.5 * (X[1, :] - X[0, :])            
+            
+        if self.dim == 2:
+            #ax.plot(X[:, 0], X[:, 1], lstyle, color=(0.6,0.6,0.6))
+            if deformed is not None:                
+                lstyle = '--'
+                dstyle = '-'
+                c = (0.6,0.6,0.6)
+                Xd = deepcopy(X)
+                u = np.array([n.u[deformed][:2] for n in self.nodes])
+                
+                Xd += scale*u
+                
+                ax.plot(Xd[:, 0], Xd[:, 1], dstyle, color='k')
+                
+            # Plot initial element
+            ax.plot(X[:, 0], X[:, 1], lstyle, color=c)
+                
+            ax.text(Xmid[0], Xmid[1], print_text)
+        else:
+            ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
+            ax.text(Xmid[0], Xmid[1], Xmid[2], print_text)
+
+        """
+        if self.mtype == 'beam':
+            horzalign = 'center'
+            vertalign = 'bottom'
+
+        elif self.mtype == 'column':
+            horzalign = 'right'
+            vertalign = 'center'
+
+        else:
+            horzalign = 'center'
+            vertalign = 'center'
+
+        x, y = self.to_global(0.3) - self.perpendicular * 50
+        rot = np.degrees(self.angle)
+
+        if print_text:
+            ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
+                     rotation=rot, horizontalalignment=horzalign,
+                     verticalalignment=vertalign)
+        else:
+            ax.text(x, y, str(self.mem_id),
+                     rotation=rot, horizontalalignment=horzalign,
+                     verticalalignment=vertalign)
+        """

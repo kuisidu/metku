@@ -100,12 +100,18 @@ def simple_portal_fem(L,H,ne):
     pf.add_support(sid=0,nid=pf.nnodes()-1,dof=[0,1,2],val=0.0)
     
     
-    F = -200e3
+    #F = -200e3
+    F = -5e3
     
-    pl1 = ff.PointLoad(sid=1,node=pf.nodes[ne],v=[0,F,0],f=1.0)
-    pl2 = ff.PointLoad(sid=1,node=pf.nodes[2*ne],v=[0,F,0],f=1.0)
+    pl1 = ff.PointLoad(sid=1,node=pf.nodes[ne],v=[F,0,0],f=1.0)
+    pl2 = ff.PointLoad(sid=1,node=pf.nodes[2*ne],v=[F,0,0],f=1.0)
     pf.add_load(pl1)
     pf.add_load(pl2)
+    
+    for i in range(ne,2*ne):
+        #print(i)
+        pf.add_load(ff.LineLoad(sid=1,eid=pf.elements[i],xloc=[0,1],qval=[-20,-20],direction='y'))
+    #pf.add_load(ll1)    
     
     #pl3 = ff.PointLoad(sid=1,node=pf.nodes[ne],v=[-F,0,0],f=1.0)
     #pf.add_load(pl3)
@@ -113,12 +119,16 @@ def simple_portal_fem(L,H,ne):
     pf.add_loadcase(supp_id=0,load_id=1)
     
     pf.nodal_dofs()
-    pf.linear_statics(support_method="REM")
-    (w,v,KG) = pf.linear_buckling(k=10)
-    print(w)
-    nd = np.argmin(abs(pf.load_factors))
-    nd_sort = np.argsort(abs(pf.load_factors))
-    pf.draw(buckling_mode=nd_sort[0],scale=40000.0)
+    
+    KG = []
+    
+    pf.linear_statics(lcase=1,support_method="REM")
+    #(w,v,KG) = pf.linear_buckling(k=10)
+    #print(w)
+    #nd = np.argmin(abs(pf.load_factors))
+    #nd_sort = np.argsort(abs(pf.load_factors))
+    #pf.draw(buckling_mode=nd_sort[0],scale=40000.0)
+    pf.draw(deformed=1,scale=50)
     
     return pf, KG
 
@@ -468,7 +478,7 @@ def test3d_beam():
 
 if __name__ == '__main__':
     
-    #pf, KG = simple_portal_fem(L=4000,H=4000,ne=20)
+    pf, KG = simple_portal_fem(L=4000,H=4000,ne=4)
     
     #pf = simple_column(L=8000,ne=6)
     
@@ -478,6 +488,6 @@ if __name__ == '__main__':
     
     #f = test_beam_and_spring()
     
-    f = test3d_frame()
+    #f = test3d_frame()
     #f = test3d_frame2()
     #f = test3d_beam()

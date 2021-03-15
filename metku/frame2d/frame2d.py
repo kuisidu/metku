@@ -6,12 +6,19 @@ import os
 import time
 
 import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.lines as mlines
+import matplotlib.path as mpath
 
 # try:
 import metku.framefem.framefem  as fem
 from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-from metku.sections.steel import *
-from metku.sections.steel.catalogue import *
+from metku.sections.steel.ISection import IPE, HEA, HEB
+from metku.sections.steel.RHS import RHS, SHS
+from metku.sections.steel.CHS import CHS
+from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
 from metku.frame2d.materials import MATERIALS
 from metku.structures.steel.steel_member import SteelMember
 # except:
@@ -62,11 +69,10 @@ class Frame2D:
         :ivar f: Finite element model of the frame (FrameFEM)
         :ivar alpha_cr: critical load factor from linear stability analysis (list)
         :ivar members: dict of members (FrameMember)
-        :ivar num_members:
         :ivar support_nodes: list of supported nodes
-        :ivar point_loads:
-        :ivar line_loads:
-        :ivar nodal_foces:
+        :ivar point_loads: dict of point loads. key: name of the load (string) 
+        :ivar line_loads: dict of line loads. key: name of the load (string)
+        :ivar nodal_forces:
         :ivar nodal_displacements:
         :ivar joints:
         :ivar r: member utilization ratios (list)
@@ -86,7 +92,6 @@ class Frame2D:
             self.f = fem.FrameFEM()
         self.alpha_cr = []
         self.members = {}
-        self.num_members = 0
         self.support_nodes = []
         self.num_elements = num_elements
         self.point_loads = {}
@@ -94,8 +99,8 @@ class Frame2D:
         self.supports = {}
         self.nodes = []
         self.nodal_coordinates = []
-        self.nodal_forces = {}          # For storing nodal forces in various load cases
-        self.nodal_displacements = {}   # For storing nodal displacements in various load cases
+        #self.nodal_forces = {}          # For storing nodal forces in various load cases
+        #self.nodal_displacements = {}   # For storing nodal displacements in various load cases
         self.joints = {}
         self.r = []
         self.is_generated = False
@@ -148,6 +153,11 @@ class Frame2D:
     def columns(self):
         """ Returns a list of column members """
         return [mem for mem in self.members.values() if mem.mtype == 'column']
+
+    @property
+    def load_cases(self):
+        """ Returns a list of load case labels """
+        return list(set([lc.load for lc in self.f.loadcases.values()]))
 
     def add(self, this):
         """ Adds given item to the frame.
@@ -388,28 +398,28 @@ class Frame2D:
                 if coordinate not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coordinate)
 
-    def calc_nodal_forces(self):
+    def calc_nodal_forces(self,lcase=2):
         """ Calculates nodal forces and saves values to
             self.nodal_forces - dict       
         """
         # Iterate through every frame's member's node and calculate forces
         # acting on that node
         for member in self.members.values():
-            member.calc_nodal_forces()
-            for node in member.nodal_forces:
-                self.nodal_forces[node] = member.nodal_forces[node]
+            member.calc_nodal_forces(lcase)
+            #for node in member.nodal_forces:
+            #    self.nodal_forces[node] = member.nodal_forces[node]
 
-    def calc_nodal_displacements(self):
+    def calc_nodal_displacements(self,lcase=2):
         """ Calculates nodal displacements and saves values to
             self.nodal_displacements -dict
         """
         # Iterate through every frame's member's node and calculate 
         # displacements for that node
         for member in self.members.values():
-            member.calc_nodal_displacements(self.f)
-            for node in member.nodal_displacements.keys():
-                self.nodal_displacements[node] = member.nodal_displacements[
-                    node]
+            member.calc_nodal_displacements(self.f,lcase)
+            #for node in member.nodal_displacements.keys():
+            #    self.nodal_displacements[node] = member.nodal_displacements[
+            #        node]
 
 
     def update_model(self):
@@ -433,9 +443,7 @@ class Frame2D:
             
             :type load_id: int / str
         """
-
-        lcase_ids = [lc.load for lc in self.f.loadcases.values()]
-
+        
         if self.is_calculated == False:
             self.is_calculated = True
             """ Support ID is always 1! """
@@ -444,25 +452,49 @@ class Frame2D:
         # If load_id == 'ALL' calculates all load cases
         # calls recursively itself for each case
         if str(load_id).upper() == 'ALL':
-            for lid in lcase_ids:
+            print("Calculate all cases")
+            lcase_ids = self.load_cases #[lc.load for lc in self.f.loadcases.values()]            
+            for lid in lcase_ids:                
+            #for lid in self.f.loadcases.values():                                            
                 self.calculate(load_id=lid,
                                support_method=support_method)
         else:
+            print('Calculate case:' + str(load_id))
+            
             self.f.linear_statics(support_method=support_method,
                                   lcase=load_id)
-            self.calc_nodal_forces()
-            self.calc_nodal_displacements()
-            self.assign_forces()
-            self.check_members_strength()
+            self.calc_nodal_forces(load_id)
+            self.calc_nodal_displacements(load_id)
+            #self.assign_forces()
+            self.design_members(load_id)
+            #self.check_members_strength()
             # self.alpha_cr, _ = self.f.linear_buckling(k=4)
 
-    def design_members(self, prof_type="IPE"):
-        """ Desgins frame's members
+    def optimize_members(self, prof_type="CURRENT"):
+        """ Find minimum smallest profiles for frame members
+            for given loads.
         """
         for member in self.members.values():
-            member.design_member(prof_type)
+            member.optimum_design(prof_type)
 
-        self.check_members_strength()
+        #self.check_members_strength()
+        
+    def design_members(self,load_id = 2):
+        """ Designs frame members (checks resistance)
+        """
+        
+        for member in self.members.values():
+            member.design(load_id)
+
+        #self.check_members_strength()
+        
+    def check_members_strength(self):
+        """ Checks if members can bear their loads
+        """
+        self.r.clear()
+        for member in self.members.values():
+            member.check_cross_section()
+            self.r.append(member.r)
 
     def delete_member(self, id):
         """ Removes member from frame
@@ -1288,14 +1320,6 @@ class Frame2D:
         for member in self.members.values():
             member.assign_forces()
 
-    def check_members_strength(self):
-        """ Checks if members can bear their loads
-        """
-        self.r.clear()
-        for member in self.members.values():
-            member.check_cross_section()
-            self.r.append(member.r)
-
     def rigid_joints(self):
         """ Set all beam-column joints to rigid
         """
@@ -1412,7 +1436,11 @@ class FrameMember:
         self.nodal_forces = {}
         self.nodal_displacements = {}
         self.num_elements = num_elements
-        self.loads = {}
+        """ Which 'loads' is correct? 
+        
+        """
+        #self.loads = {}
+        self.loads = []
         self.alpha1 = 25
         self.alpha2 = 25
         self.__Sj1 = None
@@ -1423,11 +1451,11 @@ class FrameMember:
         self.ved = 0
         self.med = 0
         self.reverse = reverse
-        self.has_load = False
-        self.loads = []
+        self.has_load = False        
         self.is_designed = False
         self.is_strong_enough = False
-        self.r = np.ones(7)
+        #self.r = np.ones(7)
+        self.r = {}
         self.self_weight = False
         self.is_generated = False
         # Lineload values
@@ -1452,11 +1480,13 @@ class FrameMember:
 
     @property
     def Y(self):
+        """ Returns y coordinates of the member ends """
         (x1, y1), (x2, y2) = self.coordinates
         return np.asarray([y1, y2])
 
     @Y.setter
     def Y(self, val):
+        """ Sets y coordinates of the member ends """
         (x1, y1), (x2, y2) = self.coordinates
         self.coordinates = [[x1, val], [x2, val]]
 
@@ -1492,7 +1522,7 @@ class FrameMember:
     @property
     def unit(self):
         """
-        Returns unit vector
+        Returns direction vector of the member.
         :return:
         """
         start, end = np.asarray(self.coordinates)
@@ -1552,12 +1582,13 @@ class FrameMember:
         start_node, end_node = self.coordinates
         x0, y0 = start_node
         x1, y1 = end_node
-        if (x1 - x0) == 0:
-            angle = np.radians(90)
+        if abs(x1 - x0) < 1e-6:
+            # 90 degrees
+            angle = 0.5*np.pi # np.radians(90)
         else:
             angle = np.arctan((y1 - y0) / (x1 - x0))
             if angle < 0:
-                return np.radians(180) + angle
+                return np.pi + angle #np.radians(180) + angle
         return angle
 
     @property
@@ -1608,6 +1639,12 @@ class FrameMember:
                     dy_max = dy
 
         return vals
+    
+    @property
+    def load_ids(self):
+        """ Returns a list of load id's """
+        n = list(self.elements.keys())[0]
+        return [val for val in self.elements[n].fint.keys()]
 
 
     @property
@@ -1619,7 +1656,7 @@ class FrameMember:
 
     @property
     def MbRd(self):
-        """ Returns LT buckling resistance
+        """ Returns Lateral-torsional buckling resistance
             Units: Nmm
         """
         return self.steel_member.MbRd
@@ -1898,9 +1935,10 @@ class FrameMember:
 
     def calc_nodal_coordinates(self, num_elements=0):
         """
-            Calculates node locations along member
-            Coordinates used are global coordinates
-            Adds locations to a list where they can be accessed later
+            Calculates node locations along member.
+            Coordinates used are global coordinates.
+            Adds locations to a list where they can be accessed later.
+            
             :param num_elements: int, number of elements to be created
         """
         # if num_elements != 0:
@@ -2061,6 +2099,9 @@ class FrameMember:
                 n1 = node_ids[0]
                 n2 = node_ids[1]
 
+                """ EBSemiRigidBeam is a special element that has
+                    rotational stiffness at the ends.
+                """
                 self.elements[index] = \
                     EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
                                     self.cross_section, \
@@ -2100,6 +2141,9 @@ class FrameMember:
                     self.element_ids.append(index)
                     index += 1
         else:
+            """ For other kinds of elements, use regular
+                Euler-Bernoulli beam elements.
+            """
             N = len(self.nodes)
             for i in range(N - 1):
                 n1 = node_ids[i]
@@ -2177,6 +2221,7 @@ class FrameMember:
         i = 0        
         """ node_ids is a list of node indices for the member """
         node_ids = list(self.nodes.keys())
+        node_forces = {}
         for element in self.elements.values():
             node_id = node_ids[i]
             #axial_force = absmax(element.axial_force)
@@ -2194,9 +2239,14 @@ class FrameMember:
             if abs(bending_moment) > abs(max_med):
                 max_med = bending_moment
 
+            """
             self.nodal_forces[node_id] = [axial_force,
                                           shear_force,
                                           bending_moment]
+            """
+            node_forces[node_id] = [axial_force,
+                                    shear_force,
+                                    bending_moment]
             i += 1
 
             if i == len(self.elements):
@@ -2217,20 +2267,35 @@ class FrameMember:
                 if abs(bending_moment) > abs(max_med):
                     max_med = bending_moment
 
+                """
                 self.nodal_forces[node_id] = [axial_force,
                                               shear_force,
                                               bending_moment]
+                """
+                node_forces[node_id] = [axial_force,
+                                    shear_force,
+                                    bending_moment]
 
+        self.nodal_forces[load_id] = node_forces
         self.med = max_med
         self.ved = max_ved
         self.ned = max_ned
 
-    def calc_nodal_displacements(self, fem_model):
+    def calc_nodal_displacements(self, fem_model, lcase=2):
         """ Calculates nodal displacements and saves them to a dict
             :param fem_model: FrameFEM -object
         """
-        for node in self.nodes:
-            self.nodal_displacements[node] = fem_model.nodes[node].u
+        #for node in self.nodes:
+        #    self.nodal_displacements[node] = fem_model.nodes[node].u[lcase]
+            #self.nodal_displacements[lcase] = fem_model.nodes[node].u[lcase]
+        
+        U = {}
+        
+        for n, node in self.nodes.items():
+            #print(n,node)
+            U[n] = node.u[lcase]
+        
+        self.nodal_displacements[lcase] = U
 
     def add_self_weight(self, frame):
         """ Adds self-weight to the member's loads
@@ -2240,9 +2305,8 @@ class FrameMember:
             load_id = "self_weight"
             # self.weight is kg's, multiplier changes it to N's
             multiplier = 10
-            value = -1 * multiplier * self.weight / self.length
-            direction = 'y'
-            frame.add(LineLoad(self, [value, value], direction))
+            value = -1 * multiplier * self.weight / self.length            
+            frame.add(LineLoad(self, [value, value], 'y'))
 
     def remove_self_weight(self):
         """ Removes self-weight from loads
@@ -2269,10 +2333,13 @@ class FrameMember:
 
     @property
     def locs(self):
+        """ Locations of member nodes in local coordinates 
+            loc = 0 is for node 'start' and loc = 1 for node 'end'
+        """
         locs = []
+        start_coord, end_coord = np.asarray(self.coordinates)
         for node in self.nodes.values():
-            ncoord = np.asarray(node.coord)
-            start_coord, end_coord = np.asarray(self.coordinates)
+            ncoord = np.asarray(node.coord)            
             loc = np.linalg.norm(start_coord - ncoord) / self.length
             locs.append(round(loc, PREC))
         return locs
@@ -2324,6 +2391,9 @@ class FrameMember:
         """ Checks if cross-section is strong enough.
             Gives boolean value for self.is_strong_enough
             Saves list of stress ratios to self.r
+            
+            TODO!
+            This has to be modified for multiple load cases.
         """
 
         self.r = np.zeros_like(self.r)
@@ -2345,14 +2415,56 @@ class FrameMember:
         else:
             self.is_strong_enough = True
 
-    def design_member(self, prof_type):
+    def design(self,lcase=2):
+        """ Designs the member (check resistance) 
+            This has to be modified for multiple load cases.
+        """
+        
+        """ Here, the internal forces of the member at sections must
+            somehow be inserted. Note that SteelMember does not yet
+            provide several load cases.
+        """
+        
+        self.assign_forces(lcase)        
+        rmax = self.steel_member.design()
+        
+        if rmax > 1.0:
+            self.is_strong_enough = False
+        else:
+            self.is_strong_enough = True
+            
+        self.r[lcase] = rmax
+        
+        #self.r = max(max(r1), r2)
+
+    def optimum_design(self, prof_type='CURRENT'):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
             before currrent profile.
         """
+            
         prof_type = prof_type.upper()
+        
+        if prof_type == "CURRENT":
+            """ Use the cross section family of the current profile """
+            if isinstance(self.cross_section,IPE):
+                prof_type = "IPE"
+            elif isinstance(self.cross_section,HEA):
+                prof_type = "H"
+            elif isinstance(self.cross_section,HEB):
+                prof_type = "H"
+            elif isinstance(self.cross_section,RHS):
+                prof_type = "RHS"
+            elif isinstance(self.cross_section,SHS):
+                prof_type = "SHS"
+            elif isinstance(self.cross_section,CHS):
+                prof_type = "CHS"
+            else:
+                prof_type = "IPE"
+        
         if prof_type == "IPE":
+            print("IPE profiles")
             profiles = ipe_profiles.keys()
         elif prof_type == "H":
             profiles = h_profiles.keys()
@@ -2367,6 +2479,14 @@ class FrameMember:
 
         for profile in profiles:
             self.profile = profile
+            
+            for load_id in self.load_ids:            
+                self.design(load_id)
+                            
+            if all(r<=1.0 for r in self.r.values()):# <= 1.0:
+                break
+            """
+            self.profile = profile
             self.check_cross_section()
             for smem in self.steel_members:
                 r1 = smem.check_sections()
@@ -2375,7 +2495,7 @@ class FrameMember:
                 self.r = max(max(r1), r2)
             if self.r <= 1.0:
                 break
-
+            """
     def line_intersection(self, coordinates):
         """
         Calculates coordinate where two members intersect
@@ -2471,7 +2591,8 @@ class FrameMember:
                      verticalalignment=vertalign)
 
     def plot_results(self):
-
+        """ Plots utilization ratios for different resistances """
+        
         UN, UV, UM, UMN = self.cross_section.section_resistance(
             return_list=True)
         B = max(self.steel_member.check_buckling())
@@ -2497,6 +2618,7 @@ class FrameMember:
         plt.show()
 
     def bmd(self, scale=1, load_id = 2):
+        """ Plots bending moment diagram """
 
         # Scales Nmm to kNm
         unit_scaler = 1e-6
@@ -2514,7 +2636,7 @@ class FrameMember:
         Y.append(y01)
         self.calc_nodal_forces()
 
-        moment_values = [x[2] for x in self.nodal_forces.values()]
+        moment_values = [x[2] for x in self.nodal_forces[load_id].values()]
 
         for elem in self.elements.values():
             x0, y0 = elem.nodes[0].coord
@@ -2961,7 +3083,7 @@ def test_portal():
     frame.add(beam)
     frame.generate()
     frame.calculate()
-    frame.bmd(10)
+    #frame.bmd(10)
     
     return frame
 
@@ -2992,13 +3114,14 @@ if __name__ == '__main__':
     #fr.members[1].add_hinge(1)
     fr.add(FrameMember([[8000,6000],x1]))
                         
-    fr.add(LineLoad(fr.members[1],[-10,-10],'y',coord_sys='local'))
-    #fr.add(LineLoad(fr.members[0],[8,8],'x'))
+    fr.add(LineLoad(fr.members[1],[-20,-20],'y',coord_sys='local',load_id=2))
+    fr.add(LineLoad(fr.members[0],[8,8],'x',coord_sys='global',load_id=3))
     fr.add(FixedSupport(x0))
     fr.add(FixedSupport(x1))
 
     fr.generate()
-    fr.calculate(support_method="REM")
+    fr.calculate(load_id='all',support_method="REM")
+    fr.optimize_members("CURRENT")
     fr.bmd(6)
 
     #frame.plot_buckling(scale=1000,k=4)

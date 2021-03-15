@@ -442,6 +442,7 @@ class EBBeam3D(Element):
     def __init__(self, n1, n2, section, material, nref = None):
         Element.__init__(self, n1, n2, section, material)
 
+        self.dim = 3
         
         """ Reference node for orienting the member
             This node must not be on the line passing through nodes n1 and n2.
