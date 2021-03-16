@@ -94,6 +94,7 @@ class Frame2D:
         self.members = {}
         self.support_nodes = []
         self.num_elements = num_elements
+        self.load_ids = []  # List of load case ID numbers
         self.point_loads = {}
         self.line_loads = {}
         self.supports = {}
@@ -157,7 +158,8 @@ class Frame2D:
     @property
     def load_cases(self):
         """ Returns a list of load case labels """
-        return list(set([lc.load for lc in self.f.loadcases.values()]))
+        return self.load_ids
+        #return list(set([lc.load for lc in self.f.loadcases.values()]))
 
     def add(self, this):
         """ Adds given item to the frame.
@@ -208,6 +210,9 @@ class Frame2D:
                 if point loads are deleted such that the number of point loads
                 changes along the way.
             """
+            if not (this.load_id in self.load_ids):
+                self.load_ids.append(this.load_id)
+            
             if this.name in self.point_loads.keys():
                 this.name += str(len(self.point_loads))
             self.point_loads[this.name] = this
@@ -223,6 +228,9 @@ class Frame2D:
         # LINELOADS
         elif isinstance(this, LineLoad):
 
+            if not (this.load_id in self.load_ids):
+                self.load_ids.append(this.load_id)
+            
             if this.name in self.line_loads.keys():
                 this.name += str(len(self.line_loads))
             self.line_loads[this.name] = this
@@ -452,14 +460,14 @@ class Frame2D:
         # If load_id == 'ALL' calculates all load cases
         # calls recursively itself for each case
         if str(load_id).upper() == 'ALL':
-            print("Calculate all cases")
+            #print("Calculate all cases")
             lcase_ids = self.load_cases #[lc.load for lc in self.f.loadcases.values()]            
             for lid in lcase_ids:                
             #for lid in self.f.loadcases.values():                                            
                 self.calculate(load_id=lid,
                                support_method=support_method)
         else:
-            print('Calculate case:' + str(load_id))
+            #print('Calculate case:' + str(load_id))
             
             self.f.linear_statics(support_method=support_method,
                                   lcase=load_id)
@@ -474,10 +482,18 @@ class Frame2D:
         """ Find minimum smallest profiles for frame members
             for given loads.
         """
-        for member in self.members.values():
-            member.optimum_design(prof_type)
+        
+        PROFILES_CHANGED = True
+        kmax = 10
+        k = 0
+        
+        while PROFILES_CHANGED and k < kmax:            
+            self.calculate('all','REM')
+            for member in self.members.values():
+                PROFILES_CHANGED = member.optimum_design(prof_type)
 
-        #self.check_members_strength()
+            k += 1
+        
         
     def design_members(self,load_id = 2):
         """ Designs frame members (checks resistance)
@@ -2443,7 +2459,7 @@ class FrameMember:
             If member is previously designed, iterating starts from 3 profiles
             before currrent profile.
         """
-            
+        
         prof_type = prof_type.upper()
         
         if prof_type == "CURRENT":
@@ -2463,8 +2479,7 @@ class FrameMember:
             else:
                 prof_type = "IPE"
         
-        if prof_type == "IPE":
-            print("IPE profiles")
+        if prof_type == "IPE":            
             profiles = ipe_profiles.keys()
         elif prof_type == "H":
             profiles = h_profiles.keys()
@@ -2476,6 +2491,8 @@ class FrameMember:
             profiles = shs_profiles.keys()
         else:
             raise ValueError(f'"{prof_type}" is not a valid profile type!')
+
+        initial_profile = self.profile
 
         for profile in profiles:
             self.profile = profile
@@ -2496,6 +2513,13 @@ class FrameMember:
             if self.r <= 1.0:
                 break
             """
+        
+        """ If the profile changed during iteration, return 'True'. """
+        if self.profile != initial_profile:
+            return True
+        else:
+            return False
+        
     def line_intersection(self, coordinates):
         """
         Calculates coordinate where two members intersect
