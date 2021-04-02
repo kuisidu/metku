@@ -3,12 +3,13 @@ Timber member
 
 @author Viktor Haimi
 """
-from math import log, tan, pi, sqrt, isclose, sin, cos
+from math import log, tan, pi, sqrt, isclose, sin, cos, radians
 import numpy as np
+from scipy import integrate
 import matplotlib.pyplot as plt
 from materials.timber_data import Timber, T
 from eurocodes.en1995.en1995_1_1 import kmod, kdef, k_to_d, get_gammaM, k_m
-from sections.timber.timber_section import TimberSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki
+from sections.timber.timber_section import TimberSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki
 from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
 from sections.steel.ISection import HEA
 
@@ -63,10 +64,10 @@ class TimberMember:
 
         self.R = 0
 
-        self.k_l = 1.0
+        self.k_L = 1.0
         if self.material.type == 'lvl':
             if self.section.Ned > 0 and self.length != 3000:
-                self.k_l = min(1.1, (3000 / self.length) ** (self.material.s / 2))
+                self.k_L = min(1.1, (3000 / self.length) ** (self.material.s / 2))
 
         self.gammaM = get_gammaM(self.material.type)
 
@@ -94,7 +95,7 @@ class TimberMember:
         if self.material.type == 'solid_timber' or self.material.type == 'glt':
             return self.section.k_h * k_to_d(self.material.ft0k, self.kmod, self.gammaM)
         elif self.material.type == 'lvl':
-            return self.k_l * k_to_d(self.material.ft0k, self.kmod, self.gammaM)
+            return self.k_L * k_to_d(self.material.ft0k, self.kmod, self.gammaM)
 
     @property
     def unmodified_ft0d(self):
@@ -233,7 +234,12 @@ class TimberMember:
         return max([self.myed[self.loc.index(i)] / self.section.get_Wel(i)[0] for i in self.loc], key=abs)
 
     def sigma_t90d(self):
-        return self.section.k_p * self.M_apd() / self.W_ap()[0]
+        # (6.54)
+        # print(f'kp {self.section.k_p}')
+        # print(f'Mapd {self.M_apd()}')
+        # print(f'Wap {self.W_ap()[0]}')
+
+        return self.k_p() * self.M_apd() / self.W_ap()[0]
 
     def M_apd(self):
         try:
@@ -263,9 +269,9 @@ class TimberMember:
         return self.section.get_Wel(self.section.xap)
 
     def k_r(self):
-        if isinstance(self.section, HarjaPalkki):
+        if isinstance(self.section, (HarjaPalkki, PulpettiPalkki)):
             return 1
-        elif isinstance(self.section, KaarevaHarjaPalkki):
+        elif isinstance(self.section, (KaarevaHarjaPalkki, KaarevaPalkki)):
             if self.section.r_in * 1000 / self.section.t >= 240:
                 return 1
             else:
@@ -274,28 +280,81 @@ class TimberMember:
             raise NotImplementedError
 
     def V(self):
-        # TODO eri palkit
         # V <= 2/3 * koko palkin tilavuus
         if isinstance(self.section, HarjaPalkki):
             return self.section.B * np.power(self.section.hap, 2)
         elif isinstance(self.section, KaarevaHarjaPalkki):
+
+            l1 = self.section.h0 * cos(radians(self.alfa()))
+            l2 = self.section.up_y1 - self.section.up_y2 / cos(radians(self.alfa()))
+            l3 = self.section.up_x1 / cos(radians(self.alfa()))
+            Vj = self.section.B * l3 * (l1 + l2) * 0.5
+            # print(f'Vj: {Vj}')
+            # print(f'2 Vj: {2* Vj}')
+            # print(f'V_tot: {self.V_tot()}')
+            # print(f'V_tot - 2 Vj: {self.V_tot() - 2 * Vj}')
+            return self.V_tot() - 2 * Vj
+            #
+            # alpha = self.alfa() * 2 * pi / 360
+            # return self.section.B * (tan(alpha) * (self.section.r_in + self.section.hap) ** 2 -
+            #         sin(alpha) * cos(alpha) * (tan(alpha) * (self.section.r_in + self.section.hap)) ** 2 -
+            #         pi * self.section.r_in ** 2 * alpha / (2 * pi)) / (1000 ** 3)
+        elif isinstance(self.section, KaarevaPalkki):
             alpha = self.alfa() * 2 * pi / 360
-            return self.section.B * (tan(alpha) * (self.section.r_in + self.section.hap) ** 2 -
-                    sin(alpha) * cos(alpha) * (tan(alpha) * (self.section.r_in + self.section.hap)) ** 2 -
-                    pi * self.section.r_in ** 2 * alpha / (2 * pi)) / (1000 ** 3)
+            return self.section.B * self.section.hap * (self.section.r_in + self.section.hap / 2) * alpha
+        else:
+            raise NotImplementedError
+
+    def V_tot(self):
+        if isinstance(self.section, HarjaPalkki):
+            return self.section.B * self.length * (self.section.hap - self.length * np.tan(self.alfa()) / 4)
+        elif isinstance(self.section, (KaarevaPalkki, KaarevaHarjaPalkki)):
+            return self.section.A_face() * self.section.B
         else:
             raise NotImplementedError
 
     def k_vol(self):
         if self.material.type == 'solid timber':
             return 1.0
-        return np.power(0.01 / self.V(), 0.2)
+        v = self.V()
+        if v > (2 / 3) * self.V_tot():
+            v = (2/3) * self.V_tot()
+        k_vol = np.power(1e7 / v, 0.2)
+        return k_vol
 
     def k_dis(self):
         if isinstance(self.section, (HarjaPalkki, PulpettiPalkki)):
             return 1.4
-        elif isinstance(self.section, KaarevaHarjaPalkki):
+        elif isinstance(self.section, (KaarevaHarjaPalkki, KaarevaPalkki)):
             return 1.7
+
+    def k_p(self):
+        if isinstance(self.section, HarjaPalkki):
+            return 0.2 * np.tan(self.alfa())
+        elif isinstance(self.section, KaarevaPalkki):
+            r = self.section.r_in + 0.5 * self.section.hap
+            return 0.25 * (self.section.hap / r)
+        elif isinstance(self.section, KaarevaHarjaPalkki):
+            k5 = 0.2 * np.tan(self.alfa())
+            k6 = 0.25 - 1.5 * np.tan(self.alfa()) + 2.6 * np.tan(self.alfa()) ** 2
+            k7 = 2.1 * np.tan(self.alfa()) - 4 * np.tan(self.alfa()) ** 2
+            r = self.section.r_in + 0.5 * self.section.hap
+            return k5 + k6 * (self.section.hap / r) + k7 * (self.section.hap / r) ** 2
+
+    def k_l(self):
+        k1 = 1 + 1.4 * np.tan(self.alfa()) + 5.4 * np.tan(self.alfa()) ** 2
+        if isinstance(self.section, HarjaPalkki):
+            return k1
+        elif isinstance(self.section, KaarevaPalkki):
+            r = self.section.r_in + 0.5 * self.section.hap
+            return 1 + 0.35 * (self.section.hap / r) + 0.6 * (self.section.hap / r) ** 2
+        elif isinstance(self.section, KaarevaHarjaPalkki):
+            r = self.section.r_in + 0.5 * self.section.hap
+            k2 = 0.35 * - 8 * np.tan(self.alfa())
+            k3 = 0.6 + 8.3 * np.tan(self.alfa()) - 7.8 * np.tan(self.alfa()) ** 2
+            k4 = 6 * np.tan(self.alfa()) ** 2
+            return k1 + k2 * (self.section.hap / r) + k3 * (
+                    self.section.hap / r) ** 2 + k4 * (self.section.hap / r) ** 3
 
     def k_m_alpha(self):
         sigma_malphad = self.sigma_m_alpha_d()
@@ -320,8 +379,8 @@ class TimberMember:
             a = (self.section.hap - self.section.h0) / self.length
         elif isinstance(self.section, HarjaPalkki):
             a = (self.section.hap - self.section.h0) / (self.length / 2)
-        elif isinstance(self.section, KaarevaHarjaPalkki):
-            a = (self.section.hap + self.section.hp - self.section.h0) / (self.length / 2)
+        elif isinstance(self.section, (KaarevaHarjaPalkki, KaarevaPalkki)):
+            a = self.section.alpha
         #elif mahapalkki:
         #     a = (h_ap - h0)*2 / (self.length / 2)
         return a
@@ -432,6 +491,40 @@ class TimberMember:
         return [self.myed[n] / self.section.get_Wel(self.loc[n])[0],
                 self.mzed[n] / self.section.get_Wel(self.loc[n])[1]]
 
+    def get_max_sigma_per_segment(self):
+        supp_y = self.lateral_support_y.copy()
+        supp_z = self.lateral_support_z.copy()
+        supp_y.append(0.0)
+        supp_y.append(1.0)
+        supp_z.append(0.0)
+        supp_z.append(1.0)
+        supp_y.sort()
+        supp_z.sort()
+
+        sig_md_list = [self.sigma_md(i) for i in range(self.nsect())]
+
+        iy = []
+        iz = []
+        for i in range(len(supp_y) - 1):
+            sig_md_in_seg = []
+            locs = []
+            for loc in self.loc:
+                #print(f'Member {self}')
+                #print(f'loc {loc}, supp i {supp_y[i]}, supp i+1 {supp_y[i+1]}')
+                if supp_y[i] <= loc <= supp_y[i+1]:
+                    sig_md_in_seg.append(sig_md_list[self.loc.index(loc)])
+                    locs.append(loc)
+            iy.append(max(sig_md_in_seg, key=lambda x: abs(x[0])))
+
+        for i in range(len(supp_z) - 1):
+            sig_md_in_seg = []
+            locs = []
+            for loc in self.loc:
+                if supp_z[i] <= loc <= supp_z[i+1]:
+                    sig_md_in_seg.append(sig_md_list[self.loc.index(loc)])
+                    locs.append(loc)
+            iz.append(max(sig_md_in_seg, key=lambda x: abs(x[0])))
+        return [iy, iz]
 
     def tau_d(self, n):
         """
@@ -469,17 +562,64 @@ class TimberMember:
         square-shaped section properties and overestimates high and thin section properties, optimality is at 400x70
         """
         section_height_to_width_ratio = self.section.get_H(self.loc[n]) / self.section.B
-        beta = 0.05 * log(section_height_to_width_ratio, 2.6) + 0.2
+        if section_height_to_width_ratio < 1:
+            section_height_to_width_ratio = 1 / section_height_to_width_ratio
+        if 0.95 < section_height_to_width_ratio < 1.05:
+            beta = 0.208
+        elif 1.45 < section_height_to_width_ratio < 1.55:
+            beta = 0.231
+        elif 1.95 < section_height_to_width_ratio < 2.05:
+            beta = 0.246
+        elif 2.45 < section_height_to_width_ratio < 2.55:
+            beta = 0.258
+        elif 2.95 < section_height_to_width_ratio < 3.05:
+            beta = 0.267
+        elif 3.95 < section_height_to_width_ratio < 4.05:
+            beta = 0.282
+        elif 4.95 < section_height_to_width_ratio < 5.05:
+            beta = 0.299
+        elif 5.95 < section_height_to_width_ratio < 6.05:
+            beta = 0.307
+        elif 7.95 < section_height_to_width_ratio < 8.05:
+            beta = 0.313
+        elif 9 < section_height_to_width_ratio < np.inf:
+            beta = 0.333
+        else:
+            beta = 0.05 * log(section_height_to_width_ratio, 2.6) + 0.2
         Wv = beta * self.section.get_H(self.loc[n]) * self.section.B ** 2
         return self.ted[n] / Wv
 
-    def I_tor(self, n) -> float:
+    def I_tor(self, loc) -> float:
         """
         See help(tau_tord) for full description
         @return: torsional constant for rectangular cross sections
         """
-        alpha = 0.08 * log(self.section.get_H(n) / self.section.B, 2.5) + 0.14
-        return alpha * self.section.get_H(n) * self.section.B ** 3
+        ratio = self.section.get_H(loc) / self.section.B
+        if ratio < 1:
+            ratio = 1 / ratio
+        if 0.95 < ratio < 1.05:
+            alpha = 0.141
+        elif 1.45 < ratio < 1.55:
+            alpha = 0.196
+        elif 1.95 < ratio < 2.05:
+            alpha = 0.229
+        elif 2.45 < ratio < 2.55:
+            alpha = 0.249
+        elif 2.95 < ratio < 3.05:
+            alpha = 0.263
+        elif 3.95 < ratio < 4.05:
+            alpha = 0.281
+        elif 4.95 < ratio < 5.05:
+            alpha = 0.299
+        elif 5.95 < ratio < 6.05:
+            alpha = 0.307
+        elif 7.95 < ratio < 8.05:
+            alpha = 0.313
+        elif 9 < ratio < np.inf:
+            alpha = 0.333
+        else:
+            alpha = 0.08 * log(ratio, 2.5) + 0.14
+        return alpha * self.section.get_H(loc) * self.section.B ** 3
 
     def k_shape(self, n) -> float:
         """
@@ -509,12 +649,11 @@ class TimberMember:
         sig_md_list = [self.sigma_md(i) for i in range(self.nsect())]
         iy = []
         iz = []
-
         for i in range(len(supp_y) - 1):
             sig_md_in_seg = []
             locs = []
             for loc in self.loc:
-                if supp_y[i] < loc < supp_y[i+1]:
+                if supp_y[i] <= loc <= supp_y[i+1]:
                     sig_md_in_seg.append(sig_md_list[self.loc.index(loc)])
                     locs.append(loc)
             iy.append(locs[sig_md_in_seg.index(min(sig_md_in_seg))])
@@ -523,7 +662,7 @@ class TimberMember:
             sig_md_in_seg = []
             locs = []
             for loc in self.loc:
-                if supp_z[i] < loc < supp_z[i+1]:
+                if supp_z[i] <= loc <= supp_z[i+1]:
                     sig_md_in_seg.append(sig_md_list[self.loc.index(loc)])
                     locs.append(loc)
             iz.append(locs[sig_md_in_seg.index(min(sig_md_in_seg))])
@@ -582,7 +721,7 @@ class TimberMember:
             form_beta(self.L_c[1], 1)
 
             return np.asarray([beta[0] * self.L_c[0], beta[1] * self.L_c[1]], dtype=object)
-        elif self.type == 'beam':
+        elif self.type == 'rigid-beam':
             form_beta(self.L_c[0], 0, True)
             form_beta(self.L_c[1], 1, True)
 
@@ -642,13 +781,15 @@ class TimberMember:
         return self.L_c[yz][i] * alpha
 
 
-    def sigma_mcrit(self, i, yz, n):
+    def sigma_mcrit(self, i, yz, loc):
         '''
         For member undergoing bending relative to it's stronger axis: SFS-EN 1995-1-1 § 6.3.3 (6.31)
         @return: Single value of critical stress during lateral buckling check
         '''
-        #return ((0.78 * self.section.B ** 2) / (self.section.H * self.l_ef(i))) * self.material.E005
-        return pi * sqrt(self.material.E005 * self.section.get_I(n)[1] * self.material.G005 * self.I_tor(n)) / (self.l_ef(i, yz, n) * self.section.get_Wel(n)[0])
+        try:
+            return pi * sqrt(self.material.E005 * self.section.get_I(loc)[1] * self.material.G005 * self.I_tor(loc)) / (self.l_ef(i, yz, loc) * self.section.get_Wel(loc)[0])
+        except:
+            return ((0.78 * self.section.B ** 2) / (self.section.H * self.l_ef(i, yz, loc))) * self.material.E005
 
 
     def lamda_relm(self, i, yz, n):
@@ -769,6 +910,33 @@ class TimberMember:
 
     def check_shear_force(self, n):
         # Shear force utilization ratio:                            SFS-EN 1995-1-1 § 6.1.7
+
+        if self.type in ("beam", "rigid-beam"):
+            start = list(filter(lambda v: v.member != self if True else False, self.parent.n1.parents.copy()))
+            other_h_start = start[0].cross_section.H
+            sumH_start = (other_h_start + self.section.get_H(0)) / self.length
+            loc = self.loc[n]
+            if loc < sumH_start:
+                for i in range(len(self.loc)):
+                    try:
+                        if self.loc[n+i+1] > sumH_start:
+                            n = n+i
+                            break
+                    except:
+                        pass
+
+            end = list(filter(lambda v: v.member != self if True else False, self.parent.n2.parents.copy()))
+            other_h_end = end[0].cross_section.H
+            sumH_end = (other_h_end + self.section.get_H(0)) / self.length
+            if loc > 1 - sumH_end:
+                for i in range(len(self.loc)):
+                    try:
+                        if self.loc[n-i-1] < 1 - sumH_end:
+                            n = n-i
+                            break
+                    except:
+                        pass
+
         UVy = round(abs(self.tau_d(n)[0]) / self.fvd, 5)
         UVz = round(abs(self.tau_d(n)[1]) / self.fvd, 5)
         r = max(UVy, UVz)
@@ -777,8 +945,8 @@ class TimberMember:
 
     def check_bending_moment(self, n):
         # Bending moment utilization ratio: TODO en:ssä f_md:lle arvot 2 eri suuntaan    SFS-EN 1995-1-1 § 6.1.6
-        UM1 = round(self.sigma_md(n)[0] / self.fmd + k_m * self.sigma_md(n)[1] / self.fmd, 5)
-        UM2 = round(self.sigma_md(n)[1] / self.fmd + k_m * self.sigma_md(n)[0] / self.fmd, 5)
+        UM1 = round(abs(self.sigma_md(n)[0] / self.fmd + k_m * self.sigma_md(n)[1] / self.fmd), 5)
+        UM2 = round(abs(self.sigma_md(n)[1] / self.fmd + k_m * self.sigma_md(n)[0] / self.fmd), 5)
         r = max(UM1, UM2)
         return r
 
@@ -821,16 +989,17 @@ class TimberMember:
         sigma_c0d_list = [[], []]
         sigma_myd_list = [[], []]
         sigma_mzd_list = [[], []]
-        def form_max_sigma_list(nodes, index):
-            for i in range(nodes + 1):
-                k = (1 / (nodes + 1))
-                ele_start = k * i
-                ele_end = ele_start + k
+        def form_max_sigma_list(supports, index):
+            supp = supports.copy()
+            supp.append(0.0)
+            supp.append(1.0)
+            supp.sort()
+            for i in range(len(supp) - 1):
                 max_sigma_c0d_list = []
                 max_sigma_myd_list = []
                 max_sigma_mzd_list = []
                 for loc in self.loc:
-                    if ele_start <= loc <= ele_end:
+                    if supp[i] <= loc <= supp[i+1]:
                         max_sigma_c0d_list.append(self.sigma_c0d(self.loc.index(loc)))
                         max_sigma_myd_list.append(self.sigma_md(self.loc.index(loc))[0])
                         max_sigma_mzd_list.append(self.sigma_md(self.loc.index(loc))[1])
@@ -842,8 +1011,8 @@ class TimberMember:
                 sigma_myd_list[index].append(max_sigma_myd)
                 sigma_mzd_list[index].append(max_sigma_mzd)
 
-        form_max_sigma_list(len(self.lateral_support_y), 0)
-        form_max_sigma_list(len(self.lateral_support_z), 1)
+        form_max_sigma_list(self.lateral_support_y, 0)
+        form_max_sigma_list(self.lateral_support_z, 1)
 
         sc0 = np.array(sigma_c0d_list[0])
         sc1 = np.array(sigma_c0d_list[1])
@@ -864,31 +1033,24 @@ class TimberMember:
         # TODO vaihtuvan poikkileikkausken tarkistelu
         # mitä k_criittisen arvoa käytetään vaihtuvalle poikkileikkaukselle
         ULT_list = []
-        for i in range(len(self.lateral_support_z) + 1):
-            if i == 0:
-                ele_start = 0
-                if i == len(self.lateral_support_z):
-                    ele_end = 1
-                else:
-                    ele_end = self.lateral_support_z[i]
-            elif i == len(self.lateral_support_z):
-                ele_start = self.lateral_support_z[i - 1]
-                ele_end = 1
-            else:
-                ele_start = self.lateral_support_z[i - 1]
-                ele_end = self.lateral_support_z[i]
+        supp = self.lateral_support_z.copy()
+        supp.append(0.0)
+        supp.append(1.0)
+        supp.sort()
+        for i in range(len(supp) - 1):
             # max_sigma_myd_list = []
             # loc_list = []
             for loc in self.loc:
-                if ele_start <= loc <= ele_end:
+                if supp[i] <= loc <= supp[i+1]:
                     # max_sigma_myd_list.append(self.sigma_md(self.loc.index(loc))[0])
                     # loc_list.append(loc)
                     if max(self.myed, key=abs) != 0 and abs(max(self.ned, key=abs)) <= 0.1:
                         ULT_list.append(self.sigma_md(self.loc.index(loc))[0] / (self.k_crit(i, 1, loc) * self.fmd))
                     else:
                         ULT_list.append(
-                            (self.sigma_md(self.loc.index(loc))[0] / (self.k_crit(i, 1, loc) * self.fmd) ** 2) +
+                            ((self.sigma_md(self.loc.index(loc))[0] / (self.k_crit(i, 1, loc) * self.fmd)) ** 2) +
                             self.sigma_c0d(self.loc.index(loc)) / (self.k_c()[1][i] * self.fc0d))
+
             # max_sigma_myd = max(max_sigma_myd_list, key=abs)
             # print(loc_list)
             # max_loc = loc_list[max_sigma_myd_list.index(max_sigma_myd)]
@@ -899,8 +1061,68 @@ class TimberMember:
             #         ULT_list.append((self.sigma_md(self.loc.index(loc))[0] / (self.k_crit(i, 1, loc) * self.fmd) ** 2) +
             #                         self.sigma_c0d(self.loc.index(loc)) / (self.k_c()[1][i] * self.fc0d))
                 # TODO sigma_cod positiivinen tai negatiivinen
-        # print(ULT_list)
+        i = ULT_list.index(max(ULT_list))
+
         return max(ULT_list)
+
+    def check_apex_bending_stress(self):
+        # EN 1995-1-1 (6.41)
+        sigma = self.k_l() * self.M_apd() / self.W_ap()[0]
+        return sigma / (self.k_r() * self.fmd)
+
+    def check_apex_perpendicular_tension(self):
+        # EN 1995-1-1 (6.50)
+        # print(f'sigma t90d {self.sigma_t90d()}')
+        # print(f'k_dis {self.k_dis()}')
+        # print(f'k_vol {self.k_vol()}')
+        return self.sigma_t90d() / (self.k_dis() * self.k_vol() * self.ft90d)
+
+    def check_apex_shear_perpendicular_tension_combined(self):
+        # EN 1995-1-1 (6.53)
+        # taking maximum shear force instead of reduced shear force
+        # TODO palataan myöhemmin
+
+        if isinstance(self.section, (KaarevaHarjaPalkki, KaarevaPalkki)):
+            closesttodownx1 = None
+            closesttodownx2 = None
+            for loc in self.loc:
+                if closesttodownx1 is None:
+                    closesttodownx1 = loc
+                    continue
+                if closesttodownx2 is None:
+                    closesttodownx2 = loc
+                    continue
+                if abs((self.section.dwn_x1 / self.length) - loc) < abs(closesttodownx1 - loc):
+                    closesttodownx1 = loc
+                if abs(self.section.dwn_x2 / self.length - loc) < abs(closesttodownx2 - loc):
+                    closesttodownx2 = loc
+
+            tau_d_dw_x1 = self.tau_d(self.loc.index(closesttodownx1))
+            tau_d_dw_x2 = self.tau_d(self.loc.index(closesttodownx2))
+            # TODO miksi metku laskee leikkausjännityksen z-suunnassa?
+            tau = abs(min(tau_d_dw_x1[1], tau_d_dw_x2[1], key=abs))
+
+        elif isinstance(self.section, HarjaPalkki):
+            closesttoleft = None
+            closesttoright = None
+            for loc in self.loc:
+                if closesttoleft is None:
+                    closesttoleft = loc
+                    continue
+                if closesttoright is None:
+                    closesttoright = loc
+                    continue
+                if abs(self.section.xap - (self.section.hap / 2 / self.length) - loc) < abs(closesttoleft - loc):
+                    closesttoleft = loc
+                if abs(self.section.xap + (self.section.hap / 2 / self.length) - loc) < abs(closesttoright - loc):
+                    closesttoright = loc
+
+            tau_d_dw_x1 = self.tau_d(self.loc.index(closesttoleft))
+            tau_d_dw_x2 = self.tau_d(self.loc.index(closesttoright))
+            # TODO miksi metku laskee leikkausjännityksen z-suunnassa?
+            tau = abs(min(tau_d_dw_x1[1], tau_d_dw_x2[1], key=abs))
+
+        return (tau / self.fvd) + self.sigma_t90d() / (self.k_dis() * self.k_vol() * self.ft90d)
 
 
     def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0,
@@ -1071,7 +1293,8 @@ class TimberMember:
         self.L_c = np.asarray([np.asarray(Lcy),
                                np.asarray(Lcz)], dtype=object)
 
-
+    def __repr__(self):
+        return self.parent.__repr__()
 
     # TODO lisää femiin sectio
     # def add_section(self, fem_model):

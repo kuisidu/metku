@@ -8,3 +8,4 @@ from .mislp import MISLP
 from .vns import VNS, DiscreteVNS
 from .trust_region import TrustRegionConstr
 from .pso import PSO
+from .bnb import BnB

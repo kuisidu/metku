@@ -14,7 +14,7 @@ try:
     from metku.sections.steel.catalogue import *
     from metku.frame2d.materials import MATERIALS
     from metku.structures.steel.steel_member import SteelMember
-    from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki
+    from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki
     from metku.structures.timber.timber_member import TimberMember
     from metku.materials.timber_data import T, Timber
 except:
@@ -25,7 +25,7 @@ except:
     from sections.steel.catalogue import *
     from frame2d.materials import MATERIALS
     from structures.steel.steel_member import SteelMember
-    from sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki
+    from sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki
     from structures.timber.timber_member import TimberMember
     from materials.timber_data import T, Timber
 
@@ -602,7 +602,8 @@ class Frame2D:
             self.nodes.extend(list(member.nodes.values()))
 
         for member in self.members.values():
-            member.member.add_neighbours_support()
+            if hasattr(member.member, 'add_neighbours_support'):
+                member.member.add_neighbours_support()
 
         # Generate TrussJoints
         if len(self.truss):
@@ -970,7 +971,7 @@ class Frame2D:
         print(f'{filename}.str created to: \n{os.getcwd()}')
 
     def plot(self, print_text=True, show=True,
-             loads=True, color=False, axes=None):
+             loads=True, color=False, axes=None, save=False):
         """ Plots the frame
             
             Parameters
@@ -1029,6 +1030,8 @@ class Frame2D:
         if loads:
             self.plot_loads()
         ax.axis('equal')
+        if save:
+            plt.savefig('default.png', format='png')
         if show:
             plt.axis('equal')
             plt.show()
@@ -1095,7 +1098,7 @@ class Frame2D:
             # x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
             # plt.plot([x0, x1], [y0, y1], c='b')
 
-    def plot_deflection(self, scale=1, prec=4, show=True, load_id=2):
+    def plot_deflection(self, scale=1, prec=4, show=True, save=False, load_id=2):
         """ Draws deflected shape of the frame
             
             Parameters
@@ -1165,7 +1168,8 @@ class Frame2D:
                     plt.text(loc_max_x, loc_max_y,
                              "{0:5.{1}g} mm".format(max_x,prec))
 
-
+        if save:
+            plt.savefig('deflections.png', format='png')
         if show:
             plt.show()
 
@@ -1236,7 +1240,7 @@ class Frame2D:
 
                 plt.show()
 
-    def bmd(self, scale=1):
+    def bmd(self, scale=1, save=False, show=True, load_id=2):
         """ Draws bending moment diagram
 
             Parameters
@@ -1246,12 +1250,15 @@ class Frame2D:
         """
         self.plot(print_text=False, show=False, color=False)
         for member in self.members.values():
-            member.bmd(scale)
+            member.bmd(scale, load_id=load_id)
         # for truss in self.truss:
         #     truss.bmd(scale)
-        plt.show()
+        if save:
+            plt.savefig('bending moment diagram.png', format='png')
+        if show:
+            plt.show()
 
-    def plot_normal_force(self, show=True):
+    def plot_normal_force(self, show=True, save=False):
         """ Plots normal force and utilization ratio
 
             Parameters
@@ -1267,6 +1274,8 @@ class Frame2D:
         # if self.truss:
         #    for member in self.truss.members.values():
         #        member.plot_normal_force()
+        if save:
+            plt.savefig('normal forces.png', format='png')
         if show:
             plt.show()
 
@@ -1416,9 +1425,9 @@ class FrameMember:
         self.loc = []
         self.__coordinates = [[round(c, PREC) for c in coords] for coords in coordinates]
         # self.coordinates = coordinates
-        self.material = material
         self.cross_section = None
         self.__profile = profile
+        self.material = material
         self.profile = profile
         # self.profile_idx = PROFILES.index(self.profile)
         # self.length = self.calc_length()
@@ -2049,19 +2058,14 @@ class FrameMember:
                 n2 = node_ids[i + 1]
 
                 if isinstance(self.cross_section, TaperedSection):
-                    # TODO ei laske oiken jos nodet ei ole tasavälein
-                    A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-                    I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-
-                    new_section = SmallElementSection(A, I)
                     self.elements[index] = \
-                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                               new_section, \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section.small_elements[i],
                                self.material)
                 else:
                     self.elements[index] = \
-                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                               self.cross_section, \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section,
                                self.material)
 
                 fem_model.add_element(self.elements[index])
@@ -2072,8 +2076,8 @@ class FrameMember:
             n1 = node_ids[0]
             n2 = node_ids[1]
             self.elements[index] = \
-                Rod(fem_model.nodes[n1], fem_model.nodes[n2], \
-                        self.cross_section, \
+                Rod(fem_model.nodes[n1], fem_model.nodes[n2],
+                        self.cross_section,
                         self.material)
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
@@ -2082,11 +2086,17 @@ class FrameMember:
                 n1 = node_ids[0]
                 n2 = node_ids[1]
 
-                self.elements[index] = \
-                    EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                    self.cross_section, \
-                                    self.material, \
-                                    rot_stiff=[self.Sj1, self.Sj2])
+                if isinstance(self.cross_section, TaperedSection):
+                    self.elements[index] = \
+                        EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                        self.cross_section.small_elements[0],
+                                        self.material, rot_stiff=[np.inf, self.Sj2])
+                else:
+                    self.elements[index] = \
+                        EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                        self.cross_section,
+                                        self.material,
+                                        rot_stiff=[self.Sj1, self.Sj2])
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
             else:
@@ -2097,54 +2107,42 @@ class FrameMember:
                     # EBSemiRigid -element, first element
                     if i == 0:
                         if isinstance(self.cross_section, TaperedSection):
-                            A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-                            I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-
-                            new_section = SmallElementSection(A, I)
                             self.elements[index] = \
-                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                       new_section, \
+                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                       self.cross_section.small_elements[i],
                                        self.material, rot_stiff=[self.Sj1, np.inf])
                         else:
                             self.elements[index] = \
                                 EBSemiRigidBeam(fem_model.nodes[n1],
-                                            fem_model.nodes[n2], \
-                                            self.cross_section, \
-                                            self.material, \
+                                            fem_model.nodes[n2],
+                                            self.cross_section,
+                                            self.material,
                                             rot_stiff=[self.Sj1, np.inf])
                     # EBSemiRigid -element, last element
                     elif i == (len(self.nodes) - 2):
                         if isinstance(self.cross_section, TaperedSection):
-                            A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-                            I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-
-                            new_section = SmallElementSection(A, I)
                             self.elements[index] = \
-                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                       new_section, \
+                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                       self.cross_section.small_elements[i],
                                        self.material, rot_stiff=[np.inf, self.Sj2])
                         else:
                             self.elements[index] = \
                                 EBSemiRigidBeam(fem_model.nodes[n1],
-                                            fem_model.nodes[n2], \
-                                            self.cross_section, \
-                                            self.material, \
+                                            fem_model.nodes[n2],
+                                            self.cross_section,
+                                            self.material,
                                             rot_stiff=[np.inf, self.Sj2])
                     # EBBeam -elements
                     else:
                         if isinstance(self.cross_section, TaperedSection):
-                            A = self.cross_section.get_A(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-                            I = self.cross_section.get_I(((1 / (len(self.nodes) - 1)) * i) + (0.5 / (len(self.nodes))))
-
-                            new_section = SmallElementSection(A, I)
                             self.elements[index] = \
-                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                       new_section, \
+                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                       self.cross_section.small_elements[i],
                                        self.material)
                         else:
                             self.elements[index] = \
-                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                   self.cross_section, \
+                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                   self.cross_section,
                                    self.material)
 
                     fem_model.add_element(self.elements[index])
@@ -2156,10 +2154,16 @@ class FrameMember:
                 n1 = node_ids[i]
                 n2 = node_ids[i + 1]
 
-                self.elements[index] = \
-                    EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                           self.cross_section, \
-                           self.material)
+                if isinstance(self.cross_section, TaperedSection):
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section.small_elements[i],
+                               self.material)
+                else:
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section,
+                               self.material)
 
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
@@ -2712,7 +2716,7 @@ class SteelFrameMember(FrameMember):
         self.members = [self.member]
 
 class TimberFrameMember(FrameMember):
-    def __init__(self, coordinates, profile, mem_id='', material=T.C16, num_elements=5, LT_buckling=False,
+    def __init__(self, coordinates, profile, mem_id='', num_elements=5, LT_buckling=False,
                  varnished=False, ldc='inst', sc=1, Sj1=np.inf, Sj2=np.inf, mtype="", lateral_support_y=None,
                  lateral_support_z=None, edge_load='compression', beta=None):
         """
@@ -2733,9 +2737,14 @@ class TimberFrameMember(FrameMember):
         @param support_nodes: number of nodes that support the beam from z direction (This has nothing to do with FEM)
         @param edge_load: 'compression' or 'tension'
         """
-        super().__init__(coordinates, mem_id, profile, material, num_elements, Sj1, Sj2, mtype, LT_buckling)
-        profile.material = self.material
+        super().__init__(coordinates, mem_id, profile, profile.material, num_elements, Sj1, Sj2, mtype, LT_buckling)
         self.r = np.ones(10)
+        if isinstance(self.cross_section, TaperedSection):
+            if isinstance(self.cross_section, (KaarevaHarjaPalkki, KaarevaPalkki)):
+                self.cross_section.parent = self
+                self.cross_section.update_circles()
+            self.cross_section.num_elements = num_elements
+            self.cross_section.create_elements()
         if lateral_support_z is None:
             lateral_support_z = []
         if lateral_support_y is None:
@@ -2771,7 +2780,7 @@ class TimberFrameMember(FrameMember):
         """
         Returns member's material e.g. S355
         """
-        return self.__material
+        return self.cross_section.material
 
     @material.setter
     def material(self, val):
@@ -2779,7 +2788,7 @@ class TimberFrameMember(FrameMember):
         Changes member's matrial and gets new material properties
         from tables_and_tuples.mat -dict
         """
-        self.__material = Timber(val)
+        self.__material = val
 
     def add_material(self, fem_model):
         """ Adds member's material information to calculation model
@@ -2800,10 +2809,13 @@ class TimberFrameMember(FrameMember):
                 value1 = -1 * multiplier * self.cross_section.get_A(0) * self.rho * 1e-9
                 value2 = -1 * multiplier * self.cross_section.get_A(1) * self.rho * 1e-9
                 direction = 'y'
-                print(f'val1 {value1} val2 {value2}')
                 frame.add(LineLoad(self, [value1, value2], direction))
             elif isinstance(self.cross_section, HarjaPalkki):
-                raise NotImplementedError
+                print('Self weight cannot be added to Harjapalkki')
+            elif isinstance(self.cross_section, KaarevaHarjaPalkki):
+                print('Self weight cannot be added to KaarevaHarjapalkki')
+            elif isinstance(self.cross_section, KaarevaPalkki):
+                print('Self weight cannot be added to KaarevaPalkki')
             elif isinstance(self.cross_section, TimberSection):
                 # TODO load id
                 load_id = "self_weight"
@@ -2813,8 +2825,12 @@ class TimberFrameMember(FrameMember):
                 direction = 'y'
                 frame.add(LineLoad(self, [value, value], direction))
 
-
-
+    @property
+    def weight(self):
+        if isinstance(self.cross_section, (KaarevaPalkki, KaarevaHarjaPalkki)):
+            return self.member.V_tot() * self.material.rhomean * 1e-9
+        elif isinstance(self.cross_section, TimberSection):
+            return self.A * self.length * self.rho * 1e-9
 
     def check_cross_section(self):
         """ Checks if cross-section is strong enough.
@@ -2847,8 +2863,8 @@ class TimberFrameMember(FrameMember):
         print(f'{COLOR}EC5(6.13)\t  UV\t\t {round(self.r[1] * 100, PREC)} %{END}')
         COLOR = self.get_printing_color(self.r[2])
         print(f'{COLOR}EC5(6.11)\t  UM\t\t {round(self.r[2] * 100, PREC)} %{END}')
-        COLOR = self.get_printing_color(self.r[3])
-        print(f'{COLOR}EC5(6.14)\t  UT\t\t {round(self.r[3] * 100, PREC)} %{END}')
+        # COLOR = self.get_printing_color(self.r[3])
+        # print(f'{COLOR}EC5(6.14)\t  UT\t\t {round(self.r[3] * 100, PREC)} %{END}')
         COLOR = self.get_printing_color(self.r[4])
         print(f'{COLOR}EC5(6.17)\t  UBT\t\t {round(self.r[4] * 100, PREC)} %{END}')
         COLOR = self.get_printing_color(self.r[5])
@@ -2858,17 +2874,32 @@ class TimberFrameMember(FrameMember):
         print(f'{COLOR}EC5(6.23)  buckling y\t {round(self.r[7] * 100, PREC)} %{END}')
         COLOR = self.get_printing_color(self.r[8])
         print(f'{COLOR}EC5(6.24)  buckling z\t {round(self.r[8] * 100, PREC)} %{END}')
-        print('sauvan hoikkuus', '\u03BBy', '=', round(self.member.lamda()[0][0], PREC))
-        print('sauvan hoikkuus', '\u03BBz', '=', round(self.member.lamda()[1][0], PREC))
-        if self.mtype == 'beam':
+        ms = self.member.get_max_sigma_per_segment()
+        # print(f'abs max sigma per y segment: {ms[0]}')
+        # print(f'abs max sigma per z segment: {ms[1]}')
+        print('sauvan hoikkuus', u'\u03BBy', '=\t', round(self.member.lamda()[0][ms[0].index(max(ms[0]))], PREC))
+        print('sauvan hoikkuus', u'\u03BBz', '=\t', round(self.member.lamda()[1][ms[1].index(max(ms[1]))], PREC))
+        if self.mtype in ('beam', 'rigid-beam'):
             COLOR = self.get_printing_color(self.r[9])
-            print(f'{COLOR}EC5(6.35) tai (6.33) LT buckling\t {round(self.r[9] * 100, PREC)} %{END}')
+            print(f'{COLOR}EC5(6.35/33) LT buckling {round(self.r[9] * 100, PREC)} %{END}')
             COLOR = self.get_printing_color(self.r[6])
             print(f'{COLOR}EC5(6.2)\t  UNcp\t\t {round(self.r[6] * 100, PREC)} %{END}')
             loc = self.member.check_perpendicular_compression(location=True)
             if isinstance(loc, list):
                 print('leimapaineen solmu: x:', loc[1].x, 'y:', loc[1].y)
+
+            if isinstance(self.cross_section, (KaarevaPalkki, KaarevaHarjaPalkki, HarjaPalkki)):
+                apbs = self.member.check_apex_bending_stress()
+                COLOR = self.get_printing_color(apbs)
+                print(f'{COLOR}EC(6.41) APXBS {round(apbs * 100, PREC)} %{END}')
+                appt = self.member.check_apex_perpendicular_tension()
+                COLOR = self.get_printing_color(appt)
+                print(f'{COLOR}EC(6.50) APXPT {round(appt * 100, PREC)} %{END}')
+                apspt = self.member.check_apex_shear_perpendicular_tension_combined()
+                COLOR = self.get_printing_color(apspt)
+                print(f'{COLOR}EC(6.53) APXSPT {round(apspt * 100, PREC)} %{END}')
         print('--------------------------------------')
+
 
     def get_printing_color(self, val):
         GREEN = '\033[92m'

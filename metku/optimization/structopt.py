@@ -973,11 +973,11 @@ class OptimizationProblem:
 
         return np.asarray(g)
 
-    def fea(self):
+    def fea(self, load_id=2):
         """
         Runs finite element analysis on structure
         """
-        self.structure.calculate()
+        self.structure.calculate(load_id)
         self.fea_done = True
         self.num_fem_analyses += 1
 

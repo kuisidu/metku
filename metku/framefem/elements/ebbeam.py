@@ -15,7 +15,7 @@ CACHE_BOUND = 2**10
 try:
     from metku.framefem import Element, LineLoad
 except:
-    from framefem import Element
+    from framefem import Element, LineLoad
 
 
 class EBBeam(Element):
