@@ -62,8 +62,23 @@ class SteelMember:
         self.vzed = []
         self.ted = []
         self.loc = []
-        self.LT_B = LT_buckling
+        self.LTB = LT_buckling
         self.symmetry = symmetry
+        
+        self.Cmy = 0.9
+        self.Cmz = 0.9
+        self.CmLT = 1.0
+        
+        
+        self.utilization = []
+        """ Utilization ratio for stability
+            buck_y .. flexural buckling with respect to y axis
+            buck_z .. flexural buckling with respect to z axis
+            LTB .. lateral-torsional buckling
+            bc_z .. beam-column stability, y axis
+            bc_z .. beam-column stability, z axis
+        """
+        self.stability = {'buck_y':0.0,'buck_z':0.0,'LTB':0.0,'bc_y':0.0,'bc_z':0.0}
 
     @property
     def NbRd(self):
@@ -84,7 +99,13 @@ class SteelMember:
 
     @property
     def NEd(self):
+        """ Maximum axial force (absolute value) """
         return max(abs(np.array(self.ned)))
+    
+    @property
+    def NcEd(self):
+        """ Maximum compressive axial force """
+        return np.min(np.array(self.ned).clip(max=0.0))
 
     def nsect(self):
         """ Number of sections """
@@ -313,6 +334,7 @@ class SteelMember:
         self.vzed.append(vzed)
         self.ted.append(ted)
         self.loc.append(loc)
+        self.utilization.append({})
 
     def clear_sections(self):
         self.ned.clear()
@@ -332,6 +354,8 @@ class SteelMember:
                 
 
         r = self.profile.section_resistance(verb=verb)
+        
+        self.utilization[n] = {'n':r[0],'vz':r[1],'my':r[2],'mny':r[3]}
         return r
 
     def check_sections(self, class1or2=True, verb=False):
@@ -350,7 +374,7 @@ class SteelMember:
         """ Find greatest compression force in the member
             clip replace all positive values with 0.0        
         """
-        NEd = np.min(np.array(self.ned).clip(max=0.0))
+        NEd = self.NcEd
         if NEd >= 0.0:
             """ if all axial forces are non-negative,
                 buckling resistance need not be checked
@@ -358,6 +382,10 @@ class SteelMember:
             r = [0.0, 0.0]
         else:
             r = abs(NEd) / self.NbRd
+        
+        self.stability['buck_y'] = r[0]
+        self.stability['buck_z'] = r[1]
+
 
         return r
 
@@ -365,25 +393,19 @@ class SteelMember:
         """ Verify lateral torsional buckling resistance
             output: r .. utilization ratio for buckling        
         """
-
-        MEd1 = np.max(np.array(self.myed))
-        MEd2 = abs(np.min(np.array(self.myed)))
-        MEd = max(MEd1, MEd2)
+        MEd = self.MEdY
         MbRd = self.LT_buckling_strength(self.mcrit())
         r = abs(MEd) / MbRd
 
         return r
 
-    def check_beamcolumn(self, Cmy=0.9, section_class=None):
+    def check_beamcolumn(self, section_class=None):
         """ Verify stability for combined axial force and bending moment
-            LT_buckling -- kiepahdus
-                    True .. rajoitusehto huomioidaan
-                    False .. rajoitusehtoa ei huomioida
         """
         # find the largest compression force in the member
-        NEd = np.min(np.array(self.ned).clip(max=0.0))
-
+        NEd = self.NcEd
         self.profile.Ned = NEd
+        
         if section_class is None:
             cross_section_class = self.profile.section_class()
         else:
@@ -393,70 +415,37 @@ class SteelMember:
         #print("Section class:", cross_section_class)
         
         slend = self.slenderness()
-        CmLT = 1  # Pitääkö käyttää jotakin kaavaa?
-
-        # NRd = self.profile.A * self.fy()
+    
         NbRd = self.buckling_strength()
 
         UNy = abs(NEd) / NbRd[0]
         UNz = abs(NEd) / NbRd[1]
 
-        kyy = en1993_1_1.kyy(UNy, slend[0], Cmy,
+        kyy = en1993_1_1.kyy(UNy, slend[0], self.Cmy,
                              section_class=cross_section_class)
 
-        kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=CmLT,
+        kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=self.CmLT,
                              section_class=cross_section_class)
 
-        MyEd1 = np.max(np.array(self.myed))
-        MyEd2 = abs(np.min(np.array(self.myed)))
-        MyEd = max(MyEd1, MyEd2)
+        """ Find maximum bending moment along the member """
+        MyEd = self.MEdY
 
+        """ For now, assume no bending with respect to z axis """
         # MzEd1 = np.max(np.array(self.mzed))
         # MzEd2 = abs(np.min(np.array(self.mzed)))
         # MzEd = max(MzEd1, MzEd2)
 
-        MRd = self.profile.bending_resistance(C=cross_section_class)
-
-        # phi_y = 0.5 * (1 + self.profile.imp_factor[0] * (
-        #         slend[0] - 0.2) + slend[0] ** 2)
-        # chi_y = min(1 / (phi_y + math.sqrt(phi_y ** 2 - slend[0] ** 2)), 1.0)
-        #
-        # phi_z = 0.5 * (1 + self.profile.imp_factor[1] * (
-        #         slend[1] - 0.2) + slend[1] ** 2)
-        # chi_z = min(1 / (phi_z + math.sqrt(phi_z ** 2 - slend[1] ** 2)), 1.0)
-        #
-        # if cross_section_class <= 2:
-        #     if not self.LT_B:
-        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-        #         kzy = 0.6 * kyy
-        #
-        #     elif self.LT_B:
-        #         kyy = min(Cmy * (1 + (slend[0] - 0.2) * (NEd / (chi_y * NRd))),
-        #                   Cmy * (1 + 0.8 * (NEd / (chi_y * NRd))))
-        #         if slend[1] < 0.4:
-        #             kzy = min(0.6 + slend[1], 1 - (0.1 * slend[1] / (
-        #                     CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-        #         else:
-        #             kzy = max(1 - (0.1 * slend[1] / (CmLT - 0.25)) * (
-        #                     NEd / (chi_z * NRd)),
-        #                     1 - (0.1 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-        #
-        # elif cross_section_class > 2:
-        #     if not self.LT_B:
-        #         kyy = min(Cmy * (1 + 0.6 * slend[0] * (NEd / (chi_y * NRd))),
-        #                   Cmy * (1 + 0.6 * (NEd / (chi_y * NRd))))
-        #         kzy = 0.8 * kyy
-        #
-        #     elif self.LT_B:
-        #         kzy = max(1 - (0.05 * slend[1] / (CmLT - 0.25)) * (
-        #                     NEd / (chi_z * NRd)),
-        #                   1 - (0.05 / (CmLT - 0.25)) * (NEd / (chi_z * NRd)))
-
+        #MRd = self.profile.bending_resistance(C=cross_section_class)
+        MRd = self.profile.MRd
+      
         com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd[0]
         com_comp_bend_z = -NEd / NbRd[1] + kzy * MyEd / MRd[0]
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
+        
+        self.stability['bc_y'] = com_comp_bend_y
+        self.stability['bc_z'] = com_comp_bend_z
+        
         return com_comp_bend
     
     def required_shear_stiffness(self):
@@ -469,6 +458,38 @@ class SteelMember:
         Sreq = (E*self.profile.Iw*math.pi**2/L**2 + G*self.profile.It + E*self.profile.Iz*math.pi**2/L**2*0.25*h**2)*70/h**2
         
         return Sreq
+
+    def design(self,verb=False):
+        """ Carry out member design 
+            
+            Returns:
+                rmax .. maximum utilization ratio
+        
+        """
+        
+        """ Design cross sections """
+        rsec = self.check_sections(class1or2=False,verb=verb)
+      
+        rmax = np.max(rsec)  
+      
+        """ Check stability """
+        if self.LTB:
+            rLTB = self.check_LT_buckling()        
+            rmax = max(rmax,rLTB)
+        
+        if self.NcEd < 0.0:
+            rbuck = self.check_buckling()
+            rbeam_column = self.check_beamcolumn()
+            rmax = max(rmax,np.max(rbuck))
+            rmax = max(rmax,np.max(rbeam_column))
+            
+        return rmax
+        
+        
+        
+        
+        
+        
 
 if __name__ == "__main__":
     
