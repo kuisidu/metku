@@ -15,6 +15,7 @@ import matplotlib.path as mpath
 # try:
 import metku.framefem.framefem  as fem
 from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+from metku.sections.steel import SteelSection
 from metku.sections.steel.ISection import IPE, HEA, HEB
 from metku.sections.steel.RHS import RHS, SHS
 from metku.sections.steel.CHS import CHS
@@ -1422,6 +1423,7 @@ class FrameMember:
                  Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False,
                  reverse=False):
 
+        self.active = True          # If 'active' is False, this memer is not included in analysis or plotting.
         self.element_ids = []
         self.elements = {}
         self.ecc_elements = {}
@@ -1777,11 +1779,12 @@ class FrameMember:
         :param val: string, profile name e.g. 'IPE 100'
         """
 
-        # if isinstance(val, SteelSection):
-        #     self.cross_section = val
-        #     self.__profile = str(val)
+        #print(val, isinstance(val, SteelSection))
 
-        if isinstance(val, list) and len(val) == 5:
+        if isinstance(val, SteelSection):
+            self.cross_section = val
+            self.__profile = str(val)
+        elif isinstance(val, list) and len(val) == 5:
             h, b, tf, tw, r = val
             if isinstance(self.cross_section, CustomISection):
                 self.cross_section.H = h
@@ -1792,7 +1795,7 @@ class FrameMember:
                 self.cross_section.cross_section_properties()
             else:
                 self.cross_section = CustomISection(h, b, tf, tw, r)
-        else:
+        else:            
             self.__profile = val.upper()
             splitted_val = self.profile.split(" ")
             profile_type = splitted_val[0]
@@ -1859,8 +1862,9 @@ class FrameMember:
         # Change member's elements' properties
         if len(self.elements) > 0:
             for element in self.elements.values():
-                element.section.A = self.cross_section.A
-                element.section.Iy = self.cross_section.I[0]
+                element.section = self.cross_section
+                #element.section.A = self.cross_section.A
+                #element.section.Iy = self.cross_section.I[0]
         # Change steel_member objects properties
         if self.steel_member:
             self.steel_member.profile = self.cross_section
@@ -2572,47 +2576,48 @@ class FrameMember:
         return False
 
     def plot(self, print_text=True, c='k', axes=None):
-
-        if axes is None:
-            fig, ax = plt.subplots(1)
-        else:
-            ax = axes
-
-        X = self.coordinates
-        if c:
-            if self.is_strong_enough:
-                color = 'green'
+        
+        if self.active:
+            if axes is None:
+                fig, ax = plt.subplots(1)
             else:
-                color = 'red'
-        else:
-            color = 'k'
-        # Plot members
-        ax.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
-        # Plot text
-
-        if self.mtype == 'beam':
-            horzalign = 'center'
-            vertalign = 'bottom'
-
-        elif self.mtype == 'column':
-            horzalign = 'right'
-            vertalign = 'center'
-
-        else:
-            horzalign = 'center'
-            vertalign = 'center'
-
-        x, y = self.to_global(0.3) - self.perpendicular * 50
-        rot = np.degrees(self.angle)
-
-        if print_text:
-            ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
-                     rotation=rot, horizontalalignment=horzalign,
-                     verticalalignment=vertalign)
-        else:
-            ax.text(x, y, str(self.mem_id),
-                     rotation=rot, horizontalalignment=horzalign,
-                     verticalalignment=vertalign)
+                ax = axes
+    
+            X = self.coordinates
+            if c:
+                if self.is_strong_enough:
+                    color = 'green'
+                else:
+                    color = 'red'
+            else:
+                color = 'k'
+            # Plot members
+            ax.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
+            # Plot text
+    
+            if self.mtype == 'beam':
+                horzalign = 'center'
+                vertalign = 'bottom'
+    
+            elif self.mtype == 'column':
+                horzalign = 'right'
+                vertalign = 'center'
+    
+            else:
+                horzalign = 'center'
+                vertalign = 'center'
+    
+            x, y = self.to_global(0.3) - self.perpendicular * 50
+            rot = np.degrees(self.angle)
+    
+            if print_text:
+                ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
+                         rotation=rot, horizontalalignment=horzalign,
+                         verticalalignment=vertalign)
+            else:
+                ax.text(x, y, str(self.mem_id),
+                         rotation=rot, horizontalalignment=horzalign,
+                         verticalalignment=vertalign)
 
     def plot_results(self):
         """ Plots utilization ratios for different resistances """

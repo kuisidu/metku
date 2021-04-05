@@ -89,6 +89,7 @@ class Variable:
                     'H' .. height of the profile
                     'TW' .. thickness of the web
         """
+        
         self.name = name
         self.value = value
         self.lb = lb
@@ -148,7 +149,7 @@ class Variable:
 
     def substitute(self, new_value):
         """
-        Changes variable's value and modifies target
+        Changes variable value and modifies target
         :param new_value:
         :return:
         """
@@ -182,6 +183,22 @@ class Variable:
 
                     elif isinstance(self, IndexVariable):
                         obj.__setattr__(prop, new_value)
+                    elif isinstance(self, BinaryVariable):
+                        """ If a binary variable has a target, assume that target
+                            is the section to be substituted. The section is
+                            given in the 'section' attribute of the variable.
+                        """
+                        if new_value == 1:
+                            if prop == 'profile':
+                                obj.__setattr__(prop,self.section)
+                        else:
+                            """ If the target of a binary variable is a member,
+                                the binary variable is a member existence variable
+                                used in topology optimization. In that case,
+                                mark the member as passive.
+                            """
+                            if prop == 'member':
+                                obj.__setattr__('active',False)
                     else:
                         obj.__setattr__(prop, new_value*self.scaling)
 
@@ -247,15 +264,15 @@ class BinaryVariable(IntegerVariable):
 
     """
 
-    def __init__(self, name=""):
+    def __init__(self, name="", section=None, target=None):
         """ Constructor
 
             Arguments:
                 name .. string stating the name of the variable
         """
+        super(IntegerVariable, self).__init__(name, 0, 1,target=target)
 
-        IntegerVariable.__init__(self, name, 0, 1)
-
+        self.section = section       
 
 class IndexVariable(IntegerVariable):
     """
@@ -455,7 +472,7 @@ class LinearConstraint(Constraint):
             Probably fea_required is always False for linear constraints
         """
 
-        self.a = a
+        self.a = np.array(a)
         self.b = b
         Constraint.__init__(self, name, con_type, problem, **kwargs)
 
@@ -483,7 +500,7 @@ class LinearConstraint(Constraint):
         else:
             b = self.b
 
-        return np.array(self.a).dot(np.array(X)) - b
+        return self.a.dot(np.array(X)) - b
 
 
 class NonLinearConstraint(Constraint):
@@ -600,14 +617,14 @@ class LinearObjective(ObjectiveFunction):
         """
         obj_fun = self.evaluate
 
-        self.c = c
+        self.c = np.array(c)
 
         super().__init__(name,obj_fun,obj_type,problem)
 
 
     def evaluate(self,x):
         """ Evaluate function value """
-        return np.array(self.c).dot(np.array(x))
+        return self.c.dot(np.array(x))
 
 
 class OptimizationProblem:
@@ -1598,6 +1615,8 @@ def Linearize(fun, x, grad=None):
 
 
 if __name__ == '__main__':
+
+    b = BinaryVariable(name="oma",section=1,target=3)    
 
     """    
     prop = OptimizationProblem(name="Testi")

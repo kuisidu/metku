@@ -68,6 +68,7 @@ class FrameFEM:
         """
         self.dim = 2
         """ Supported degrees of freedom """
+        self.__supp_dofs = []
         self.supp_dofs = []
         
         self.load_factors = []
@@ -124,7 +125,22 @@ class FrameFEM:
         :rtype: int
         """
         return len(self.loadcases)
-
+    
+    @property
+    def supp_dofs(self):
+        """ Get supported degrees of freedom """
+        
+        if len(self.__supp_dofs) == 0:
+            self.supported_dofs()
+        
+        return self.__supp_dofs
+    
+    @supp_dofs.setter
+    def supp_dofs(self,val):
+        """ Set supported degrees of freedom """        
+        
+        self.__supp_dofs = val
+        
     def add_node(self, x, y, z=None):
         """ Adds node to fem model
 
@@ -156,6 +172,28 @@ class FrameFEM:
         self.nodes.append(newNode)
         return newNode
 
+    @property
+    def nfree_dofs(self):
+        """ number of free degrees of freedom """
+        if len(self.supp_dofs) == 0:
+            self.supported_dofs()
+        
+        nsupp_dofs = len(self.supp_dofs)
+        
+        return self.dofs-nsupp_dofs
+    
+    def element_free_dofs(self,el):
+        """ Returns free dofs of an element """
+
+        if isinstance(el,int):
+            el = self.elements[el]
+        
+        el_dofs = el.global_dofs()
+        supp_dofs = self.supp_dofs
+
+        return [a for a in el_dofs if not a in supp_dofs]
+        
+        
     def add_material(self, E, nu, density):
         """ Adds new material
 
@@ -429,6 +467,18 @@ class FrameFEM:
 
         # print("FrameFEM  ", '\n', global_load)
         return global_load
+    
+    def supported_dofs(self):
+        """ Determine supported dofs. 
+        
+            Assumption: there is only one support case, so no need to
+            distinguish between different support IDs.
+        """
+        supp_dofs = []
+        for supp in self.supports:
+            supp_dofs += list(supp.node.dofs[supp.dof])      
+        
+        self.supp_dofs = supp_dofs
 
     def linear_statics(self, lcase=0, support_method='ZERO'):
         """ Perform linear elastic static analysis for a given load case
@@ -664,6 +714,28 @@ class FrameFEM:
                         pass
         
         return w, buckling_modes, KG
+
+    def statics_matrix(self):
+        """ Creates the statix matrix. This applicable for instances that
+            only have Rod elements (extensible to EBBeam elements as well).
+            
+            Primary use of this method is for optimization of trusses (and frames)
+            using the SAND approach
+        """
+        
+        B = np.zeros([self.dofs,self.nels()])
+        
+        e = np.array([-1,1])
+        for i, el in enumerate(self.elements):
+            b = el.transformation_matrix().transpose().dot(e)
+            d = el.global_dofs()
+            B[np.ix_(d),i] = b
+                        
+        
+        return np.delete(B,self.supp_dofs,0)
+        
+        #return B
+        
 
     #def draw(self, deformed=False, buckling_mode=None, scale=1.0, axes=None):
     def draw(self, axes=None,**kwargs):

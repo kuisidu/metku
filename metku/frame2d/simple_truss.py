@@ -113,7 +113,7 @@ class SimpleTrussMember(FrameMember):
 
         super().__init__(coordinates, mem_id, profile, material, num_elements,mtype=mtype)
 
-def three_bar_truss(L=1000,F1=100,F2=100):
+def three_bar_truss(L=1000,F1=100,F2=100,nlc=1):
     """ three bar truss example """
     
     #from metku.sections.cross_sections import CrossSection
@@ -146,15 +146,21 @@ def three_bar_truss(L=1000,F1=100,F2=100):
     t.add(XYHingedSupport(X[3]))
     # Add point load
     # Voima F1 on pystysuuntainen ja F2 vaakasuuntainen
-    p = PointLoad(X[0],[F2,F1,0])
-    t.add(p)
+    if nlc == 1:
+        p = PointLoad(X[0],[F2,F1,0])
+        t.add(p)
+    else:
+        p1 = PointLoad(X[0],[F2,0,0],load_id=2)
+        t.add(p1)
+        p2 = PointLoad(X[0],[0,F1,0],load_id=3)
+        t.add(p2)
     
     #t.plot()
     
     # Generate calculation model
     t.generate()
     # Calculate the responses
-    #t.calculate(support_method='REM')
+    t.calculate(support_method='REM')
     
     return t
         
@@ -189,7 +195,7 @@ def ten_bar_truss(L,F):
     return t
     
 if __name__ == '__main__':
-    #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3)
-    t = ten_bar_truss(L=3000,F=200e3)
+    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=2)
+    #t = ten_bar_truss(L=3000,F=200e3)
         
         

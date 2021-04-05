@@ -7,12 +7,18 @@ Truss optimization
 @author: kmela
 """
 
+import numpy as np
+import re
+
 try:
     from metku.frame2d.frame2d import SteelBeam
+    from metku.frame2d.simple_truss import SimpleTruss, three_bar_truss, ten_bar_truss
     from metku.sections.steel import SteelSection
     import metku.optimization.structopt as sop
     from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
-    from metku.sections.steel import ISection, WISection, RHS
+    from metku.sections.steel import ISection, WISection, RHS, SHS
+    from metku.optimization.solvers.lp import LP
+    from metku.optimization.solvers.milp import MILP
 except:
     from frame2d.frame2d import SteelBeam
     from sections.steel import SteelSection
@@ -118,6 +124,7 @@ class TrussOptimization(sop.OptimizationProblem):
         """ If no profile list is given, use the default SHS profiles """
         if profiles is None:
             profiles = list(shs_profiles.keys())
+            
         self.profiles = profiles
         
         """ Generate variables.
@@ -419,4 +426,307 @@ class TrussOptimization(sop.OptimizationProblem):
         return cons
             
             
+def truss_lp(truss,Alb=0,Aub=1e9,slb=None,sub=None):
+    """ Creates minimum weight LP problem for the truss 
+        Design variables:
+            1) Cross-sectional areas of the members
+            2) Axial forces of the members, for each load combination
         
+        Constraints:
+            1) Equilibrium equations, for each load combination
+            2) Force constraints, tension and compression
+            3) Box constraints for cross-sectional areas
+    """
+        
+    """ Create variables """
+    dvars = []
+    c = []
+    
+    nmem = len(truss.members)
+    
+    """ Initialize cross-sectional area and stress bounds """
+    if not (isinstance(Alb,np.ndarray) or isinstance(Alb,list)):        
+        Alb = Alb*np.ones(nmem)
+    
+    if not (isinstance(Aub,np.ndarray) or isinstance(Aub,list)):
+        Aub = Aub*np.ones(nmem)
+        
+    if slb is None:
+        slb = [mem.fy for i, mem in t.members.items()]
+    
+    if sub is None:
+        sub = [mem.fy for i, mem in t.members.items()]
+    
+    if not (isinstance(slb,np.ndarray) or isinstance(slb,list)):        
+        slb = slb*np.ones(nmem)
+    
+    if not (isinstance(sub,np.ndarray) or isinstance(sub,list)):
+        sub = sub*np.ones(nmem)
+    
+    
+    
+    """ Design variables: member areas 
+        The assumption here is that each member has its own variable.
+        If member grouping is used, this needs to be changed according to the
+        grouping.
+        
+        Also the stress constraints must be changed to take into account groups.
+    """
+    for i, mem in truss.members.items():
+        dvars.append(sop.Variable(name="A{0:.0g}".format(i),lb=Alb[i],ub=Aub[i],
+                                  target={"objects":[mem],"property":["A"]},
+                                  value=mem.A))
+        c.append(mem.length)
+    
+    """ Design variables: member forces """
+    for lc in truss.load_cases:
+        for i, mem in truss.members.items():
+            dvars.append(sop.Variable(name="N{0:.0g}{1:.0g}".format(lc,i),lb=-1e9,ub=1e9,
+                                  target=None,
+                                  value=1))
+            c.append(0)
+            
+    
+    """ Initialize optimization problem with the created variables """
+    lp = sop.OptimizationProblem(name="Truss LP",variables=dvars,structure=truss)
+    
+    """ Objective function: truss weight """
+    obj = sop.LinearObjective("Weight", c)
+    lp.add(obj)
+    
+    """ Constraints: equilibrium equations """
+    B = truss.f.statics_matrix()
+    ndof = truss.f.nfree_dofs
+        
+    for j, lc in enumerate(truss.load_cases):
+        """ Load vector for the load case, including only unsupported dofs """
+        p = np.delete(truss.f.global_load_vector(lc),truss.f.supp_dofs)
+        """ a is a placeholder for the coefficient vector of a linear constraint """
+        a = np.zeros(lp.nvars())
+        for i, (b,pi) in enumerate(zip(B,p)):
+            """ The first 'nmem' variables are the cross-sectional areas.
+                Insert the current row of the statics matrix as the coefficient
+                vector. 
+            """
+            a[(j+1)*nmem:(j+2)*nmem] = b            
+            lp.add(sop.LinearConstraint(a,pi,con_type="=", name="EQ-{0:.0g}-LC{1:.0g}".format(i,lc)))
+    
+    """ Constraints: stress constraints 
+        These are expressed in terms of member forces, i.e.
+        -sigma_lb*A[i] <= N[i] <= sigma_ub*A[i]
+    """
+    for j, lc in enumerate(truss.load_cases):
+        for i, mem in truss.members.items():
+            a = np.zeros(lp.nvars())
+            a[i] = -sub[i]
+            a[(j+1)*nmem+i] = 1
+            lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-UB-{0:.0g}-LC{1:.0g}".format(i,lc)))
+            
+            a[i] = -slb[i]
+            a[(j+1)*nmem+i] = -1
+            lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-LB-{0:.0g}-LC{1:.0g}".format(i,lc)))
+    
+    return lp
+
+def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
+    """ Discrete sizing optimization of trusses using MILP formulation 
+        
+        It is assumed that all members have the same available set of profiles and
+        each member has its own profile, i.e. no profile grouping.
+    
+        input:
+            profiles .. list of available profiles. Profiles are RHS, SHS, IPE, etc. objects.
+            ulb, uub .. bounds for nodal displacements
+    """
+    
+    """ Do unit scaling. By default, the system is (N,mm). Perhaps
+        (kN,cm) would be better    
+    """
+    Nscale = 1e-3
+    uscale = 1e-1
+    Escale = Nscale/(uscale**2)
+    Ascale = uscale**2
+    
+    ulb *= uscale
+    uub *= uscale
+    
+    """ Create variables """
+    dvars = []
+    c = []
+    
+    nmem = len(truss.members)   # number of members
+    nprof = len(profiles)       # number of profiles
+    ndof = truss.f.nfree_dofs   # number of degrees of freedom
+    nlc = len(truss.load_cases) # number of load cases
+    
+    """ Statics matrix """
+    B = truss.f.statics_matrix()  
+    
+    """ Calculate cross-sectional resistance of members and round down.
+        By rounding, we try to avoid numerical issues in the computations.
+    """
+    NRd = [np.floor(p.NRd)*Nscale for p in profiles]
+    
+    """ Buckling resistance of members. This must be calculated for all profiles """
+    NbRd = np.zeros([nprof,nmem])
+    
+    """ Bounds for force variables """
+    Nlb = np.zeros([nprof,nmem])
+    Nub = np.zeros([nprof,nmem])
+
+    """ Design variables: member profile selection
+        The assumption here is that all members can take all profiles from the list.
+        If member grouping is used or if different profile alternatives are used for
+        different members, this needs to be changed.
+    """
+    
+    for i, mem in truss.members.items():
+        L = mem.length*uscale
+        k0 = mem.E/L*Escale
+        nlb = np.sum(np.maximum(B[:,i],0)*ulb) + np.sum(np.minimum(B[:,i],0)*uub)
+        nub = np.sum(np.minimum(B[:,i],0)*ulb) + np.sum(np.maximum(B[:,i],0)*uub)
+        for j, p in enumerate(profiles):                        
+            dvars.append(sop.BinaryVariable("y({0:.0f},{1:.0f})".format(i,j),
+                                            section=p,
+                                            target={"objects":[mem],"property":"profile"}))
+            """ Calculate buckling resistance of the member for profile 'p' """
+            mem.profile = p
+            NbRd[j,i] = np.floor(mem.NbRd[0])*Nscale
+            Nlb[j,i] = k0*p.A*nlb*Ascale
+            Nub[j,i] = k0*p.A*nub*Ascale
+            c.append(p.weight()/uscale*L)
+    
+  
+    """ Design variables: member forces 
+        Force variables are N[i,j,k], where i is member, j is profile and k is load case
+    
+    """
+    for lc in truss.load_cases:
+        for i, mem in truss.members.items():            
+            for j in range(nprof):
+                dvars.append(sop.Variable(name="N({0:.0f},{1:.0f},{2:.0f})".format(i,j,lc),lb=Nlb[j,i],ub=Nub[j,i],
+                                          target=None,value=1))
+                c.append(0)
+    
+    """ Design variables: nodal displacements 
+        u[j,k]
+    """
+    for k in range(nlc):
+        for j in range(ndof):
+            dvars.append(sop.Variable(name="u({0:.0f},{1:.0f})".format(j,k),
+                                      lb=ulb,ub=uub,target=None,value=0.0))
+            c.append(0)
+            
+    """ Initialize optimization problem with the created variables """
+    lp = sop.OptimizationProblem(name="Truss LP",variables=dvars,structure=truss)
+    
+    """ Objective function: truss weight """
+    obj = sop.LinearObjective("Weight", c)
+    lp.add(obj)
+    
+    """ Constraints: unique profile selection """
+    Aeq = np.zeros([nmem,lp.nvars()])
+    for i, var in enumerate(lp.vars):
+        """ Find the profile selection variables based on their name """
+        s = var.name
+        if s[0] != 'y':
+            break
+        else:
+            """ The first number in the name of the variable corresponds to the member index """
+            m = re.findall(r'\d+',s)
+            Aeq[int(m[0]),i] = 1
+            
+    for i, a in enumerate(Aeq):
+        lp.add(sop.LinearConstraint(a,1,con_type="=", name="Sum y({0:.0f},j)=1".format(i)))
+    
+    """ Constraints: equilibrium equations """
+    B0 = np.zeros([ndof,lp.nvars()])
+    
+    for i in range(nmem):
+        B0[:,(nmem*nprof + i*nprof):(nmem*nprof + (i+1)*nprof)] += np.reshape(B[:,i],(ndof,1))
+        
+    
+    for j, lc in enumerate(truss.load_cases):
+        """ Load vector for the load case, including only unsupported dofs """
+        p = np.delete(truss.f.global_load_vector(lc),truss.f.supp_dofs)*Nscale
+        """ a is a placeholder for the coefficient vector of a linear constraint """
+        a = np.zeros(lp.nvars())
+        for i, (b,pi) in enumerate(zip(B0,p)):
+            """ The first 'nmem' variables are the cross-sectional areas.
+                Insert the current row of the statics matrix as the coefficient
+                vector. 
+            """
+            lp.add(sop.LinearConstraint(b,pi,con_type="=", name="EQ-{0:.0g}-LC{1:.0g}".format(i,lc)))
+    
+    """ Constraints: compatibility conditions """
+    nx = lp.nvars()
+    Nndx = nmem*nprof
+    for k, lc in enumerate(truss.load_cases):
+        for i, mem in truss.members.items():            
+            k0 = mem.E/mem.length*Escale/uscale
+            for j, p in enumerate(profiles):
+                a = np.zeros(nx)
+                """ Upper bound """
+                a[i*nprof+j] = Nub[j,i]              # y variable
+                a[Nndx] = -1  # N variable
+                ustart = nmem*nprof + nlc*nmem*nprof + k*ndof
+                uend = ustart +ndof
+                a[ustart:uend] = k0*p.A*B[:,i]*Ascale                  # u variable
+                lp.add(sop.LinearConstraint(a,Nub[j,i],con_type="<", name="COMP-UB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+    
+                """ Lower bound """
+                a[Nndx] = 1  # N variable
+                a[i*nprof+j] = -Nlb[j,i]             # y variable
+                a[ustart:uend] *= -1    # u variable
+                lp.add(sop.LinearConstraint(a,-Nlb[j,i],con_type="<", name="COMP-LB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+                
+                Nndx +=1
+    """ Constraints: stress constraints 
+        These are expressed in terms of member forces, i.e.
+        -NRd[j]*y[i,j] <= N[i,j,k] <= NRd[j]*y[i,j]
+    """
+    Nndx = nmem*nprof
+    for k, lc in enumerate(truss.load_cases):
+        for i, mem in truss.members.items():            
+            for j, Nrd in enumerate(NRd):
+                a = np.zeros(lp.nvars())
+                # Tension resistance 
+                a[i*nprof+j] = -Nrd # -Nub[j,i] #               # y variable                
+                a[Nndx] = 1  # N variable
+                lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-UB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+            
+                #a[i] = -slb[i]
+                # Compression resistance, including buckling 
+                a[Nndx] = -1
+                a[i*nprof+j] = -min(Nrd,NbRd[j,i])# Nlb[j,i] # 
+                lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-LB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+    
+                Nndx += 1
+    
+    return lp
+
+if __name__ == '__main__':
+    #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3)
+    t = ten_bar_truss(L=3000,F=200e3)
+    
+    #lp = truss_lp(t,0,1e8)
+    #LPsolver = LP()
+    #sol = LPsolver.solve(lp,verb=True)
+    
+    P = []
+    
+    hmax = 110
+    hmin = 50
+    tmin = 3.0
+    
+    for key, val in shs_profiles.items():
+        if val['h'] <= hmax and val['h'] >= hmin and val['t'] >= tmin:
+            P.append(SHS(val['h'],val['t']))
+    
+    lp = truss_milp(t,P,ulb=-200,uub=200)
+    
+    MILPsolver = MILP()
+    sol = MILPsolver.solve(lp,verb=True)
+    
+    
+    

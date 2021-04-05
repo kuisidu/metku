@@ -325,6 +325,14 @@ class SteelSection(metaclass=ABCMeta):
         
         return sN + sMy
 
+    def sigmaN(self):
+        """ Axial stress from normal force """
+        
+        return self.Ned/self.A
+    
+    def sigmaM(self):
+        """ Axial stress from bending moment """
+        return self.Med/self.Wel[0]
 
     def section_class(self,verb=False):
         """ Determines cross-section class """
