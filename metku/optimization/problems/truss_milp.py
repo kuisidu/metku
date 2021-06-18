@@ -10,7 +10,7 @@ TODO:
     3) Chains for topology optimization
     4) Member grouping (sizing and topology)
     5) Profile counting
-
+290
 @author: kmela
 """
 
@@ -71,7 +71,7 @@ class TrussMILP:
         # Design variables
         self.vars = {'profile':[[] for _ in range(self.nmem)],
                      'force':[[[] for _ in range(self.nlc)] for _ in range(self.nmem)],
-                     'disp':[[] for _ in range(self.nlc)],'member':[],'node':[]}
+                     'disp':[[] for _ in range(self.nlc)],'member':[],'node':[],'group':[]}
         
         self.__nvars = 0        
         
@@ -89,15 +89,40 @@ class TrussMILP:
         # in topology optimization.
         self.nodes = [{'supported':0,'members':[]} for _ in range(self.nnodes)]
         
+        # Allocate available member profiles
+        # Assume initially that all members can have all profiles
+        self.member_profiles = [list(range(self.nprof))] * self.nmem
+        
+        """ If member groups are given, allow for each member of a given group
+            the indicated profiles
+        """
+        self.groups = groups
+        
+        if groups is not None:
+            """ groups is a dict with keys: 'members','profiles' """
+            for group in groups:
+                for mem in group['members']:
+                    self.member_profiles[mem] = group['profiles']
+        
+        if member_profiles is not None:
+            """ member_profiles is list of dicts with keys: 'member', 'profiles' """
+            for mem in member_profiles:
+                self.member_profiles[mem['member']] = mem['profiles']
+        
         # If no selection is given for member profiles, initialize all profiles to all members
-        if member_profiles is None:
-            self.member_profiles = [list(range(self.nprof))] * self.nmem
-        else:
+        #if member_profiles is None:
+        #    self.member_profiles = [list(range(self.nprof))] * self.nmem
+        #else:
             # If member profiles is given, it must be a list of lists,
-            # with length self.nmem. For each member, a list of availalbe profile
+            # with length self.nmem. For each member, a list of available profile
             # indices is given.
-            self.member_profiles = member_profiles
-           
+        #    self.member_profiles = member_profiles
+        
+        # Groups here
+        # group is a dict with keys 'members', 'profiles', which are lists
+        # these lists contain indices of members that belong to the same group
+        # and the corresponding profile alternatives.
+        
         # Initialize member profiles
         for mem, profs in zip(self.members,self.member_profiles):
             mem['profiles'] = [self.profiles[i] for i in profs]
@@ -230,6 +255,8 @@ class TrussMILP:
             ndx = self.nprof_vars + self.nstate_vars
         elif var_type == 'node':
             ndx = self.nprof_vars + self.nstate_vars + self.nmem
+        elif var_type == 'group':
+            ndx = self.nprof_vars + self.nstate_vars + self.nmem + self.nnodes
 
         return ndx
     
@@ -321,6 +348,14 @@ class TrussMILP:
                                                           target={"objects":[node],"property":"node"}))
             self.__nvars += 1
     
+        if self.groups is not None:
+            """ In case of member grouping, add corresponding binary variables """
+            for g, group in enumerate(self.groups):
+                for p in group['profiles']:
+                    self.vars['group'].append(sop.BinaryVariable("w({0:.0f},{1:0f})".format(g,p)))
+                    self.__nvars += 1
+    
+    
     def gather_node_data(self):
         """ Collects needed topological data for nodes.
             i) which nodes are supported
@@ -336,15 +371,16 @@ class TrussMILP:
     def add_topology_constraints(self):
         """ Adds the following constraints:
             1) members attached to vanishing node vanish
-            2) minimum number of members meeting at existing node
-            3) minimum number of supported node
-            4) necessary condition for kinematic stability
+            2) minimum number of members meeting at existing node            
+            3) necessary condition for kinematic stability
+            4) minimum number of supported nodes
+            5) constraints for groups (optional)
         """
         nx = self.nvars
         
         Ystart = self.start_ndx('member')
         Zstart = self.start_ndx('node')
-        # Members attached to vanishing node must vanish
+        # 1) Members attached to vanishing node must vanish
         for j, node in enumerate(self.nodes):            
             for m in node['members']:
                 a = np.zeros(nx)
@@ -353,7 +389,7 @@ class TrussMILP:
                 self.milp.add(sop.LinearConstraint(a,0,con_type="<",
                                                    name="Y[{0:.0f}] <= Z[{1:.0f}]".format(m,j)))
         
-        # Minimum number of members meeting at existing node
+        # 2) Minimum number of members meeting at existing node
         for j, node in enumerate(self.nodes):            
             a = np.zeros(nx)
             mndx = [m + Ystart for m in node['members']]
@@ -366,7 +402,7 @@ class TrussMILP:
             self.milp.add(sop.LinearConstraint(a,0,con_type="<",
                                                    name="Sum Y[i] => C*Z[{0:.0f}]".format(j)))
         
-        # Necessary condition for kinematic stability
+        # 3) Necessary condition for kinematic stability
         a = np.zeros(nx)
         a[[Ystart + i for i in range(self.nmem)]] = -1
         ND = 2
@@ -379,7 +415,7 @@ class TrussMILP:
         self.milp.add(sop.LinearConstraint(a,0,con_type="<",
                                            name="Kinematic stability (necessary cond.)"))
         
-        # Minimum number of supported nodes is 2
+        # 4) Minimum number of supported nodes is 2
         a = np.zeros(nx)
         for j, node in enumerate(self.nodes):
             if node['supported']:
@@ -387,6 +423,52 @@ class TrussMILP:
         
         self.milp.add(sop.LinearConstraint(a,-2,con_type="<",
                                            name="At least 2 supported nodes"))
+        
+        # 5) Constraints for groups (if any)
+        if self.groups is not None:
+            Wstart = self.start_ndx('group')
+            dW = 0
+            for g, group in enumerate(self.groups):
+                # First constraints: sum of group profile variables can be at most 1
+                aw = np.zeros(nx)
+                aw[[Wstart + dW + i for i in range(len(group['profiles']))]] = 1
+                
+                self.milp.add(sop.LinearConstraint(aw,1,con_type="<",
+                                                   name="SUM W[{0:.0f},j] <= 1".format(g)))
+                
+                # Second constraints:
+                # For all members of the group:
+                # y(i,j) <= w(j) for all j
+                for mem in group['members']:
+                    # Find index of the first member profile variable
+                    yndx = self.milp.vars.index(self.vars['profile'][mem][0])
+                    
+                    for j, p in enumerate(group['profiles']):
+                        a = np.zeros(nx)
+                        a[Wstart + dW + j] = -1
+                        a[yndx+j] = 1
+                        
+                        self.milp.add(sop.LinearConstraint(a,0,con_type="<",
+                                                   name="y({0:.0f},{1:.0f}) <= W[{0:.0f},j]".format(mem,p)))
+                
+                # Third constraints:
+                # SUM y[i,j] >= w[j] for all j
+                for j, p in enumerate(group['profiles']):
+                    a = np.zeros(nx)
+                    a[Wstart + dW + j] = 1
+                    
+                    for mem in group['members']:
+                        yndx = self.milp.vars.index(self.vars['profile'][mem][j])
+                        a[yndx] = -1
+                    
+                    self.milp.add(sop.LinearConstraint(a,0,con_type="<",
+                                                   name="SUM y(i,{0:.0f}) >= W[{0:.0f},{1:.0f}]".format(j,g)))
+                
+                
+                dW += len(group['profiles'])
+                        
+                
+            #print(Wstart)
         
                           
     def create_milp(self,problem_type='sizing',constraints={'strength':True,'buckling':True}):
@@ -419,6 +501,9 @@ class TrussMILP:
             self.add_top_opt_vars()
             dvars.extend(self.vars['member'])
             dvars.extend(self.vars['node'])
+            
+            if self.groups is not None:
+                dvars.extend(self.vars['group'])
             
     
         """ Initialize optimization problem with the created variables """
@@ -494,7 +579,25 @@ class TrussMILP:
                 
         
         return lp
+    
+    def substitute_design(self,x):
+        """ Substitutes the design in 'x' to the truss structure """
+        
+        self.milp.substitute_variables(x)
+    
+    def plot_design(self,x):
+        """ Plots the design represented by the variable vector 'x' """
+        self.substitute_design(x)
+        self.milp.structure.plot()
 
+    def plot_ground_structure(self):
+        """ plots the ground structure with member numbers """
+        
+        for mem in self.structure.members.values():
+            mem.active = True
+        
+        self.structure.plot(print_text=False)
+        
 if __name__ == '__main__':
     #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1)
     t = ten_bar_truss(L=3000,F=200e3)
@@ -520,10 +623,16 @@ if __name__ == '__main__':
     member_profiles[1] = [3, 5, 7]
     member_profiles[2] = [0, 1, 2, 9, 10, 11]
     """
+    groups = []
+    groups.append({'members':[6,3],'profiles':[7,8,9,10,11]})
+    groups.append({'members':[1,7],'profiles':[1,2,3,4,5,6,7]})
+    
     member_profiles = None
-    lp = TrussMILP('TrussMILP',t,P,scaling={'N':1e-3,'u':1e-1},ulb=-200,uub=200,member_profiles=member_profiles)
+    lp = TrussMILP('TrussMILP',t,P,scaling={'N':1e-3,'u':1e-1},ulb=-200,uub=200,member_profiles=member_profiles,groups=groups)
     
     lp.create_milp(problem_type='topology')
     MILPsolver = MILP()
     MILPsolver.solve(lp.milp,verb=True)
     x = MILPsolver.X
+    
+    lp.plot_design(x)
