@@ -8,7 +8,7 @@ except:
 class Steel(Material):
 
     def __init__(self, fy, fu, name):
-        super().__init__(210e3, 0.3, 7850e-9)
+        super().__init__(210e3, 7850e-9, nu=0.3)
         self.fy = fy
         self.fu = fu
         self.name = name

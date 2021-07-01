@@ -410,7 +410,7 @@ class TrussOptimization(sop.OptimizationProblem):
             if buckling_type == 'EN 1993':
                 NRd = mem.NbRd[0]
             elif buckling_type == 'euler':
-                NRd = mem.steel_member.ncrit()[0]
+                NRd = mem.member.ncrit()[0]
             
             return -mem.ned/NRd - 1
         

@@ -9,7 +9,7 @@ try:
     from metku.optimization.structopt import DiscreteVariable, IndexVariable, IntegerVariable
 except:
     from optimization.solvers import *
-    from optimization.structopt import DiscreteVariable, IndexVariable
+    from optimization.structopt import DiscreteVariable, IndexVariable, IntegerVariable
 
 
 

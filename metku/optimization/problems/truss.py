@@ -973,7 +973,7 @@ class TrussProblem(OptimizationProblem):
         # Initialize cons as an empty list
         self.cons = []
         for mem in self.structure.members.values():
-            for j, smem in enumerate(mem.steel_members):
+            for j, smem in enumerate(mem.members):
                 buckling_y, buckling_z, com_compression_bending_y, \
                 com_compression_bending_z = \
                     self.stability_constraints(smem)
@@ -1382,7 +1382,7 @@ if __name__ == '__main__':
     x0 = [var.ub for var in problem.vars]
     truss.calculate()
     for mem in truss.members.values():
-        for smem in mem.steel_members:
+        for smem in mem.members:
             print(smem.ned)
     problem.substitute_variables(x0)
     problem.fea()

@@ -440,7 +440,7 @@ class RHSKGapJoint(RHSJoint):
         print("  Beta = {0:4.2f}".format(beta))
         print("  Gamma = {0:4.2f}".format(self.gamma()))        
         print("  Gap = {0:4.2f} mm".format(self.gap))
-        print("    t1 + t2 = {0:4.2f} mm".format(sum([brace.t for brace in self.braces])))
+        print("    t1 + t2 = {0:4.2f} mm".format(sum([brace.khp for brace in self.braces])))
         print("    0.5*b0*(1-beta) = {0:4.2f} mm".format(0.5*self.b0*(1-beta)))
         print("    1.5*b0*(1-beta) = {0:4.2f} mm".format(1.5*self.b0*(1-beta)))
         
@@ -519,12 +519,12 @@ class RHSKGapJoint(RHSJoint):
             
             # Second pair of points
             sina = math.sin(arad)
-            x0[0] += K*brace.t/sina
-            x2 = x1 + brace.t*vortho
+            x0[0] += K * brace.khp / sina
+            x2 = x1 + brace.khp * vortho
             ax.plot([x0[0],x2[0]],[x0[1],x2[1]],linewidth=INNER,color='0.8')
             
             # Center line
-            dxin = 0.5*brace.h-brace.t
+            dxin = 0.5*brace.h-brace.khp
             x0[0] += K*dxin/sina
             x3 = x2 + dxin*vortho
             xC.append(deepcopy(x0))
@@ -536,8 +536,8 @@ class RHSKGapJoint(RHSJoint):
             ax.plot([x0[0],x4[0]],[x0[1],x4[1]],linewidth=INNER,color='0.8')
             
             # Second outer wall
-            x0[0] += K*brace.t/sina
-            x5 = x4 + brace.t/sina*vortho
+            x0[0] += K * brace.khp / sina
+            x5 = x4 + brace.khp / sina * vortho
             ax.plot([x0[0],x5[0]],[x0[1],x5[1]],linewidth=WALL,color='k')
             
             # Plot dashed line to the end of the brace

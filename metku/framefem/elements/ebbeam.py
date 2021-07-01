@@ -15,7 +15,7 @@ CACHE_BOUND = 2**10
 try:
     from metku.framefem import Element, LineLoad, FEMNode
 except:
-    from framefem import Element
+    from framefem import Element, LineLoad
 
 
 class EBBeam(Element):
@@ -53,7 +53,7 @@ class EBBeam(Element):
 
     def transformation_matrix(self):
         """ Calculates transformation matrix from local to global coordinates
-
+            Chandrupatla 3rd. Edition, p. 249
             Returns:
             --------
             :return: element's transformation matrix
@@ -246,7 +246,6 @@ class EBBeam(Element):
             :return: Equivalent nodal loads for load in vector q
             :rtype: np.array
         """
-
         floc = np.zeros(6)
 
         T = self.transformation_matrix()

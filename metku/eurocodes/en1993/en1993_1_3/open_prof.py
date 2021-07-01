@@ -344,7 +344,7 @@ class OpenProf:
         """ Write elements """
         print("Elements:")
         for i, seg in enumerate(self.segments):        
-            print('{0:3g} {1:6.4f} {2:6.4f} {3:6.5f} 100'.format(i+1, i+1, i+2,seg.t))
+            print('{0:3g} {1:6.4f} {2:6.4f} {3:6.5f} 100'.format(i + 1, i + 1, i + 2, seg.khp))
 
 class Node:
     """ Node of an open section profile """
