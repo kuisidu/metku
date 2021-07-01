@@ -559,15 +559,15 @@ class BoltRow:
         zbeam = 0.5*self.joint.beam.h
         if self.z > zbeam:
             """ Row is above the stiffener """
-            zweld = zbeam - 0.5*self.joint.beam.tf + \
-                        + 0.5*self.joint.stiffeners['col_top_flange'].t + \
-                            + 0.8*math.sqrt(2)*self.joint.stiffeners['col_top_flange'].weld_size
+            zweld = zbeam - 0.5 * self.joint.beam.tf + \
+                    + 0.5 * self.joint.stiffeners['col_top_flange'].khp + \
+                    + 0.8 * math.sqrt(2) * self.joint.stiffeners['col_top_flange'].weld_size
             return self.z-zweld
         else:
             """ Row is below the stiffener """
-            zweld = zbeam - 0.5*self.joint.beam.tf + \
-                        - 0.5*self.joint.stiffeners['col_top_flange'].t + \
-                            - 0.8*math.sqrt(2)*self.joint.stiffeners['col_top_flange'].weld_size
+            zweld = zbeam - 0.5 * self.joint.beam.tf + \
+                    - 0.5 * self.joint.stiffeners['col_top_flange'].khp + \
+                    - 0.8 * math.sqrt(2) * self.joint.stiffeners['col_top_flange'].weld_size
             
             return zweld-self.z
     

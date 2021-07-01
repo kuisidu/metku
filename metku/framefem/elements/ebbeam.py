@@ -246,7 +246,6 @@ class EBBeam(Element):
             :return: Equivalent nodal loads for load in vector q
             :rtype: np.array
         """
-
         floc = np.zeros(6)
 
         T = self.transformation_matrix()

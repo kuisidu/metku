@@ -364,7 +364,7 @@ class FrameFEM:
             # col = a[nz]
             # K[np.vstack(q), q] += ke[row, col]
             #print(ke[np.ix_(nz, nz)])
-            #print(ve,q)                        
+            #print(ve,q)
             K[np.ix_(q, q)] += ke[np.ix_(nz, nz)]
 
         return K
@@ -513,7 +513,9 @@ class FrameFEM:
         #Kc, low = sp.linalg.cho_factor(K)
         #uc = sp.linalg.cho_solve((Kc, low), p)
 
-        
+        # print(f'K shape {K.shape}')
+        # print(f'K {K}')
+        # print(f'p {p}')
         u = np.linalg.solve(K, p)
         self.u = u
         #print(u)

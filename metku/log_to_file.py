@@ -5,7 +5,7 @@ def log_to_file(function):
         import inspect
         import os
         original_stdout = sys.stdout
-        filename = f'{dt.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")}_{function.__name__}'
+        filename = f'{function.__name__}_{dt.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")}'
         os.mkdir(f'{os.getcwd()}/{filename}')
         os.chdir(f'{os.getcwd()}/{filename}')
         print(f'writing to file: {filename}')
@@ -13,7 +13,7 @@ def log_to_file(function):
             sys.stdout = file
 
             print(inspect.getsource(sys.modules['__main__']))
-            print('\n\n###################################################################################################\n\n')
+            print('\n\n####################################### SOLUTION ##########################################\n\n')
             function()
 
             sys.stdout = original_stdout

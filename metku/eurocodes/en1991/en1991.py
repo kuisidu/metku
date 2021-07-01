@@ -6,7 +6,7 @@ Data for loads and load combinations
 
 EN 1990 and EN 1991
 
-@author: kmela
+@author: kmela, Viktor Haimi
 """
 
 import numpy as np
@@ -128,6 +128,12 @@ class WindLoad(Load):
 
 class Combiner(ABC):
     def __init__(self, structure_class='E', CC=2, kk_jako=1):
+        """
+
+        @param structure_class: Rakennustyyppi 'A' - 'E'
+        @param CC: seuraamusluokka 1 - 3, käytetään vain ULSCombinerissa
+        @param kk_jako: kehien välinen etäisyys metreissä
+        """
         self.structure_class = structure_class
         self.CC = CC
         if CC == 3:
@@ -231,10 +237,10 @@ class Combiner(ABC):
                         qy += round(load[0].final_value, 2)
                 qval_y[i] = qy
                 qval_x[i] = qx
-        return [qval_x, qval_y]
+        return {'x': qval_x, 'y': qval_y}
 
     @staticmethod
-    def get_single_split_result(self, res):
+    def get_single_split_result(res):
         def partial_result(part):
             result = []
             for load in res['combination'][part]:
@@ -271,7 +277,7 @@ class Combiner(ABC):
                             qy += round(load[0].final_value, 2)
                     qval_y[i] = qy
                     qval_x[i] = qx
-            return [qval_x, qval_y]
+            return {'x': qval_x, 'y': qval_y}
 
         split_result = {}
         if 'G' in res['combination']:
@@ -410,9 +416,15 @@ class SLSCombiner(Combiner):
         """
         if len(self.Q_k) + len(self.G_k) <= 0:
             raise Exception('Give at least one Load with add method')
+        results = self.combine()
         if split_result:
-            return [self.get_single_split_result(self, res) for res in self.combine()]
-        final_result = [self.get_single_result(res) for res in self.combine()]
+            final_result = {'char': self.get_single_split_result(results[0]),
+                            'freq': self.get_single_split_result((results[1])),
+                            'quasi': self.get_single_split_result(results[2])}
+        else:
+            final_result = {'char': self.get_single_result(results[0]),
+                            'freq': self.get_single_result((results[1])),
+                            'quasi': self.get_single_result(results[2])}
         return final_result
 
 
@@ -488,50 +500,8 @@ class MultiCombiner:
         uls_res = self.ULS.get_result()
         sls_res = self.SLS.get_result()
         acc_res = self.Acc.get_result()
-        return [uls_res, sls_res, acc_res]
+        return {'uls': uls_res, 'sls': sls_res, 'acc': acc_res}
 
-
-# OP = 1      kN/m    1   G_k
-# KR = 0.5    kN/m2   5   G_k
-# LK = 2.5    kN/m2   25  Q_k
-# TK = 1.5    kN/m2   15  Q_k
-# SP = 0.2    kN/m2   2   Q_k
-#
-# kk-jako = 10 m
-#
-# CC2
-#
-# Class='A'
-#
-#
-# CC3 = K_fi = 1.1
-# CC2 = K_fi = 1.0
-# CC1 = K_fi = 0.9
-#
-# Rakenneluokka(Class='A', CC3)
-#
-# Palkki = 1 kN/m
-# Välipohja = 0.5 kN/m¨2
-#
-# Omatpainot(palkki, välipohja)
-#
-# Snow_load(<2,75kN/m2) = [0.7, 0.4, 0.2]
-# Snow_load(>=2,75kN/m2) = [0.7, 0.5, 0.2]
-#
-# Wind_load = [0.6, 0.2, 0.0]
-#
-# ULS:            # Murtorajatila
-# 1.15 * K_fi * summa(G_k) + 1.5 * K_fi * Q_k1 + 1.5 * K_fi * summa(kahveli_0 * Q_kj)
-# 1.35 * K_fi * summa(G_k)            vähintään tämän verran
-#
-# SLS:            # Käyttörajatila
-# a) ominaisyhdistelmä        summa(G_k) + Q_k1 + summa(kahveli_0 * Q_ki)
-# b) tavallinen yhdistelmä    summa(G_k) + kahveli_1 * Q_k1 + summa(kahveli_2 * Q_ki)
-# c) pitkäaikaisyhdistelmä    summa(G_k) + summa(kahveli_2 * Q_ki)
-#
-# ACC:            # Onnettomuusrajatila
-# summa(G_k) + kahveli_1 * Q_k1 + summa(kahveli_2 * Q_ki)    jos Q_k1 = lumi tai tuuli
-# summa(G_k) + kahveli_2 * Q_k1 + summa(kahveli_2 * Q_ki)     muussa tapauksessa
 
 if __name__ == "__main__":
     import sections.timber.timber_section as ts
@@ -554,16 +524,14 @@ if __name__ == "__main__":
     result = M.get_result()
 
     # result[ULS/SLS/Acc][x/y][index]
-    #print(f'ULS result: {result[0]}')
-    print(f'ULS result: x: {result[0][0][0]}, y: {result[0][1][0]}')
-    #print(f'SLS result: {result[1]}')
+    print(f'ULS result: x: {result["uls"]["x"][0]}, y: {result["uls"]["y"][0]}')
 
-    # result[SLS = 1][ominais/tavallinen/pitkäaikais][x/y][index]
-    print(f'SLS result: ominais: x: {result[1][0][0][0]}, y: {result[1][0][1][0]}')
-    print(f'SLS result: tavallinen: x: {result[1][1][0][0]}, y: {result[1][1][1][0]}')
-    print(f'SLS result: pitkäaikais: x: {result[1][2][0][0]}, y: {result[1][2][1][0]}')
+    # result[SLS][ominais/tavallinen/pitkäaikais][x/y][index]
+    print(f'SLS result: ominais: x: {result["sls"]["char"]["x"][0]}, y: {result["sls"]["char"]["y"][0]}')
+    print(f'SLS result: tavallinen: x: {result["sls"]["freq"]["x"][0]}, y: {result["sls"]["freq"]["y"][0]}')
+    print(f'SLS result: pitkäaikais: x: {result["sls"]["quasi"]["x"][0]}, y: {result["sls"]["quasi"]["y"][0]}')
     #print(f'Acc result: {result[2]}')
-    print(f'Acc result: x: {result[2][0][0]}, y: {result[2][1][0]}')
+    print(f'Acc result: x: {result["acc"]["x"][0]}, y: {result["acc"]["y"][0]}')
 
     # ULS = ULSCombiner('E', kk_jako=8)
     # ULS.add([SW, 'y', [0]])
@@ -584,8 +552,8 @@ if __name__ == "__main__":
     # SLS.add([ont, 'y', [0]])
     # #SLS.add([ont, 'y', [0]])
     # #SLS.use_reduction_factor(16)
-    # ress = SLS.get_result()
-    # print(ress)
+    # ress = SLS.get_result(True)
+    # print(ress['char'])
     #
     # Acc = ACCCombiner('A', kk_jako=10)
     # Acc.add([SW, 'y', [0]])

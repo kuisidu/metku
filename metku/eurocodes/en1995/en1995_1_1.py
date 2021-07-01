@@ -49,13 +49,12 @@ def kdef(material: str, service_class: int) -> float:
     """
     return kdef_data[material][service_class]
 
-# SFS-EN 1995-1-1 § 6.1.6
-k_m = 0.7
 
 def k_to_d(f_k: float, kmod: float, safety_factor: float) -> float:
     return (kmod * f_k) / safety_factor
 
-def get_gammaM(timber_type):
+
+def get_gammaM(timber_type: str) -> float:
     if timber_type == 'solid_timber':
         return gammaM_st
     elif timber_type == 'glt':
@@ -64,13 +63,3 @@ def get_gammaM(timber_type):
         return gammaM_lvl
     else:
         return gammaM_other
-
-def E_mean_fin():
-    pass
-
-def G_mean_fin():
-    pass
-
-def K_ser_fin():
-    pass
-

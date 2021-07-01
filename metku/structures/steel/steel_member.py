@@ -344,6 +344,7 @@ class SteelMember:
         self.vzed.clear()
         self.ted.clear()
         self.loc.clear()
+        self.utilization.clear()
 
 
     def check_section(self, n=0, verb=False):
@@ -482,7 +483,7 @@ class SteelMember:
             rbeam_column = self.check_beamcolumn()
             rmax = max(rmax,np.max(rbuck))
             rmax = max(rmax,np.max(rbeam_column))
-            
+
         return rmax
         
         

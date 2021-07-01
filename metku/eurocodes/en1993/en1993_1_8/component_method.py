@@ -230,7 +230,7 @@ def col_web_trv_comp_stiffened(column, plate):
     e = column.eps
     tw = column.tw
     bsg = plate.b
-    ts = plate.t
+    ts = plate.khp
     
     fy = plate.material.fy
     As_eff = (30*e*tw+ts)*tw + 2*bsg*ts

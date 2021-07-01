@@ -10,7 +10,9 @@ try:
 except:
     from metku.framefem.framefem import Material
 
-class T(Enum):          # Timber types
+
+class T(Enum):
+    # Timber types
     C14 = 1
     C16 = 2
     C18 = 3
@@ -35,14 +37,15 @@ class T(Enum):          # Timber types
     GL30h = 22
     GL32c = 23
     GL32h = 24
-    Kerto_S = 24
-    Kerto_T = 25
-    Kerto_Q_21_24 = 26
-    Kerto_Q_27_69 = 27
+    Kerto_S = 25
+    Kerto_T = 26
+    Kerto_Q_21_24 = 27
+    Kerto_Q_27_69 = 28
 
 # solid_timber = sahatavara
 # lvl = LVL
 # glt = Liimapuu
+
 
 solid_timber = {T.C14: {"fmk": 14, "ft0k": 8, "ft90k": 0.4, "fc0k": 16, "fc90k": 2.0, "fvk": 1.7, "E0mean": 7000,
                         "E005": 4700, "E90mean": 230, "Gmean": 440, "G005": 300, "rhok": 290, "rhomean": 350},
@@ -112,11 +115,11 @@ lvl = {T.Kerto_S: {"fmk": 44, "s": 0.12, "fm0flatk": 50, "ft0k": 35, "ft90edgek"
 
 
 class Timber(Material):
-    def __init__(self, timber_type=T.C14, hardness='softwood'):
+    def __init__(self, timber_type: T=T.C14, hardness: str='softwood'):
         self.timber_type = timber_type
+        self.hardness = hardness
         if timber_type in solid_timber:
             self.type = 'solid_timber'
-            self.hardness = hardness
             self.fmk = solid_timber[timber_type]["fmk"]
             self.ft0k = solid_timber[timber_type]["ft0k"]
             self.ft90k = solid_timber[timber_type]["ft90k"]
@@ -133,7 +136,6 @@ class Timber(Material):
 
         elif timber_type in glt:
             self.type = 'glt'
-            self.hardness = hardness
             self.fmk = glt[timber_type]["fmk"]
             self.ft0k = glt[timber_type]["ft0k"]
             self.ft90k = glt[timber_type]["ft90k"]
@@ -150,6 +152,7 @@ class Timber(Material):
 
         elif timber_type in lvl:
             self.type = 'lvl'
+            self.direction = 'edge'
             self.fmk = lvl[timber_type]["fmk"]
             self.s = lvl[timber_type]["s"]
             self.fm0flatk = lvl[timber_type]["fm0flatk"]
@@ -162,9 +165,10 @@ class Timber(Material):
             self.fr0k = lvl[timber_type]["fr0k"]
             self.E0mean = lvl[timber_type]["E0mean"]
             self.E005 = lvl[timber_type]["E005"]
-            self.E90mean = lvl[timber_type]["E90mean"]
             self.Gedgemean = lvl[timber_type]["Gedgemean"]
+            self.Gmean = self.Gedgemean
             self.Gedge005 = lvl[timber_type]["Gedge005"]
+            self.G005 = self.Gedge005
             self.rhok = lvl[timber_type]["rhok"]
             self.rhomean = lvl[timber_type]["rhomean"]
 
