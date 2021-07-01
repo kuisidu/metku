@@ -194,32 +194,118 @@ class ISection(SteelSection):
 
         return cWeb
 
-    def web_class_comp_bend(self, Ned, verb=False):
+    def web_class_comp_bend(self, approach = 1, verb=False):
         """ Determine class of web in combined bending and compression 
             
             Approach:
                 Take Ned as given and fix it. Then see how large the
                 bending moment can be such that the entire section
                 has been plastified.
+                
+            Approach 2:
+                Increase NEd and MEd by the same factor until
+                plastification of the cross-section has been reached,
+                
+                or until the first yielding begins
         """
         # cw = self.h-2*self.tf-2*self.r
-        rw = self.hw / self.tw
-        NRweb = self.hw*self.tw*self.fy
-        if -Ned >= NRweb:
-            a = 1.0
-        elif -Ned <= -NRweb:
-            a = 0.0
-        else:
-            a = 0.5*(1-Ned/NRweb)
-        #Ac = 0.5 * (self.A + Ned / (self.fy / constants.gammaM0))
-        #a = Ac / self.A
-        p = -1        
-        cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, a, p)
         
         if verb:
             print("Web classification (internal part in compression and bending):")
             print("hw = {0:4.2f}, tw = {1:4.2f}".format(self.hw,self.tw))
-            print("hw/tw = {0:4.2f}".format(rw))
+        
+        """ Calculate stresses for class 3 check """
+        sN = self.sigmaN()
+        sM = self.sigmaM() 
+    
+        cw = self.hw
+        tw = self.tw
+        rw = cw / tw
+    
+        if approach == 2:
+            zeta = self.Ned/abs(self.Med)
+            Wpl0 = self.Wpl[0] - 0.25*cw*tw
+            K = cw*zeta
+            
+            if abs(zeta) < cw*tw/Wpl0:
+                if verb:
+                    print("Neutral axis in the web.")
+                    print("zeta = {0:4.3f}".format(zeta))                    
+                    print(1/K)
+                a = 0.5 + 1/K - 0.5/K*np.sqrt(4+K**2 + 4*zeta**2*Wpl0/tw)
+            else:
+                """ Neutral axis is not in the web """
+                print("Neutral axis is not in the web.")
+                a = 0.0
+            
+            """ Stress ratio for class 3 check """
+            
+            if verb:
+                print("sN = {0:4.3f} MPa".format(sN))
+                print("sM = {0:4.3f} MPa".format(sM))
+            
+            if sN > cw/self.h*abs(sM): # and sN > -cw/self.h*sM:
+                """ Only positive stresses in the web """
+                p = 1
+            else:    
+                """ Both postiive and negative stresses in the web:
+                    calculate stress ratio.
+                    Here, the calculation is done with respect to the
+                    extreme fibres of the cross-section. In SEMI-COMP+,
+                    the ratio is calculated for the stresses in the
+                    straight part of the web.
+                """
+                p = (sN+sM)/(sN-sM)
+            
+            #z0 = zeta*self.I[0]/self.A
+            #p = -(0.5*self.h-z0)/(0.5*self.h+z0)
+            
+            if verb:
+                print("hw/tw = {0:4.2f}".format(rw))
+                print("NEd/MEd = zeta = {0:4.3f}".format(zeta))
+                print("alpha = {0:4.3f}".format(a))
+                print("psi = {0:4.3f}".format(p))
+            
+        if approach == 1:
+            NRweb = cw*tw*self.fy
+            if -self.Ned >= NRweb:
+                a = 1.0
+            elif -self.Ned <= -NRweb:
+                a = 0.0
+            else:
+                a = 0.5*(1-self.Ned/NRweb)
+                
+            """ Stress ratio for class 3 check """
+            
+            if verb:
+                print("sN = {0:4.3f} MPa".format(sN))
+                print("sM = {0:4.3f} MPa".format(sM))
+            
+            if sN > cw/self.h*abs(sM): # and sN > -cw/self.h*sM:
+                """ Only positive stresses in the web """
+                p = 1
+            else:    
+                """ Both postiive and negative stresses in the web:
+                    calculate stress ratio.
+                    Here, the calculation is done with respect to the
+                    extreme fibres of the cross-section. In SEMI-COMP+,
+                    the ratio is calculated for the stresses in the
+                    straight part of the web.
+                """
+                p = (sN+sM)/(sN-sM)
+                
+            if verb:                
+                print("NEd = {0:4.3f} kN".format(self.Ned*1e-3))
+                print("NR_web = {0:4.3f} kN".format(NRweb*1e-3))
+                print("alpha = {0:4.3f}".format(a))
+                print("psi = {0:4.3f}".format(p))
+            
+        #Ac = 0.5 * (self.A + Ned / (self.fy / constants.gammaM0))
+        #a = Ac / self.A
+        #p = -1        
+        cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, a, p)
+        
+        if verb:
             print("Web class = {0}".format(cWeb))
 
         return cWeb
@@ -365,6 +451,8 @@ class ISection(SteelSection):
             ax.set_ylim(-h, h)
         
             ax.set_aspect('equal')
+        
+        return ax
             
 
 class IPE(ISection):
@@ -641,5 +729,22 @@ def cross_section_properties(b, h, tf, tw, r):
 if __name__ == '__main__':
     
     p = IPE(400)
-    p.info(latex=True)
+    #p.info(latex=True)
     #p.draw(theta = 0)
+    
+    Npl = p.NRd
+    Mpl = p.plastic_bending_resistance()
+    NEd = 550e3 #0.17*Npl
+    
+    UN = NEd/Npl
+    MRd = Mpl
+    MNRd = p.moment_axial_force_interact(UN, MRd)
+    
+    p.Ned = -NEd
+    p.Med = 350e6 # 0.75*Mpl
+    
+    UM = p.Med/MRd
+    
+    print('UN + UM = ',UN+UM)
+    
+    p.web_class_comp_bend(approach=1,verb=True)

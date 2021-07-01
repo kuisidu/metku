@@ -99,7 +99,9 @@ def internal_part_comp_bend(r,e,a,p):
     C = 4
 
     # Check first for class 1 or 2
-    if a > 0.5:        
+    if a == 0:
+        C = 1
+    elif a > 0.5:        
         if r <= 396.0*e/(13*a-1):
             C = 1
         elif r <= 456.0*e/(13*a-1):

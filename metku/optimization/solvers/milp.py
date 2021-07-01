@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov 01 2019
+Created on Tue 30 Mar 2021
 
-Solving linear programming problems.
+Solving mixed-integer linear programming problems.
 
 @author: kmela
 """
@@ -26,7 +26,7 @@ except:
 
 #from ortools.linear_solver import pywraplp
 
-class LP(OptSolver):
+class MILP(OptSolver):
 
     def __init__(self,algorithm="gurobi"):
         super().__init__()
@@ -40,7 +40,7 @@ class LP(OptSolver):
     
         import gurobipy as grb
                 
-        lp = grb.Model("lp")
+        lp = grb.Model("milp")
         
                 
         x = []
@@ -48,8 +48,11 @@ class LP(OptSolver):
             """
                 create variable, including the objective function
                 coefficient and name
-            """                    
-            x.append(lp.addVar(var.lb,var.ub,vtype=grb.GRB.CONTINUOUS,name=var.name))
+            """
+            if isinstance(var,sopt.BinaryVariable):
+                x.append(lp.addVar(var.lb,var.ub,vtype=grb.GRB.BINARY,name=var.name))
+            else:
+                x.append(lp.addVar(var.lb,var.ub,vtype=grb.GRB.CONTINUOUS,name=var.name))
                 
         #nvars = len(x)
                 

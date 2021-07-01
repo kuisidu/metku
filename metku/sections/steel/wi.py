@@ -699,7 +699,7 @@ class WISection(SteelSection):
         return beff
 
     
-    def shear_buckling_resistance(self,stiffener_spacing=10e5,end_post="non-rigid"):
+    def shear_buckling_resistance(self,stiffener_spacing=10e5,end_post="non-rigid",verb=False):
         """ Shear buckling resistance according to EN 1993-1-5, Clause 5 
             input:
                 stiffener_spacing .. spacing between adjacent stiffeners
@@ -715,17 +715,32 @@ class WISection(SteelSection):
         fyw = self.fy
         eta = en1993_1_5.shear_eta(fyw)
     
+        if verb:
+            print("Shear buckling:")
+    
         if rw < 72*self.eps/eta:
             """ No need for shear buckling:
                 return shear resistance of section
             """
             VbRd = self.VRd
+            
+            
+            if verb:
+                print("No shear buckling check needed.")
+                print("hw/tw = {0:4.3f}/{1:4.3f} = {2:4.3f}".format(hw,tw,rw))
         else:           
             """ Contribution from the web """
-            tau_cr = en1993_1_5.tau_crit(hw,a,tw,hw)
-            slend_w = en1993_1_5.shear_buckling_slenderness(fyw,tau_cr)
-            chi_w = en1993_1_5.shear_buckling_reduction_factor(slend_w,eta,end_post)
-            Vbw_Rd = en1993_1_5.shear_buckling_web(chi_w,fyw,hw,tw)
+            tau_cr = en1993_1_5.tau_crit(hw,a,tw,hw,verb)
+            slend_w = en1993_1_5.shear_buckling_slenderness(fyw,tau_cr,verb)
+            chi_w = en1993_1_5.shear_buckling_reduction_factor(slend_w,eta,end_post,verb)
+            Vbw_Rd = en1993_1_5.shear_buckling_web(chi_w,fyw,hw,tw,verb)
+            
+            if verb:
+                print("Web:")
+                print("tau_crit = {0:4.3f}".format(tau_cr))
+                print("lambda_w = {0:4.3f}".format(slend_w))
+                
+            
             """ Contribution from the flange """
             NEd = abs(self.Ned)
             """ If axial force is present, the resistance MfRd must
@@ -748,7 +763,7 @@ class WISection(SteelSection):
                 
                 bf = min(bf,30*self.eps*tf+tw)
                 
-                Vbf_Rd = en1993_1_5.shear_buckling_flanges(bf,tf,fyw,a,hw,tw,fyw,rM)
+                Vbf_Rd = en1993_1_5.shear_buckling_flanges(bf,tf,fyw,a,hw,tw,fyw,rM,verb)
 
             else:
                 raise NotImplementedError("shear_buckling_resistance rM >= 1 not implemented")

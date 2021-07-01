@@ -225,7 +225,7 @@ def transverse_force_resistance(fyw,hw,tw,fyf,bf,tf,ss,a=0,type="a",c=0):
     
     return FRd
 
-def shear_buckling_reduction_factor(slend_w,eta,end_post="non-rigid"):
+def shear_buckling_reduction_factor(slend_w,eta,end_post="non-rigid",verb=False):
     """ EN 1993-1-5, Table 5.1 """
     
     if slend_w < 0.83/eta:        
@@ -240,10 +240,16 @@ def shear_buckling_reduction_factor(slend_w,eta,end_post="non-rigid"):
         else:
             raise ValueError("en1993_1_5.shear_buckling_reduction_factor: bad end_post argument value.")
             
-        
+    if verb:
+        print("Shear buckling reduction factor (EN 1993-1-5, Table 5.1)")
+        print("End post:" + end_post)
+        print("Slenderness: lambda_w = {0:4.3f}".format(slend_w))
+        print("Eta: eta = {0:4.3f}".format(eta))
+        print("Reduction factor: chi_w = {0:4.3f}".format(chiW))
+    
     return chiW
 
-def shear_buckling_coefficient(hw,a):
+def shear_buckling_coefficient(hw,a,verb=False):
     """ EN 1993-1-5, A.3
         input: 
             hw .. height of web
@@ -259,6 +265,12 @@ def shear_buckling_coefficient(hw,a):
     else:
         ktau = 4.0 + 5.34/(rw**2)
         
+    if verb:
+        print("* Shear buckling coefficient (EN 1993-1-5, A.3): *")
+        print("Distance between stiffeners a = {0:4.3f} mm".format(a))
+        print("Web height hw = {0:4.3f} mm".format(hw))
+        print("Buckling coefficient k_tau = {0:4.3f}".format(ktau))
+        
     return ktau
 
 def sigma_E(t,b):
@@ -267,29 +279,73 @@ def sigma_E(t,b):
     """
     return 190_000*(t/b)**2
 
-def tau_crit(hw,a,t,b):
+def tau_crit(hw,a,t,b,verb):
     """ Critical shear stress for shear buckling
         EN 1993-1-5, Eq. (5.4)
     """
-    return shear_buckling_coefficient(hw,a)*sigma_E(t,b)
+            
+    if verb:
+        print("* Critical shear stress for shear buckling (EN 1993-1-5, Eq. (5.4)) *")
+        print("Web height hw = {0:4.3f}".format(hw))
+        print("Distance between stiffeners a = {0:4.3f}".format(a))
+        
+    ktau = shear_buckling_coefficient(hw,a,verb)
+    sE = sigma_E(t,b)
+    tau = ktau*sE
+    
+    if verb:
+        print("Buckling stress sigma_E = {0:4.3f} MPa".format(sE))
+        print("Shear buckling stress tau_crit = {0:4.3f} MPa".format(tau))
+    
 
-def shear_buckling_slenderness(fyw,tau_cr):
+    return tau
+
+def shear_buckling_slenderness(fyw,tau_cr,verb=False):
     """ Slenderness for shear buckling
         EN 1993-1-5, Eq. (5.3)
     """
-    return 0.76*math.sqrt(fyw/tau_cr)
+    
+    lambda_w = 0.76*math.sqrt(fyw/tau_cr)
+    
+    if verb:
+        print("* Shear buckling slenderness (EN 1993-1-5, Eq. (5.3)) *")
+        print("Yield strength of the web: fyw = {0:4.3g}".format(fyw))
+        print("Shear buckling stress: tau_crit = {0:4.3f}".format(tau_cr))
+        print("Slenderness: lambda_w = {0:4.3f}".format(lambda_w))
+    
+    return lambda_w
 
-def shear_buckling_web(chi_w,fyw,hw,t):
+def shear_buckling_web(chi_w,fyw,hw,t,verb=False):
     """ Shear buckling: contribution from the web
         EN 1993-1-5, Eq. (5.2)
     """
-    return chi_w*fyw*hw*t/ (math.sqrt(3) * gammaM1)
+    
+    VbwRd = chi_w*fyw*hw*t/ (math.sqrt(3) * gammaM1)
+    
+    if verb:
+        print("* Part of web: EN 1993-1-5, Eq. (5.2) *")
+        print("Web height hw = {0:4.3f} mm".format(hw))
+        print("Web thickness tw = {0:4.3f} mm".format(t))
+        print("Web yield strength fyw = {0:4.3g} MPa".format(fyw))
+        print("Resistance Vbw,Rd = {0:4.3f} kN".format(VbwRd*1e-3))
+    
+    return VbwRd
 
-def shear_buckling_flanges(bf,tf,fyf,a,hw,t,fyw,rM):
+def shear_buckling_flanges(bf,tf,fyf,a,hw,t,fyw,rM,verb=False):
     """ Shear buckling: contribution from the flanges
         EN 1993-1-5, Eq. (5.2)
     """
     
     c = a*(0.25+1.6*bf*tf**2*fyf/t/(hw**2)/fyw)
+    
+    VbfRd = bf*tf**2*fyf/c/gammaM1*(1-rM**2)
         
-    return bf*tf**2*fyf/c/gammaM1*(1-rM**2)
+    if verb:
+        print("* Part of flanges: EN 1993-1-5, Eq. (5.2) *")
+        print("Flange width bf = {0:4.3f} mm".format(bf))
+        print("Flange thickness tf = {0:4.3f} mm".format(tf))
+        print("Flange yield strength fyw = {0:4.3g} MPa".format(fyf))
+        print("c = {0:4.3f} ".format(c))
+        print("Resistance Vbf,Rd = {0:4.3f} kN".format(VbfRd*1e-3))
+    
+    return VbfRd
