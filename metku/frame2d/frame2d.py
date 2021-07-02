@@ -14,7 +14,7 @@ import matplotlib.path as mpath
 from loadIDs import LoadIDs
 
 try:
-    import metku.framefem.framefem  as fem
+    import metku.framefem.framefem as fem
     from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
     from metku.sections.steel import *
     from metku.sections.steel.catalogue import *
@@ -35,7 +35,7 @@ except:
     from frame2d.materials import MATERIALS
     from structures.steel.steel_member import SteelMember
     from sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
-    from structures.timber.timber_member import TimberMember
+    import structures.timber.timber_member as timMem
     from materials.timber_data import T, Timber
     from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
     from sections.steel.CHS import CHS
@@ -2936,7 +2936,7 @@ class TimberFrameMember(FrameMember):
             lateral_support_z = []
         if lateral_support_y is None:
             lateral_support_y = []
-        self.member = TimberMember(self.cross_section, self.material, self.length,
+        self.member = timMem.TimberMember(self.cross_section, self.material, self.length,
                                    ldc, sc, mtype=mtype, varnished=varnished, Sj1=self.Sj1, Sj2=self.Sj2,
                                    nodes=self.nodes, parent=self, lateral_support_y=lateral_support_y,
                                    lateral_support_z=lateral_support_z, edge_load=edge_load, beta=beta, k_vol=k_vol)

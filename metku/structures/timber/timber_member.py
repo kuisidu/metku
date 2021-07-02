@@ -23,7 +23,7 @@ PREC = 5
 class TimberMember:
     def __init__(self, profile: (TimberSection, TaperedSection), material: Timber, length: float, ldc: str, sc: int,
                  mtype: str = 'beam', varnished: bool = False, Sj1: int = np.inf, Sj2: int = np.inf, nodes: dict = None,
-                 parent: frame2d.TimberFrameMember=None, lateral_support_y: list = None, lateral_support_z: list = None,
+                 parent=None, lateral_support_y: list = None, lateral_support_z: list = None,
                  edge_load: str = 'compression', beta: (list, float) = None, k_vol: float=None):
         """
         Initialization method for timber member
@@ -91,7 +91,7 @@ class TimberMember:
         # SFS-EN 1995-1-1 (3.4)
         k_L = 1.0
         if self.material.type == 'lvl':
-            if self.section.Ned > 0 and self.length != 3000:
+            if self.NEd > 0 and self.length != 3000:
                 k_L = min(1.1, (3000 / self.length) ** (self.material.s / 2))
         return k_L
 
