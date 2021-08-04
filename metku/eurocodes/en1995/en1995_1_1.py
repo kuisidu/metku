@@ -6,8 +6,10 @@ Design rules of EN 1995-1-1, Design of Timber Structures
 
 @author: Viktor Haimi
 """
-
-from eurocodes.en1995.constants import *
+try:
+    from metku.eurocodes.en1995.constants import *
+except:
+    from eurocodes.en1995.constants import *
 
 kmod_data = {'solid_timber': {1: {'perm': 0.6, 'lt': 0.7, "mt": 0.8, "st": 0.9, "inst": 1.1},
                               2: {'perm': 0.6, 'lt': 0.7, "mt": 0.8, "st": 0.9, "inst": 1.1},

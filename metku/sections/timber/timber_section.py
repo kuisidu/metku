@@ -7,9 +7,14 @@ Timber section parameters, including timber fire design calculations (simple met
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy import integrate
-from eurocodes.en1995 import en1995_1_1, en1995_1_2
-from eurocodes.en1995.fire_protection import *
-from materials.timber_data import Timber, T
+try:
+    from metku.eurocodes.en1995 import en1995_1_1, en1995_1_2
+    from metku.eurocodes.en1995.fire_protection import *
+    from metku.materials.timber_data import Timber, T
+except:
+    from eurocodes.en1995 import en1995_1_1, en1995_1_2
+    from eurocodes.en1995.fire_protection import *
+    from materials.timber_data import Timber, T
 import matplotlib.pyplot as plt
 import math
 
@@ -18,8 +23,8 @@ class TimberSection:
     def __init__(self, B: (int, float), H: (int, float), material: T=T.GL30c,
                  fire_protection_right: FireProtection = None, fire_protection_left: FireProtection = None,
                  fire_protection_top: FireProtection = None, fire_protection_bottom: FireProtection = None,
-                 fire_protection_generic: FireProtection = None, fire_protection_sides: int=3,
-                 sides_on_fire: int=3, lvldir: str='edge'):
+                 fire_protection_generic: FireProtection = None, fire_protection_sides: int = 3,
+                 sides_on_fire: int = 3, lvldir: str = 'edge'):
         """
         Tasakorkea ja -leveä suorakaiteinen sauva
 
@@ -130,7 +135,6 @@ class TimberSection:
     def B(self) -> float:
         b = self._B
         b -= en1995_1_2.d_char_n(self.fire_protection_right, self.R, self.beta_n)
-        # TODO kahdelta suunnalta palavan sauvan tapausta ei ole ohjelmoitu
         b -= en1995_1_2.d_char_n(self.fire_protection_left, self.R, self.beta_n)
         if b <= 0:
             b = 1e-5

@@ -2,7 +2,10 @@
 @author Viktor Haimi
 """
 import math
-from eurocodes.en1995.fire_protection import FireProtection
+try:
+    from metku.eurocodes.en1995.fire_protection import FireProtection
+except:
+    from eurocodes.en1995.fire_protection import FireProtection
 
 
 def charring_speed(rhok: (int, float), type: str, hardness: str, h_p: (int, float)) -> list[float]:

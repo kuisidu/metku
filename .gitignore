@@ -128,5 +128,4 @@ dmypy.json
 *.mp4
 *.svg
 
-/.idea/
-/metku/.idea/
+*/.idea/

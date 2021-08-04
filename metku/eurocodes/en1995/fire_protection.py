@@ -2,8 +2,12 @@
 @author Viktor Haimi
 """
 import numpy as np
-from eurocodes.en1995 import en1995_1_1, en1995_1_2
-from materials.timber_data import Timber, T
+try:
+    from metku.eurocodes.en1995 import en1995_1_1, en1995_1_2
+    from metku.materials.timber_data import Timber, T
+except:
+    from eurocodes.en1995 import en1995_1_1, en1995_1_2
+    from materials.timber_data import Timber, T
 
 
 class FireProtection:

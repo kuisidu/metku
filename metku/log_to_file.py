@@ -1,5 +1,5 @@
 def log_to_file(function):
-    def wrapper():
+    def wrapper(*args, **kwargs):
         import sys
         import datetime as dt
         import inspect
@@ -14,8 +14,9 @@ def log_to_file(function):
 
             print(inspect.getsource(sys.modules['__main__']))
             print('\n\n####################################### SOLUTION ##########################################\n\n')
-            function()
+            function(*args, **kwargs)
 
             sys.stdout = original_stdout
+        os.chdir(f'{os.getcwd()}/..')
         print(f'done writing')
     return wrapper

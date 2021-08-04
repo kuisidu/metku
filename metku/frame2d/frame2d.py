@@ -35,7 +35,7 @@ except:
     from frame2d.materials import MATERIALS
     from structures.steel.steel_member import SteelMember
     from sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
-    import structures.timber.timber_member as timMem
+    from structures.timber.timber_member import TimberMember
     from materials.timber_data import T, Timber
     from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
     from sections.steel.CHS import CHS
@@ -433,7 +433,7 @@ class Frame2D:
                 if coordinate not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coordinate)
 
-    def calc_nodal_forces(self,lcase=2):
+    def calc_nodal_forces(self,lcase=LoadIDs.ULS):
         """ Calculates nodal forces and saves values to
             self.nodal_forces - dict       
         """
@@ -522,7 +522,7 @@ class Frame2D:
             k += 1
         
         
-    def design_members(self,load_id = 2):
+    def design_members(self,load_id = LoadIDs.ULS):
         """ Designs frame members (checks resistance)
         """
         
@@ -1160,7 +1160,7 @@ class Frame2D:
             # x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
             # plt.plot([x0, x1], [y0, y1], c='b')
 
-    def plot_deflection(self, scale=1, prec=4, show=True, save=False, load_id=2):
+    def plot_deflection(self, scale=1, prec=4, show=True, save=False, load_id=LoadIDs.ULS):
         """ Draws deflected shape of the frame
             
             Parameters
@@ -1235,7 +1235,7 @@ class Frame2D:
         if show:
             plt.show()
 
-    def plot_buckling(self, scale=1, k=4, show=True, load_id=2, axes=None):
+    def plot_buckling(self, scale=1, k=4, show=True, load_id=LoadIDs.ULS, axes=None):
         """ Draws buckling shapes of the frame
             
             Parameters
@@ -1302,7 +1302,7 @@ class Frame2D:
 
                 plt.show()
 
-    def bmd(self, scale=1, save=False, show=True, load_id=2):
+    def bmd(self, scale=1, save=False, show=True, load_id=LoadIDs.ULS):
         """ Draws bending moment diagram
 
             Parameters
@@ -1372,7 +1372,7 @@ class Frame2D:
             member.remove_self_weight()
         self.generate_frame()
 
-    def assign_forces(self, load_id=2):
+    def assign_forces(self, load_id=LoadIDs.ULS):
 
         for member in self.members.values():
             member.assign_forces(load_id=load_id)
@@ -1398,8 +1398,8 @@ class Frame2D:
                 member.Sj1 = MIN_VAL
                 member.Sj2 = MIN_VAL
 
-    def print_info(self, prec=2, R=0, beam_characteristic_divider=300,
-                   beam_quasi_permanent_divider=200, column_divider=150):
+    def print_info(self, prec, R=0, beam_characteristic_divider=300,
+                   beam_quasi_permanent_divider=200, column_divider=150, apxspt_kaava6_55=False):
 
         if LoadIDs.ACC in self.load_ids:
             self.R = R
@@ -1408,8 +1408,9 @@ class Frame2D:
 
         for mem in self.members.values():
             if isinstance(mem, TimberFrameMember):
-                mem.print_info(self.load_ids, self, prec=prec, firetime=R, beam_characteristic_divider=beam_characteristic_divider,
-                               beam_quasi_permanent_divider=beam_quasi_permanent_divider, column_divider=column_divider)
+                mem.print_info(self.load_ids, self, prec, firetime=R, beam_characteristic_divider=beam_characteristic_divider,
+                               beam_quasi_permanent_divider=beam_quasi_permanent_divider, column_divider=column_divider,
+                               apxspt_kaava6_55=apxspt_kaava6_55)
 
 # -----------------------------------------------------------------------------
 class FrameMember:
@@ -2300,7 +2301,7 @@ class FrameMember:
             # rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[idx])
 
-    def calc_nodal_forces(self,load_id=2):
+    def calc_nodal_forces(self,load_id=LoadIDs.ULS):
         """ Gets calculated nodal forces on member's elements and
             adds them to dict where node is the key and froces are value
             self.nodal_forces[node_id] = [Fx, Fy, Mz]
@@ -2448,7 +2449,7 @@ class FrameMember:
         return locs
 
 
-    def assign_forces(self,load_id=2):
+    def assign_forces(self,load_id=LoadIDs.ULS):
         """
         Assigns forces to SteelMember -object.
         Creates new sections if none are created,
@@ -2518,7 +2519,7 @@ class FrameMember:
         else:
             self.is_strong_enough = True
 
-    def design(self,lcase=2):
+    def design(self,lcase=LoadIDs.ULS):
         """ Designs the member (check resistance) 
             This has to be modified for multiple load cases.
         """
@@ -2728,7 +2729,7 @@ class FrameMember:
         plt.plot(line_x, line_y, '--', c='k')
         plt.show()
 
-    def bmd(self, scale=1, load_id = 2):
+    def bmd(self, scale=1, load_id = LoadIDs.ULS):
         """ Plots bending moment diagram """
 
         # Scales Nmm to kNm
@@ -2936,7 +2937,7 @@ class TimberFrameMember(FrameMember):
             lateral_support_z = []
         if lateral_support_y is None:
             lateral_support_y = []
-        self.member = timMem.TimberMember(self.cross_section, self.material, self.length,
+        self.member = TimberMember(self.cross_section, self.material, self.length,
                                    ldc, sc, mtype=mtype, varnished=varnished, Sj1=self.Sj1, Sj2=self.Sj2,
                                    nodes=self.nodes, parent=self, lateral_support_y=lateral_support_y,
                                    lateral_support_z=lateral_support_z, edge_load=edge_load, beta=beta, k_vol=k_vol)
@@ -3127,7 +3128,7 @@ class TimberFrameMember(FrameMember):
         else:
             self.is_strong_enough = True
 
-    def print_utility_factor(self):
+    def print_utility_factor(self, apxspt_kaava6_55=False):
         END = '\033[0m'
         print(f'{self.cross_section.__class__.__name__} käyttöasteet')
         print('______________________________________')
@@ -3178,7 +3179,7 @@ class TimberFrameMember(FrameMember):
                     appt = self.member.check_apex_perpendicular_tension()
                     COLOR = self.get_printing_color(appt)
                     print(f'{COLOR}EC5(6.50)\t APXPT\t\t {round(appt * 100, PREC)} %{END}')
-                    apspt = self.member.check_apex_shear_perpendicular_tension_combined()
+                    apspt = self.member.check_apex_shear_perpendicular_tension_combined(kaava6_55=apxspt_kaava6_55)
                     COLOR = self.get_printing_color(apspt)
                     print(f'{COLOR}EC5(6.53)\t APXSPT\t\t {round(apspt * 100, PREC)} %{END}')
                 else:
@@ -3202,19 +3203,19 @@ class TimberFrameMember(FrameMember):
             return GREEN
 
     def print_info(self, ids, parent, prec: int = 1, firetime: int = 0, beam_characteristic_divider=300,
-                   beam_quasi_permanent_divider=200, column_divider=150):
+                   beam_quasi_permanent_divider=200, column_divider=150, apxspt_kaava6_55=False):
         print(f'\n{self.mem_id}: {self.cross_section}')
         print('------------------------------------------------')
         if LoadIDs.ULS in ids:
             print('ULS')
-            self.assign_forces(LoadIDs.ULS)
-            self.print_utility_factor()
+            parent.assign_forces(LoadIDs.ULS)
+            self.print_utility_factor(apxspt_kaava6_55)
         if LoadIDs.ACC in ids:
             print('ACC')
             print(f'Paloaika {firetime}')
             parent.R = firetime
-            self.assign_forces(LoadIDs.ACC)
-            self.print_utility_factor()
+            parent.assign_forces(LoadIDs.ACC)
+            self.print_utility_factor(apxspt_kaava6_55)
             parent.R = 0
 
         i_list = self.member.radius_of_gyration(get_locs=True)
@@ -3466,7 +3467,7 @@ class Load:
 class PointLoad(Load):
     """ Class for point loads (forces and moments) """
 
-    def __init__(self, coordinate, v, load_id=2, ltype='live',
+    def __init__(self, coordinate, v, load_id=LoadIDs.ULS, ltype='live',
                  name='PointLoad',
                  f=1.0):
         super().__init__(load_id, ltype, name, f)
@@ -3499,7 +3500,7 @@ class PointLoad(Load):
 
 
 class LineLoad(Load):
-    def __init__(self, coordinates, values, direction, load_id=2, f=1.0,
+    def __init__(self, coordinates, values, direction, load_id=LoadIDs.ULS, f=1.0,
                  ltype='live', name='LineLoad',coord_sys="global"):
         """ Class for line loads. Line load can be uniform or trapezoidal
         
@@ -3687,8 +3688,8 @@ if __name__ == '__main__':
     #fr.members[1].add_hinge(1)
     fr.add(FrameMember([[8000,6000],x1]))
                         
-    fr.add(LineLoad(fr.members[1],[-20,-20],'y',coord_sys='local',load_id=2))
-    fr.add(LineLoad(fr.members[0],[8,8],'x',coord_sys='global',load_id=3))
+    fr.add(LineLoad(fr.members[1],[-20,-20],'y',coord_sys='local',load_id=LoadIDs.ULS))
+    fr.add(LineLoad(fr.members[0],[8,8],'x',coord_sys='global',load_id=LoadIDs.SLS_Characteristic))
     fr.add(FixedSupport(x0))
     fr.add(FixedSupport(x1))
 

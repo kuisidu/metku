@@ -5,17 +5,25 @@ Timber member
 """
 from math import log, tan, pi, sqrt, isclose, sin, cos, radians
 import numpy as np
-from scipy import integrate
-import matplotlib.pyplot as plt
 
-import frame2d
-from materials.timber_data import Timber, T
-from eurocodes.en1995.en1995_1_1 import kmod, kdef, k_to_d, get_gammaM
-from eurocodes.en1995.constants import k_m
-from sections.timber.timber_section import *
-from framefem.framefem import FEMNode
-from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-from sections.steel.ISection import HEA
+try:
+    import frame2d
+    from materials.timber_data import Timber, T
+    from eurocodes.en1995.en1995_1_1 import kmod, kdef, k_to_d, get_gammaM
+    from eurocodes.en1995.constants import k_m
+    from sections.timber.timber_section import *
+    from framefem.framefem import FEMNode
+    from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+    from sections.steel.ISection import HEA
+except:
+    import metku.frame2d as frame2d
+    from metku.materials.timber_data import Timber, T
+    from metku.eurocodes.en1995.en1995_1_1 import kmod, kdef, k_to_d, get_gammaM
+    from metku.eurocodes.en1995.constants import k_m
+    from metku.sections.timber.timber_section import *
+    from metku.framefem.framefem import FEMNode
+    from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+    from metku.sections.steel.ISection import HEA
 
 PREC = 5
 
@@ -265,7 +273,14 @@ class TimberMember:
         else:
             return max_val
 
-    def sigma_t90d(self) -> float:
+    def sigma_t90d(self, kaava6_55:bool=False) -> float:
+        if kaava6_55:
+            p = 0
+            for load in self.parent.loads:
+                if load.direction == 'y' and load.values[0] == load.values[1] and self.edge_load == 'compression':
+                    p = load.values[0]
+            # SFS 1995-1-1 (6.55)
+            return self.k_p() * self.M_apd() / self.W_ap()[0] - 0.6 * (p / self.section.B)
         # SFS 1995-1-1 (6.54)
         return self.k_p() * self.M_apd() / self.W_ap()[0]
 
@@ -745,6 +760,8 @@ class TimberMember:
                         beta[index] = 0.9
                     elif self.Sj1 >= 1e15 and self.Sj2 >= 1e15:
                         beta[index] = 0.8
+                    else:
+                        beta[index] = 0.85
 
                 elif startsupp is not None and endsupp is not None:
                     if isinstance(startsupp, frame2d.FixedSupport) and isinstance(endsupp, frame2d.FixedSupport):
@@ -770,33 +787,38 @@ class TimberMember:
                     beta[index] = 2
 
             else:
+                # jos sauvat on jaettu useampaan osaan/segmenttiin
                 for i in range(len(lc)):
+                    # palkin segmentin z suunnassa on kiinteä beta=1 nurjahduskerroin
                     if beam and index == 1:
                         beta[index].append(1)
+                    # sauvan alkupäästä ensimmäinen segmentti beta=0.8, sitä seuraavat segmentit beta=1, jne.
+                    # beta arvot annetaan tukien vapausasteiden ja sauvan päiden kiertymisjäykkyyksien mukaan y- ja z-suunnissa
                     elif i == 0:
-                        if isinstance(startsupp, frame2d.FixedSupport):
-                            beta[index].append(0.85)
-                        elif isinstance(startsupp, frame2d.XYHingedSupport):
+                        if isinstance(startsupp, frame2d.FixedSupport) or self.Sj1 >= 1e15:
+                            beta[index].append(0.8)
+                        elif isinstance(startsupp, frame2d.XYHingedSupport) or self.Sj1 <= 1e3:
                             beta[index].append(1)
-                        elif index == 1:
-                            beta[index].append(0.85)
-                        elif self.Sj1 >= 1e15:
+                        elif 1e3 < self.Sj1 < 1e15:
                             beta[index].append(0.85)
                         else:
                             beta[index].append(1)
                     elif i == len(lc) - 1:
-                        if isinstance(endsupp, frame2d.FixedSupport):
-                            beta[index].append(0.85)
-                        elif isinstance(endsupp, frame2d.XYHingedSupport):
+                        # sauvan alkupäästä viimeisessä segmentissä beta=0.8, sitä seuraavat segmentit beta=1, jne.
+                        if isinstance(endsupp, frame2d.FixedSupport) or self.Sj2 >= 1e15:
+                            beta[index].append(0.8)
+                        elif isinstance(endsupp, frame2d.XYHingedSupport) or self.Sj2 <= 1e3:
                             beta[index].append(1)
-                        elif index == 1:
-                            beta[index].append(0.85)
-                        elif self.Sj2 >= 1e15:
+                        elif 1e3 < self.Sj2 < 1e15:
                             beta[index].append(0.85)
                         else:
                             beta[index].append(1)
                     else:
-                        beta[index].append(1)
+                        # sauvojen välisegmenteille lokaalissa z-suunnassa beta=1, mutta y-suunnassa beta=0.9
+                        if index == 0:
+                            beta[index].append(0.9)
+                        else:
+                            beta[index].append(1)
 
         if self.beta is not None:
             if isinstance(self.beta, (int, float)):
@@ -1211,53 +1233,86 @@ class TimberMember:
         # EN 1995-1-1 (6.50)
         return self.sigma_t90d() / (self.k_dis() * self.k_vol() * self.ft90d)
 
-    def check_apex_shear_perpendicular_tension_combined(self) -> float:
+    def check_apex_shear_perpendicular_tension_combined(self, kaava6_55:bool=False) -> float:
         # EN 1995-1-1 (6.53)
-        # taking maximum shear force instead of reduced shear force
-        # TODO palataan myöhemmin
-
-        if isinstance(self.section, (KaarevaHarjaPalkki, KaarevaPalkki)):
-            closesttodownx1 = None
-            closesttodownx2 = None
-            for loc in self.loc:
-                if closesttodownx1 is None:
-                    closesttodownx1 = loc
-                    continue
-                if closesttodownx2 is None:
-                    closesttodownx2 = loc
-                    continue
-                if abs((self.section.dwn_x1 / self.length) - loc) < abs(closesttodownx1 - loc):
-                    closesttodownx1 = loc
-                if abs(self.section.dwn_x2 / self.length - loc) < abs(closesttodownx2 - loc):
-                    closesttodownx2 = loc
-
-            tau_d_dw_x1 = self.tau_d(self.loc.index(closesttodownx1))
-            tau_d_dw_x2 = self.tau_d(self.loc.index(closesttodownx2))
-            # TODO miksi metku laskee leikkausjännityksen z-suunnassa?
-            tau = abs(min(tau_d_dw_x1[1], tau_d_dw_x2[1], key=abs))
-
-        elif isinstance(self.section, (HarjaPalkki, MahaPalkki)):
-            closesttoleft = None
-            closesttoright = None
-            for loc in self.loc:
-                if closesttoleft is None:
-                    closesttoleft = loc
-                    continue
-                if closesttoright is None:
-                    closesttoright = loc
-                    continue
-                if abs(self.section.xap - (self.section.hap / 2 / self.length) - loc) < abs(closesttoleft - loc):
-                    closesttoleft = loc
-                if abs(self.section.xap + (self.section.hap / 2 / self.length) - loc) < abs(closesttoright - loc):
-                    closesttoright = loc
-
-            tau_d_dw_x1 = self.tau_d(self.loc.index(closesttoleft))
-            tau_d_dw_x2 = self.tau_d(self.loc.index(closesttoright))
-            # TODO miksi metku laskee leikkausjännityksen z-suunnassa?
-            tau = abs(min(tau_d_dw_x1[1], tau_d_dw_x2[1], key=abs))
+        #
+        n = 0
+        start = list(filter(lambda v: v.member != self if True else False, self.parent.n1.parents.copy()))
+        if len(start) == 0:
+            other_h_start = 0
         else:
-            raise NotImplementedError
-        return (tau / self.fvd) + self.sigma_t90d() / (self.k_dis() * self.k_vol() * self.ft90d)
+            other_h_start = start[0].cross_section.H / 2
+        sumH_start = (other_h_start + self.section.get_H(0)) / self.length
+        loc = self.loc[n]
+        if loc < sumH_start:
+            for i in range(len(self.loc)):
+                try:
+                    if self.loc[n + i + 1] > sumH_start:
+                        n = n + i
+                        break
+                except:
+                    pass
+
+        tau1 = self.tau_d(n)[1]
+        n = self.nsect() - 1
+        end = list(filter(lambda v: v.member != self if True else False, self.parent.n2.parents.copy()))
+        if len(end) == 0:
+            other_h_end = 0
+        else:
+            other_h_end = end[0].cross_section.H / 2
+        sumH_end = (other_h_end + self.section.get_H(0)) / self.length
+        if loc > 1 - sumH_end:
+            for i in range(len(self.loc)):
+                try:
+                    if self.loc[n - i - 1] < 1 - sumH_end:
+                        n = n - i
+                        break
+                except:
+                    pass
+        tau2 = self.tau_d(n)[1]
+        tau = max(tau1, tau2)
+        # if isinstance(self.section, (KaarevaHarjaPalkki, KaarevaPalkki)):
+        #     closesttodownx1 = None
+        #     closesttodownx2 = None
+        #     for loc in self.loc:
+        #         if closesttodownx1 is None:
+        #             closesttodownx1 = loc
+        #             continue
+        #         if closesttodownx2 is None:
+        #             closesttodownx2 = loc
+        #             continue
+        #         if abs((self.section.dwn_x1 / self.length) - loc) < abs(closesttodownx1 - loc):
+        #             closesttodownx1 = loc
+        #         if abs(self.section.dwn_x2 / self.length - loc) < abs(closesttodownx2 - loc):
+        #             closesttodownx2 = loc
+        #
+        #     tau_d_dw_x1 = self.tau_d(self.loc.index(closesttodownx1))
+        #     tau_d_dw_x2 = self.tau_d(self.loc.index(closesttodownx2))
+        #
+        #     tau = abs(min(tau_d_dw_x1[1], tau_d_dw_x2[1], key=abs))
+        #
+        # elif isinstance(self.section, (HarjaPalkki, MahaPalkki)):
+        #     closesttoleft = None
+        #     closesttoright = None
+        #     for loc in self.loc:
+        #         if closesttoleft is None:
+        #             closesttoleft = loc
+        #             continue
+        #         if closesttoright is None:
+        #             closesttoright = loc
+        #             continue
+        #         if abs(self.section.xap - (self.section.hap / 2 / self.length) - loc) < abs(closesttoleft - loc):
+        #             closesttoleft = loc
+        #         if abs(self.section.xap + (self.section.hap / 2 / self.length) - loc) < abs(closesttoright - loc):
+        #             closesttoright = loc
+        #
+        #     tau_d_dw_x1 = self.tau_d(self.loc.index(closesttoleft))
+        #     tau_d_dw_x2 = self.tau_d(self.loc.index(closesttoright))
+        #
+        #     tau = abs(min(tau_d_dw_x1[1], tau_d_dw_x2[1], key=abs))
+        # else:
+        #     raise NotImplementedError
+        return (tau / self.fvd) + self.sigma_t90d(kaava6_55) / (self.k_dis() * self.k_vol() * self.ft90d)
 
     def add_section(self, ned: float = 0.0, myed: float = 0.0, mzed: float = 0.0, vyed: float = 0.0, vzed: float = 0.0,
                     ted: float = 0.0, loc: float = 0.0):

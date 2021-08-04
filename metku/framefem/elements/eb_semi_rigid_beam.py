@@ -12,7 +12,10 @@ from functools import lru_cache
 
 CACHE_BOUND = 2**10
 from .ebbeam import EBBeam
-from framefem import LineLoad
+try:
+    from metku.framefem import LineLoad
+except:
+    from framefem import LineLoad
 
 # Constants
 kRigid = 1e20  # articifial large stiffness for rigid joints

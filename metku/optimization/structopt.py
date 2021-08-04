@@ -29,7 +29,10 @@ from itertools import product
 from collections.abc import Iterable
 from functools import lru_cache
 from copy import deepcopy
-from loadIDs import LoadIDs
+try:
+    from metku.loadIDs import LoadIDs
+except:
+    from loadIDs import LoadIDs
 
 CACHE_BOUND = 2**8
 INT_TOL = 1e-4
