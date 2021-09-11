@@ -444,6 +444,8 @@ class RHSKGapJoint(RHSJoint):
         print("    0.5*b0*(1-beta) = {0:4.2f} mm".format(0.5*self.b0*(1-beta)))
         print("    1.5*b0*(1-beta) = {0:4.2f} mm".format(1.5*self.b0*(1-beta)))
         
+        print("  Eccentricity = {0:4.2f} mm (Limit = {1:4.2f} mm)".format(self.eccentricity(),0.25*self.h0))
+        
         self.validity(True)
         
         print(" -- RESISTANCE -- ")

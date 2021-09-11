@@ -1033,7 +1033,7 @@ class Frame2D:
             color = True
 
         # Plot members
-        for member in self.members.values():
+        for member in self.members.values():            
             member.plot(print_text, color, ax)
 
         # Plot joints

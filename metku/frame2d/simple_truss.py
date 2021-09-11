@@ -193,9 +193,48 @@ def ten_bar_truss(L,F):
     
     #t.plot()
     return t
+
+def fifteen_bar_truss(L=360,h=120,P=10000):
+    """ by default, the units are imperial """
+    
+    nodes = []
+    nodes.append([0, h])
+    nodes.append([L/3, h])
+    nodes.append([2*L/3, h])
+    nodes.append([L, h])
+    nodes.append([0, 0])
+    nodes.append([L/3, 0])
+    nodes.append([2*L/3, 0])
+    nodes.append([L, 0])
+    
+    mems = [[0,1],[1,2],[2,3],[4,5],[5,6],[6,7],
+            [5,1],[6,2],[7,3],
+            [0,5],[4,1],
+            [1,6],[5,2],
+            [2,7],[6,3]]
+    
+    profs = []
+    for i in range(len(mems)):
+        profs.append('SHS 50x50x3.0')
+    
+    t = SimpleTruss(nodes,mems,profs)
+    
+    t.add(PointLoad(nodes[7],[0,-P,0]))
+    
+    t.add(XYHingedSupport(nodes[0]))
+    t.add(XYHingedSupport(nodes[4]))
+    
+    t.generate()
+    t.calculate()
+    
+    t.plot()
+    
+    return t
     
 if __name__ == '__main__':
-    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=2)
+    #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=2)
     #t = ten_bar_truss(L=3000,F=200e3)
+    
+    t = fifteen_bar_truss()
         
         

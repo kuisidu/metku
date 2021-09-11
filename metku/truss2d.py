@@ -731,7 +731,12 @@ class TrussMember(FrameMember):
             self.element_ids.append(index)
             index += 1
 
-    def plot(self, print_text=True, color=True):
+    def plot(self, print_text=True, color=True, axes=None):
+
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes        
 
         X = self.coordinates
         if color:
@@ -742,7 +747,7 @@ class TrussMember(FrameMember):
         else:
             color = 'k'
         # Plot members
-        plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
+        ax.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
         # Plot text
 
         # Calculate text location
@@ -761,11 +766,11 @@ class TrussMember(FrameMember):
         horzalign = 'center'
         vertalign = 'center'
         if print_text:
-            plt.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
+            ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
                      rotation=rot, horizontalalignment=horzalign,
                      rotation_mode='anchor')
         else:
-            plt.text(x, y, str(self.mem_id),
+            ax.text(x, y, str(self.mem_id),
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
 
@@ -2041,7 +2046,7 @@ if __name__ == '__main__':
         [truss.L1 + truss.L2, simple_truss['H0'] + simple_truss['H3']]))
     truss.generate()
     truss.calculate()
-    # truss.plot()
+    truss.plot()
 
     # truss.H1 = 1000
     # truss.H2 = 1500
