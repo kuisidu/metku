@@ -928,7 +928,7 @@ class TrussWeb(TrussMember):
         self.Sj1 = Sj1
         self.Sj2 = Sj2
         self.mtype = 'web'
-        self.steel_members = [self.steel_member]
+        self.steel_members = [self.member]
 
     @property
     def bot_coord(self):

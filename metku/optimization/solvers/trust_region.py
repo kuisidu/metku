@@ -155,6 +155,7 @@ class TrustRegionConstr(OptSolver):
             x0 = []
             for var in problem.vars:
                 x0.append(var.ub)  # * np.random.uniform())
+        problem.substitute_variables(x0)
 
         #print(bounds.lb,bounds.ub)
         
@@ -220,12 +221,12 @@ class TrustRegionConstr(OptSolver):
 
             #print("Solution of trust region algorithm:",out.x)
             #print(self.problem.eval_cons(out.x))
-            
+
             self.best_x = out.x
             self.best_f = out.fun
             self.X = out.x
             self.result = out
-            
+
             if out.constr_violation > CON_TOL:
                 self.feasible = False
                 print("TEST PRINT", out.constr_violation, CON_TOL)

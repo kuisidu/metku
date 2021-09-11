@@ -586,7 +586,7 @@ class StructuralProblem(OptimizationProblem):
 
         for mem in members:
             # STABILITY CONSTRAINTS
-            for i, smem in enumerate(mem.steel_members):
+            for i, smem in enumerate(mem.members):
                 if isinstance(mem.cross_section, WISection):
                     section_class = 3
                 else:

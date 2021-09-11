@@ -129,12 +129,12 @@ class SandwichPanel:
     @property
     def thickness(self):
         """ Total thickness of panel """
-        return self.faces[0].t +self.faces[1].t + self.core.t
+        return self.faces[0].khp + self.faces[1].khp + self.core.khp
         
     @property
     def d(self):
         """ distance between center lines of faces """
-        return 0.5*self.faces[0].t + 0.5*self.faces[1].t + self.core.t
+        return 0.5 * self.faces[0].khp + 0.5 * self.faces[1].khp + self.core.khp
 
     @property
     def Atop(self):        
@@ -147,7 +147,7 @@ class SandwichPanel:
     @property
     def S(self):
         """ Shear stiffness [N] """
-        return self.core.G*self.width*self.d**2/self.core.t
+        return self.core.G*self.width*self.d**2/self.core.khp
     
     @property
     def EIo(self):
@@ -181,7 +181,7 @@ class SandwichPanel:
         
         # Stiffness of internal face (hole elongation)
         if self.faces[1].tcor < 0.7:
-            kF2 = 6.93*self.faces[1].fu*math.sqrt(self.faces[1].tcor**3*d1)/(0.26+0.8*self.faces[1].t)
+            kF2 = 6.93*self.faces[1].fu*math.sqrt(self.faces[1].tcor**3*d1)/(0.26 + 0.8 * self.faces[1].khp)
         else:
             kF2 = 4.2*self.faces[1].fu*math.sqrt(self.faces[1].tcor**3*d1)/0.373
 

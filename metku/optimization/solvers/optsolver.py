@@ -146,7 +146,7 @@ class OptSolver:
         ax.clear()
         for mem in self.problem.structure.members.values():
             (x0, y0), (x1, y1) = mem.coordinates
-            lw = mem.cross_section.A / 1000
+            lw = mem.cross_section.A / 10000
             ax.plot((x0, x1), (y0, y1), 'k', linewidth=lw)
         #self.problem.structure.plot_loads()
         #self.problem.structure.plot_deflection(10, show=False)

@@ -12,6 +12,10 @@ from functools import lru_cache
 
 CACHE_BOUND = 2**10
 from .ebbeam import EBBeam
+try:
+    from metku.framefem import LineLoad
+except:
+    from framefem import LineLoad
 
 # Constants
 kRigid = 1e20  # articifial large stiffness for rigid joints
@@ -117,7 +121,8 @@ class EBSemiRigidBeam(EBBeam):
 
     def global_dofs(self):
         """ Get numbering of element global degrees of freedom """
-        return self.nodes[0].dofs + self.nodes[1].dofs
+        return np.append(self.nodes[0].dofs, self.nodes[1].dofs)
+        #return self.nodes[0].dofs + self.nodes[1].dofs
 
     @lru_cache(CACHE_BOUND)
     def local_stiffness_matrix(self, E, A, I1, Le):
@@ -220,39 +225,95 @@ class EBSemiRigidBeam(EBBeam):
 
         return kG
 
-    def equivalent_nodal_loads(self, q):
-        """ Equivalent nodal loads for load in vector q
-        """
+    def equivalent_nodal_loads(self, load):
+        """ Equivalent nodal loads for a load
 
-        floc0 = np.zeros(6)
+            'load' is a Load type object. By default, it is assumed that
+            'load' is LineLoad
+
+            Returns:
+            ---------
+            :return: Equivalent nodal loads for load in vector q
+            :rtype: np.array
+        """
         floc = np.zeros(6)
 
         T = self.transformation_matrix()
         L = self.length()
 
-        # Load vector transformed into element local coordinate system
-        # qloc[0] = qx, qloc[1] = qy
-        qloc = T[:3, :3].dot(q)
+        if isinstance(load, LineLoad):
+            q1 = load.qval[0]
+            q2 = load.qval[1]
+            # print(q1,q2)
+            if load.coords == 'local':
+                # print('local coordinates')
+                """ Load is given in local coordinates """
+                if load.dir == "x":
+                    """ Load is in the axial direction """
+                elif load.dir == 'y':
+                    """ Load is perpendicular to the member """
+                    floc[1] = 7 / 20 * q1 * L + 3 / 20 * q2 * L
+                    floc[4] = 3 / 20 * q1 * L + 7 / 20 * q2 * L
+                    floc[2] = L ** 2 * (1 / 20 * q1 + 1 / 30 * q2)
+                    floc[5] = -L ** 2 * (1 / 30 * q1 + 1 / 20 * q2)
+                # print(floc)
+            else:
+                """ Load is given in global coordinates: it has to be transformed
+                    first into local coordinates.
+                """
+                if load.dir == "x":
+                    # q = np.array([q1, 0, 0])
+                    q = np.array([1, 0, 0])
+                else:
+                    # q = np.array([0, q1, 0])
+                    q = np.array([0, 1, 0])
+                # Load vector transformed into element local coordinate system
+                qloc = T[:3, :3].dot(q)
 
-        delta = self.delta()
-        S = self.matrix_S()
+                """ Loads perpendicular to the axis of the element """
+                qy1 = q1 * qloc[1]
+                qy2 = q2 * qloc[1]
+                floc[1] = 7 / 20 * qy1 * L + 3 / 20 * qy2 * L
+                floc[4] = 3 / 20 * qy1 * L + 7 / 20 * qy2 * L
+                floc[2] = L ** 2 * (1 / 20 * qy1 + 1 / 30 * qy2)
+                floc[5] = -L ** 2 * (1 / 30 * qy1 + 1 / 20 * qy2)
 
-        # Construct nodal load in local coordinates
-        floc0[[0, 3]] = 0.5 * qloc[0] * L
-        floc0[[1, 4]] = 0.5 * qloc[1] * L
-        floc0[2] = qloc[1] * L ** 2 / 12.0
-        floc0[5] = -floc0[2]
+                """ Loads parallel to the axis of the element """
+                qx1 = q1 * qloc[0]
+                qx2 = q2 * qloc[0]
+                floc[0] = 0.5 * L * (0.5 * (qx1 + qx2) - 1 / 6 * (qx2 - qx1))
+                floc[3] = 0.5 * L * (0.5 * (qx1 + qx2) + 1 / 6 * (qx2 - qx1))
 
-        floc[[0, 3]] = 0.5 * qloc[0] * L  # axial nodal loads
-        floc[1] = floc0[1] + S[1, 0] / delta * floc0[2] + S[3, 0] / delta * floc0[5]
-        floc[2] = (1 + S[1, 1] / delta) * floc0[2] + S[3, 1] / delta * floc0[5]
-        floc[4] = S[1, 2] / delta * floc0[2] + floc0[4] + S[3, 2] / delta * floc0[5]
-        floc[5] = S[1, 3] / delta * floc0[2] + (1 + S[3, 3] / delta) * floc0[5]
+                # Construct nodal load in local coordinates
+                # qloc[0,1,2] = axial, shear, moment of node 1
+                # qloc[3,4,5] = axial, shear, moment ofnode 2
+                # Axial force
+                # floc[[0, 3]] = 0.5 * qloc[0] * L
+                # Shear force
+                # floc[[1, 4]] = 0.5 * qloc[1] * L
+                # Moment
+                # floc[2] = qloc[1] * L ** 2 / 12.0
+                # floc[5] = -floc[2]
 
-        self.floc = floc
+                # print(floc)
+
+        if len(self.releases) > 0:
+            """ There are releases in the element, so the local load vector
+                is modified.
+            """
+            rel = self.releases
+            # nrel is the list of non-released forces
+            nrel = np.setdiff1d(np.arange(6), rel)
+
+            # print(np.linalg.inv(self.Krel['K22']).dot(floc[rel]))
+            floc[nrel] -= self.Krel['K12'].dot(np.linalg.inv(self.Krel['K22']).dot(floc[rel]))
+            floc[rel] = 0
+
+            # Store local loads
+        self.floc[load.sid] = floc
 
         # print(self.floc)
 
         fglob = T.transpose().dot(floc)
-        return fglob
 
+        return fglob

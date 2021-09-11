@@ -93,7 +93,7 @@ class SLSQP(OptSolver):
             x0 = []
             for var in problem.vars:
                 x0.append(var.ub)  # * np.random.uniform())
-
+        problem.substitute_variables(x0)
         """
             'eps' is the step length in numerical differentiation
         """

@@ -426,7 +426,7 @@ class ZSection:
             prof_eff.split_segment(nweb,s)
             s2 = bneg/(be1+bneg)
             prof_eff.split_segment(nweb+1,s2)
-            prof_eff.segments[nweb+1].t = 0.0            
+            prof_eff.segments[nweb+1].khp = 0.0
         
         
         
@@ -446,9 +446,9 @@ class ZSection:
             if self._rho_t < 1.0:
                 s2 = (1-self._rho_t)*self.bt_center/prof_eff.segments[-2].length()
                 prof_eff.split_segment(nseg-1,s2)
-                prof_eff.segments[nseg-1].t = 0.0
-            prof_eff.segments[-2].t *= self._chi_d_t
-            prof_eff.segments[-1].t *= self._chi_d_t
+                prof_eff.segments[nseg-1].khp = 0.0
+            prof_eff.segments[-2].khp *= self._chi_d_t
+            prof_eff.segments[-1].khp *= self._chi_d_t
                         
         else:
             """ The effective top flange is an outstand element """
@@ -470,9 +470,9 @@ class ZSection:
             if self._rho_b < 1.0:
                 s2 = (1-self._rho_b)*self.bb_center/prof_eff.segments[2].length()
                 prof_eff.split_segment(2,s2)
-                prof_eff.segments[2].t = 0.0
-            prof_eff.segments[0].t *= self._chi_d_b
-            prof_eff.segments[1].t *= self._chi_d_b
+                prof_eff.segments[2].khp = 0.0
+            prof_eff.segments[0].khp *= self._chi_d_b
+            prof_eff.segments[1].khp *= self._chi_d_b
 
         self.prof_eff = prof_eff
                             
@@ -1202,7 +1202,7 @@ class CSection(ZSection):
             prof_eff.split_segment(nweb,s)
             s2 = bneg/(be1+bneg)
             prof_eff.split_segment(nweb+1,s2)
-            prof_eff.segments[nweb+1].t = 0.0            
+            prof_eff.segments[nweb+1].khp = 0.0
         
         
         
@@ -1222,9 +1222,9 @@ class CSection(ZSection):
             if self._rho_t < 1.0:
                 s2 = (1-self._rho_t)*self.bt_center/prof_eff.segments[-2].length()
                 prof_eff.split_segment(nseg-1,s2)
-                prof_eff.segments[nseg-1].t = 0.0
-            prof_eff.segments[-2].t *= self._chi_d_t
-            prof_eff.segments[-1].t *= self._chi_d_t
+                prof_eff.segments[nseg-1].khp = 0.0
+            prof_eff.segments[-2].khp *= self._chi_d_t
+            prof_eff.segments[-1].khp *= self._chi_d_t
                         
         else:
             """ The effective top flange is an outstand element """
@@ -1246,9 +1246,9 @@ class CSection(ZSection):
             if self._rho_b < 1.0:
                 s2 = (1-self._rho_b)*self.bb_center/prof_eff.segments[2].length()
                 prof_eff.split_segment(2,s2)
-                prof_eff.segments[2].t = 0.0
-            prof_eff.segments[0].t *= self._chi_d_b
-            prof_eff.segments[1].t *= self._chi_d_b
+                prof_eff.segments[2].khp = 0.0
+            prof_eff.segments[0].khp *= self._chi_d_b
+            prof_eff.segments[1].khp *= self._chi_d_b
 
         self.prof_eff = prof_eff
             

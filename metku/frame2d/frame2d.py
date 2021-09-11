@@ -3,33 +3,46 @@
 """
 
 import os
+import sys
 import time
-
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as mlines
 import matplotlib.path as mpath
+from loadIDs import LoadIDs
 
-# try:
-import metku.framefem.framefem  as fem
-from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-from metku.sections.steel import SteelSection
-from metku.sections.steel.ISection import IPE, HEA, HEB
-from metku.sections.steel.RHS import RHS, SHS
-from metku.sections.steel.CHS import CHS
-from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
-from metku.frame2d.materials import MATERIALS
-from metku.structures.steel.steel_member import SteelMember
-# except:
-#     import framefem.framefem  as fem
-#     from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-#     from sections.steel import *
-#     from sections.steel.catalogue import *
-#     from frame2d.materials import MATERIALS
-#     from structures.steel.steel_member import SteelMember
+try:
+    import metku.framefem.framefem as fem
+    from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+    from metku.sections.steel import *
+    from metku.sections.steel.catalogue import *
+    from metku.frame2d.materials import MATERIALS
+    from metku.structures.steel.steel_member import SteelMember
+    from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
+    from metku.structures.timber.timber_member import TimberMember
+    from metku.materials.timber_data import T, Timber
+    from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
+    from metku.sections.steel.CHS import CHS
+    from metku.sections.steel.RHS import RHS, SHS
+    from metku.sections.steel.ISection import IPE, HEA, HEB
+except:
+    import framefem.framefem as fem
+    from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+    from materials.steel_data import Steel
+    from sections.steel import *
+    from frame2d.materials import MATERIALS
+    from structures.steel.steel_member import SteelMember
+    from sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
+    from structures.timber.timber_member import TimberMember
+    from materials.timber_data import T, Timber
+    from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
+    from sections.steel.CHS import CHS
+    from sections.steel.RHS import RHS, SHS
+    from sections.steel.ISection import IPE, HEA, HEB
 
+from time import time
 # Rounding precision (number of decimals)
 PREC = 3
 
@@ -123,6 +136,14 @@ class Frame2D:
             self.generate_supports(supports)
 
     @property
+    def R(self):
+        return self.members[0].R
+    @R.setter
+    def R(self, r):
+        for mem in self.members.values():
+            mem.R = r
+
+    @property
     def L(self):
         """ Width/span of the frame """
         x_coordinates = [mem.coordinates[0][0] for mem in
@@ -178,6 +199,8 @@ class Frame2D:
             # id is used in creating elements with wanted cross-sectional properties
             this.mem_id = int(len(self.members))
 
+            this.frame2d = self
+
             self.members[this.mem_id] = this
             if self.num_elements:
                 this.calc_nodal_coordinates(self.num_elements)
@@ -197,6 +220,8 @@ class Frame2D:
                                                    self.nodal_coordinates]:
                 self.nodal_coordinates.extend(this.nodal_coordinates)
                 self.nodal_coordinates.sort()
+
+
 
 
         # POINTLOADS
@@ -395,6 +420,7 @@ class Frame2D:
             member.add_material(self.f)
             member.add_section(self.f)
 
+    # This method is not utilized later in code ?!?!?!
     def calc_nodal_coordinates(self):
         """ Calculates nodal coordinates and saves values to a list.
             These values are later used for creating the nodes.
@@ -407,7 +433,7 @@ class Frame2D:
                 if coordinate not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coordinate)
 
-    def calc_nodal_forces(self,lcase=2):
+    def calc_nodal_forces(self,lcase=LoadIDs.ULS):
         """ Calculates nodal forces and saves values to
             self.nodal_forces - dict       
         """
@@ -418,7 +444,7 @@ class Frame2D:
             #for node in member.nodal_forces:
             #    self.nodal_forces[node] = member.nodal_forces[node]
 
-    def calc_nodal_displacements(self,lcase=2):
+    def calc_nodal_displacements(self,lcase=LoadIDs.ULS):
         """ Calculates nodal displacements and saves values to
             self.nodal_displacements -dict
         """
@@ -443,7 +469,7 @@ class Frame2D:
                 for j in t.joints.values():
                     j.calc_nodal_coordinates()
 
-    def calculate(self, load_id=2, support_method='ZERO'):
+    def calculate(self, load_id=LoadIDs.ULS, support_method='ZERO'):
         """ Calculates forces and displacements
             
             Parameters
@@ -452,7 +478,7 @@ class Frame2D:
             
             :type load_id: int / str
         """
-        
+        # print(f'calculation happening with load id {load_id}')
         if self.is_calculated == False:
             self.is_calculated = True
             """ Support ID is always 1! """
@@ -464,17 +490,17 @@ class Frame2D:
             #print("Calculate all cases")
             lcase_ids = self.load_cases #[lc.load for lc in self.f.loadcases.values()]            
             for lid in lcase_ids:                
-            #for lid in self.f.loadcases.values():                                            
+            #for lid in self.f.loadcases.values():
                 self.calculate(load_id=lid,
                                support_method=support_method)
         else:
             #print('Calculate case:' + str(load_id))
-            
+
             self.f.linear_statics(support_method=support_method,
                                   lcase=load_id)
             self.calc_nodal_forces(load_id)
             self.calc_nodal_displacements(load_id)
-            #self.assign_forces()
+            self.assign_forces(load_id)
             self.design_members(load_id)
             #self.check_members_strength()
             # self.alpha_cr, _ = self.f.linear_buckling(k=4)
@@ -496,7 +522,7 @@ class Frame2D:
             k += 1
         
         
-    def design_members(self,load_id = 2):
+    def design_members(self,load_id = LoadIDs.ULS):
         """ Designs frame members (checks resistance)
         """
         
@@ -622,7 +648,7 @@ class Frame2D:
                 if coord[1] == 0:
                     self.add(XYHingedSupport(coord))
 
-    def generate(self):
+    def generate(self, self_weight=False):
         """ Generates the frame and truss FEM model
         """
         # If the frame hasn't been created, create members and calculate nodal
@@ -637,6 +663,10 @@ class Frame2D:
                 if coord not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coord)
             self.nodes.extend(list(member.nodes.values()))
+
+        for member in self.members.values():
+            if hasattr(member.member, 'add_neighbours_support'):
+                member.member.add_neighbours_support()
 
         # Generate TrussJoints
         if len(self.truss):
@@ -663,6 +693,9 @@ class Frame2D:
             if pointLoad.load_id not in lcase_ids:
                 self.f.add_loadcase(supp_id=1,
                                     load_id=pointLoad.load_id)
+
+        if self_weight:
+            self.add_self_weight()
 
         # Add line loads (if any)
         for lineLoad in self.line_loads.values():
@@ -1001,7 +1034,7 @@ class Frame2D:
         print(f'{filename}.str created to: \n{os.getcwd()}')
 
     def plot(self, print_text=True, show=True,
-             loads=True, color=False, axes=None):
+             loads=True, color=False, axes=None, save=False):
         """ Plots the frame
             
             Parameters
@@ -1043,15 +1076,14 @@ class Frame2D:
         # Plot supports
         for support in self.supports.values():
             node_coord = support.coordinate
-            if support.dofs == [-1, -1, -1] or support.dofs == [1, 1, 1]:
+            if support.dofs == [-1, -1, -1] or support.dofs == [1, 1, 1] or support.dofs == [0, 1, 2]:
                 marker = 's'
             elif support.dofs == [1]:
-                if node_coord[0] == 0:
-                    marker = '3'
-                else:
-                    marker = '4'
+                marker = '^'
+            elif support.dofs == [0]:
+                marker = '>'
             else:
-                marker = '2'
+                marker = 'D'
             ax.scatter(node_coord[0], node_coord[1], s=50, c='k',
                         marker=marker)
 
@@ -1060,6 +1092,8 @@ class Frame2D:
         if loads:
             self.plot_loads()
         ax.axis('equal')
+        if save:
+            plt.savefig('default.svg', format='svg')
         if show:
             plt.axis('equal')
             plt.show()
@@ -1126,7 +1160,7 @@ class Frame2D:
             # x1, y1 = self.f.elements[lineload.element_ids[-1]].nodes[1].x
             # plt.plot([x0, x1], [y0, y1], c='b')
 
-    def plot_deflection(self, scale=1, prec=4, show=True, load_id=2):
+    def plot_deflection(self, scale=1, prec=4, show=True, save=False, load_id=LoadIDs.ULS):
         """ Draws deflected shape of the frame
             
             Parameters
@@ -1145,13 +1179,13 @@ class Frame2D:
         #    self.truss.plot_deflection(scale, show=False)
 
         self.plot(print_text=False, show=False)
-        self.calc_nodal_displacements()
+        self.calc_nodal_displacements(lcase=load_id)
         max_locs = []
         for member in self.members.values():
             X = []
             Y = []
 
-            member.calc_nodal_displacements(self.f)
+            member.calc_nodal_displacements(self.f, lcase=load_id)
             """ For columns,  highlight maximum horizontal displacement (max_x)
                 For beams, highlight maximum vertical displacements (max_y)
             """
@@ -1196,11 +1230,12 @@ class Frame2D:
                     plt.text(loc_max_x, loc_max_y,
                              "{0:5.{1}g} mm".format(max_x,prec))
 
-
+        if save:
+            plt.savefig('deflections.svg', format='svg')
         if show:
             plt.show()
 
-    def plot_buckling(self, scale=1, k=4, show=True, load_id=2, axes=None):
+    def plot_buckling(self, scale=1, k=4, show=True, load_id=LoadIDs.ULS, axes=None):
         """ Draws buckling shapes of the frame
             
             Parameters
@@ -1267,7 +1302,7 @@ class Frame2D:
 
                 plt.show()
 
-    def bmd(self, scale=1):
+    def bmd(self, scale=1, save=False, show=True, load_id=LoadIDs.ULS):
         """ Draws bending moment diagram
 
             Parameters
@@ -1277,12 +1312,15 @@ class Frame2D:
         """
         self.plot(print_text=False, show=False, color=False)
         for member in self.members.values():
-            member.bmd(scale)
+            member.bmd(scale, load_id=load_id)
         # for truss in self.truss:
         #     truss.bmd(scale)
-        plt.show()
+        if save:
+            plt.savefig('bending moment diagram.svg', format='svg')
+        if show:
+            plt.show()
 
-    def plot_normal_force(self, show=True):
+    def plot_normal_force(self, show=True, save=False):
         """ Plots normal force and utilization ratio
 
             Parameters
@@ -1298,6 +1336,8 @@ class Frame2D:
         # if self.truss:
         #    for member in self.truss.members.values():
         #        member.plot_normal_force()
+        if save:
+            plt.savefig('normal forces.svg', format='svg')
         if show:
             plt.show()
 
@@ -1313,7 +1353,7 @@ class Frame2D:
     def add_self_weight(self):
         """ Adds self weight to frame's members
         """
-        if self.self_weight == False:
+        if self.self_weight is False:
             self.self_weight = True
             for member in self.members.values():
                 member.add_self_weight(self)
@@ -1332,10 +1372,10 @@ class Frame2D:
             member.remove_self_weight()
         self.generate_frame()
 
-    def assign_forces(self):
+    def assign_forces(self, load_id=LoadIDs.ULS):
 
         for member in self.members.values():
-            member.assign_forces()
+            member.assign_forces(load_id=load_id)
 
     def rigid_joints(self):
         """ Set all beam-column joints to rigid
@@ -1358,6 +1398,19 @@ class Frame2D:
                 member.Sj1 = MIN_VAL
                 member.Sj2 = MIN_VAL
 
+    def print_info(self, prec, R=0, beam_characteristic_divider=300,
+                   beam_quasi_permanent_divider=200, column_divider=150, apxspt_kaava6_55=False):
+
+        if LoadIDs.ACC in self.load_ids:
+            self.R = R
+            self.calculate(LoadIDs.ACC)
+            self.R = 0
+
+        for mem in self.members.values():
+            if isinstance(mem, TimberFrameMember):
+                mem.print_info(self.load_ids, self, prec, firetime=R, beam_characteristic_divider=beam_characteristic_divider,
+                               beam_quasi_permanent_divider=beam_quasi_permanent_divider, column_divider=column_divider,
+                               apxspt_kaava6_55=apxspt_kaava6_55)
 
 # -----------------------------------------------------------------------------
 class FrameMember:
@@ -1424,15 +1477,13 @@ class FrameMember:
                  reverse=False):
 
         self.active = True          # If 'active' is False, this memer is not included in analysis or plotting.
+        self.frame2d = None
         self.element_ids = []
         self.elements = {}
         self.ecc_elements = {}
         self.ecc_coordinates = []
         self.ecc_element_nodes = {}
-        """ To modify this to accommodate timber members, change the name
-            from steel_member to 'member'
-        """
-        self.steel_member = None
+        self.member = None
         # start node, FEMNode object
         self.n1 = None
         # end node, FEMNode object
@@ -1443,9 +1494,9 @@ class FrameMember:
         self.loc = []
         self.__coordinates = [[round(c, PREC) for c in coords] for coords in coordinates]
         # self.coordinates = coordinates
-        self.material = material
         self.cross_section = None
         self.__profile = profile
+        self.material = material
         self.profile = profile
         # self.profile_idx = PROFILES.index(self.profile)
         # self.length = self.calc_length()
@@ -1454,9 +1505,6 @@ class FrameMember:
         self.nodal_forces = {}
         self.nodal_displacements = {}
         self.num_elements = num_elements
-        """ Which 'loads' is correct? 
-        
-        """
         #self.loads = {}
         self.loads = []
         self.alpha1 = 25
@@ -1480,14 +1528,10 @@ class FrameMember:
         self.q0 = 0
         self.q1 = 0
         # Create SteelMember object
-        """ Add check here for creating appropriate member
-            SteelMember or TimberMember
-        """
-        self.steel_member = SteelMember(self.cross_section, self.length,
-                                        Lcr=[1.0, 1.0], mtype=self.mtype)
+        self.member = SteelMember(self.cross_section, self.length,
+                                  Lcr=[1.0, 1.0], mtype=self.mtype)
 
-        self.steel_members = [self.steel_member]
-        
+        self.members = [self.member]
         self.hinges = [False,False]
 
     def copy(self):
@@ -1635,26 +1679,30 @@ class FrameMember:
     @property
     def dx(self):
         vals = {}
-        dx_max = 0
-        for displacements in self.nodal_displacements.values():
-            for load_id, disp_vals in displacements.items():
+        for load_id, displacements in self.nodal_displacements.items():
+            dx_max = 0
+            for node_id, disp_vals in displacements.items():
                 dx, dy, rz = disp_vals
                 if abs(dx) > abs(dx_max):
                     vals[load_id] = dx
                     dx_max = dx
+            if load_id not in vals:
+                vals[load_id] = 0
 
         return vals
 
     @property
     def dy(self):
         vals = {}
-        dy_max = 0
-        for displacements in self.nodal_displacements.values():
-            for load_id, disp_vals in displacements.items():
+        for load_id, displacements in self.nodal_displacements.items():
+            dy_max = 0
+            for node_id, disp_vals in displacements.items():
                 dx, dy, rz = disp_vals
                 if abs(dy) > abs(dy_max):
                     vals[load_id] = dy
                     dy_max = dy
+            if load_id not in vals:
+                vals[load_id] = 0
 
         return vals
     
@@ -1677,7 +1725,7 @@ class FrameMember:
         """ Returns Lateral-torsional buckling resistance
             Units: Nmm
         """
-        return self.steel_member.MbRd
+        return self.member.MbRd
 
     @property
     def NRd(self):
@@ -1691,7 +1739,7 @@ class FrameMember:
         """ Returns buckling resistance
             Units: N
         """
-        return self.steel_member.NbRd
+        return self.member.NbRd
 
     @property
     def VRd(self):
@@ -1866,8 +1914,8 @@ class FrameMember:
                 #element.section.A = self.cross_section.A
                 #element.section.Iy = self.cross_section.I[0]
         # Change steel_member objects properties
-        if self.steel_member:
-            self.steel_member.profile = self.cross_section
+        if self.member:
+            self.member.profile = self.cross_section
 
     @property
     def Sj1(self):
@@ -1923,7 +1971,6 @@ class FrameMember:
     @property
     def length(self):
         start_node, end_node = np.asarray(self.coordinates)
-
         return np.linalg.norm(end_node - start_node)
 
     def alpha_to_Sj(self):
@@ -2007,7 +2054,7 @@ class FrameMember:
                 
         dloc = 1 / self.num_elements # step length in local coordinate system
         #for loc in np.arange(0, 1 + dloc, dloc):
-        for loc in np.linspace(0, 1 , self.num_elements + 1):
+        for loc in np.linspace(0, 1, self.num_elements + 1):
             
             loc = round(loc, PREC) # round local coordinate to PREC decimals
             
@@ -2096,10 +2143,16 @@ class FrameMember:
                 n1 = node_ids[i]
                 n2 = node_ids[i + 1]
 
-                self.elements[index] = \
-                    EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                           self.cross_section, \
-                           self.material)
+                if isinstance(self.cross_section, TaperedSection):
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section.small_elements[i],
+                               self.material)
+                else:
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section,
+                               self.material)
 
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
@@ -2109,24 +2162,31 @@ class FrameMember:
             n1 = node_ids[0]
             n2 = node_ids[1]
             self.elements[index] = \
-                    Rod(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                    self.cross_section, \
-                                    self.material)
+                Rod(fem_model.nodes[n1], fem_model.nodes[n2],
+                        self.cross_section,
+                        self.material)
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
         elif self.mtype == "beam":
             if len(self.nodes) == 2:
                 n1 = node_ids[0]
                 n2 = node_ids[1]
-
+                
                 """ EBSemiRigidBeam is a special element that has
                     rotational stiffness at the ends.
                 """
-                self.elements[index] = \
-                    EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                    self.cross_section, \
-                                    self.material, \
-                                    rot_stiff=[self.Sj1, self.Sj2])
+                if isinstance(self.cross_section, TaperedSection):
+                    self.elements[index] = \
+                        EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                        self.cross_section.small_elements[0],
+                                        self.material, rot_stiff=[np.inf, self.Sj2])
+                else:
+                    self.elements[index] = \
+                        EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                        self.cross_section,
+                                        self.material,
+                                        rot_stiff=[self.Sj1, self.Sj2])
+                
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
             else:
@@ -2136,25 +2196,43 @@ class FrameMember:
 
                     # EBSemiRigid -element, first element
                     if i == 0:
-                        self.elements[index] = \
-                            EBSemiRigidBeam(fem_model.nodes[n1],
-                                            fem_model.nodes[n2], \
-                                            self.cross_section, \
-                                            self.material, \
+                        if isinstance(self.cross_section, TaperedSection):
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                       self.cross_section.small_elements[i],
+                                       self.material, rot_stiff=[self.Sj1, np.inf])
+                        else:
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1],
+                                            fem_model.nodes[n2],
+                                            self.cross_section,
+                                            self.material,
                                             rot_stiff=[self.Sj1, np.inf])
                     # EBSemiRigid -element, last element
                     elif i == (len(self.nodes) - 2):
-                        self.elements[index] = \
-                            EBSemiRigidBeam(fem_model.nodes[n1],
-                                            fem_model.nodes[n2], \
-                                            self.cross_section, \
-                                            self.material, \
+                        if isinstance(self.cross_section, TaperedSection):
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                       self.cross_section.small_elements[i],
+                                       self.material, rot_stiff=[np.inf, self.Sj2])
+                        else:
+                            self.elements[index] = \
+                                EBSemiRigidBeam(fem_model.nodes[n1],
+                                            fem_model.nodes[n2],
+                                            self.cross_section,
+                                            self.material,
                                             rot_stiff=[np.inf, self.Sj2])
                     # EBBeam -elements
                     else:
-                        self.elements[index] = \
-                            EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                                   self.cross_section, \
+                        if isinstance(self.cross_section, TaperedSection):
+                            self.elements[index] = \
+                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                       self.cross_section.small_elements[i],
+                                       self.material)
+                        else:
+                            self.elements[index] = \
+                                EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                                   self.cross_section,
                                    self.material)
 
                     fem_model.add_element(self.elements[index])
@@ -2169,10 +2247,16 @@ class FrameMember:
                 n1 = node_ids[i]
                 n2 = node_ids[i + 1]
 
-                self.elements[index] = \
-                    EBBeam(fem_model.nodes[n1], fem_model.nodes[n2], \
-                           self.cross_section, \
-                           self.material)
+                if isinstance(self.cross_section, TaperedSection):
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section.small_elements[i],
+                               self.material)
+                else:
+                    self.elements[index] = \
+                        EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
+                               self.cross_section,
+                               self.material)
 
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
@@ -2217,7 +2301,7 @@ class FrameMember:
             # rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[idx])
 
-    def calc_nodal_forces(self,load_id=2):
+    def calc_nodal_forces(self,load_id=LoadIDs.ULS):
         """ Gets calculated nodal forces on member's elements and
             adds them to dict where node is the key and froces are value
             self.nodal_forces[node_id] = [Fx, Fy, Mz]
@@ -2301,7 +2385,7 @@ class FrameMember:
         self.ved = max_ved
         self.ned = max_ned
 
-    def calc_nodal_displacements(self, fem_model, lcase=2):
+    def calc_nodal_displacements(self, fem_model, lcase=LoadIDs.ULS):
         """ Calculates nodal displacements and saves them to a dict
             :param fem_model: FrameFEM -object
         """
@@ -2365,15 +2449,15 @@ class FrameMember:
         return locs
 
 
-    def assign_forces(self,load_id=2):
+    def assign_forces(self,load_id=LoadIDs.ULS):
         """
         Assigns forces to SteelMember -object.
         Creates new sections if none are created,
         otherwise updates old values
         """
-        self.steel_member.length = self.length
-        self.steel_member.profile = self.cross_section
-        self.steel_member.clear_sections()
+        self.member.length = self.length
+        self.member.profile = self.cross_section
+        self.member.clear_sections()
         for i, element in enumerate(self.elements.values()):
             #M1, M2 = element.bending_moment
             #N1, N2 = element.axial_force
@@ -2382,11 +2466,11 @@ class FrameMember:
             N1, N2 = element.fint[load_id]['fx']
             V1, V2 = element.fint[load_id]['fz']
             loc = self.locs[i]
-            self.steel_member.add_section(ned=N1, vzed=V1,
-                                          myed=M1, loc=loc)
+            self.member.add_section(ned=N1, vzed=V1,
+                                    myed=M1, loc=loc)
         loc = self.locs[i + 1]
-        self.steel_member.add_section(ned=N2, vzed=V2,
-                                      myed=M2, loc=loc)
+        self.member.add_section(ned=N2, vzed=V2,
+                                myed=M2, loc=loc)
 
         #
         # if not self.steel_member.nsect():
@@ -2418,13 +2502,13 @@ class FrameMember:
 
         self.r = np.zeros_like(self.r)
         # Cross-sectional stress ratios in member's nodes' locations
-        self.r[:4] = self.steel_member.check_sections()
+        self.r[:4] = self.member.check_sections()
         # Buckling about y - and z - axis
-        buckling_r = self.steel_member.check_buckling()
+        buckling_r = self.member.check_buckling()
         self.r[4] = buckling_r[0]
         self.r[5] = buckling_r[1]
         # Lateral-Torsional buckling
-        self.r[6] = self.steel_member.check_LT_buckling()
+        self.r[6] = self.member.check_LT_buckling()
         # Set cross-section's maximum forces for getting results later
         self.cross_section.Ned = self.ned
         self.cross_section.Ved = self.ved
@@ -2435,7 +2519,7 @@ class FrameMember:
         else:
             self.is_strong_enough = True
 
-    def design(self,lcase=2):
+    def design(self,lcase=LoadIDs.ULS):
         """ Designs the member (check resistance) 
             This has to be modified for multiple load cases.
         """
@@ -2444,9 +2528,8 @@ class FrameMember:
             somehow be inserted. Note that SteelMember does not yet
             provide several load cases.
         """
-        
-        self.assign_forces(lcase)        
-        rmax = self.steel_member.design()
+
+        rmax = self.member.design()
         
         if rmax > 1.0:
             self.is_strong_enough = False
@@ -2509,7 +2592,7 @@ class FrameMember:
             """
             self.profile = profile
             self.check_cross_section()
-            for smem in self.steel_members:
+            for smem in self.members:
                 r1 = smem.check_sections()
 
                 r2 = max(smem.check_beamcolumn())
@@ -2624,8 +2707,8 @@ class FrameMember:
         
         UN, UV, UM, UMN = self.cross_section.section_resistance(
             return_list=True)
-        B = max(self.steel_member.check_buckling())
-        LT = self.steel_member.check_LT_buckling()
+        B = max(self.member.check_buckling())
+        LT = self.member.check_LT_buckling()
 
         x = np.arange(6)
         Y = [UN, UV, UM, UMN, B, LT]
@@ -2646,7 +2729,7 @@ class FrameMember:
         plt.plot(line_x, line_y, '--', c='k')
         plt.show()
 
-    def bmd(self, scale=1, load_id = 2):
+    def bmd(self, scale=1, load_id = LoadIDs.ULS):
         """ Plots bending moment diagram """
 
         # Scales Nmm to kNm
@@ -2663,7 +2746,7 @@ class FrameMember:
         x02, y02 = end_coord
         X.append(x01)
         Y.append(y01)
-        self.calc_nodal_forces()
+        self.calc_nodal_forces(load_id=load_id)
 
         moment_values = [x[2] for x in self.nodal_forces[load_id].values()]
 
@@ -2793,19 +2876,481 @@ class FrameMember:
         for i, coord in enumerate(self.nodal_coordinates):
             self.nodal_coordinates[i] = [round(c, prec) for c in coord]
 
-    def add_hinge(self,loc=0):
-        """ Adds a hinge to the member 
-            input:
-                loc .. location along the member (should be 0 or 1)
+    def add_hinge(self, loc=0):
+        """ Adds a hinge to the member
+        input:
+            loc .. location along the member (should be 0 or 1)
         """
         if loc == 0:
             self.hinges[0] = True
         else:
             self.hinges[1] = True
-        
-        #self.hinges.append(loc)
 
-class SteelBeam(FrameMember):
+
+class SteelFrameMember(FrameMember):
+    def __init__(self, coordinates, mem_id='', profile='IPE 100', material="S355", num_elements=4, **kwargs):
+        super().__init__(coordinates, mem_id, profile, material, num_elements, **kwargs)
+        self.member = SteelMember(self.cross_section, self.length,
+                                        Lcr=[1.0, 1.0], mtype=self.mtype)
+
+        self.members = [self.member]
+
+
+class TimberFrameMember(FrameMember):
+    def __init__(self, coordinates: list[list[int]], profile: (str, TimberSection), mem_id: str='', num_elements: int=5,
+                 varnished: bool=False, ldc: str='inst', sc: int=1, Sj1: float=np.inf, Sj2: float=np.inf, mtype: str="", lateral_support_y: list[float]=None,
+                 lateral_support_z: list[float]=None, edge_load: str='compression', beta: (float, list[list[float]])=None, k_vol: float=None):
+        """
+
+        @param coordinates:
+        @param profile: TimberSection
+        @param mem_id:
+        @param num_elements: Elementtien määrä
+        @param varnished: lakkaus
+        @param ldc: Load duration class. options: 'perm' = permanent, 'lt' = long-term, 'mt' = medium-term,
+                    'st' = short-term, 'inst' = instantaneous
+        @param sc: Service class.
+        @param Sj1: Sauvan alkupään jäykkyys
+        @param Sj2: Sauvan loppupään jäykkyys
+        @param mtype: member type: 'column', 'beam'
+        @param lateral_support_y: locations of the supports in global y direction (This has nothing to do with FEM)
+        @param lateral_support_z: locations of the supports in z direction (This has nothing to do with FEM)
+        @param edge_load: 'compression' or 'tension'
+        @param beta: Eulerin nurjahduskerroin
+        @param k_vol: pakotettu k_vol
+        """
+        self.__profile = None
+        if isinstance(profile, TimberSection):
+            super().__init__(coordinates, mem_id, profile, profile.material, num_elements, Sj1, Sj2, mtype)
+        else:
+            super().__init__(coordinates, mem_id, profile, T.GL30c, num_elements, Sj1, Sj2, mtype)
+
+        if isinstance(self.cross_section, TaperedSection):
+            if isinstance(self.cross_section, (KaarevaHarjaPalkki, KaarevaPalkki)):
+                self.cross_section.parent = self
+                self.cross_section.update_circles()
+            elif isinstance(self.cross_section, MahaPalkki):
+                self.cross_section.parent = self
+            self.cross_section.num_elements = num_elements
+            self.cross_section.create_elements()
+        if lateral_support_z is None:
+            lateral_support_z = []
+        if lateral_support_y is None:
+            lateral_support_y = []
+        self.member = TimberMember(self.cross_section, self.material, self.length,
+                                   ldc, sc, mtype=mtype, varnished=varnished, Sj1=self.Sj1, Sj2=self.Sj2,
+                                   nodes=self.nodes, parent=self, lateral_support_y=lateral_support_y,
+                                   lateral_support_z=lateral_support_z, edge_load=edge_load, beta=beta, k_vol=k_vol)
+        self.members = [self.member]
+        self.cross_section.timber_member = self.member
+
+    @property
+    def R(self):
+        return self.cross_section.R
+
+    @R.setter
+    def R(self, val):
+        self.cross_section.R = val
+
+    @property
+    def profile(self):
+        return str(self.__profile)
+
+    @profile.setter
+    def profile(self, val):
+        if isinstance(val, TimberSection):
+            self.__profile = val
+            self.cross_section = val
+        elif isinstance(val, str):
+            splitted_val = val.split(" ")
+            profile_type = splitted_val[0]
+            vals = splitted_val[1].split('X')
+            if self.__profile is None:
+                if profile_type == 'TS':
+                    b = float(vals[0])
+                    h = float(vals[1])
+                    self.__profile = TimberSection(b, h)
+                elif profile_type == 'HP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    hap = float(vals[2])
+                    self.__profile = HarjaPalkki(b, h0, hap)
+                elif profile_type == 'PP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    hap = float(vals[2])
+                    self.__profile = PulpettiPalkki(b, h0, hap)
+                elif profile_type == 'MP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    alph = float(vals[2])
+                    self.__profile = MahaPalkki(b, h0, alph)
+                elif profile_type == 'KP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    alph = float(vals[2])
+                    beta = float(vals[3])
+                    rin = float(vals[4])
+                    self.__profile = KaarevaPalkki(b, h0, alph, beta, rin)
+                elif profile_type == 'KHP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    alph = float(vals[2])
+                    beta = float(vals[3])
+                    rin = float(vals[4])
+                    self.__profile = KaarevaHarjaPalkki(b, h0, alph, beta, rin)
+                self.cross_section = self.__profile
+            else:
+                if profile_type == 'TS':
+                    b = float(vals[0])
+                    h = float(vals[1])
+                    self.cross_section.B = b
+                    self.cross_section.H = h
+                if profile_type == 'HP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    hap = float(vals[2])
+                    self.cross_section.B = b
+                    self.cross_section.H0 = h0
+                    self.cross_section.Hap = hap
+                elif profile_type == 'PP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    hap = float(vals[2])
+                    self.cross_section.B = b
+                    self.cross_section.H0 = h0
+                    self.cross_section.Hap = hap
+                elif profile_type == 'MP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    alph = float(vals[2])
+                    self.cross_section.B = b
+                    self.cross_section.H0 = h0
+                    self.cross_section.Alpha = alph
+                elif profile_type == 'KP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    alph = float(vals[2])
+                    beta = float(vals[3])
+                    rin = float(vals[4])
+                    self.cross_section.B = b
+                    self.cross_section.H0 = h0
+                    self.cross_section.Alpha = alph
+                    self.cross_section.Beta = beta
+                    self.cross_section.R_in = rin
+                elif profile_type == 'KHP':
+                    b = float(vals[0])
+                    h0 = float(vals[1])
+                    alph = float(vals[2])
+                    beta = float(vals[3])
+                    rin = float(vals[4])
+                    self.cross_section.B = b
+                    self.cross_section.H0 = h0
+                    self.cross_section.Alpha = alph
+                    self.cross_section.Beta = beta
+                    self.cross_section.R_in = rin
+
+    @property
+    def material(self):
+        """
+        Returns member's material e.g. GL30c
+        """
+        return self.cross_section.material
+
+    @material.setter
+    def material(self, val):
+        """
+        Changes member's matrial and gets new material properties
+        """
+        self.__material = val
+
+    def add_material(self, fem_model):
+        """ Adds member's material information to calculation model
+            Young's modulus MPa
+            TODO tarkista G parametri (sen suuntaus ja arvo)
+            Density kg/m^3
+        """
+        fem_model.add_material(self.member.E0mean, None, self.member.material.rhomean, G=self.member.material.Gmean)
+
+    def add_self_weight(self, frame, load_id=LoadIDs.ULS):
+        """ Adds self-weight to the member's loads
+        """
+        if not self.self_weight:
+            self.self_weight = True
+
+            if isinstance(self.cross_section, PulpettiPalkki):
+                multiplier = 10
+                value1 = -1 * multiplier * self.cross_section.get_A(0) * self.rho * 1e-9
+                value2 = -1 * multiplier * self.cross_section.get_A(1) * self.rho * 1e-9
+                direction = 'y'
+                frame.add(LineLoad(self, [value1, value2], direction, load_id=load_id))
+            elif isinstance(self.cross_section, HarjaPalkki):
+                print('Self weight cannot be added to Harjapalkki')
+            elif isinstance(self.cross_section, KaarevaHarjaPalkki):
+                print('Self weight cannot be added to KaarevaHarjapalkki')
+            elif isinstance(self.cross_section, KaarevaPalkki):
+                print('Self weight cannot be added to KaarevaPalkki')
+            elif isinstance(self.cross_section, MahaPalkki):
+                print('Self weight cannot be added to MahaPalkki')
+            elif isinstance(self.cross_section, TimberSection):
+                # self.weight is kg's, multiplier changes it to N's
+                multiplier = 10
+                value = -1 * multiplier * self.A * self.rho * 1e-9
+                direction = 'y'
+                frame.add(LineLoad(self, [value, value], direction, load_id=load_id))
+
+    @property
+    def weight(self):
+        if isinstance(self.cross_section, (KaarevaPalkki, KaarevaHarjaPalkki, MahaPalkki, HarjaPalkki)):
+            return self.member.V_tot() * self.material.rhomean * 1e-9
+        elif isinstance(self.cross_section, PulpettiPalkki):
+            return self.cross_section.get_A(0.5) * self.length * self.rho * 1e-9
+        elif isinstance(self.cross_section, TimberSection):
+            return self.A * self.length * self.rho * 1e-9
+
+    def check_cross_section(self):
+        """ Checks if cross-section is strong enough.
+            Gives boolean value for self.is_strong_enough
+            Saves list of stress ratios to self.r
+        """
+        self.r = np.zeros_like(self.r) # [0, 1, 2, .. 8]
+        # Cross-sectional stress ratios in member's nodes' locations
+        self.r[:6] = self.member.check_sections()
+        # Buckling about y - and z - axis
+        buckling_r = self.member.check_buckling()
+        self.r[6] = buckling_r[0]
+        self.r[7] = buckling_r[1]
+        # Lateral-Torsional buckling
+        self.r[8] = self.member.check_LT_buckling()
+
+        if max(self.r) > 1.0:
+            self.is_strong_enough = False
+        else:
+            self.is_strong_enough = True
+
+    def print_utility_factor(self, apxspt_kaava6_55=False):
+        END = '\033[0m'
+        print(f'{self.cross_section.__class__.__name__} käyttöasteet')
+        print('______________________________________')
+        ratios = self.member.check_sections()
+        COLOR = self.get_printing_color(ratios[0])
+        print(f'{COLOR}EC5(6.1)\t  UN\t\t {round(ratios[0] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(ratios[1])
+        print(f'{COLOR}EC5(6.13)\t  UV\t\t {round(ratios[1] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(ratios[2])
+        print(f'{COLOR}EC5(6.11)\t  UM\t\t {round(ratios[2] * 100, PREC)} %{END}')
+        # COLOR = self.get_printing_color(ratios[3])
+        # print(f'{COLOR}EC5(6.14)\t  UT\t\t {round(ratios[3] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(ratios[4])
+        print(f'{COLOR}EC5(6.17)\t  UBT\t\t {round(ratios[4] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(ratios[5])
+        print(f'{COLOR}EC5(6.19)\t  UBC\t\t {round(ratios[5] * 100, PREC)} %{END}')
+
+        buck = self.member.check_buckling()
+        COLOR = self.get_printing_color(buck[0])
+        print(f'{COLOR}EC5(6.23)  buckling y\t {round(buck[0] * 100, PREC)} %{END}')
+        COLOR = self.get_printing_color(buck[1])
+        print(f'{COLOR}EC5(6.24)  buckling z\t {round(buck[1] * 100, PREC)} %{END}')
+        ms = self.member.get_max_sigma_per_segment()
+        # print(f'abs max sigma per y segment: {ms[0]}')
+        # print(f'abs max sigma per z segment: {ms[1]}')
+        # print('sauvan hoikkuus', u'\u03BBy', '=\t', round(self.member.lamda()[0][ms[0].index(max(ms[0]))], PREC))
+        # print('sauvan hoikkuus', u'\u03BBz', '=\t', round(self.member.lamda()[1][ms[1].index(max(ms[1]))], PREC))
+
+        if self.mtype in ('beam', 'rigid-beam'):
+            lt = self.member.check_LT_buckling()
+            COLOR = self.get_printing_color(lt)
+            print(f'{COLOR}EC5(6.35/33) LT buckling {round(lt * 100, PREC)} %{END}')
+            UNcp = self.member.check_perpendicular_compression(location=True)
+            COLOR = self.get_printing_color(UNcp[0])
+            print(f'{COLOR}EC5(6.2)\t  UNcp\t\t {round(UNcp[0] * 100, PREC)} %{END}')
+            if UNcp[1] is not None:
+                print('leimapaineen solmu: x:', UNcp[1].x, 'y:', UNcp[1].y)
+
+            if isinstance(self.cross_section, (KaarevaPalkki, KaarevaHarjaPalkki, HarjaPalkki, MahaPalkki)):
+                apbs = self.member.check_apex_bending_stress()
+                COLOR = self.get_printing_color(apbs)
+                print(f'{COLOR}EC5(6.41)\t APXBS\t\t {round(apbs * 100, PREC)} %{END}')
+                show = True
+                if self.material.type == 'lvl':
+                    if self.material.direction == 'flat':
+                        show = False
+                if show:
+                    appt = self.member.check_apex_perpendicular_tension()
+                    COLOR = self.get_printing_color(appt)
+                    print(f'{COLOR}EC5(6.50)\t APXPT\t\t {round(appt * 100, PREC)} %{END}')
+                    apspt = self.member.check_apex_shear_perpendicular_tension_combined(kaava6_55=apxspt_kaava6_55)
+                    COLOR = self.get_printing_color(apspt)
+                    print(f'{COLOR}EC5(6.53)\t APXSPT\t\t {round(apspt * 100, PREC)} %{END}')
+                else:
+                    print()
+            brC, brFd = self.member.bracing()
+            print('Z-suunnan stabiloivan tuen vaadittu jousijäykkyys')
+            print(f'EC5(9.34)\t\tC\t\t {round(brC, 1)} N/mm')
+            print('Z-suunnan stabiloivan tuen voima (1. muoto)')
+            print(f'EC5(9.35)\t\tFd\t\t {round(brFd/1000, 2)} kN')
+        print('--------------------------------------')
+
+    def get_printing_color(self, val):
+        GREEN = '\033[92m'
+        YELLOW = '\033[93m'
+        RED = '\033[91m'
+        if val > 1:
+            return RED
+        elif 0.8 < val <= 1:
+            return YELLOW
+        else:
+            return GREEN
+
+    def print_info(self, ids, parent, prec: int = 1, firetime: int = 0, beam_characteristic_divider=300,
+                   beam_quasi_permanent_divider=200, column_divider=150, apxspt_kaava6_55=False):
+        print(f'\n{self.mem_id}: {self.cross_section}')
+        print('------------------------------------------------')
+        if LoadIDs.ULS in ids:
+            print('ULS')
+            parent.assign_forces(LoadIDs.ULS)
+            self.print_utility_factor(apxspt_kaava6_55)
+        if LoadIDs.ACC in ids:
+            print('ACC')
+            print(f'Paloaika {firetime}')
+            parent.R = firetime
+            parent.assign_forces(LoadIDs.ACC)
+            self.print_utility_factor(apxspt_kaava6_55)
+            parent.R = 0
+
+        i_list = self.member.radius_of_gyration(get_locs=True)
+        iy_paikka = i_list[1][0][list(i_list[0][0]).index(max(i_list[0][0]))]
+        print(f'Laskentaparametrit on laskettu suurimman jännityksen\n'
+              f'kohdasta suhteellisella etäisyydellä {iy_paikka} sauvan alkupäästä.\n')
+
+        print(f'A: {round(self.cross_section.get_A(iy_paikka) / 1e4, prec)} dm^2')
+        print(f'Iy: {round(self.cross_section.get_I(iy_paikka)[0] / 1e8, prec)} dm^4')
+        print(f'Iz: {round(self.cross_section.get_I(iy_paikka)[1] / 1e8, prec)} dm^4')
+        print(f'Wy: {round(self.cross_section.get_Wel(iy_paikka)[0] / 1e6, prec)} dm^3')
+        print(f'Wz: {round(self.cross_section.get_Wel(iy_paikka)[1] / 1e6, prec)} dm^3')
+        print(f'Sauvan pituus: {round(self.length, prec)} mm')
+        print(f'Sauvan tilavuus: {round(self.member.V_tot() / 1e9, prec)} m^3')
+
+        print('\nMatriaali info')
+        print(f'käyttöluokka: {self.member.sc}')
+        print(f'aikaluokka: {self.member.ldc}')
+        print(f'Materiaali: {self.material}')
+        if self.material.type == 'lvl':
+            if self.material.direction == 'edge':
+                print(f'sauva asetettu syrjälleen')
+            else:
+                print(f'sauva asetettu lappeeleen')
+
+        print(f'gammaM: {self.member.gammaM}')
+        print(f'kdef: {self.member.get_kdef()}')
+        print(f'kmod: {self.member.kmod}')
+        print(f'k_L: {self.member.k_L}')
+
+        print(f'fmd: {round(self.member.fmd, prec)} N/mm^2')
+        print(f'ft0d: {round(self.member.ft0d, prec)} N/mm^2')
+        try:
+            print(f'ft90d: {round(self.member.ft90d, prec)} N/mm^2')
+        except:
+            pass
+        print(f'fc0d: {round(self.member.fc0d, prec)} N/mm^2')
+        print(f'fc90d: {round(self.member.fc90d, prec)} N/mm^2')
+        print(f'fvd: {round(self.member.fvd, prec)} N/mm^2')
+        try:
+            print(f'ft90edged: {round(self.member.ft90edged, prec)} N/mm^2')
+            print(f'fr0d: {round(self.member.fr0d, prec)} N/mm^2')
+        except:
+            pass
+
+        try:
+            print(f'Eulerin beta-arvo y-suunta {self.member.beta[0]}')
+            print(f'Eulerin beta-arvo z-suunta {self.member.beta[1]}')
+        except:
+            print(f'Eulerin beta-arvo {self.member.beta}')
+        print(f'\niy: {round(max(i_list[0][0]), prec)}')
+        print(f'iz: {round(max(i_list[0][1]), prec)}')
+        ln = self.member.Ln()
+        print(f'Lny: {round(max(ln[0]), prec)}')
+        print(f'Lnz: {round(max(ln[1]), prec)}')
+
+        lamda = self.member.lamda()
+        print(f'lambda y: {round(max(lamda[0]), prec)}')
+        print(f'lambda z: {round(max(lamda[1]), prec)}')
+        l_rel = self.member.lamda_rel()
+        print(f'lambda rel y: {round(max(l_rel[0]), prec)}')
+        print(f'lambda rel z: {round(max(l_rel[1]), prec)}')
+        sigma = self.member.sigma()
+        print(f'sigma_crit y: {round(max(sigma[0]), prec)} N/mm^2')
+        print(f'sigma_crit z: {round(max(sigma[1]), prec)} N/mm^2')
+        print(f'beta_c: {self.member.beta_c()}')
+        print(f'ky: {round(max(self.member.k()[0]), prec)}')
+        print(f'kz: {round(max(self.member.k()[1]), prec)}')
+        print(f'kcy: {round(max(self.member.k_c()[0]), prec)}')
+        print(f'kcz: {round(max(self.member.k_c()[1]), prec)}')
+
+        try:
+            print(f'kr: {self.member.k_r()}')
+            print(f'V: {round(self.member.V() / 1e6, prec)} dm^3')
+            print(f'V tot: {round(self.member.V_tot() / 1e6, prec)} dm^3')
+            print(f'k vol: {round(self.member.k_vol(), prec)}')
+            print(f'k dis: {round(self.member.k_dis(), prec)}')
+            print(f'k_p: {round(self.member.k_p(), prec)}')
+            print(f'k_l: {round(self.member.k_l(), prec)}')
+        except:
+            pass
+
+        if self.mtype in ('beam', 'rigid-beam'):
+            print('\nLT Buckling')
+            lt = self.member.check_LT_buckling(True)
+            print(f'LT buckling laskettu paikassa {lt["loc"]} kaavalla 6.{lt["kaava"]}')
+            print(f'l ef: {round(self.member.l_ef(lt["i"], 1, lt["loc"]), prec)} mm')
+            print(f'sigma mcrit: {round(self.member.sigma_mcrit(lt["i"], 1, lt["loc"]), prec)} MPa')
+            print(f'lambda relm: {round(self.member.lamda_relm(lt["i"], 1, lt["loc"]), prec)}')
+            print(f'k crit: {round(self.member.k_crit(lt["i"], 1, lt["loc"]), prec)}')
+
+        print('\nSisäiset voimasuureet kuormitusyhdistelmittäin')
+
+        for id in ids:
+            print(f'\nid: {id}')
+            self.assign_forces(id)
+            print(f'Ned: {round(max(self.member.ned, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.ned.index(max(self.member.ned, key=abs))]})')
+            print(f'Myed: {round(max(self.member.myed, key=abs) / 1e6, prec)} kNm ({self.member.loc[self.member.myed.index(max(self.member.myed, key=abs))]})')
+            print(f'Mzed: {round(max(self.member.mzed, key=abs) / 1e6, prec)} kNm ({self.member.loc[self.member.mzed.index(max(self.member.mzed, key=abs))]})')
+            print(f'Vyed: {round(max(self.member.vyed, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.vyed.index(max(self.member.vyed, key=abs))]})')
+            print(f'Vzed: {round(max(self.member.vzed, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.vzed.index(max(self.member.vzed, key=abs))]})')
+            stod_list = [self.member.sigma_t0d(n) for n in range(self.member.nsect())]
+            print(f'Sigma t0d: {round(max(stod_list, key=abs), prec)} N/mm^2 ({self.member.loc[stod_list.index(max(stod_list, key=abs))]})')
+            print(f'Sigma c0d: {round(max(stod_list, key=abs), prec)} N/mm^2 ({self.member.loc[stod_list.index(max(stod_list, key=abs))]})')
+            try:
+                print(f'sigma t90d: {round(self.member.sigma_t90d(), prec)} N/mm^2')
+                print(f'km alpha: {round(self.member.k_m_alpha(), prec)}')
+            except:
+                pass
+            myd_list = [self.member.sigma_md(n)[0] for n in range(self.member.nsect())]
+            mzd_list = [self.member.sigma_md(n)[1] for n in range(self.member.nsect())]
+            print(f'sigma myd: {round(max(myd_list, key=abs), prec)} N/mm^2 ({self.member.loc[myd_list.index(max(myd_list, key=abs))]})')
+            print(f'sigma mzd: {round(max(mzd_list, key=abs), prec)} N/mm^2 ({self.member.loc[mzd_list.index(max(mzd_list, key=abs))]})')
+            ty = [self.member.tau_d(n)[0] for n in range(self.member.nsect())]
+            tz = [self.member.tau_d(n)[1] for n in range(self.member.nsect())]
+            print(f'tau yd: {round(max(ty, key=abs), prec)} N/mm^2 ({self.member.loc[ty.index(max(ty, key=abs))]})')
+            print(f'tau zd: {round(max(tz, key=abs), prec)} N/mm^2 ({self.member.loc[tz.index(max(tz, key=abs))]})')
+
+            if id in (LoadIDs.SLS_Characteristic, LoadIDs.SLS_Quasi_permanent):
+                print('Tähän kuormitusyhdistelyyn liittyvä taipuma/siirtymä')
+                if self.mtype in ('beam', 'rigid-beam'):
+                    print(f'siirtymä x: {round(abs(self.dx[id]), prec)} mm')
+                    print(f'taipuma y: {round(abs(self.dy[id]), prec)} mm')
+                    if id == LoadIDs.SLS_Characteristic:
+                        print(f'suurin sallittu taipuma L/{beam_characteristic_divider}: {round(self.length / beam_characteristic_divider, prec)} mm')
+                    elif id == LoadIDs.SLS_Quasi_permanent:
+                        print(f'suurin sallittu taipuma L/{beam_quasi_permanent_divider}: {round(self.length / beam_quasi_permanent_divider, prec)} mm')
+                else:
+                    print(f'siirtymä x: {round(abs(self.dx[id]), prec)} mm')
+                    print(f'siirtymä y: {round(abs(self.dy[id]), prec)} mm')
+                    print(f'suurin sallittu siirtymä L/{column_divider}: {round(self.length / column_divider, prec)} mm')
+        print(f'')
+
+
+class SteelBeam(SteelFrameMember):
     def __init__(self, coordinates, alpha1=25, alpha2=25, mem_id="",
                  profile="IPE 100", material="S355", num_elements=4, **kwargs):
         super().__init__(coordinates, mem_id, profile, material, num_elements,
@@ -2830,11 +3375,11 @@ class SteelBeam(FrameMember):
             self.mtype = 'column'
 
 
-class SteelColumn(FrameMember):
+class SteelColumn(SteelFrameMember):
     def __init__(self, coordinates, mem_id="", profile="IPE 100",
                  material="S355", num_elements=4, LT_buckling=False):
         super().__init__(coordinates, mem_id, profile, material, num_elements,
-                         LT_buckling)
+                         LT_buckling=LT_buckling)
 
         self.mtype = 'column'
         self.check_mtype()
@@ -2922,7 +3467,7 @@ class Load:
 class PointLoad(Load):
     """ Class for point loads (forces and moments) """
 
-    def __init__(self, coordinate, v, load_id=2, ltype='live',
+    def __init__(self, coordinate, v, load_id=LoadIDs.ULS, ltype='live',
                  name='PointLoad',
                  f=1.0):
         super().__init__(load_id, ltype, name, f)
@@ -2955,7 +3500,7 @@ class PointLoad(Load):
 
 
 class LineLoad(Load):
-    def __init__(self, coordinates, values, direction, load_id=2, f=1.0,
+    def __init__(self, coordinates, values, direction, load_id=LoadIDs.ULS, f=1.0,
                  ltype='live', name='LineLoad',coord_sys="global"):
         """ Class for line loads. Line load can be uniform or trapezoidal
         
@@ -3057,29 +3602,45 @@ class Support:
 
 
 class FixedSupport(Support):
+    '''
+    In ROBOT this setting means that UX, UZ and RY check marks are present in the support dialog
+    '''
     def __init__(self, coordinate, supp_id=1):
         # super().__init__(coordinate, [1, 1, 1], supp_id)
         super().__init__(coordinate, [0, 1, 2], supp_id)
 
 
 class XHingedSupport(Support):
+    '''
+    In ROBOT this setting means that UX direction check marks is present in the support dialog, but UZ and RY are empty
+    '''
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [0], supp_id)
 
 
 class YHingedSupport(Support):
+    '''
+    In ROBOT this setting means that UZ direction check mark is present in the support dialog, but UX and RY are empty
+    '''
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [1], supp_id)
 
 
 class XYHingedSupport(Support):
+    '''
+    In ROBOT this setting means that UX and UZ direction check marks are present in the support dialog, but RY is empty
+    '''
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [0, 1], supp_id)
 
 
 class Hinge(Support):
+    '''
+    In ROBOT this setting means all of the check marks removed from the support dialog
+    '''
     def __init__(self, coordinate, supp_id=1):
-        super().__init__(coordinate, [0, 1], supp_id)
+        super().__init__(coordinate, [], supp_id)
+
 
 
 def test():
@@ -3118,22 +3679,6 @@ def test_portal():
 
 
 if __name__ == '__main__':
-    # f = test_portal()
-    
-    """
-    L = 4000
-    H = 4000
-    F = -10e3
-    frame = Frame2D(simple=[1, 1, H, L], supports='fixed')
-
-    for b in frame.beams:
-        frame.add(LineLoad(b, [-10, -10], 'y', load_id='MRT'))
-        frame.add(LineLoad(b, [-20, -20], 'y', load_id=2))
-    frame.generate()
-    frame.calculate(load_id='all')
-    print(frame.beams[0].dy)
-    """
-    
     fr = Frame2D()
     x0 = [0,0]
     x1 = [8000,0]
@@ -3143,11 +3688,21 @@ if __name__ == '__main__':
     #fr.members[1].add_hinge(1)
     fr.add(FrameMember([[8000,6000],x1]))
                         
-    fr.add(LineLoad(fr.members[1],[-20,-20],'y',coord_sys='local',load_id=2))
-    fr.add(LineLoad(fr.members[0],[8,8],'x',coord_sys='global',load_id=3))
+    fr.add(LineLoad(fr.members[1],[-20,-20],'y',coord_sys='local',load_id=LoadIDs.ULS))
+    fr.add(LineLoad(fr.members[0],[8,8],'x',coord_sys='global',load_id=LoadIDs.SLS_Characteristic))
     fr.add(FixedSupport(x0))
     fr.add(FixedSupport(x1))
 
+    # coord1 = [[0,0], [0, 5000]]
+    # coord2 = [[0,5000], [10000, 7000]]
+    # coord3 = [[10000, 0], [10000, 7000]]
+    coord1 = [[0, 0], [10000, 0]]
+    fr.add(FrameMember(coord1))
+#    fr.add(FrameMember(coord2))
+#    fr.add(FrameMember(coord3))
+    fr.add(PointLoad([5000, 0], [0, -2000, 0]))
+    fr.add(XYHingedSupport(coord1[0]))
+    fr.add(XYHingedSupport(coord1[1]))
     fr.generate()
     fr.calculate(load_id='all',support_method="REM")
     fr.optimize_members("CURRENT")

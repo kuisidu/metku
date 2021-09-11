@@ -29,6 +29,10 @@ from itertools import product
 from collections.abc import Iterable
 from functools import lru_cache
 from copy import deepcopy
+try:
+    from metku.loadIDs import LoadIDs
+except:
+    from loadIDs import LoadIDs
 
 CACHE_BOUND = 2**8
 INT_TOL = 1e-4
@@ -302,7 +306,7 @@ class IndexVariable(IntegerVariable):
         """
         try:
             # Take into account that new_value can be a float
-            new_value = int(new_value)            
+            new_value = int(new_value)
             super().substitute(self.values[new_value])
         except:
             raise ValueError(
@@ -442,8 +446,9 @@ class Constraint:
                 new values.
 
                 NOTE: X_TOL should be small
-            """            
+            """
             if np.linalg.norm(X - x) > X_TOL:
+                #print('variablet asetettiin')
                 self.problem.substitute_variables(x)
 
         """ If structural analysis is part of the consraint evaluation
@@ -990,11 +995,11 @@ class OptimizationProblem:
 
         return np.asarray(g)
 
-    def fea(self):
+    def fea(self, load_id=LoadIDs.ULS):
         """
         Runs finite element analysis on structure
         """
-        self.structure.calculate()
+        self.structure.calculate(load_id)
         self.fea_done = True
         self.num_fem_analyses += 1
 
@@ -1036,9 +1041,13 @@ class OptimizationProblem:
             print("----------")
 
             idx = np.argpartition(g, -ncons)[-ncons:]
-            for con in np.asarray(self.cons)[idx]:
-                gi = con(x)
+            for i in idx:
+                gi = g[i]
+                con = self.cons[i]
                 print(f"{con.name}: {gi:.{prec}f} {con.type} 0")
+            # for con in np.asarray(self.cons)[idx]:
+            #     gi = con(x)
+            #     print(f"{con.name}: {gi:.{prec}f} {con.type} 0")
 
 
     def eval_cons(self, x):

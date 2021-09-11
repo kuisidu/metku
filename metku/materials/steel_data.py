@@ -9,7 +9,10 @@ Created on Wed Aug  7 09:23:08 2019
 
 from math import sqrt
 
-import metku.eurocodes.en1993.en1993_1_2 as en1993_1_2
+try:
+    import metku.eurocodes.en1993.en1993_1_2 as en1993_1_2
+except:
+    import eurocodes.en1993.en1993_1_2 as en1993_1_2
 
 steels = {"S235": {"fy": 235.0, "fu": 360.0, "E": 210000.0, "v": 0.3, "rho": 7850e-9},
        "S275": {"fy": 275.0, "fu": 430.0, "E": 210000.0, "v": 0.3, "rho": 7850e-9},
@@ -105,5 +108,7 @@ class StainlessSteel:
     
     def eps(self):
         return sqrt(235.0/self.fy*self.E/200000.0)
-        
-        
+
+
+s = Steel()
+s.fy
