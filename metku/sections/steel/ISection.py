@@ -194,7 +194,7 @@ class ISection(SteelSection):
 
         return cWeb
 
-    def web_class_comp_bend(self, approach = 1, verb=False):
+    def web_class_comp_bend(self, Ned, verb=False, approach = 1):
         """ Determine class of web in combined bending and compression 
             
             Approach:
@@ -221,6 +221,8 @@ class ISection(SteelSection):
         cw = self.hw
         tw = self.tw
         rw = cw / tw
+        
+        print(approach)
     
         if approach == 2:
             zeta = self.Ned/abs(self.Med)

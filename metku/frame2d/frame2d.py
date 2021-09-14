@@ -46,6 +46,28 @@ from time import time
 # Rounding precision (number of decimals)
 PREC = 3
 
+if sys.version_info[0] == 3 and sys.version_info[1] < 9:
+    from typing import List, Tuple, Dict
+    list_array = List[np.ndarray]
+    #list_out = List[float]
+    llist_out = List[List[float]]
+    lllist_out = List[List[List[float]]]
+    
+    dict_str_float = Dict[str, float]
+    
+    list_out = List
+    tuple_out = Tuple
+else:
+    list_array = list[np.ndarray]
+    #list_out = list[float]
+    llist_out = list[list[float]]
+    lllist_out = list[list[list[float]]]
+    
+    dict_str_float = dict[str: float]
+    
+    list_out = list
+    tuple_out = tuple
+
 
 # -----------------------------------------------------------------------------
 class Frame2D:
@@ -2897,9 +2919,9 @@ class SteelFrameMember(FrameMember):
 
 
 class TimberFrameMember(FrameMember):
-    def __init__(self, coordinates: list[list[int]], profile: (str, TimberSection), mem_id: str='', num_elements: int=5,
-                 varnished: bool=False, ldc: str='inst', sc: int=1, Sj1: float=np.inf, Sj2: float=np.inf, mtype: str="", lateral_support_y: list[float]=None,
-                 lateral_support_z: list[float]=None, edge_load: str='compression', beta: (float, list[list[float]])=None, k_vol: float=None):
+    def __init__(self, coordinates: list_out[list_out[int]], profile: (str, TimberSection), mem_id: str='', num_elements: int=5,
+                 varnished: bool=False, ldc: str='inst', sc: int=1, Sj1: float=np.inf, Sj2: float=np.inf, mtype: str="", lateral_support_y: list_out[float]=None,
+                 lateral_support_z: list_out[float]=None, edge_load: str='compression', beta: (float, list_out[list_out[float]])=None, k_vol: float=None):
         """
 
         @param coordinates:
@@ -3696,13 +3718,13 @@ if __name__ == '__main__':
     # coord1 = [[0,0], [0, 5000]]
     # coord2 = [[0,5000], [10000, 7000]]
     # coord3 = [[10000, 0], [10000, 7000]]
-    coord1 = [[0, 0], [10000, 0]]
-    fr.add(FrameMember(coord1))
+    #coord1 = [[0, 0], [10000, 0]]
+    #fr.add(FrameMember(coord1))
 #    fr.add(FrameMember(coord2))
 #    fr.add(FrameMember(coord3))
-    fr.add(PointLoad([5000, 0], [0, -2000, 0]))
-    fr.add(XYHingedSupport(coord1[0]))
-    fr.add(XYHingedSupport(coord1[1]))
+    #fr.add(PointLoad([5000, 0], [0, -2000, 0]))
+    #fr.add(XYHingedSupport(coord1[0]))
+    #fr.add(XYHingedSupport(coord1[1]))
     fr.generate()
     fr.calculate(load_id='all',support_method="REM")
     fr.optimize_members("CURRENT")

@@ -2,13 +2,20 @@
 @author Viktor Haimi
 """
 import math
+import sys
 try:
     from metku.eurocodes.en1995.fire_protection import FireProtection
 except:
     from eurocodes.en1995.fire_protection import FireProtection
 
+if sys.version_info[0] == 3 and sys.version_info[1] < 9:
+    from typing import List
+    list_out = List[float]
+else:
+    list_out = list[float]
 
-def charring_speed(rhok: (int, float), type: str, hardness: str, h_p: (int, float)) -> list[float]:
+
+def charring_speed(rhok: (int, float), type: str, hardness: str, h_p: (int, float)) -> list_out:
     """
     Ensin tarkistaa RIL-205-2-2009 Taulukon 3.2 mukaisesti ja
     jos ei löydy tai paksuus on alle 20mm lasketaan beta_0_rho_t Kaavan 3.4 mukaan

@@ -18,6 +18,14 @@ except:
 import matplotlib.pyplot as plt
 import math
 
+import sys
+
+if sys.version_info[0] == 3 and sys.version_info[1] < 9:
+    from typing import List
+    list_out = List[float]
+else:
+    list_out = list[float]
+
 
 class TimberSection:
     def __init__(self, B: (int, float), H: (int, float), material: T=T.GL30c,
@@ -842,7 +850,7 @@ class KaarevaHarjaPalkki(TaperedSection):
 
 
 class SmallElementSection:
-    def __init__(self, A: (int, float), I: list[float]):
+    def __init__(self, A: (int, float), I: list_out):
         self.A = A
         self.I = I
 

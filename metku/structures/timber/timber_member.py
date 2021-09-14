@@ -27,6 +27,30 @@ except:
 
 PREC = 5
 
+import sys
+
+if sys.version_info[0] == 3 and sys.version_info[1] < 9:
+    from typing import List, Tuple, Dict
+    list_array = List[np.ndarray]
+    #list_float_FEMNode = List[[float,FEMNode]]
+    list_float_FEMNode = Tuple[float,FEMNode]
+    list_out = List[float]
+    llist_out = List[List[float]]
+    lllist_out = List[List[List[float]]]
+    
+    dict_str_float = Dict[str, float]
+    
+    tuple_out = Tuple
+else:
+    list_array = list[np.ndarray]
+    list_float_FEMNode = list[float,FEMNode]
+    list_out = list[float]
+    llist_out = list[list[float]]
+    lllist_out = list[list[list[float]]]
+    
+    dict_str_float = dict[str: float]
+    
+    tuple_out = tuple
 
 class TimberMember:
     def __init__(self, profile: (TimberSection, TaperedSection), material: Timber, length: float, ldc: str, sc: int,
@@ -460,7 +484,7 @@ class TimberMember:
             a = 0
         return a
 
-    def sigma_c90d(self, node: FEMNode) -> (list[float], float):
+    def sigma_c90d(self, node: FEMNode) -> (list_out, float):
         """
         SFS 1995-1-1 6.1.5
         Rajoitusehdoissa pitää olla määritettynä H > B, muuten ohjelma asettaa pilarin "väärinpäin"
@@ -547,7 +571,7 @@ class TimberMember:
             elif self.material.type == 'glt' and l <= 400:
                 self.k_c90 = 1.75
 
-    def sigma_md(self, n: int) -> list[float]:
+    def sigma_md(self, n: int) -> list_out:
         """
         EN-1995-1-1 6.1.6
         @param n: indeksi
@@ -558,7 +582,7 @@ class TimberMember:
              self.mzed[n] / Wel[1]]
         return r
 
-    def get_max_sigma_per_segment(self) -> list[list[list[float]]]:
+    def get_max_sigma_per_segment(self) -> lllist_out:
         """
         hakee suurimman sigma myd ja mzd per sivuttaistuetun palkin jokaiselle tukemattomalle palkin välille.
         @return:
@@ -595,7 +619,7 @@ class TimberMember:
             iz.append(max(sig_md_in_seg, key=lambda x: abs(x[0])))
         return [iy, iz]
 
-    def tau_d(self, n: int) -> list[float]:
+    def tau_d(self, n: int) -> list_out:
         """
         Poikkileikkauksessa vaikuttava työntövoima muutetaan leikkausjännitykseski Jourawskin kaavaa hyväksikäyttäen
         @return: palauttaa suorakaidepoikkileikkauksen leikkausjännityksen arvon, ottaa huomioon k_cr kertoimen
@@ -734,7 +758,7 @@ class TimberMember:
             return np.asarray([np.asarray(y),
                                np.asarray(z)], dtype=object)
 
-    def Ln(self) -> (list[list[float]], np.ndarray):
+    def Ln(self) -> (llist_out, np.ndarray):
         """
         Eulerin teoriaan perustuva nurjahduspituus
         @return:
@@ -844,7 +868,7 @@ class TimberMember:
             beta = 1
         return [beta * self.L_c[0], beta * self.L_c[1]]
 
-    def lamda(self) -> list[np.ndarray]:
+    def lamda(self) -> list_array:
         """
         EN 1995-1-1 6.3.2
         @return:
@@ -854,7 +878,7 @@ class TimberMember:
         return [ln[0] / i[0],
                 ln[1] / i[1]]
 
-    def lamda_rel(self) -> list[np.ndarray]:
+    def lamda_rel(self) -> list_array:
         """
         EN 1995-1-1 6.3.2 (6.21, 6.22)
         @return:
@@ -863,7 +887,7 @@ class TimberMember:
         return [(lam[0] / pi) * sqrt(self.material.fc0k / self.material.E005),
                 (lam[1] / pi) * sqrt(self.material.fc0k / self.material.E005)]
 
-    def sigma(self) -> list[np.ndarray]:
+    def sigma(self) -> list_array:
         """
         sigma kriittinen
         @return:
@@ -872,7 +896,7 @@ class TimberMember:
         return [pi ** 2 * (self.material.E0mean / (lam[0] ** 2)),
                 pi ** 2 * (self.material.E0mean / (lam[1] ** 2))]
 
-    def k(self) -> list[np.ndarray]:
+    def k(self) -> list_array:
         """
         EN 1995-1-1 6.3.2 (6.27, 6.28)
         @return:
@@ -881,7 +905,7 @@ class TimberMember:
         return [0.5 * (1 + self.beta_c() * (l_rel[0] - 0.3) + np.power(l_rel[0], 2)),
                 0.5 * (1 + self.beta_c() * (l_rel[1] - 0.3) + np.power(l_rel[1], 2))]
 
-    def k_c(self) -> list[np.ndarray]:
+    def k_c(self) -> list_array:
         """
         EN 1995-1-1 6.3.2 (6.25, 6.26)
         @return:
@@ -992,7 +1016,7 @@ class TimberMember:
     #     # TODO syyn suuntaan vastaset voimat
     #     pass
 
-    def check_perpendicular_compression(self, location: bool = False) -> (list[float, FEMNode], float):
+    def check_perpendicular_compression(self, location: bool = False) -> (list_float_FEMNode, float):
         # Member compression perpendicular to the grain:            SFS-EN 1995-1-1 § 6.1.5
 
         # TODO ei laske oikein yhdessä pisteessä kahdelta suunnalta puristettua palkkia
@@ -1117,13 +1141,13 @@ class TimberMember:
         r = max(UM1, UM2)
         return r
 
-    def check_buckling(self) -> list[float]:
+    def check_buckling(self) -> list_out:
         # Utilization ratio against member buckling:                SFS-EN 1995-1-1 § 6.3.2 (6.23, 6.24))
         sigma_c0d_list = [[], []]
         sigma_myd_list = [[], []]
         sigma_mzd_list = [[], []]
 
-        def form_max_sigma_list(supports: list[float], index: int):
+        def form_max_sigma_list(supports: list_out, index: int):
             supp = supports.copy()
             supp.append(0.0)
             supp.append(1.0)
@@ -1162,7 +1186,7 @@ class TimberMember:
 
         return [max(UB_fixed[0]), max(UB_fixed[1])]
 
-    def check_LT_buckling(self, get_full: bool = False) -> (float, dict[str: float]):
+    def check_LT_buckling(self, get_full: bool = False) -> (float, dict_str_float):
         # Utilization ratio against member lateral buckling:        SFS-EN 1995-1-1 § 6.3.3 (3) and (6)
         ULT_list = []
         supp = self.lateral_support_z.copy()
@@ -1184,7 +1208,7 @@ class TimberMember:
             return max(ULT_list, key=lambda x: x['r'])
         return max(ULT_list, key=lambda x: x['r'])['r']
 
-    def bracing(self, n: int=None, ks=None) -> (tuple[float, float, float], tuple[float, float]):
+    def bracing(self, n: int=None, ks=None) -> (tuple_out[float, float, float], tuple_out[float, float]):
         """
         # SFS EN 1995-1-1 9.2.5
         kaavat 9.34, 9.35, 9.36, 9.37
@@ -1337,7 +1361,7 @@ class TimberMember:
         self.loc.clear()
         self.utilization.clear()
 
-    def check_section(self, n: int = 0, reduce_uv: bool = True, verb: bool = False) -> list[float]:
+    def check_section(self, n: int = 0, reduce_uv: bool = True, verb: bool = False) -> list_out:
         """ Verify resistance of section 'n'
             returns a list of utilization ratios
         """
@@ -1346,7 +1370,7 @@ class TimberMember:
         self.utilization[n] = {'un': r[0], 'uv': r[1], 'um': r[2], 'ut': r[3], 'ubt': r[4], 'ubc': r[5]}
         return r
 
-    def section_resistance(self, n: int = 0, return_list: bool = True, reduce_uv: bool = True) -> (list[float], float):
+    def section_resistance(self, n: int = 0, return_list: bool = True, reduce_uv: bool = True) -> (list_out, float):
         """ Calculates resistance of cross-section
             Checks the following:
                 Axial force
