@@ -3722,7 +3722,7 @@ if __name__ == '__main__':
     #fr.add(FrameMember(coord1))
 #    fr.add(FrameMember(coord2))
 #    fr.add(FrameMember(coord3))
-    #fr.add(PointLoad([5000, 0], [0, -2000, 0]))
+    fr.add(PointLoad([5000, 0], [0, -2000, 0],load_id=LoadIDs.ULS))
     #fr.add(XYHingedSupport(coord1[0]))
     #fr.add(XYHingedSupport(coord1[1]))
     fr.generate()

@@ -26,6 +26,8 @@ except:
     from structures.steel.steel_member import SteelMember
     from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
 
+from loadIDs import LoadIDs
+
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -405,11 +407,12 @@ class Truss2D(Frame2D):
         else:
             super().add(this)
 
-    def calculate(self, load_id=2):
+    
+    def calculate(self, load_id=LoadIDs.ULS):
         super().calculate(load_id)
         for joint in self.joints.values():
             joint.update_forces()
-
+    
     def generate(self):
         """ Generates the truss
         """
@@ -451,7 +454,33 @@ class Truss2D(Frame2D):
 
         for support in self.supports.values():
             support.add_support(self.f)
+            
+        # Add point loads (if any)
+        for pointLoad in self.point_loads.values():
+            pointLoad.add_load(self.f)
+            # Creates new loadcase if one with same load_id does not exist
+            lcase_ids = [lc.load for lc in self.f.loadcases.values()]
+            if pointLoad.load_id not in lcase_ids:
+                self.f.add_loadcase(supp_id=1,
+                                    load_id=pointLoad.load_id)
 
+        """
+        if self_weight:
+            self.add_self_weight()
+        """
+        # Add line loads (if any)
+        for lineLoad in self.line_loads.values():
+            member = lineLoad.member
+            lineLoad.element_ids = member.lineload_elements(
+                lineLoad.coordinates)
+            lineLoad.add_load(self.f)
+            # Creates new loadcase if one with same load_id does not exist
+            lcase_ids = [lc.load for lc in self.f.loadcases.values()]
+            if lineLoad.load_id not in lcase_ids:
+                self.f.add_loadcase(supp_id=1,
+                                    load_id=lineLoad.load_id)
+
+        """
         for pointLoad in self.point_loads.values():
             pointLoad.add_load(self.f)
 
@@ -460,6 +489,7 @@ class Truss2D(Frame2D):
             lineLoad.element_ids = member.lineload_elements(
                 lineLoad.coordinates)
             lineLoad.add_load(self.f)
+        """
 
     def mirror(self):
         top_coords = self.top_chord.coordinates
@@ -2040,7 +2070,7 @@ if __name__ == '__main__':
     truss = Truss2D(simple=simple_truss)
 
     for tc in truss.top_chords:
-        truss.add(LineLoad(tc, [-30, -30], 'y'))
+        truss.add(LineLoad(tc, [-30, -30], 'y',load_id=LoadIDs.ULS))
     truss.add(XYHingedSupport([0, simple_truss['H0'] + simple_truss['H1']]))
     truss.add(YHingedSupport(
         [truss.L1 + truss.L2, simple_truss['H0'] + simple_truss['H3']]))

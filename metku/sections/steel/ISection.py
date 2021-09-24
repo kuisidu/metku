@@ -221,8 +221,7 @@ class ISection(SteelSection):
         cw = self.hw
         tw = self.tw
         rw = cw / tw
-        
-        print(approach)
+                
     
         if approach == 2:
             zeta = self.Ned/abs(self.Med)

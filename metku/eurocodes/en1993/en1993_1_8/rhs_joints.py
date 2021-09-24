@@ -352,17 +352,17 @@ class RHSKGapJoint(RHSJoint):
         fy = np.array(self.fy)
         fy0 = self.fy0
         t0 = self.t0
-        beff = 10/(self.b0/t0)*fy0*t0/(fy*t)*b
-        beff_arr = np.array([min(x,beff[i]) for i, x in enumerate(b)])
+        beff = np.minimum(10/(self.b0/t0)*fy0*t0/(fy*t),1)*b
+        #beff_arr = np.array([min(x,beff[i]) for i, x in enumerate(b)])
             
-        NiRd = r*self.fy*t*(2*h-4*t+b+beff_arr)/gammaM5
+        NiRd = r*self.fy*t*(2*h-4*t+b+beff)/gammaM5
         return NiRd
         
     def punching_shear(self):
         b = self.b
         fy0 = self.fy0
         t0 = self.t0
-        bep = 10/(self.b0/t0)*b 
+        bep = np.minimum(10/(self.b0/t0),1)*b 
         r = self.strength_reduction()
         
         s = np.sin(np.radians(np.array(self.angles)))
@@ -399,9 +399,7 @@ class RHSKGapJoint(RHSJoint):
         else:
             b1 = b[1]
             b2 = b[0]
-                
-        
-        
+                            
         if verb:
             print("  Geometry conditions:")
             print("    a) h0/t0 = {0:4.2f} <= 35".format(h0t0))
@@ -440,7 +438,7 @@ class RHSKGapJoint(RHSJoint):
         print("  Beta = {0:4.2f}".format(beta))
         print("  Gamma = {0:4.2f}".format(self.gamma()))        
         print("  Gap = {0:4.2f} mm".format(self.gap))
-        print("    t1 + t2 = {0:4.2f} mm".format(sum([brace.khp for brace in self.braces])))
+        print("    t1 + t2 = {0:4.2f} mm".format(sum([brace.t for brace in self.braces])))
         print("    0.5*b0*(1-beta) = {0:4.2f} mm".format(0.5*self.b0*(1-beta)))
         print("    1.5*b0*(1-beta) = {0:4.2f} mm".format(1.5*self.b0*(1-beta)))
         
@@ -521,12 +519,12 @@ class RHSKGapJoint(RHSJoint):
             
             # Second pair of points
             sina = math.sin(arad)
-            x0[0] += K * brace.khp / sina
-            x2 = x1 + brace.khp * vortho
+            x0[0] += K * brace.t / sina
+            x2 = x1 + brace.t * vortho
             ax.plot([x0[0],x2[0]],[x0[1],x2[1]],linewidth=INNER,color='0.8')
             
             # Center line
-            dxin = 0.5*brace.h-brace.khp
+            dxin = 0.5*brace.h-brace.t
             x0[0] += K*dxin/sina
             x3 = x2 + dxin*vortho
             xC.append(deepcopy(x0))
@@ -538,8 +536,8 @@ class RHSKGapJoint(RHSJoint):
             ax.plot([x0[0],x4[0]],[x0[1],x4[1]],linewidth=INNER,color='0.8')
             
             # Second outer wall
-            x0[0] += K * brace.khp / sina
-            x5 = x4 + brace.khp / sina * vortho
+            x0[0] += K * brace.t / sina
+            x5 = x4 + brace.t / sina * vortho
             ax.plot([x0[0],x5[0]],[x0[1],x5[1]],linewidth=WALL,color='k')
             
             # Plot dashed line to the end of the brace
@@ -640,10 +638,100 @@ class RHSYJoint(RHSJoint):
         fy = self.fy
         fy0 = self.fy0
         t0 = self.t0
-        beff = 10/(self.b0/t0)*fy0*t0/(fy*t)*b
+        beff = min(10/(self.b0/t0)*fy0*t0/(fy*t),1)*b
             
         NiRd = r*self.fy*t*(2*h-4*t+2*beff)/gammaM5
         return NiRd
+    
+    def punching_shear(self):
+        b = self.b
+        fy0 = self.fy0
+        t0 = self.t0
+        bep = min(10/(self.b0/t0),1.0)*b 
+        r = self.strength_reduction()
+        
+        s = np.sin(np.radians(self.angle))
+            
+        NRd = r*fy0*t0/math.sqrt(3)/s*(2*self.h/s+2*bep)/gammaM5
+        return NRd
+    
+    def validity(self,verb=False):
+        """ Check the conditions of Table 7.8 regarding the geometry of the joint  
+            
+        """
+        
+        biti_ratio = True
+        hib0_ratio = True
+        b0to_ratio = True        
+        
+        b0t0 = self.b0/self.t0
+        h0t0 = self.h0/self.t0
+        bib0 = self.b/self.b0        
+        
+        bib0_ratio = self.b/self.b0 > 0.25
+                
+        b = self.b                
+        if verb:
+            
+            if bib0_ratio:
+                OKNOTOK = "OK!"
+            else:
+                OKNOTOK = "NOT OK!"
+            
+            print("  Geometry conditions:")
+            print("    a) h0/t0 = {0:4.2f} <= 35".format(h0t0))
+            print("    b) b0/t0 = {0:4.2f} <= 35".format(b0t0))
+            print("    c) bi/b0 = {0:4.2f} > 0.25, {1:s}".format(bib0,OKNOTOK))            
+                        
+                
+            print("  Further conditions for the use of Table 7.10 of EN 1993-1-8:")
+            print(" bi/b0 = {0:4.2f} <= 0.85".format(bib0))
+            print(" b0/t0 = {0:4.2f} >= 10".format(b0t0))
+    
+    def info(self):
+        """ Prints information on the joint """
+        
+        print("*** Y Joint ***")
+        
+        super().info()
+        
+        print("  Brace: {0:s}".format(self.brace.__repr__()))
+        if self.brace.Ned < 0:
+            Nsense = "compression"
+        elif self.brace.Ned > 0:
+            Nsense = "tension"
+        else:
+            Nsense = "no axial force"
+        print("  NEd: {0:4.2f} kN ({1:s})".format(self.brace.Ned*1e-3,Nsense))
+        print("    Angle to chord: {0:4.2f} deg".format(self.angle))
+        
+        beta = self.beta()
+        print("  Beta = {0:4.2f}".format(beta))
+        print("  Gamma = {0:4.2f}".format(self.gamma()))                        
+        
+        self.validity(True)
+        
+        print(" -- RESISTANCE -- ")
+        
+        NRD_chord_face = self.chord_face_failure()
+        
+        print("    Chord face failure:")
+        print("      N_1_Rd = {0:4.2f} kN".format(NRD_chord_face*1e-3))
+        
+        NiRd = self.chord_web_buckling()
+        
+        print("    Chord side wall buckling:")        
+        print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))        
+        
+        NiRd = self.brace_failure()
+        
+        print("    Brace failure:")        
+        print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
+            
+        NiRd = self.punching_shear()
+        
+        print("    Punching shear:")        
+        print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
     
 
 if __name__ == '__main__':

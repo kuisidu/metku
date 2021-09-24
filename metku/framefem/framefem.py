@@ -762,6 +762,8 @@ class FrameFEM:
         
         """ draw elements """
         if 'deformed' in kwargs:
+            deformed = True
+        else:
             deformed = False
         
         if 'buckling_mode' in kwargs:

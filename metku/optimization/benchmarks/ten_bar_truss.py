@@ -227,9 +227,11 @@ if __name__ == '__main__':
     problem = TenBarTruss('continuous')
     solver = MISLP([0.05, 0.05], 1e-2)
     x0 = [var.ub for var in problem.vars]
+    
+    problem(x0)
     print("X0: ", x0)
-    fopt, xopt = solver.solve(problem, x0=x0, maxiter=300, verb=True, plot=True)
-    problem(xopt)
+    #fopt, xopt = solver.solve(problem, x0=x0, maxiter=300, verb=True, plot=True)
+    #problem(xopt)
     # problem([21607.5, 1044.9, 14770.5, 9997.5, 1044.9, 1044.9, 5140.65, 14190.0, 14190.0, 1044.9])
     # problem(ten_bar_PSO)
 

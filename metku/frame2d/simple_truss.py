@@ -218,14 +218,17 @@ def fifteen_bar_truss(L=360,h=120,P=10000):
         profs.append('SHS 50x50x3.0')
     
     t = SimpleTruss(nodes,mems,profs)
-    
+        
     t.add(PointLoad(nodes[7],[0,-P,0]))
-    
+            
     t.add(XYHingedSupport(nodes[0]))
     t.add(XYHingedSupport(nodes[4]))
     
     t.generate()
-    t.calculate()
+    
+    #print(type(t.point_loads['PointLoad'].coordinate))
+    
+    t.calculate(load_id='all',support_method="REM")
     
     t.plot()
     
@@ -236,5 +239,8 @@ if __name__ == '__main__':
     #t = ten_bar_truss(L=3000,F=200e3)
     
     t = fifteen_bar_truss()
+    
+    #t.generate()
+    #t.calculate(load_id='all',support_method="REM")
         
-        
+       
