@@ -286,6 +286,7 @@ class Frame2D:
 
         # SUPPORTS
         elif isinstance(this, Support):
+            print("Adding support")
             # this.supp_id = len(self.supports)
             supp_label = len(self.supports)
             self.supports[supp_label] = this
@@ -297,7 +298,7 @@ class Frame2D:
             """
             for member in self.members.values():
                 #coord = member.point_intersection(this.coordinate)
-                if member.point_intersection(this.coordinate):
+                if member.point_intersection(this.coordinate):                    
                     member.add_node_coord(this.coordinate)
 
         # TRUSS
@@ -1324,7 +1325,7 @@ class Frame2D:
 
                 plt.show()
 
-    def bmd(self, scale=1, save=False, show=True, load_id=LoadIDs.ULS):
+    def bmd(self, scale=1, save=False, show=True, loads=True, load_id=LoadIDs.ULS):
         """ Draws bending moment diagram
 
             Parameters
@@ -1332,7 +1333,7 @@ class Frame2D:
             :param scale: Scaling factor
             :type scale : int
         """
-        self.plot(print_text=False, show=False, color=False)
+        self.plot(print_text=False, loads=loads, show=False, color=False)
         for member in self.members.values():
             member.bmd(scale, load_id=load_id)
         # for truss in self.truss:
@@ -2065,15 +2066,17 @@ class FrameMember:
         """ add optional coordinates that are derived from point loads and supports
             etc. that are located between end points of the member.
         """
+        
         self.nodal_coordinates.extend(self.added_coordinates)
         
         """ By default, 5 elements are created, but this can be changed by
             'num_elements'
         """
+                
         if num_elements > 0:
             self.num_elements = num_elements
+        
 
-                
         dloc = 1 / self.num_elements # step length in local coordinate system
         #for loc in np.arange(0, 1 + dloc, dloc):
         for loc in np.linspace(0, 1, self.num_elements + 1):
@@ -2081,7 +2084,7 @@ class FrameMember:
             loc = round(loc, PREC) # round local coordinate to PREC decimals
             
             """ WHY IS THIS if LOOP HERE? """
-            if loc not in self.loc:
+            if loc not in self.loc:                
                 self.loc.append(loc)
 
             coord = list(self.to_global(loc))
@@ -2179,7 +2182,7 @@ class FrameMember:
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
                 index += 1
-        elif self.mtype == 'bar':
+        elif self.mtype == 'bar' or self.mtype == 'brace':
             """ Simple bar element that carries only axial forces """
             n1 = node_ids[0]
             n2 = node_ids[1]
@@ -2667,6 +2670,27 @@ class FrameMember:
         x1, y1 = start_node
         x2, y2 = end_node
         x, y = coordinate
+        
+        res = False
+        
+        # The line between start_node and end_node is
+        # x(t) = start_node + t*(end_node-start_node), t \in [0,1]
+        # If we can find t \in [0,1], for which x(t) = coordinate, then
+        # the point and member intersect.
+        if abs(x2-x1)>1e-8:
+            t1 = (x-x1)/(x2-x1)
+            if 0<= t1 <= 1 and abs(y1+t1*(y2-y1) - y) < 1e-8:
+                res = True
+                    
+        else:
+            # Member is vertical
+            t1 = (y-y1)/(y2-y1)
+            if 0<= t1 <= 1 and abs(x1-x) < 1e-8:
+                res = True
+            
+        return res
+                
+        """
         # Coordinate is between member's coordinates
         if x1 <= x <= x2 and y1 <= y <= y2 or 'chord' in self.mtype:
             if x2 - x1 == 0:
@@ -2679,6 +2703,7 @@ class FrameMember:
                                     rel_tol=1e-3)  # y == k * x + b
 
         return False
+        """
 
     def plot(self, print_text=True, c='k', axes=None):
         

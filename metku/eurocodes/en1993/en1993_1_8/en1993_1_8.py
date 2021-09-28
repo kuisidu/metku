@@ -240,14 +240,15 @@ class Bolt:
         """
         
         if threads_in_plane:
-            av = 0.6
-            As = self.A
-        else:
             As = self.As
             if self.bolt_class in {10.9,6.8,5.8,4.8}:
                 av = 0.5
             elif self.bolt_class in {4.6,5.6,8.8}:
                 av = 0.6
+        else:
+            av = 0.6
+            As = self.A
+            
     
         
         FvRd = av*self.fub*As/gammaM2

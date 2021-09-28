@@ -115,21 +115,23 @@ class Line:
 class RHSJoint:
     """ Class for joints between RHS members """
     
-    def __init__(self,chord_profile, N0=None, V0=None, M0=None):
+    def __init__(self,chord_profile, N0=0.0, V0=0.0, M0=0.0):
         """ Constructor
+            Input:
+                
+            :param: chord_profile .. RHS or SHS class member, sets the chord profile
+            :param: N0 .. magnitude of the largest axial force in the chord around the joint.
+            :param: V0 .. magnitude of the largest shear force in the chord around the joint.
+            :param: M0 .. magnitude of the largest bending moment in the chord.
+        
+        
         """
         self.chord = chord_profile
-        if N0 is None:
-            N0 = chord_profile.Ned
+        
         self.N0 = N0
-
-        if V0 is None:
-            V0 = chord_profile.Ved
         self.V0 = V0
-
-        if M0 is None:
-            M0 = chord_profile.Med
         self.M0 = M0
+        
     
     @property    
     def h0(self):
@@ -268,10 +270,74 @@ class RHSKGapJoint(RHSJoint):
                 gap .. gap between the braces
         """
         RHSJoint.__init__(self,chord, **kwargs)
+                
         self.braces = braces
         self.gap = gap
         self.angles = angles
+    
+    
+    @property
+    def N1(self):
+        """ Axial force in the compression member """
+        if self.braces[0].Ned <= 0.0:
+            return self.braces[0].Ned
+        else:
+            return self.braces[1].Ned
         
+    @property
+    def angle1(self):
+        """ Angle of the compression member """
+        if self.braces[0].Ned <= 0.0:
+            return self.angles[0]
+        else:
+            return self.angles[1]
+    
+    @property
+    def N2(self):
+        """ Axial force in the tension member """
+        if self.braces[0].Ned <= 0.0:
+            return self.braces[1].Ned
+        else:
+            return self.braces[0].Ned
+    
+    @property
+    def angle2(self):
+        """ Angle of the tension member """
+        if self.braces[0].Ned <= 0.0:
+            return self.angles[1]
+        else:
+            return self.angles[0]
+        
+    @property
+    def N0gap(self):
+        """ Axial force in the gap 
+            NOTE: The sign convention is that N0gap < 0 when there is compression
+            in the gap and N0gap > 0 for tension.
+            
+            The expressions are obtained from horizontal equilibrium on the
+            N0 side of the joint. When the chord is in compression, 
+            N0 is on the same side as the tension brace. When the chord is in tension,
+            N0 is on the same side as the compression brace.
+        """
+        if self.N0 < 0.0:
+            # Chord in compression
+            N0gap = self.N0+self.N2*np.cos(np.radians(self.angle2))
+        else: 
+            # Chord in tension            
+            N0gap = self.N0+self.N1*np.cos(np.radians(self.angle1))
+    
+        return N0gap
+    
+    @property
+    def V0gap(self):
+        """ Shear force in the gap 
+        
+            The shear force is in the gap is obtained as the vertical component
+            of either of the braces (see vertical equilibrium of the joint).
+        """
+        
+        return self.N1*np.sin(np.radians(self.angle1))
+    
     @property
     def h(self):
         """ Brace heights """
@@ -328,12 +394,14 @@ class RHSKGapJoint(RHSJoint):
         # braces
         NiRd = fy0*Aeta/math.sqrt(3)/s/gammaM5
         # chord
+        # Check first, if the chord can sustain the shear force
         if self.V0/self.chord.shear_force_resistance() > 1:
+            # Chord profile is not sufficient, so set resistance to 0.0.
             # print("Chord is not strong enough for shear forces")
-            N0Rd = fy0*((self.chord.A-Aeta))/gammaM5
+            N0Rd = 0.0
 
         else:
-            N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0/self.chord.shear_force_resistance())**2))/gammaM5
+            N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0gap/self.chord.VRd)**2))/gammaM5
             
         r = self.strength_reduction()
         NiRd = r*NiRd
@@ -738,14 +806,24 @@ if __name__ == '__main__':
     
     from sections.steel import SHS
     
-    chord = SHS(140,6)
-    b1 = SHS(100,3)
-    b2 = SHS(120,4)
+    chord = SHS(200,8,fy=420)
     
-    J = RHSKGapJoint(chord,[b1,b2], [50.2,52.4], 20,N0=390.4e3)
+    chord.Ned = -1364e3
+    b1 = SHS(150,6,fy=420)
+    b2 = SHS(150,6,fy=420)
+    
+    
+    J = RHSKGapJoint(chord,[b1,b2], [45,45], 28)
+    
+    J.N0 = -1364e3
+    J.braces[0].Ned = 600e3
+    J.braces[1].Ned = -600e3
+    
+    #print(J.N0gap*1e-3)
+    #print(J.V0gap*1e-3)
     
     J.info()
-    J.draw()
+    #J.draw()
     
     #l1 = Line(p1=[0,0],v=[1,0])
     #l2 = Line(p1=[1,1],v=[0,1])
