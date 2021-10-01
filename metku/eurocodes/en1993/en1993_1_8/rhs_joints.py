@@ -635,7 +635,11 @@ class RHSYJoint(RHSJoint):
         self.brace = brace
         self.angle = angle
         
-        
+    @property
+    def N1(self):
+        """ Force in the brace """
+        return self.brace.Ned
+    
     @property
     def h(self):
         """ Brace heights """
@@ -658,12 +662,28 @@ class RHSYJoint(RHSJoint):
     
     def beta(self):
         return self.b / self.b0
+    
+    def fb(self):
+        """ Yield strength to be used in chord side wall buckling. """
         
+        if self.N1 < 0.0:
+            alpha = self.chord.imp_factor[0]
+            slend = self.slend()
+            phi = 0.5*(1 + alpha*(slend - 0.2) + slend **2)
+            chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
+            
+            fb = chi * self.fy0
+            print(chi,fb)
+        else:
+            fb = self.fy0
         
+        return fb
+            
     def chord_face_failure(self):
                         
         b = self.beta()
         if b >= 1:
+            # If beta is grater than 1, artificially reduce it to "nearly 1".
             b = 0.99
         kn = self.eval_KN()
         n = self.eval_N()
@@ -684,11 +704,9 @@ class RHSYJoint(RHSJoint):
         return slend
    
     def chord_web_buckling(self):
-        alpha = self.chord.imp_factor[0]
-        slend = self.slend()
-        phi = 0.5*(1 + alpha*(slend - 0.2) + slend **2)
-        chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
-        fb = chi * self.fy0
+        
+        fb = self.fb()
+        
         kn = self.eval_KN()
         r = self.strength_reduction()
         t0 = self.t0
@@ -801,6 +819,92 @@ class RHSYJoint(RHSJoint):
         print("    Punching shear:")        
         print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
     
+class RHSXJoint(RHSYJoint):
+    
+    def __init__(self, chord_profile, brace, angle, **kwargs):
+        super().__init__(chord_profile, brace, angle, **kwargs)
+    
+    def fb(self):
+        """ Yield strength to be used in chord side wall buckling. """        
+                
+                
+        if self.N1 < 0.0:            
+            alpha = self.chord.imp_factor[0]
+            slend = self.slend()
+            phi = 0.5*(1 + alpha*(slend - 0.2) + slend **2)
+            chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
+            
+            res = 0.8*chi * self.fy0*np.sin(np.radians(self.angle))            
+        else:
+            res = self.fy0
+        
+        return res
+    
+    def chord_web_buckling(self):
+        
+        # Using the chord web buckling of the Y joint class, but
+        # with fb calculated for X joints.
+        NRd = super().chord_web_buckling()
+        
+        if np.cos(np.radians(self.angle)) > self.h/self.h0:
+            # Take the minimium of chord web buckling for X joints
+            # and chord shear for K and N joints
+            # 
+            Nshear = self.fy0*self.chord.Ashear/np.sqrt(3)/np.sin(np.radians(self.angle))
+            # The strength reduction factor is already taken into account
+            # for the chord web buckling of the Y joint class method.
+            # It must be applied for the chord shear.
+            r = self.strength_reduction()
+            NRd = min(NRd,r*Nshear)
+        
+        NRd = NRd / gammaM5
+        return NRd
+        
+    def info(self):
+        """ Prints information on the joint """
+        
+        print("*** X Joint ***")
+        
+        RHSJoint.info(self)
+        
+        print("  Brace: {0:s}".format(self.brace.__repr__()))
+        if self.brace.Ned < 0:
+            Nsense = "compression"
+        elif self.brace.Ned > 0:
+            Nsense = "tension"
+        else:
+            Nsense = "no axial force"
+        print("  NEd: {0:4.2f} kN ({1:s})".format(self.brace.Ned*1e-3,Nsense))
+        print("    Angle to chord: {0:4.2f} deg".format(self.angle))
+        
+        beta = self.beta()
+        print("  Beta = {0:4.2f}".format(beta))
+        print("  Gamma = {0:4.2f}".format(self.gamma()))                        
+        
+        self.validity(True)
+        
+        print(" -- RESISTANCE -- ")
+        
+        NRD_chord_face = self.chord_face_failure()
+        
+        print("    Chord face failure:")
+        print("      N_1_Rd = {0:4.2f} kN".format(NRD_chord_face*1e-3))
+        
+        NiRd = self.chord_web_buckling()
+        
+        print("    Chord side wall buckling:")        
+        print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))        
+        
+        NiRd = self.brace_failure()
+        
+        print("    Brace failure:")        
+        print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
+            
+        NiRd = self.punching_shear()
+        
+        print("    Punching shear:")        
+        print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
+
 
 if __name__ == '__main__':
     
@@ -811,7 +915,7 @@ if __name__ == '__main__':
     chord.Ned = -1364e3
     b1 = SHS(150,6,fy=420)
     b2 = SHS(150,6,fy=420)
-    
+        
     
     J = RHSKGapJoint(chord,[b1,b2], [45,45], 28)
     
@@ -822,8 +926,16 @@ if __name__ == '__main__':
     #print(J.N0gap*1e-3)
     #print(J.V0gap*1e-3)
     
-    J.info()
+    #J.info()
     #J.draw()
+    
+    b1.Ned = -600e3
+    
+    X = RHSXJoint(chord,b1,45)
+    
+    X.chord_web_buckling()
+    
+    #X.info()
     
     #l1 = Line(p1=[0,0],v=[1,0])
     #l2 = Line(p1=[1,1],v=[0,1])
