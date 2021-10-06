@@ -87,6 +87,17 @@ def ruukki_z(h,t):
     
     return z
         
+def corner_points(xc,r,phi=[0,np.pi],n=6):
+    """ Creates corner points
+        :param xc: center point
+        :param r: radius of the circle
+        :param phi: [start_angle,end_angle] (radians)
+        :param n: number of division points
+    """
+    angles = np.linspace(phi[0],phi[1],n)
+    return [xc + r*np.array([np.cos(angle),np.sin(angle)]) for angle in angles]
+
+
 class ZSection:
     """ Class for unstiffened Z-sections """
     
@@ -125,6 +136,8 @@ class ZSection:
         self.Med = MEd
         self.Ved = VEd
         
+        self._points = []
+        
         """ Reduction factors for effective cross-section """
         self._rho_t = 1.0
         self._rho_t_lip = 1.0
@@ -153,7 +166,16 @@ class ZSection:
         """ Calculation models for gross cross section and
             effective cross section.
         """
+        
+        self.parts = {'top_flange':{'nodes':[],'segments':[]},
+                      'web':{'nodes':[],'segments':[]},
+                      'bottom_flange':{'nodes':[],'segments':[]},                      
+                      'top_lip':{'nodes':[],'segments':[]},
+                      'bottom_lip':{'nodes':[],'segments':[]},
+                      }
+        
         self.prof = None
+        self.create_points(n=5)
         self.create_model()
         self.prof_eff = None
         
@@ -170,6 +192,22 @@ class ZSection:
             equal widths and edge stiffeners have equal lengths
         """
         return self.a == self.b and self.ca == self.cb
+    
+    @property
+    def npoints(self):
+        """ Number of points in the section """
+        
+        return len(self._points)
+    
+    @property
+    def Ro(self):
+        """ Outer radius """
+        return self.r + self.t_nom
+    
+    @property
+    def Rm(self):
+        """ Mid radius """
+        return self.r + 0.5*self.t_nom
     
     @property
     def E(self):
@@ -329,6 +367,15 @@ class ZSection:
         """ Second moment of area of the free flange """
         return self.free_flange[flange].Iz()
     
+    def add(self,this,part=None):
+        """ Adds stuff to the section """
+        
+        if isinstance(this,list) or isinstance(this,np.ndarray):
+            """ Item to be added is a coordinate point """
+            self._points.append(this)
+            if part is not None:
+                self.parts[part]["nodes"].append(self.npoints-1)
+    
     def design_value(self,attr):
         """ Calculates the design value of a dimension 
             This means that the coating is reduced from the dimension.
@@ -346,6 +393,120 @@ class ZSection:
         
         return 9.81*self.weight()
     
+    def create_points(self,n=5):
+        """ Creates points for the calculation model 
+            :param n: number of divisions in the corner areas
+            
+            Number starts from the end of the flange of the extension
+            and goes counter-clockwise
+        """
+        # Number of points; used as an index
+        npt = 0
+        
+        self.corner_pts = n
+        h = self.h
+        hweb = self.hw
+        
+        tnom = self.t_nom
+        rm = self.Rm
+        ro = self.Ro
+        r = self.r
+        
+        bp_web = self.hw_center
+        bp_bottom = self.bb_center
+        bp_top = self.bt_center
+        bp_bottom_lip = self.bb_lip_center
+        bp_top_lip = self.bt_lip_center
+        web_nodes = [[0.0,-0.5*bp_web],[0.0,0.5*bp_web]]
+       
+        if bp_bottom_lip > 0.0:
+            bottom_lip_nodes = [[-bp_bottom,web_nodes[0][1]+bp_bottom_lip],
+                                [-bp_bottom,web_nodes[0][1]+bp_bottom_lip-0.5*self.cb_straight]]
+            for node in bottom_lip_nodes:
+                self.add(node,part='bottom_lip')
+            
+            # Corner points
+            # Lip-to-flange corner, bottom
+            x_bottom_lip = (-bp_bottom+rm,web_nodes[0][1]+rm)
+        
+            newPts = corner_points(x_bottom_lip,rm,phi=[np.pi,1.5*np.pi],n=n)
+        
+            for newPt in newPts[:-1]:            
+                self.add(newPt)
+            
+            # The second and third nodes are for helping to cope
+            # with the effective cross section.
+            bottom_nodes = [[-bp_bottom+rm,web_nodes[0][1]],
+                            [-bp_bottom+rm+1/3*self.c_bottom,web_nodes[0][1]],
+                            [-bp_bottom+rm+2/3*self.c_bottom,web_nodes[0][1]],
+                            [-bp_bottom+rm+self.c_bottom,web_nodes[0][1]]
+                            ]            
+        else:
+            bottom_nodes = [[-bp_bottom,web_nodes[0][1]],
+                            [-bp_bottom+0.5*self.c_bottom,web_nodes[0][1]],
+                            [-bp_bottom+self.c_bottom,web_nodes[0][1]]
+                            ]
+        
+        for node in bottom_nodes:
+            self.add(node,part='bottom_flange')
+        
+        
+        # Corner points
+        # flange-to-web corner, bottom
+        x_bottom_web = (-rm,web_nodes[0][1]+rm)
+        
+        newPts = corner_points(x_bottom_web,rm,phi=[1.5*np.pi,2.0*np.pi],n=n)
+        
+        for newPt in newPts[1:-1]:            
+            self.add(newPt)
+        
+        # Web points
+        self.add([0,-0.5*bp_web+rm],part='web')
+        self.add([0,-0.5*bp_web+rm+0.25*hweb],part='web')
+        self.add([0,-0.5*bp_web+rm+0.75*hweb],part='web')
+        self.add([0,0.5*bp_web-rm],part='web')
+        
+        # Corner points
+        # web-to-flange corner, top
+        x_top_web = (+rm,web_nodes[1][1]-rm)
+        
+        newPts = corner_points(x_top_web,rm,phi=[np.pi,0.5*np.pi],n=n)
+        
+        for newPt in newPts[1:-1]:            
+            self.add(newPt)
+        
+        # Top flange
+        top_nodes = [[rm,web_nodes[1][1]]]
+        
+        if bp_top_lip > 0.0:
+            top_nodes += [[0.25*bp_top,web_nodes[1][1]],
+                          [0.75*bp_top,web_nodes[1][1]],
+                          [bp_top-rm,web_nodes[1][1]]]
+            
+            # Corner
+            # web-to-flange corner, top
+            x_top_lip = (bp_top-rm,web_nodes[1][1]-rm)
+        
+            for node in top_nodes:
+                self.add(node,part='top_flange')
+        
+            newPts = corner_points(x_top_lip,rm,phi=[0.5*np.pi,0],n=n)
+        
+            for newPt in newPts[1:-1]:            
+                self.add(newPt)
+                
+            # Top lip nodes
+            
+            self.add([bp_top,web_nodes[1][1]-rm],'top_lip')
+            self.add([bp_top,web_nodes[1][1]-0.5*bp_top_lip],'top_lip')
+            self.add([bp_top,web_nodes[1][1]-bp_top_lip],'top_lip')
+        else:
+            top_nodes += [[0.5*bp_top,web_nodes[1][1]],[bp_top,web_nodes[1][1]]]
+        
+            for node in top_nodes:
+                self.add(node,part='top_flange')
+                
+    
     def create_model(self):
         """ Creates calculation model according to 
             EN 1993-1-3:2006, Annex C 
@@ -360,6 +521,14 @@ class ZSection:
         bp_bottom_lip = self.bp_b_lip
         bp_top_lip = self.bp_t_lip
         web_nodes = [[0.0,-0.5*bp_web],[0.0,0.5*bp_web]]
+        """
+        
+        self.prof = OpenProf(self._points,self.t)
+        
+        """ Set nodes and segments to parts """
+        for i, node in enumerate(self.prof.nodes):
+            x = node.coord
+        
         """
         bp_web = self.hw_center
         bp_bottom = self.bb_center
@@ -384,7 +553,8 @@ class ZSection:
         nodes = bottom_nodes + web_nodes + top_nodes
         
         self.prof = OpenProf(nodes,self.t)
-
+        """
+        
     def create_effective_model(self):
         """ Create calculation model for the effective cross-section 
             This is done based on the model of the gross cross-section
@@ -754,26 +924,33 @@ class ZSection:
             self._chi_d_b = chi_d
         return chi_d
     
-    def area(self):
-        """ Gross cross-sectional area """
+    def area(self,delta=False):
+        """ Gross cross-sectional area 
         
-        r = [self.r,self.r]
-        phi = [90,90]
+            :param : delta .. Flag for stating whether or not
+                    the Eq. (5.1) or EN 1993-1-3 is used or not.
+        """
         
-        bp = [self.bp_b, self.bp_w, self.bp_t]
-        
-        if self.ca > 0.0:
-            r.append(self.r)
-            phi.append(90)
-            bp.append(self.bp_t_lip)
-        
-        if self.cb > 0.0:
-            r.append(self.r)
-            phi.append(90)
-            bp.append(self.bp_b_lip)
-        
-        
-        d = en1993_1_3.rounding_factor(r,phi,bp)
+        if delta:
+            r = [self.r,self.r]
+            phi = [90,90]
+            
+            bp = [self.bp_b, self.bp_w, self.bp_t]
+            
+            if self.ca > 0.0:
+                r.append(self.r)
+                phi.append(90)
+                bp.append(self.bp_t_lip)
+            
+            if self.cb > 0.0:
+                r.append(self.r)
+                phi.append(90)
+                bp.append(self.bp_b_lip)
+            
+            
+            d = en1993_1_3.rounding_factor(r,phi,bp)
+        else:
+            d = 0
         
         return self.prof.area()*(1-d)
     
@@ -1124,7 +1301,119 @@ class CSection(ZSection):
             
         return kh
     
-    def create_model(self):
+    def create_points(self,n=5):
+        """ Creates points for the calculation model 
+            :param n: number of divisions in the corner areas
+            
+        """
+        # Number of points; used as an index
+        npt = 0
+        
+        self.corner_pts = n
+        h = self.h
+        hweb = self.hw
+        
+        tnom = self.t_nom
+        rm = self.Rm
+        ro = self.Ro
+        r = self.r
+        
+        bp_web = self.hw_center
+        bp_bottom = self.bb_center
+        bp_top = self.bt_center
+        bp_bottom_lip = self.bb_lip_center
+        bp_top_lip = self.bt_lip_center
+        web_nodes = [[0.0,-0.5*bp_web],[0.0,0.5*bp_web]]
+        
+        if bp_bottom_lip > 0.0:
+            bottom_lip_nodes = [[bp_bottom,web_nodes[0][1]+bp_bottom_lip],
+                                [bp_bottom,web_nodes[0][1]+bp_bottom_lip-0.5*self.cb_straight]]
+            for node in bottom_lip_nodes:
+                self.add(node,part='bottom_lip')
+            
+            # Corner points
+            # Lip-to-flange corner, bottom
+            x_bottom_lip = (bp_bottom-rm,web_nodes[0][1]+rm)
+        
+            newPts = corner_points(x_bottom_lip,rm,phi=[0,-0.5*np.pi],n=n)
+        
+            for newPt in newPts[:-1]:            
+                self.add(newPt)
+            
+            # The second and third nodes are for helping to cope
+            # with the effective cross section.
+            bottom_nodes = [[bp_bottom-rm,web_nodes[0][1]],
+                            [bp_bottom-rm-1/3*self.c_bottom,web_nodes[0][1]],
+                            [bp_bottom-rm-2/3*self.c_bottom,web_nodes[0][1]],
+                            [bp_bottom-rm-self.c_bottom,web_nodes[0][1]]
+                            ]            
+        else:
+            bottom_nodes = [[bp_bottom,web_nodes[0][1]],
+                            [bp_bottom-0.5*self.c_bottom,web_nodes[0][1]],
+                            [bp_bottom-self.c_bottom,web_nodes[0][1]]
+                            ]
+        
+        for node in bottom_nodes:
+            self.add(node,part='bottom_flange')
+        
+        
+        # Corner points
+        # flange-to-web corner, bottom
+        x_bottom_web = (rm,web_nodes[0][1]+rm)
+        
+        newPts = corner_points(x_bottom_web,rm,phi=[1.5*np.pi,np.pi],n=n)
+        
+        for newPt in newPts[1:-1]:            
+            self.add(newPt)
+        
+        # Web points
+        self.add([0,-0.5*bp_web+rm],part='web')
+        self.add([0,-0.5*bp_web+rm+0.25*hweb],part='web')
+        self.add([0,-0.5*bp_web+rm+0.75*hweb],part='web')
+        self.add([0,0.5*bp_web-rm],part='web')
+        
+        # Corner points
+        # web-to-flange corner, top
+        x_top_web = (+rm,web_nodes[1][1]-rm)
+        
+        newPts = corner_points(x_top_web,rm,phi=[np.pi,0.5*np.pi],n=n)
+        
+        for newPt in newPts[1:-1]:            
+            self.add(newPt)
+        
+        # Top flange
+        top_nodes = [[rm,web_nodes[1][1]]]
+        
+        if bp_top_lip > 0.0:
+            top_nodes += [[0.25*bp_top,web_nodes[1][1]],
+                          [0.75*bp_top,web_nodes[1][1]],
+                          [bp_top-rm,web_nodes[1][1]]]
+            
+            # Corner
+            # web-to-flange corner, top
+            x_top_lip = (bp_top-rm,web_nodes[1][1]-rm)
+        
+            for node in top_nodes:
+                self.add(node,part='top_flange')
+        
+            newPts = corner_points(x_top_lip,rm,phi=[0.5*np.pi,0],n=n)
+        
+            for newPt in newPts[1:-1]:            
+                self.add(newPt)
+                
+            # Top lip nodes
+            
+            self.add([bp_top,web_nodes[1][1]-rm],'top_lip')
+            self.add([bp_top,web_nodes[1][1]-0.5*bp_top_lip],'top_lip')
+            self.add([bp_top,web_nodes[1][1]-bp_top_lip],'top_lip')
+        else:
+            top_nodes += [[0.5*bp_top,web_nodes[1][1]],[bp_top,web_nodes[1][1]]]
+        
+            for node in top_nodes:
+                self.add(node,part='top_flange')
+                
+    
+    #def create_model(self):
         """ Creates calculation model according to 
             EN 1993-1-3:2006, Annex C 
         
@@ -1137,6 +1426,8 @@ class CSection(ZSection):
         bp_bottom_lip = self.bp_b_lip
         bp_top_lip = self.bp_t_lip
         """
+        
+        """
         bp_web = self.hw_center
         bp_bottom = self.bb_center
         bp_top = self.bt_center
@@ -1148,7 +1439,7 @@ class CSection(ZSection):
                             [bp_bottom,web_nodes[0][1]]
                             ]
         else:
-            """ No bottom edge stiffener """
+            # No bottom edge stiffener
             bottom_nodes = [[bp_bottom,web_nodes[0][1]]]
         
         if bp_top_lip > 0.0:
@@ -1160,6 +1451,7 @@ class CSection(ZSection):
         nodes = bottom_nodes + web_nodes + top_nodes
         
         self.prof = OpenProf(nodes,self.t)
+        """
     
     def create_effective_model(self):
         """ Create calculation model for the effective cross-section 
@@ -1394,9 +1686,14 @@ if __name__ == "__main__":
     #z = ZSection(t_nom=1.5,h=200,a=74,b=66,ca=21.2,cb=21.2,r=3,
     #             material="S350GD",t_coat=0.04)
     
-    #z = ruukki_z(300,2.5)
+    z = ruukki_z(300,2.5)
+    
+    #z.prof.draw(node_labels=True)
     
     #print(z.Agross()*1e-2)
+    
+    c = CSection(1.0,150,47.0,41.0,16,16,3)
+    c.prof.draw(node_labels=False)
     
     """
     z = ZSection(ca=0.0,cb=0.0)

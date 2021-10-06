@@ -503,6 +503,7 @@ class FrameFEM:
         K = self.global_stiffness_matrix()
         
         #print(lcase)
+        #print(self.loadcases)
         load_id = self.loadcases[lcase].load
         p = self.global_load_vector(load_id)
        

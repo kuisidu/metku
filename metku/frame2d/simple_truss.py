@@ -28,6 +28,8 @@ except:
     from structures.steel.steel_member import SteelMember
     from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
     
+    #from loadIDs import LoadIDs
+    
 import numpy as np
 
 class SimpleTruss(Frame2D):
@@ -235,10 +237,10 @@ def fifteen_bar_truss(L=360,h=120,P=10000):
     return t
     
 if __name__ == '__main__':
-    #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=2)
+    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1)
     #t = ten_bar_truss(L=3000,F=200e3)
     
-    t = fifteen_bar_truss()
+    #t = fifteen_bar_truss()
     
     #t.generate()
     #t.calculate(load_id='all',support_method="REM")

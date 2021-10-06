@@ -149,7 +149,7 @@ class Variable:
         
         self.scaling = scaling_factor
         self.lb = self.lb/scaling_factor
-        self.ub = self.ub//scaling_factor
+        self.ub = self.ub/scaling_factor
 
     def substitute(self, new_value):
         """
@@ -440,7 +440,7 @@ class Constraint:
             """
             X = np.array([var.value for var in self.problem.vars])            
             x = np.asarray(x)
-
+            
             """ If the new values deviate from the old values
                 in terms of L2 norm by more than X_TOL, substitute
                 new values.
@@ -455,7 +455,7 @@ class Constraint:
             AND
             if FEM analysis has not been carried out for X, perform FEM
         """
-        if self.fea_required and not self.problem.fea_done:
+        if self.fea_required and not self.problem.fea_done:            
             self.problem.fea()
 
     def __repr__(self):
@@ -525,7 +525,7 @@ class NonLinearConstraint(Constraint):
         
         """ This call substitutes variable values (if needed) and
             performs structural analysis (if needed)
-        """
+        """        
         super().__call__(x)
 
         
@@ -839,6 +839,13 @@ class OptimizationProblem:
         
         return xrand
 
+    def print_vars(self):
+        """ Prints the current variable values """
+        
+        print("Current variables:")
+        for var in self.vars:
+            print("{0:s} = {1:5.4f}".format(var.name,var.value))
+
     def non_linear_constraint(self, *args, **kwargs):
         """
         Creates new NonLinearConstraint and adds it to cons -list
@@ -995,10 +1002,14 @@ class OptimizationProblem:
 
         return np.asarray(g)
 
-    def fea(self, load_id=LoadIDs.ULS):
+    #def fea(self, load_id=LoadIDs.ULS):
+    def fea(self, load_id=None):
         """
         Runs finite element analysis on structure
         """
+        if load_id is None:
+            load_id = self.structure.load_ids[0]
+        
         self.structure.calculate(load_id)
         self.fea_done = True
         self.num_fem_analyses += 1

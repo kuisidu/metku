@@ -286,7 +286,7 @@ class Frame2D:
 
         # SUPPORTS
         elif isinstance(this, Support):
-            print("Adding support")
+            #print("Adding support")
             # this.supp_id = len(self.supports)
             supp_label = len(self.supports)
             self.supports[supp_label] = this
@@ -492,7 +492,7 @@ class Frame2D:
                 for j in t.joints.values():
                     j.calc_nodal_coordinates()
 
-    def calculate(self, load_id=LoadIDs.ULS, support_method='ZERO'):
+    def calculate(self, load_id=None, support_method='ZERO'):
         """ Calculates forces and displacements
             
             Parameters
@@ -501,6 +501,10 @@ class Frame2D:
             
             :type load_id: int / str
         """
+        
+        if load_id is None:
+            load_id = self.load_ids[0]
+        
         # print(f'calculation happening with load id {load_id}')
         if self.is_calculated == False:
             self.is_calculated = True
@@ -517,8 +521,7 @@ class Frame2D:
                 self.calculate(load_id=lid,
                                support_method=support_method)
         else:
-            #print('Calculate case:' + str(load_id))
-
+            #print('Calculate case:' + str(load_id))            
             self.f.linear_statics(support_method=support_method,
                                   lcase=load_id)
             self.calc_nodal_forces(load_id)

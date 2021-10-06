@@ -336,7 +336,7 @@ class RHSKGapJoint(RHSJoint):
             of either of the braces (see vertical equilibrium of the joint).
         """
         
-        return self.N1*np.sin(np.radians(self.angle1))
+        return abs(self.N1*np.sin(np.radians(self.angle1)))
     
     @property
     def h(self):
@@ -395,7 +395,7 @@ class RHSKGapJoint(RHSJoint):
         NiRd = fy0*Aeta/math.sqrt(3)/s/gammaM5
         # chord
         # Check first, if the chord can sustain the shear force
-        if self.V0/self.chord.shear_force_resistance() > 1:
+        if self.V0gap/self.chord.shear_force_resistance() > 1:
             # Chord profile is not sufficient, so set resistance to 0.0.
             # print("Chord is not strong enough for shear forces")
             N0Rd = 0.0

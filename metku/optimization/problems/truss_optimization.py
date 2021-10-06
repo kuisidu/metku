@@ -144,6 +144,9 @@ class TrussOptimization(sop.OptimizationProblem):
         
         self.constraints = constraints
     
+        self.stress_cons = []
+        self.displacement_cons = []
+    
         self.create_constraints(**self.constraints)
         #self.group_constraints()
         if objective is not None:
@@ -326,6 +329,7 @@ class TrussOptimization(sop.OptimizationProblem):
                         fea_required=True,
                         vars=mem)
                     self.add(con)
+                    self.stress_cons.append(con)
             
             if strength:
                 new_cons = self.strength_constraints(mem)
@@ -424,8 +428,184 @@ class TrussOptimization(sop.OptimizationProblem):
         cons = {f"buckling ({buckling_type})": buckling}
         
         return cons
+    
+    def displacement_constraint(self,node,dof='x',ulb=None,uub=None,load_case=None):
+        """
+
+        Parameters
+        ----------
+        node : FEMNode 
+            Nodes whose displacement is to be constrained.
+        dofs : LIST, optional
+            Degrees of freedom to be constrained. The default is ['x','y'].
+        ulb : LIST, optional
+            Lower bound values for the displacements. The default is [-100,-100].
+        uub : LIST, optional
+            Lower bound values for the displacements. The default is [100,100].
+
+        Returns
+        -------
+        None.
+        """
+        
+        # Displacement with respect to x coordinate is the first
+        # element in the list of nodal displacements.
+        if dof == 'x':
+            dof_nd = 0
+        elif dof == 'y':
+            dof_nd = 1
+        
+        if load_case is None:
+            load_case = self.structure.load_ids[0]
+        
+        def disp_upper_bound(x):
+            # Constraint is of the form u - uub <= 0
+            self.substitute_variables(x)
             
+            u = node.u[load_case][dof_nd]            
             
+            if uub > 0.0:
+                res = u/uub-1
+            elif uub < 0.0:
+                res = 1-u/uub
+            else:
+                res = u
+                
+            print(u)
+            return res
+        
+        def disp_lower_bound(x):
+            # Constraint is of the form u >= ulb -> -u+ulb <= 0
+            self.substitute_variables(x)
+            
+            u = node.u[load_case][dof_nd]
+            print(u)
+            if ulb < 0.0:
+                res = u/ulb-1
+            elif ulb > 0.0:
+                res = 1-u/ulb
+            else:
+                res = -u
+                                    
+            return res
+                        
+        if ulb is not None:
+            #cons['f"Displacement lower bound"'] = disp_lower_bound
+            con = sop.NonLinearConstraint(
+                        name=f"u_{dof}[{node.nid}][load_case] >= {ulb}",
+                        con_fun=disp_lower_bound,
+                        con_type='<',
+                        fea_required=True)
+            self.add(con)
+            self.displacement_cons.append(con)
+        
+        if uub is not None:
+            #cons['f"Displacement upper bound"'] = disp_upper_bound
+            con = sop.NonLinearConstraint(
+                        name=f"u_{dof}[{node.nid}][load_case] <= {uub}",
+                        con_fun=disp_upper_bound,
+                        con_type='<',
+                        fea_required=True)
+            self.add(con)
+            self.displacement_cons.append(con)
+        
+        #return cons
+            
+    
+    def fsd(self,verb=False):
+        """
+        Find fully stressed design for the truss.
+        It is assumed that the variables are cross-sectional areas and
+        there are only stress constraints
+
+        Returns
+        -------
+        None.
+
+        """
+        kmax = 10
+        k = 0
+        
+        if verb:
+            print("*** FSD iteration ***")            
+                
+        while k < kmax:
+            print("  Iteration {0:3g}".format(k))
+            k += 1
+            for load_case in self.structure.load_ids:
+                # Calculate response of the structure
+                # for this load case
+                self.fea(load_case)
+                
+                if verb:
+                    print("   Load case: {0:s}".format(load_case))
+                            
+                for var in self.vars:
+                    # For each variable, go through
+                    # all members that the variable is targeted at.
+                    for mem in var.target['objects']:
+                        # Run update rule:
+                        # 1. get member force
+                        # 2. update variable value
+                        N = mem.member.NEd
+                        new_val = N/mem.member.fy()
+                        
+                        new_val = min(max(new_val,var.lb),var.ub)
+                        
+                        if verb:
+                            print("{0:s}(old) = {1:5.3f}, N = {2:5.3f}, NRd = {4:5.3f}, {0:s}(new) = {3:5.3f}".format(var.name,var.value,N,new_val,var.value*mem.member.fy()))
+                                            
+                        
+                        var.substitute(new_val)
+        
+        #self.print_vars()
+    
+    def scale_design(self,x):
+        """
+        Scales the design 'x' such that stress and discplacement constraints
+        are satisfied. It is assumed that the design variables are the cross sectional
+        areas.
+
+        Parameters
+        ----------
+        x : LIST
+            Design to be scaled.
+
+        Returns
+        -------
+        None.
+
+        """
+        mu_U = np.inf
+        mu_L = -np.inf
+                
+        for i, var in enumerate(self.vars):
+            # Upper bound for the scaling factor is obtained from
+            # design variable bounds
+            mu_U = min(mu_U,var.ub/x[i])
+        
+            # Design variable bounds affect the lower bound too.
+            mu_L = max(mu_L,var.lb/x[i])
+        
+        for con in self.displacement_cons:
+            g = con(x)
+            
+            mu_L = max(mu_L,g+1)
+        
+        for con in self.stress_cons:
+            g = con(x)
+            
+            mu_L = max(mu_L,g+1)
+            
+        print(mu_L,mu_U)
+        
+        if mu_L > mu_U:
+            print("Design cannot be scaled.")
+            mu_L = 1.0
+        
+        return mu_L*x
+            
+        
 def truss_lp(truss,Alb=0,Aub=1e9,slb=None,sub=None):
     """ Creates minimum weight LP problem for the truss 
         Design variables:
