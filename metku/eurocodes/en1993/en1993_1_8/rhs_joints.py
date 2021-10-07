@@ -663,6 +663,10 @@ class RHSYJoint(RHSJoint):
     def beta(self):
         return self.b / self.b0
     
+    @property
+    def eta(self):
+        return self.h/self.b0
+    
     def fb(self):
         """ Yield strength to be used in chord side wall buckling. """
         
@@ -686,12 +690,12 @@ class RHSYJoint(RHSJoint):
             # If beta is grater than 1, artificially reduce it to "nearly 1".
             b = 0.99
         kn = self.eval_KN()
-        n = self.eval_N()
+        
         r = self.strength_reduction()
         fy0 = self.fy0
         t0 = self.t0
         NRd = r**kn*fy0*t0**2 / ((1-b)*np.sin(np.radians(self.angle)))
-        NRd = NRd * (2*n / np.sin(np.radians(self.angle)) + 4*np.sqrt(1-b))
+        NRd = NRd * (2*self.eta / np.sin(np.radians(self.angle)) + 4*np.sqrt(1-b))
         NRd = NRd/ gammaM5
 
         return NRd
@@ -931,9 +935,9 @@ if __name__ == '__main__':
     
     b1.Ned = -600e3
     
-    X = RHSXJoint(chord,b1,45)
+    #X = RHSXJoint(chord,b1,45)
     
-    X.chord_web_buckling()
+    #X.chord_web_buckling()
     
     #X.info()
     
@@ -941,6 +945,14 @@ if __name__ == '__main__':
     #l2 = Line(p1=[1,1],v=[0,1])
     
     #t, x0 = l1.intersect(l2)
-        
-        
+    
+    # Y Joint example from SSAB's book  (Ex. 3.1) 
+    chord = SHS(200,8,fy=420)
+    brace = SHS(100,5,fy=420)
+    
+    brace.Ned = 590e3
+    
+    Y = RHSYJoint(chord,brace,45,N0=-936e3)
+    
+    Y.info()
     
