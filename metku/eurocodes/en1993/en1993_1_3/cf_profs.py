@@ -103,7 +103,7 @@ class ZSection:
     
     def __init__(self,t_nom=2.0,h=120,a=60,b=60,ca=20,cb=20,r=2.0,
                  material="S350GD",t_coat=0.04,
-                 MEd=0.0, NEd=0.0, VEd=0.0):
+                 MEd=0.0, NEd=0.0, VEd=0.0,corners=True):
         """ Constructor 
             input:
                 t_nom .. nominal wall thickness
@@ -121,7 +121,7 @@ class ZSection:
             modelling. if False, then cross-section is modelled using centerline intersection
             points.
         """
-        self.rounded_corners = True
+        self.rounded_corners = corners
         self.t_nom = t_nom
         self._h = h
         self._a = a
@@ -145,7 +145,7 @@ class ZSection:
         self._psi_w = 1.0 # Stress ratio for web
         self._rho_b = 1.0
         self._rho_b_lip = 1.0
-        """ Reduction factors for distotrional buckling """
+        """ Reduction factors for distortional buckling """
         self._chi_d_t = 1.0
         self._chi_d_b = 1.0
         
@@ -157,11 +157,12 @@ class ZSection:
         else:
             self.r = r
             
-                
-        if self.r/self.t <= 5 and self.r/self.bp_t <= 0.1 and self.r/self.bp_b <= 0.1:
-            self.rounded_corners = False
-        else:
-            self.rounded_corners = True
+        
+        if corners is False: 
+            if self.r/self.t <= 5 and self.r/self.bp_t <= 0.1 and self.r/self.bp_b <= 0.1:
+                self.rounded_corners = False
+            else:
+                self.rounded_corners = True
         
         """ Calculation models for gross cross section and
             effective cross section.
@@ -366,6 +367,11 @@ class ZSection:
     def Ifz(self,flange='bottom'):
         """ Second moment of area of the free flange """
         return self.free_flange[flange].Iz()
+    
+    @property
+    def gr(self):
+        """ Dimension gr in the rounded corner """
+        return en1993_1_3.gr(self.r,self.t_nom,45)
     
     def add(self,this,part=None):
         """ Adds stuff to the section """
@@ -591,38 +597,47 @@ class ZSection:
                 nweb = 2
             else:
                 nweb = 1
-                
-            s = (be2+ht)/self.hw_center
-            prof_eff.split_segment(nweb,s)
-            s2 = bneg/(be1+bneg)
-            prof_eff.split_segment(nweb+1,s2)
-            prof_eff.segments[nweb+1].khp = 0.0
-        
-        
+            
+            nw_top = prof_eff.parts['web']['nodes'][2]
+            nw_bot = prof_eff.parts['web']['nodes'][1]
+                    
+            
+            prof_eff.nodes[nw_top].z = prof_eff.nodes[nw_top+1].z + self.gr - be1
+            prof_eff.nodes[nw_bot].z = prof_eff.nodes[nw_top].z - bneg
+            
+            prof_eff.segments[nw_bot].t = 0.0
+            
+            #s = (be2+ht)/self.hw_center
+            #prof_eff.split_segment(nweb,s)
+            #s2 = bneg/(be1+bneg)
+            #prof_eff.split_segment(nweb+1,s2)
+            #prof_eff.segments[nweb+1].t = 0.0
         
         if self.ca > 0.0:            
             """ Edge stiffener is present """
             # Number of segments in the section            
-            nseg = prof_eff.n-1
+            #nseg = prof_eff.n-1
             
             # Move the node of the edge stiffener up
-            prof_eff.nodes[-1].z += (1-self._rho_t_lip)*self.bt_lip_center
+            #prof_eff.nodes[-1].z += (1-self._rho_t_lip)*self.bt_lip_center
                     
             # Split the top flange into two parts
-            s = 0.5*self._rho_t            
-            prof_eff.split_segment(nseg-2,s)
+            #s = 0.5*self._rho_t            
+            #prof_eff.split_segment(nseg-2,s)
                         
             #prof_eff.draw(node_labels=True)
             if self._rho_t < 1.0:
                 s2 = (1-self._rho_t)*self.bt_center/prof_eff.segments[-2].length()
                 prof_eff.split_segment(nseg-1,s2)
-                prof_eff.segments[nseg-1].khp = 0.0
-            prof_eff.segments[-2].khp *= self._chi_d_t
-            prof_eff.segments[-1].khp *= self._chi_d_t
+                prof_eff.segments[nseg-1].t = 0.0
+            prof_eff.segments[-2].t *= self._chi_d_t
+            prof_eff.segments[-1].t *= self._chi_d_t
                         
         else:
             """ The effective top flange is an outstand element """
-            prof_eff.nodes[-1].y -= (1-self._rho_t)*self.bp_t
+            #prof_eff.nodes[-2].y -= (1-self._rho_t)*self.bp_t + self.gr
+            prof_eff.nodes[-2].y = self._rho_t*self.bp_t + self.gr
+            prof_eff.segments[-1].t = 0.0
 
         if self.cb > 0.0:
             """ Edge stiffener is present in the bottom flange """
@@ -641,8 +656,8 @@ class ZSection:
                 s2 = (1-self._rho_b)*self.bb_center/prof_eff.segments[2].length()
                 prof_eff.split_segment(2,s2)
                 prof_eff.segments[2].khp = 0.0
-            prof_eff.segments[0].khp *= self._chi_d_b
-            prof_eff.segments[1].khp *= self._chi_d_b
+            prof_eff.segments[0].t *= self._chi_d_b
+            prof_eff.segments[1].t *= self._chi_d_b
 
         self.prof_eff = prof_eff
                             
@@ -996,7 +1011,7 @@ class ZSection:
             """
             self.effective_width_flange(psi=1.0,flange='top',verb=verb)
             
-            if self.ca >= 0:
+            if self.ca > 0:
                 self.effective_width_edge_stiffener(flange='top',verb=verb)                
                 self.create_edge_stiffener(flange='top')
                 self.distortional_buckling(flange='top',verb=verb)
@@ -1004,6 +1019,8 @@ class ZSection:
             
             """ Determine stress ratio for the web, using effecive flange """
             self.create_effective_model()
+            
+            self.prof_eff.draw(coord_axes=True)
             psi = self.stress_ratio()            
                         
             if verb:
@@ -1015,17 +1032,15 @@ class ZSection:
             """ Compression: all parts are checked """
             for flange in ['top','bottom']:
                 self.effective_width_flange(psi=1.0,flange=flange,verb=verb)
-                if self.flange_lip(flange) >= 0:
+                if self.flange_lip(flange) > 0:
                     self.effective_width_edge_stiffener(flange,verb)
                     self.create_edge_stiffener(flange)
                     
-            for flange in ['top','bottom']:                
-                self.distortional_buckling(flange=flange,verb=verb)
+            for flange in ['top','bottom']:
+                if self.flange_lip(flange) > 0:
+                    self.distortional_buckling(flange=flange,verb=verb)
                         
-            self.effective_width_web(psi=1.0,verb=verb)
-
-            
-            
+            self.effective_width_web(psi=1.0,verb=verb)            
             self.create_effective_model()
             
     def stress_ratio(self):
@@ -1038,7 +1053,7 @@ class ZSection:
             print("No effective model created")
         else:
             ygc, zgc = self.centroid_eff()
-        
+            
         """ Height of the compressed part of the profile
             NOTE:
                 zgc is determined using the simplified computational model,
@@ -1462,7 +1477,7 @@ class CSection(ZSection):
             self.create_model()
                     
         prof_eff = deepcopy(self.prof)
-        
+                
         if self._rho_w < 1.0:
             """ Effective web """            
             if self._psi_w < 0.0:
@@ -1489,12 +1504,21 @@ class CSection(ZSection):
                 nweb = 2
             else:
                 nweb = 1
-                
+            
+            """
             s = (be2+ht)/self.hw_center
             prof_eff.split_segment(nweb,s)
             s2 = bneg/(be1+bneg)
             prof_eff.split_segment(nweb+1,s2)
-            prof_eff.segments[nweb+1].khp = 0.0
+            prof_eff.segments[nweb+1].t = 0.0
+            """
+            nw_top = self.parts['web']['nodes'][2]
+            nw_bot = self.parts['web']['nodes'][1]
+                    
+            prof_eff.nodes[nw_top].z = prof_eff.nodes[nw_top+1].z + self.gr - be1
+            prof_eff.nodes[nw_bot].z = prof_eff.nodes[nw_top].z - bneg
+            
+            prof_eff.segments[nw_bot].t = 0.0
         
         
         
@@ -1515,13 +1539,18 @@ class CSection(ZSection):
                 s2 = (1-self._rho_t)*self.bt_center/prof_eff.segments[-2].length()
                 prof_eff.split_segment(nseg-1,s2)
                 prof_eff.segments[nseg-1].khp = 0.0
-            prof_eff.segments[-2].khp *= self._chi_d_t
-            prof_eff.segments[-1].khp *= self._chi_d_t
+                
+            prof_eff.segments[-2].t *= self._chi_d_t
+            prof_eff.segments[-1].t *= self._chi_d_t
                         
         else:
             """ The effective top flange is an outstand element """
-            prof_eff.nodes[-1].y -= (1-self._rho_t)*self.bp_t
+            #prof_eff.nodes[-1].y -= (1-self._rho_t)*self.bp_t
+            if self._rho_t < 1.0:
+                prof_eff.nodes[-2].y = self._rho_t*self.bp_t + self.gr
+                prof_eff.segments[-1].t = 0.0
 
+        
         if self.cb > 0.0:
             """ Edge stiffener is present in the bottom flange """
             
@@ -1539,8 +1568,16 @@ class CSection(ZSection):
                 s2 = (1-self._rho_b)*self.bb_center/prof_eff.segments[2].length()
                 prof_eff.split_segment(2,s2)
                 prof_eff.segments[2].khp = 0.0
-            prof_eff.segments[0].khp *= self._chi_d_b
-            prof_eff.segments[1].khp *= self._chi_d_b
+            prof_eff.segments[0].t *= self._chi_d_b
+            prof_eff.segments[1].t *= self._chi_d_b        
+        else:
+            
+            """ The effective bottom flange is an outstand element """
+            #prof_eff.nodes[-1].y -= (1-self._rho_t)*self.bp_t
+            if self._rho_b < 1.0:
+                prof_eff.nodes[1].y = self._rho_b*self.bp_b + self.gr
+                
+            
 
         self.prof_eff = prof_eff
             
@@ -1665,8 +1702,8 @@ def Cexample(t=2.0,ca=0,cb=0):
     
     c = CSection(t_nom=t,h=150.0,a=47,b=41,ca=ca,cb=cb,r=3.0,t_coat=0.04)
     
-    #c.Med = 10.0
-    c.Ned = -10.0
+    c.Med = 10.0
+    #c.Ned = -10.0
     #c.effective_width_flange(psi=1.0, flange='top',verb=True)
     c.effective_section(True)
     #c.create_model()
@@ -1682,18 +1719,19 @@ def Cexample(t=2.0,ca=0,cb=0):
 if __name__ == "__main__":
     
     #c = Cexample(t=1.0,ca=16,cb=16)
+    c = Cexample(t=1.5,ca=0,cb=0)
     
     #z = ZSection(t_nom=1.5,h=200,a=74,b=66,ca=21.2,cb=21.2,r=3,
     #             material="S350GD",t_coat=0.04)
     
-    z = ruukki_z(300,2.5)
+    #z = ruukki_z(300,2.5)
     
     #z.prof.draw(node_labels=True)
     
     #print(z.Agross()*1e-2)
     
-    c = CSection(1.0,150,47.0,41.0,16,16,3)
-    c.prof.draw(node_labels=False)
+    #c = CSection(1.0,150,47.0,41.0,16,16,3)
+    #c.prof.draw(node_labels=False)
     
     """
     z = ZSection(ca=0.0,cb=0.0)

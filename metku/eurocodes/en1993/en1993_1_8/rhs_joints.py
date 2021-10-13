@@ -131,7 +131,8 @@ class RHSJoint:
         self.N0 = N0
         self.V0 = V0
         self.M0 = M0
-        
+
+             
     
     @property    
     def h0(self):
@@ -823,6 +824,45 @@ class RHSYJoint(RHSJoint):
         print("    Punching shear:")        
         print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
     
+    def design(self):
+        """
+        Designs the joint
+
+        Returns
+        -------
+        Utilization ratio N1Ed/NjRd.
+
+        """
+        
+        b = self.beta()
+        g = self.gamma()
+        
+        
+        if b < 0.85:
+            NjRd = self.chord_face_failure()
+        
+        else:
+            N_cff_Rd = self.chord_face_failure()
+            N_csw_Rd = self.chord_web_buckling()
+            N_bf_Rd = self.brace_failure()
+            
+            # Linear interpolation between chord face failure at b = 0.85
+            # and chord side wall failure at b = 1.0.
+            # The denominator is 1-0.85 = 0.15.            
+            N_interp_Rd = N_cff_Rd + (b-0.85)/0.15*(N_csw_Rd-N_cff_Rd)
+            
+            NjRd = min(N_interp_Rd,N_bf_Rd)
+            
+            if b <= 1-1/g:
+                N_ps_Rd = self.punching_shear()                
+                NjRd = min(NjRd,N_ps_Rd)
+
+        res = abs(self.N1)/NjRd        
+
+        return res
+            
+            
+    
 class RHSXJoint(RHSYJoint):
     
     def __init__(self, chord_profile, brace, angle, **kwargs):
@@ -953,6 +993,14 @@ if __name__ == '__main__':
     brace.Ned = 590e3
     
     Y = RHSYJoint(chord,brace,45,N0=-936e3)
+    
+    # Y Joint example from SSAB's book  (Chapter 7) 
+    chord = SHS(200,8,fy=420)
+    brace = SHS(120,5,fy=420)
+    
+    brace.Ned = 750e3
+    
+    Y = RHSYJoint(chord,brace,54,N0=-527e3,M0=-653e3*200)
     
     Y.info()
     

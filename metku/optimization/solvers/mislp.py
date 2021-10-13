@@ -14,6 +14,7 @@ class MISLP(OptSolver):
     def __init__(self, move_limits=(0.1, 0.1), gamma=1e-3, C=2e5, beta=100, move_limit_type='range'):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
+        self.move_limits_hist = [np.asarray(move_limits)]
         self.move_limit_type = move_limit_type
         self.gamma = gamma
         self.C = C
@@ -159,6 +160,7 @@ class MISLP(OptSolver):
 
         self.move_limits *= (1 - self.gamma)
         self.beta *= (1 - self.gamma)
+        self.move_limits_hist.append(list(self.move_limits))
         self.X += action
         # for i in range(len(self.X)):
         #     self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
