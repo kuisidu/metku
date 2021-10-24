@@ -131,6 +131,8 @@ class RHSJoint:
         self.N0 = N0
         self.V0 = V0
         self.M0 = M0
+        
+        self.r = 0
 
              
     
@@ -179,11 +181,15 @@ class RHSJoint:
     def strength_reduction(self):
         """ Reduce the strength of joint for steel greater than S355
         """
-        r = 1.0
-        if self.fy0 > 355:
-            r = 0.9
-        elif self.fy0 > 460:
-            r = 0.8
+        
+        if self.r == 0:
+            r = 1.0
+            if self.fy0 > 355:
+                r = 0.9
+            elif self.fy0 > 460:
+                r = 0.8
+        else:
+            r = self.r
         return r
         
     def eval_N(self):
@@ -678,7 +684,7 @@ class RHSYJoint(RHSJoint):
             chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
             
             fb = chi * self.fy0
-            print(chi,fb)
+            #print(chi,fb)
         else:
             fb = self.fy0
         
@@ -704,7 +710,7 @@ class RHSYJoint(RHSJoint):
     
     def slend(self):
 
-        slend = 3.46*(self.h0/(self.t0 -2) *np.sqrt(1/np.sin(np.radians(self.angle))))
+        slend = 3.46*(self.h0/self.t0 -2) *np.sqrt(1/np.sin(np.radians(self.angle)))
         slend = slend / (np.pi * np.sqrt(E / self.fy0))
         return slend
    
@@ -713,6 +719,7 @@ class RHSYJoint(RHSJoint):
         fb = self.fb()
         
         kn = self.eval_KN()
+        
         r = self.strength_reduction()
         t0 = self.t0
         h = self.h
@@ -949,10 +956,31 @@ class RHSXJoint(RHSYJoint):
         print("    Punching shear:")        
         print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
 
+def Y_example():
+    
+    
+    chord = SHS(140,6,fy=700)
+
+    brace = SHS(140,8,fy=700)
+    brace.Ned = -50e3
+    
+    
+    YJoint = RHSYJoint(chord,brace,45)
+
+    YJoint.r = 1.0
+    
+    YJoint.info()
+    
+    return YJoint
 
 if __name__ == '__main__':
     
     from sections.steel import SHS
+    YJ = Y_example()
+    
+    """
+    
+    
     
     chord = SHS(200,8,fy=420)
     
@@ -1003,4 +1031,4 @@ if __name__ == '__main__':
     Y = RHSYJoint(chord,brace,54,N0=-527e3,M0=-653e3*200)
     
     Y.info()
-    
+    """

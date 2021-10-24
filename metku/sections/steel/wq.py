@@ -10,6 +10,7 @@ import math
 from eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
 from sections.steel.steel_section import SteelSection
 
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -31,16 +32,19 @@ class WQSection(SteelSection):
         self.tf = tf
         self.tw = tw
         
-        self.fy = fy
+        #self.fy = fy
         
         A = self.area()
         Au = self.paint_area()
         I = self.second_moment()
-        Ashear = self.shear_area()
+        #Ashear = self.shear_area()
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()        
         
-        super().__init__(fy, A, I, Au, Wpl, Wel, Ashear)
+        
+        super().__init__(fy, A, I, Au, Wpl, Wel, Ashear=1.0)
+
+        self.Ashear = self.shear_area()
 
         """ Determine buckling curve: EN 1993-1-1, Table 6.2 """        
         self.imp_factor = [en1993_1_1.buckling_curve["b"],
@@ -291,9 +295,18 @@ class WQSection(SteelSection):
                     self.Aw*(self.bt+self.tw)
         return Wpl
     
-    def draw(self):
-        """ Draw the profile """
-        fig, ax = plt.subplots(1)
+    def draw(self,axes=None,origin=[0,0],theta=0):
+        """ Draw the profile 
+            input:
+                axes .. matplotlib.axes.Axes object. If this is given,
+                        the profile will be drawn to that Axes
+                theta .. rotation (optional)
+        """
+        
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
         
         # create section parts
         bot_flange = patches.Rectangle((0,0),width=self.bb,height=self.tb,\
@@ -322,6 +335,8 @@ class WQSection(SteelSection):
         plt.show()
         # bottom flange coordinates
         #bf_xy = [[0,0],[self.bb,0.0],[self.bb,self.tb],[0,self.tb]]
+        
+        return ax
         
 
 if __name__ == '__main__':

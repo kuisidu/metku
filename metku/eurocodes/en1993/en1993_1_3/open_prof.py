@@ -31,7 +31,10 @@ class OpenProf:
         
         self.nodes = []
         for node in nodes:
-            self.nodes.append(Node(y=node[0],z=node[1]))
+            if isinstance(node,Node):
+                self.nodes.append(node)
+            else:
+                self.nodes.append(Node(y=node[0],z=node[1]))
         
         #self.nodes = np.array(nodes)
         if isinstance(t,float):
@@ -344,7 +347,7 @@ class OpenProf:
         """ Write elements """
         print("Elements:")
         for i, seg in enumerate(self.segments):        
-            print('{0:3g} {1:6.4f} {2:6.4f} {3:6.5f} 100'.format(i + 1, i + 1, i + 2, seg.khp))
+            print('{0:3g} {1:6.4f} {2:6.4f} {3:6.5f} 100'.format(i + 1, i + 1, i + 2, seg.t))
 
 class Node:
     """ Node of an open section profile """

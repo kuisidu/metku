@@ -664,12 +664,18 @@ class ZSection:
     
     def create_edge_stiffener(self,flange='top'):
         """ Creates a model for the edge stiffener of a flange """
-        if flange == 'top':            
-            corner = list(self.prof.nodes[-2].coord)
-            y_edge = corner[0]-0.5*self.bt_center*self._rho_t
-            z_lip  = corner[1]-self.bt_lip_center*self._rho_t_lip
-            nodes = [[y_edge,corner[1]],corner,[corner[0],z_lip]]
+        if flange == 'top':
+            n1 = self.parts['top_flange']['nodes'][-2]
+            n2 = self.parts['top_lip']['nodes'][-1]
+            nodes = self.prof.nodes[n1:n2+1]
+            
+            #corner = list(self.prof.nodes[-2].coord)
+            #y_edge = corner[0]-0.5*self.bt_center*self._rho_t
+            #z_lip  = corner[1]-self.bt_lip_center*self._rho_t_lip
+            #nodes = [[y_edge,corner[1]],corner,[corner[0],z_lip]]
             self.edge_stiff[flange] = OpenProf(nodes,self.t)
+            
+            self.edge_stiff[flange].draw()
         else:
             corner = list(self.prof.nodes[1].coord)            
             y_edge = corner[0]+0.5*self.bb_center*self._rho_b
@@ -1524,9 +1530,23 @@ class CSection(ZSection):
         
         if self.ca > 0.0:            
             """ Edge stiffener is present """
-            # Number of segments in the section            
-            nseg = prof_eff.n-1
+            # Number of segments in the section
             
+            ntop = self.parts['top_flange']['nodes'][-2]
+            
+            # Reduce the thickness of edge stiffener, if needed
+            for segment in prof_eff.segments[ntop:]:
+                segment.t *= self._chi_d_t
+                
+            # If the top flange is not entirely effective,
+            # make the thickness of the non-effective segment zero.
+            if self._rho_t < 1.0:
+                prof_eff.segments[ntop-1].t = 0
+            
+                              
+            
+            """
+            nseg = prof_eff.n-1
             # Move the node of the edge stiffener up
             prof_eff.nodes[-1].z += (1-self._rho_t_lip)*self.bt_lip_center
                     
@@ -1542,7 +1562,7 @@ class CSection(ZSection):
                 
             prof_eff.segments[-2].t *= self._chi_d_t
             prof_eff.segments[-1].t *= self._chi_d_t
-                        
+            """          
         else:
             """ The effective top flange is an outstand element """
             #prof_eff.nodes[-1].y -= (1-self._rho_t)*self.bp_t
@@ -1554,15 +1574,28 @@ class CSection(ZSection):
         if self.cb > 0.0:
             """ Edge stiffener is present in the bottom flange """
             
+            nbot = self.parts['bottom_flange']['nodes'][1]
+            
+            # Reduce the thickness of edge stiffener, if needed
+            for segment in prof_eff.segments[:nbot]:
+                segment.t *= self._chi_d_b
+            
+            # If the bottom flange is not entirely effective,
+            # make the thickness of the non-effective segment zero.
+            if self._rho_b < 1.0:
+                prof_eff.segments[nbot].t = 0
+            
+            """
             # Move the node of the edge stiffener down
             prof_eff.nodes[0].z -= (1-self._rho_b_lip)*self.bb_lip_center
             
             # Split the bottom flange into two parts
             s = 0.5*self._rho_b
             prof_eff.split_segment(1,s)
-                        
+            """            
             """ If there is a non-effective part of the bottom flange
                 remove that too.
+            """
             """
             if self._rho_b < 1.0:
                 s2 = (1-self._rho_b)*self.bb_center/prof_eff.segments[2].length()
@@ -1570,6 +1603,7 @@ class CSection(ZSection):
                 prof_eff.segments[2].khp = 0.0
             prof_eff.segments[0].t *= self._chi_d_b
             prof_eff.segments[1].t *= self._chi_d_b        
+            """
         else:
             
             """ The effective bottom flange is an outstand element """
@@ -1584,11 +1618,29 @@ class CSection(ZSection):
     def create_edge_stiffener(self,flange='top'):
         """ Creates a model for the edge stiffener of a flange """
         if flange == 'top':            
+            n1 = self.parts['top_flange']['nodes'][-2]
+            n2 = self.parts['top_lip']['nodes'][-1]
+            nodes = self.prof.nodes[n1:n2+1]
+            
+            nodes[0].y = self.bp_t+self.gr-0.5*self.bp_t*self._rho_t
+            
+            if self._rho_t_lip < 1.0:            
+                nodes[-2].z = nodes[-1].z + (1-self._rho_t_lip)*self.bp_t_lip
+            
+            #corner = list(self.prof.nodes[-2].coord)
+            #y_edge = corner[0]-0.5*self.bt_center*self._rho_t
+            #z_lip  = corner[1]-self.bt_lip_center*self._rho_t_lip
+            #nodes = [[y_edge,corner[1]],corner,[corner[0],z_lip]]
+            self.edge_stiff[flange] = OpenProf(nodes,self.t)
+            #self.edge_stiff[flange].draw()
+            """
+            self.edge_stiff[flange].draw()
             corner = list(self.prof.nodes[-2].coord)
             y_edge = corner[0]-0.5*self.bt_center*self._rho_t
             z_lip  = corner[1]-self.bt_lip_center*self._rho_t_lip
             nodes = [[y_edge,corner[1]],corner,[corner[0],z_lip]]
             self.edge_stiff[flange] = OpenProf(nodes,self.t)
+            """
         else:
             corner = list(self.prof.nodes[1].coord)            
             y_edge = corner[0]-0.5*self.bb_center*self._rho_b
@@ -1707,9 +1759,10 @@ def Cexample(t=2.0,ca=0,cb=0):
     #c.effective_width_flange(psi=1.0, flange='top',verb=True)
     c.effective_section(True)
     #c.create_model()
-    c.create_effective_model()
+    #c.prof.draw(node_labels=True)
+    #c.create_effective_model()
     
-    c.prof_eff.draw(seg_labels=True,node_labels=True)
+    #c.prof_eff.draw(seg_labels=True,node_labels=True)
 
     #ygc, zgc = c.centroid_eff()
     #print(ygc,zgc)
@@ -1719,7 +1772,7 @@ def Cexample(t=2.0,ca=0,cb=0):
 if __name__ == "__main__":
     
     #c = Cexample(t=1.0,ca=16,cb=16)
-    c = Cexample(t=1.5,ca=0,cb=0)
+    c = Cexample(t=1.5,ca=18,cb=18)
     
     #z = ZSection(t_nom=1.5,h=200,a=74,b=66,ca=21.2,cb=21.2,r=3,
     #             material="S350GD",t_coat=0.04)
