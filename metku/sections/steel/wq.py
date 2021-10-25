@@ -295,7 +295,8 @@ class WQSection(SteelSection):
                     self.Aw*(self.bt+self.tw)
         return Wpl
     
-    def draw(self,axes=None,origin=[0,0],theta=0):
+    def draw(self,axes=None,origin=[0,0],plot_centroid=False,
+             plot_plastic_centroid=False):
         """ Draw the profile 
             input:
                 axes .. matplotlib.axes.Axes object. If this is given,
@@ -326,11 +327,14 @@ class WQSection(SteelSection):
         ax.set_xlim((0,self.bb))
         ax.set_ylim((0,self.tb+self.h))
         
-        zel = self.elastic_neutral_axis()
-        dpl = self.plastic_neutral_axis()        
+        if plot_centroid:
+            zel = self.elastic_neutral_axis()
+            ax.plot(0.5*self.bb,zel,'or')
         
-        plt.plot(0.5*self.bb,zel,'or')
-        plt.plot(0.5*self.bb,self.tb+self.hw-dpl,'db')
+        if plot_plastic_centroid:
+            dpl = self.plastic_neutral_axis()        
+        
+            ax.plot(0.5*self.bb,self.tb+self.hw-dpl,'db')
         
         plt.show()
         # bottom flange coordinates

@@ -180,6 +180,9 @@ class RHSJoint:
         
     def strength_reduction(self):
         """ Reduce the strength of joint for steel greater than S355
+        
+            NOTE! Strength reduction factor can be separately specified
+            in attribute 'r'.
         """
         
         if self.r == 0:
@@ -710,9 +713,9 @@ class RHSYJoint(RHSJoint):
     
     def slend(self):
 
-        slend = 3.46*(self.h0/self.t0 -2) *np.sqrt(1/np.sin(np.radians(self.angle)))
-        slend = slend / (np.pi * np.sqrt(E / self.fy0))
-        return slend
+        sl = 3.46*(self.h0/self.t0 -2)*np.sqrt(1/np.sin(np.radians(self.angle)))
+        sl = sl / (np.pi * np.sqrt(E / self.fy0))
+        return sl
    
     def chord_web_buckling(self):
         
@@ -965,7 +968,7 @@ def Y_example():
     brace.Ned = -50e3
     
     
-    YJoint = RHSYJoint(chord,brace,45)
+    YJoint = RHSYJoint(chord,brace,45,N0=-887.5e3)
 
     YJoint.r = 1.0
     

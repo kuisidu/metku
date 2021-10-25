@@ -16,6 +16,7 @@ from materials.steel_data import Steel
 from eurocodes.en1993.en1993_1_3.open_prof import OpenProf
 from eurocodes.en1993.en1993_1_3 import en1993_1_3
 from eurocodes.en1993 import en1993_1_5
+from eurocodes.en1993.constants import gammaM0, gammaM1
 
 weckman_c_z = {100:{'a':42,'b':48,'c':18,'r':4,'t':[1,1.2,1.5,2],'width':[216,216,212,210]},
              120:{'a':42,'b':48,'c':18,'r':4,'t':[1,1.2,1.5,2],'width':[238,236,234,230]},
@@ -139,11 +140,16 @@ class ZSection:
         self._points = []
         
         """ Reduction factors for effective cross-section """
+        self._lambda_t = 0.1
         self._rho_t = 1.0
+        self._lambda_t_lip = 0.1
         self._rho_t_lip = 1.0
+        self._lambda_w = 0.1
         self._rho_w = 1.0
         self._psi_w = 1.0 # Stress ratio for web
+        self._lambda_b = 0.1
         self._rho_b = 1.0
+        self._lambda_b_lip = 0.1
         self._rho_b_lip = 1.0
         """ Reduction factors for distortional buckling """
         self._chi_d_t = 1.0
@@ -219,6 +225,21 @@ class ZSection:
     def G(self):
         """ Shear modulus """
         return self.material.G
+    
+    @property
+    def A(self):
+        """ Gross area of cross section """
+        return self.area()
+
+    @property
+    def Aeff(self):
+        self.prof_eff = deepcopy(self.prof)
+        self.effective_section('compression')
+        return self.prof_eff.area()
+    
+    @property
+    def NRd(self):
+        return self.axial_force_resistance()
     
     @property
     def fya(self):
@@ -600,7 +621,7 @@ class ZSection:
             
             nw_top = prof_eff.parts['web']['nodes'][2]
             nw_bot = prof_eff.parts['web']['nodes'][1]
-                    
+            
             
             prof_eff.nodes[nw_top].z = prof_eff.nodes[nw_top+1].z + self.gr - be1
             prof_eff.nodes[nw_bot].z = prof_eff.nodes[nw_top].z - bneg
@@ -853,8 +874,10 @@ class ZSection:
             
         if flange == 'top':
             self._rho_t = rho
+            self._lambda_t = lambda_p
         else:
             self._rho_b = rho
+            self._lambda_b = lambda_p
         
         if verb:
             print("** Effective {0:s} flange **".format(flange))
@@ -881,9 +904,11 @@ class ZSection:
             
         if flange == 'top':
             self._rho_t_lip = rho
+            self._lambda_t_lip = lambda_p
         else:
             self._rho_b_lip = rho
-        
+            self._lambda_b_lip = lambda_p
+            
         if verb:
             print("** Effective {0:s} edge stiffener **".format(flange))
             print("  Notional width of flange: bp = {0:4.2f}".format(bp))
@@ -914,6 +939,7 @@ class ZSection:
     
         self._rho_w = rho
         self._psi_w = psi
+        self._lambda_w = lambda_p
     
     def distortional_buckling(self,flange='top',verb=False):
         """ Distortional buckling of the edge stiffene 
@@ -941,8 +967,11 @@ class ZSection:
         
         if flange == 'top':
             self._chi_d_t = chi_d
+            self._lambda_t = lambda_d
         else:
             self._chi_d_b = chi_d
+            self._lambda_b = lambda_d
+            
         return chi_d
     
     def area(self,delta=False):
@@ -993,7 +1022,7 @@ class ZSection:
             with respect to 
         """
     
-    def effective_section(self,verb=False):
+    def effective_section(self,load='compression',verb=False):
         """ Returns effective section, including local buckling
             and distortional buckling.
             
@@ -1006,11 +1035,11 @@ class ZSection:
                 
                 _chid_t .. reduction factor for top edge stiffener for
                             distortional buckling
-                _chid_b .. reduction factotr for bottom edge stiffener
+                _chid_b .. reduction factor for bottom edge stiffener
                             for distortional buckling
         """
         
-        if self.Med > 0.0:
+        if load == 'bending_y_pos':
             """ Positive bending:
                 top flange in compression
                 bottom flange in tension
@@ -1034,18 +1063,21 @@ class ZSection:
             
             self.effective_width_web(psi,verb=verb)
             self.create_effective_model()
-        elif self.Ned < 0.0:
+        elif load == 'compression':
             """ Compression: all parts are checked """
             for flange in ['top','bottom']:
                 self.effective_width_flange(psi=1.0,flange=flange,verb=verb)
                 if self.flange_lip(flange) > 0:
                     self.effective_width_edge_stiffener(flange,verb)
                     self.create_edge_stiffener(flange)
+                
+                    
                     
             for flange in ['top','bottom']:
                 if self.flange_lip(flange) > 0:
                     self.distortional_buckling(flange=flange,verb=verb)
-                        
+            
+            
             self.effective_width_web(psi=1.0,verb=verb)            
             self.create_effective_model()
             
@@ -1110,7 +1142,7 @@ class ZSection:
             kf = 0.0
         
         b1 = abs(self.edge_stiff[f1].centroid()[0])
-        print('b1 = {0:4.3f}'.format(b1))
+        #print('b1 = {0:4.3f}'.format(b1))
         if kf != 0.0:
             b2 = abs(self.edge_stiff[f2].centroid()[0])
         else:
@@ -1185,6 +1217,37 @@ class ZSection:
         print("KA = {0:4.3f}".format(1/KA_inv))
         
         return 1/(1/KB+KA_inv)
+
+    def axial_force_resistance(self,verb=False):
+        if self.Ned >= 0:
+            NRd = self.fya*self.A/gammaM0
+        else:
+            Aeff = self.Aeff
+            Ag = self.A
+            if Aeff < Ag:
+                NRd = self.fyb*Aeff/gammaM0
+            else:
+                lambda_ratio = self._lambda_w/0.673
+                
+                if self.ca > 0.0:
+                    top_lambda_ratio = self._lambda_t/0.65
+                else:
+                    top_lambda_ratio = self._lambda_t/0.673
+                
+                if self.cb > 0.0:
+                    bot_lambda_ratio = self._lambda_b/0.65
+                else:
+                    bot_lambda_ratio = self._lambda_b/0.673
+                    
+                lambda_ratio = max(lambda_ratio,top_lambda_ratio,bot_lambda_ratio)
+                NcRd = Ag*(self.fyb+4*(self.fya-self.fyb)*(1-lambda_ratio))
+                
+                NRd = min(NcRd,self.fya*Ag)/gammaM0
+
+        if verb:
+            print("NRd = {0:4.2f} kN".format(NRd*1e-3))
+
+        return NRd
 
     def draw(self):
         """ Draw the profile 
@@ -1487,24 +1550,24 @@ class CSection(ZSection):
         if self._rho_w < 1.0:
             """ Effective web """            
             if self._psi_w < 0.0:
-                hc = self.hw_center/(1-self._psi_w)
+                hc = self.bp_w/(1-self._psi_w)
                 beff = self._rho_w * hc
                 be1 = 0.4*beff
                 be2 = 0.6*beff                
             elif self._psi_w < 1.0:
-                hc = self.hw_center
-                beff = self._rho_w * self.hw_center
+                hc = self.bp_w
+                beff = self._rho_w * hc
                 be1 = 2*beff/(5-self._psi_w)
                 be2 = beff-be1            
             else:
-                hc = self.hw_center
-                beff = self._rho_w * self.hw_center
+                hc = self.bp_w
+                beff = self._rho_w * hc
                 be1 = 0.5*beff
                 be2 = 0.5*beff
         
             bneg = hc-beff
             # Part of the web in tension
-            ht = self.hw_center-hc
+            #ht = self.hw_center-hc
         
             if self.cb > 0:
                 nweb = 2
@@ -1520,13 +1583,13 @@ class CSection(ZSection):
             """
             nw_top = self.parts['web']['nodes'][2]
             nw_bot = self.parts['web']['nodes'][1]
+            
+            print(be1,be2, bneg)
                     
-            prof_eff.nodes[nw_top].z = prof_eff.nodes[nw_top+1].z + self.gr - be1
+            prof_eff.nodes[nw_top].z = prof_eff.nodes[nw_top+1].z + self.rm*np.sin(np.radians(45)) - be1
             prof_eff.nodes[nw_bot].z = prof_eff.nodes[nw_top].z - bneg
             
             prof_eff.segments[nw_bot].t = 0.0
-        
-        
         
         if self.ca > 0.0:            
             """ Edge stiffener is present """
@@ -1642,12 +1705,23 @@ class CSection(ZSection):
             self.edge_stiff[flange] = OpenProf(nodes,self.t)
             """
         else:
+            n1 = self.parts['bottom_lip']['nodes'][0]
+            n2 = self.parts['bottom_flange']['nodes'][1]            
+            nodes = self.prof.nodes[n1:n2+1]
+            
+            nodes[-1].y = self.bp_b+self.gr-0.5*self.bp_b*self._rho_b
+            
+            if self._rho_b_lip < 1.0:
+                nodes[1].z = nodes[0].z + (1-self._rho_b_lip)*self.bp_b_lip
+            
+            self.edge_stiff[flange] = OpenProf(nodes,self.t)
+            """
             corner = list(self.prof.nodes[1].coord)            
             y_edge = corner[0]-0.5*self.bb_center*self._rho_b
             z_lip  = corner[1]+self.bb_lip_center*self._rho_b_lip
             nodes = [[y_edge,corner[1]],corner,[corner[0],z_lip]]
             self.edge_stiff[flange] = OpenProf(nodes,self.t)
-
+            """
     def draw(self):
         """ Draw the profile 
             
@@ -1754,10 +1828,10 @@ def Cexample(t=2.0,ca=0,cb=0):
     
     c = CSection(t_nom=t,h=150.0,a=47,b=41,ca=ca,cb=cb,r=3.0,t_coat=0.04)
     
-    c.Med = 10.0
-    #c.Ned = -10.0
+    #c.Med = 10.0
+    c.Ned = -10.0
     #c.effective_width_flange(psi=1.0, flange='top',verb=True)
-    c.effective_section(True)
+    c.effective_section('compression',True)
     #c.create_model()
     #c.prof.draw(node_labels=True)
     #c.create_effective_model()
@@ -1769,10 +1843,29 @@ def Cexample(t=2.0,ca=0,cb=0):
 
     return c
 
+def Cdesign(t=2.0,ca=0,cb=0):
+    
+    c = CSection(t_nom=t,h=150.0,a=47,b=47,ca=ca,cb=cb,r=3.0,t_coat=0.04)
+    
+    #c.Med = 10.0
+    c.Ned = -10.0
+    #c.effective_width_flange(psi=1.0, flange='top',verb=True)
+    #c.effective_section('compression',True)
+
+    print("Axial resistance: {0:4.2f} kN".format(c.NRd*1e-3))
+    
+    c.prof.draw(coord_axes=True)
+    plt.grid(True)
+    c.prof_eff.draw(coord_axes=True)
+    plt.grid(True)
+    
+    return c
+
 if __name__ == "__main__":
     
     #c = Cexample(t=1.0,ca=16,cb=16)
-    c = Cexample(t=1.5,ca=18,cb=18)
+    #c = Cexample(t=1.5,ca=18,cb=18)
+    c = Cdesign(t=1.5,ca=18,cb=18)
     
     #z = ZSection(t_nom=1.5,h=200,a=74,b=66,ca=21.2,cb=21.2,r=3,
     #             material="S350GD",t_coat=0.04)
