@@ -238,6 +238,39 @@ class ZSection:
         return self.prof_eff.area()
     
     @property
+    def Iw(self):
+        """ Warping constant of the gross cross-section """
+        return self.prof.warping_constant()
+    
+    @property
+    def It(self):
+        """ Torsion constant """
+        return self.prof.torsion_constant()
+    
+    @property
+    def Iy(self):
+        """ Second moment of area of gross cross-section with respect
+            to the major axis
+        """
+        return self.prof.Iy()
+    
+    @property
+    def Iz(self):
+        """ Second moment of area of gross cross-section with respect
+            to the minor axis
+        """
+        return self.prof.Iz()
+    
+    @property
+    def Iyz(self):
+        """ Product moment of the gross cross-section """
+        return self.prof.product_moment_gc()
+    
+    def Ifz(self,flange='bottom'):
+        """ Second moment of area of the free flange """
+        return self.free_flange[flange].Iz()
+    
+    @property
     def NRd(self):
         return self.axial_force_resistance()
     
@@ -356,38 +389,7 @@ class ZSection:
         y_sc, z_sc = self.prof.shear_center()
         return [y_sc, z_sc]
     
-    @property
-    def Iw(self):
-        """ Warping constant of the gross cross-section """
-        return self.prof.warping_constant()
     
-    @property
-    def It(self):
-        """ Torsion constant """
-        return self.prof.torsion_constant()
-    
-    @property
-    def Iy(self):
-        """ Second moment of area of gross cross-section with respect
-            to the major axis
-        """
-        return self.prof.Iy()
-    
-    @property
-    def Iz(self):
-        """ Second moment of area of gross cross-section with respect
-            to the minor axis
-        """
-        return self.prof.Iz()
-    
-    @property
-    def Iyz(self):
-        """ Product moment of the gross cross-section """
-        return self.prof.product_moment_gc()
-    
-    def Ifz(self,flange='bottom'):
-        """ Second moment of area of the free flange """
-        return self.free_flange[flange].Iz()
     
     @property
     def gr(self):

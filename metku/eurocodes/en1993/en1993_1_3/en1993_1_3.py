@@ -121,6 +121,29 @@ def distortional_buckling_stress(Is,As,E,K):
     """    
     return 2*math.sqrt(K*E*Is)/As
 
+""" Chapter 6: Design of members """
+def axial_force_resistance(self,Ned,A,**kwargs):
+    try:
+        if Ned >= 0:
+            NRd = kwargs['fya']*A/gammaM0        
+        else:
+            Aeff = kwargs['Aeff']        
+            if Aeff < A:
+                NRd = kwargs['fyb']*Aeff/gammaM0
+            else:
+                lambda_ratio = kwargs['lambda_ratio']
+                fyb = kwargs['fyb']
+                fya = kwargs['fya']
+                NcRd = A*(fyb+4*(fya-fyb)*(1-lambda_ratio))
+                    
+                NRd = min(NcRd,fya*A)/gammaM0
+    
+    except:
+        print("axial_force_resistance: invalid keyword!")
+        NRd = 0.0
+          
+    return NRd
+
 """ Chapter 8: Design of Joints """
 
 """ Table 8.2: Design resistances for self-tapping screws """

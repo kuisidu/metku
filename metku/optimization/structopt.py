@@ -29,6 +29,7 @@ from itertools import product
 from collections.abc import Iterable
 from functools import lru_cache
 from copy import deepcopy
+import copy
 try:
     from metku.loadIDs import LoadIDs
 except:
@@ -518,6 +519,7 @@ class NonLinearConstraint(Constraint):
         """
 
         self.con = con_fun
+        self.grad = None        
         Constraint.__init__(self, name, con_type, problem, **kwargs)
 
     def __call__(self, x):
@@ -550,6 +552,18 @@ class NonLinearConstraint(Constraint):
                 break
 
         return self.con(fixed_vals)
+    
+    def df(self,x):
+        """ Evaluate gradient at x """
+        
+        if self.grad is None:
+            # Evaluate gradient numerically
+            df = NumGrad(self.con,x)
+        else:
+            df = self.grad(x)
+        
+        return df
+
 
 class ObjectiveFunction:
 
@@ -977,9 +991,28 @@ class OptimizationProblem:
             Pconlin.add(Variable(name=var.name,lb=var.lb,ub=var.ub,value=x[i]))
         
         # Approximate objective
-        Pconlin.obj = conlin_fun(x,self.obj(x))
+        if self.grad is None:
+            dfx = NumGrad(self.obj,x)
+        else:
+            dfx = self.grad(x)
+            
+        Pconlin.obj = conlin_fun(x,self.obj(x),dfx)
         
         # Approximate constraints
+        for con in self.cons:
+            if isinstance(con,LinearConstraint):
+                # Linear constraints are simply added
+                Pconlin.add(con)
+            else:
+                # For nonlinear constraints, CONLIN approximation is made
+                conlin_con = copy.copy(con)
+                gx = con.con(x)
+                dgx = con.df(x)
+                conlin_con.con = conlin_fun(x,gx,dgx)
+                
+                Pconlin.add(conlin_con)
+        
+        return Pconlin
 
     def nnonlincons(self):
         """ Returns number of non linear constraints"""
@@ -1528,7 +1561,7 @@ class OptimizationProblem:
                 var.ub_mult = max(var.lb_mult + 2*Rineq*val,0)
             
 
-def NumGrad(fun, h, x):
+def NumGrad(fun, x):
     """ Gradient by finite difference """
     fx = fun(x)
     n = len(x)
@@ -1536,22 +1569,24 @@ def NumGrad(fun, h, x):
     """ if only a single value for step length 'h' is given,
         transform it to a list
     """
-
-
-    if isinstance(h, float):
-        h = h * np.ones(n)
+    
+    
+    #if isinstance(h, float):
+    #    h = h * np.ones(n)
 
     df = np.zeros(n)
-
     #    
     for i in range(len(x)):
+        #print("Täällä")
         xh = deepcopy(x)
-        xh[i] += h[i]
-        print(xh)
+        h = max(1e-6 * abs(xh[i]), 1e-8)
+        xh[i] += h
+        #print(xh)
+        
         fh = fun(xh)
-        #     print(fx, fh)
+        #print(fx, fh)
 
-        df[i] = (fh - fx) / h[i]
+        df[i] = (fh - fx) / h
 
     return df
 
@@ -1625,7 +1660,7 @@ def Linearize(fun, x, grad=None):
     if grad == None:
         h = 0.01 * x  # check if this is OK
         # h = np.ones_like(x) * 1e-2
-        a = NumGrad(fun, h, x)
+        a = NumGrad(fun, x, h)
     else:
         a = grad(x)
 
