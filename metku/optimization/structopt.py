@@ -1013,7 +1013,57 @@ class OptimizationProblem:
                 Pconlin.add(conlin_con)
         
         return Pconlin
+    
+    def mma(self,x,U,L,mu=0.8):
+        """
+        Generates MMA approximation of the problem at point 'x' using the asymptotes 'U' and 'L'
 
+
+        Parameters
+        ----------
+        x : numpy array
+            Approximation point.
+        U : numpy array
+            Upper asymptote.
+        L : numpy array
+            Lower asymptote.
+
+        Returns
+        -------
+        Optimization problem with nonlinear function replaced by their MMA approximations.
+
+        """
+        
+        Pmma = OptimizationProblem(name="MMA")
+        
+        for i, var in enumerate(self.vars):
+            """ Create variables for the conlin problem """
+            Pmma.add(Variable(name=var.name,lb=max(var.lb,L[i]+mu*(x[i]-L[i])),ub=min(var.ub,U[i]-mu*(U[i]-x[i])),value=x[i]))
+        
+        # Approximate objective
+        if self.grad is None:
+            dfx = NumGrad(self.obj,x)
+        else:
+            dfx = self.grad(x)
+            
+        Pmma.obj = mma_fun(x,self.obj(x),dfx,L,U)
+        
+        # Approximate constraints
+        for con in self.cons:
+            if isinstance(con,LinearConstraint):
+                # Linear constraints are simply added
+                Pmma.add(con)
+            else:
+                # For nonlinear constraints, CONLIN approximation is made
+                mma_con = copy.copy(con)
+                gx = con.con(x)
+                dgx = con.df(x)
+                mma_con.con = mma_fun(x,gx,dgx,L,U)
+                
+                Pmma.add(mma_con)
+        
+        return Pmma
+        
     def nnonlincons(self):
         """ Returns number of non linear constraints"""
         non_lin_cons = [con for con in self.cons if
@@ -1637,8 +1687,35 @@ def conlin_fun(xk,fk,dfk,pos_vars=True):
         return fC          
             
     return eval_conlin
-            
 
+def mma_fun(xk,fk,dfk,L,U):
+    """ Generates the MMA approximation of a function """
+    
+    if isinstance(xk,float) or isinstance(xk,int):
+        xk = np.array([xk])
+        dfk = np.array([dfk])
+        
+    n = len(xk)
+
+    """ Initialize 'p' and 'q' as zeros. """
+    p = np.zeros(n)
+    q = np.zeros(n)
+    for i, (Xk,Lk,Uk) in enumerate(zip(xk,L,U)):
+        # Determine the constants p and q
+        if dfk[i] >= 0:
+            p[i] = (Uk-Xk)**2*dfk[i]
+        else:
+            q[i] = -(Xk-Lk)**2*dfk[i]
+    
+    # Evaluate r(xk)
+    rk = fk-sum(p/(U-xk)+q/(xk-L))
+    
+    def eval_mma(x):
+        # Evaluate MMA approximation
+        return rk + sum(p/(U-x)+q/(x-L))
+
+
+    return eval_mma
 
 def Linearize(fun, x, grad=None):
     """ Linearization of a function
