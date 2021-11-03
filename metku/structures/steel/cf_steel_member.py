@@ -72,6 +72,8 @@ class CFSteelMember(SteelMember):
         St = self.profile.G*self.profile.It
         Sz = self.profile.E*self.profile.Iz*math.pi**2/self.length**2*0.25*self.profile.h**2
         
+        
+        
         return (Sw + St + Sz)*70/self.profile.h**2
     
     
@@ -85,7 +87,7 @@ if __name__ == '__main__':
     z = cf_profs.ruukki_z(300,2.5)
     m = CFSteelMember(z,length=5000)
     
-    print(m.kh())
+    #print(m.kh())
     
     #print(c.kh())
     #print(m.Sreq())
