@@ -5,7 +5,7 @@ with open("README.md", 'r') as fh:
 
 setuptools.setup(
     name="metku",
-    version="0.1.0",
+    version="0.1.2",
     author="Kristo Mela, Jaakko Huusko, Viktor Haimi",
     author_email="-",
     description="Module for structural analysis and optimization",
@@ -19,5 +19,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.9",
-    install_requires=['numpy', 'matplotlib', 'scipy', 'deap', 'ortools', 'treelib']
+    install_requires=['numpy', 'matplotlib', 'scipy',
+                      'deap', 'ortools', 'treelib']
 )
