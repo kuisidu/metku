@@ -37,19 +37,24 @@ class GA(OptSolver):
                  best_f: float = 1e100) -> None:
         """ Constructor
 
-            All deap functions and their kwargs can be found here:
+            All deap functions and  parameters can be found here:
             https://deap.readthedocs.io/en/master/api/tools.html
 
             :param pop_size: population size
-            :mutation_rate: mutation rate
-            :crossover_rate: cross over rate
-            :penalty: penalty function
-            :mutation_fun: mutation function
-            :crossover_fun: cross over function
-            :crossover_kwargs: arguments for the cross over function
-            :first_improvement:
-            :best_f: current best
-
+            :param mutation_rate: mutation rate
+            :param crossover_rate: crossover rate
+            :param penalty: penalty function, arguments: constraint values
+            :param mutation_fun: mutation function,
+             arguments: individual gene
+            :param mutation_kwargs: mutation function parameters
+            :param crossover_fun: crossover function,
+             arguments: parent gene1, parent gene2
+            :param crossover_kwargs: crossover function parameters
+            :param select: selection function,
+             arguments: population
+            :param select_kwargs: selection function parameters
+            :param first_improvement:
+            :param best_f: current best value
         """
         super().__init__()
 
