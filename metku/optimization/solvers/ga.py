@@ -58,6 +58,7 @@ class GA(OptSolver):
         """
         super().__init__()
 
+        # Defaults
         if select_kwargs is None and select is None:
             select = tools.selBest
             select_kwargs = {"k": 2}
@@ -67,6 +68,7 @@ class GA(OptSolver):
         if crossover_kwargs is None and crossover_fun is None:
             crossover_fun = tools.cxTwoPoint
             crossover_kwargs = {}
+
         """ Toolbox contains basic evolutionary operators """
         self.toolbox = base.Toolbox()
         self.pop_size = pop_size
@@ -162,7 +164,9 @@ class GA(OptSolver):
         var = self.problem.vars[idx]
 
         """ Creates random integer value for index or integer variables """
-        if isinstance(var, (IndexVariable, IntegerVariable)):
+        if self.x0 is not None:
+            val = self.x0[idx]
+        elif isinstance(var, (IndexVariable, IntegerVariable)):
             val = np.random.randint(var.lb, var.ub)
 
         else:
@@ -227,7 +231,9 @@ class GA(OptSolver):
     def solve(self, problem, x0=None, maxiter=100, maxtime=-1, log=False,
               min_diff=1e-5, verb=False, plot=False):
 
+
         self.problem = problem
+        self.x0 = x0
         """ Creates the fitness function 
             but the create_fitness method does not return anything!
         """
@@ -245,7 +251,9 @@ class GA(OptSolver):
 
         """ Create population """
         pop = self.toolbox.population(n=self.pop_size)
-
+        if x0 is not None:
+            for ind in pop:
+                self.toolbox.mutate(ind)
         """ Evaluate fitness """
         fitnesses = list(map(self.toolbox.evaluate, pop))
 
