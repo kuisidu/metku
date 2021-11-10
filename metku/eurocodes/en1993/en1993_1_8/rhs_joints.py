@@ -157,7 +157,7 @@ class RHSJoint:
         return self.chord.fy
 
     def gamma(self):
-        return 0.5*self.h0/self.t0
+        return 0.5*self.b0/self.t0
         
     def b_straight(self):
         """ Length of the straight part of the chord profile """
@@ -187,9 +187,11 @@ class RHSJoint:
         
         if self.r == 0:
             r = 1.0
-            if self.fy0 > 355:
+            if self.fy0 <= 355:
+                r = 1.0
+            elif self.fy0 <= 460:            
                 r = 0.9
-            elif self.fy0 > 460:
+            else:
                 r = 0.8
         else:
             r = self.r
@@ -976,10 +978,27 @@ def Y_example():
     
     return YJoint
 
+def K_example():
+    
+    chord = RHS(80,140,6,fy=700)
+    b1 = RHS(70,70,3,fy=700)
+    b2 = RHS(40,60,4,fy=700)
+    
+    b1.Ned = 123.743e3
+    b2.Ned = -123.743e3
+    
+    Kjoint = RHSKGapJoint(chord, [b1,b2], [45,45],40,N0=-362500.0)
+    
+    print(Kjoint.eval_KN())
+    
+    return Kjoint
+    
 if __name__ == '__main__':
     
-    from sections.steel import SHS
-    YJ = Y_example()
+    from sections.steel.RHS import RHS, SHS
+    #YJ = Y_example()
+    
+    KJ = K_example()
     
     """
     
