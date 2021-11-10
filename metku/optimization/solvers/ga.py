@@ -23,18 +23,18 @@ import time
 
 class GA(OptSolver):
 
-    def __init__(self, pop_size=10,
-                 mutation_rate=0.05,
-                 crossover_rate=0.8,
-                 penalty=None,
-                 mutation_fun=None,
-                 mutation_kwargs=None,
-                 crossover_fun=None,
-                 crossover_kwargs=None,
-                 select=None,
-                 select_kwargs=None,
-                 first_improvement=False,
-                 best_f=1e100):
+    def __init__(self, pop_size: int = 10,
+                 mutation_rate: float = 0.05,
+                 crossover_rate: float = 0.8,
+                 penalty: callable = None,
+                 mutation_fun: callable = None,
+                 mutation_kwargs: dict = None,
+                 crossover_fun: callable = None,
+                 crossover_kwargs: dict = None,
+                 select: callable = None,
+                 select_kwargs: dict = None,
+                 first_improvement: bool = False,
+                 best_f: float = 1e100) -> None:
         """ Constructor
 
             All deap functions and their kwargs can be found here:
@@ -49,7 +49,7 @@ class GA(OptSolver):
             :crossover_kwargs: arguments for the cross over function
             :first_improvement:
             :best_f: current best
-        
+
         """
         super().__init__()
 
@@ -135,7 +135,7 @@ class GA(OptSolver):
 
     def create_fitness(self):
 
-        """ Create Fitness class called FitnessMin 
+        """ Create Fitness class called FitnessMin
             The weight -1.0 corresponds to minimization problem
         """
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -166,12 +166,12 @@ class GA(OptSolver):
         return val
 
     def register(self):
-        """ Registers a set of functions to be used in the algorithm 
+        """ Registers a set of functions to be used in the algorithm
             the arguments for the register method are:
                 1. alias for the function to be registered
                 2. the actual method to registered
                 3. arguments to be passed to the aliased method
-        
+
         """
         self.toolbox.register("attribute", self.attribute_generator)
 
