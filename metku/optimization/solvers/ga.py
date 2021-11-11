@@ -32,13 +32,15 @@ class GA(OptSolver):
         """ Constructor
             :param pop_size: population size
             :mut_rate: mutation rate
-            :cx_rate: cross over rate
-            :penalty: penalty function?
+            :cx_rate: crossover rate
+            :penalty: penalty function
             :mut_fun: mutation function
             :cx_fun: cross over function
             :cx_kwargs: arguments for the cross over function
-            :first_improvement:
-            :best_f:
+            :first_improvement: if True, the iteration is stopped when a first better solution
+            than the initial solution has been found. If False, the iteration is continued
+            until no improvement has been made in the last 10 rounds.
+            :best_f: initial best known value of the objective function
         
         """
         super().__init__()

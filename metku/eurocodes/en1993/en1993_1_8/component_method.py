@@ -148,7 +148,7 @@ def Tstub_compression_flange(fjd,beff,leff):
     return fjd*beff*leff
 
 
-def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
+def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0,verb=False):
     """ Column web in transverse compression, 6.2.6.2, 6.3.2
         Input: 
             column .. SteelSection class object
@@ -183,11 +183,11 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     s = r_c
     b_eff_c_wc = t_fb+2.0*sqrt(2.0)*a_p+5.0*(t_fc+s)+s_p
 
-    
-    print("tbf = {0:4.2f}".format(t_fb))
-    print("weld = {0:4.2f}".format(2*sqrt(2.0)*a_p))
-    print("5.0*(t_fc+s) = {0:4.2f}".format(5.0*(t_fc+s)))
-    print("s_p= {0:4.2f}".format(s_p))
+    if verb:    
+        print("tbf = {0:4.2f}".format(t_fb))
+        print("weld = {0:4.2f}".format(2*sqrt(2.0)*a_p))
+        print("5.0*(t_fc+s) = {0:4.2f}".format(5.0*(t_fc+s)))
+        print("s_p= {0:4.2f}".format(s_p))
     
     # Slenderness of column web
     lam_p = 0.932*sqrt((b_eff_c_wc*d_wc*f_y_wc)/(E*t_wc**2.0))
@@ -209,11 +209,12 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0):
     else:
         k_wc = 1.7-sigma_com_Ed/f_y_wc
 
-    print("beff_c_wc = {0:4.3f} mm".format(b_eff_c_wc))
-    print("d_wc = ",d_wc)
-    print("lam_p = ",lam_p)
-    print("omega = ",w)
-    print("rho = ",rho)
+    if verb:
+        print("beff_c_wc = {0:4.3f} mm".format(b_eff_c_wc))
+        print("d_wc = ",d_wc)
+        print("lam_p = ",lam_p)
+        print("omega = ",w)
+        print("rho = ",rho)
     
     # Calculating capacity of column web in transverse compression
     F_c_wc_Rd = min((w*k_wc*b_eff_c_wc*t_wc*f_y_wc)/gammaM0,(w*k_wc*rho*b_eff_c_wc*t_wc*f_y_wc)/gammaM1)

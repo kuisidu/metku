@@ -129,12 +129,12 @@ class SandwichPanel:
     @property
     def thickness(self):
         """ Total thickness of panel """
-        return self.faces[0].khp + self.faces[1].khp + self.core.khp
+        return self.faces[0].t + self.faces[1].t + self.core.t
         
     @property
     def d(self):
         """ distance between center lines of faces """
-        return 0.5 * self.faces[0].khp + 0.5 * self.faces[1].khp + self.core.khp
+        return 0.5 * self.faces[0].t + 0.5 * self.faces[1].t + self.core.t
 
     @property
     def Atop(self):        
@@ -147,7 +147,7 @@ class SandwichPanel:
     @property
     def S(self):
         """ Shear stiffness [N] """
-        return self.core.G*self.width*self.d**2/self.core.khp
+        return self.core.G*self.width*self.d**2/self.core.t
     
     @property
     def EIo(self):

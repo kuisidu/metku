@@ -409,7 +409,7 @@ class RHSKGapJoint(RHSJoint):
         # Check first, if the chord can sustain the shear force
         if self.V0gap/self.chord.shear_force_resistance() > 1:
             # Chord profile is not sufficient, so set resistance to 0.0.
-            # print("Chord is not strong enough for shear forces")
+            print("Chord is not strong enough for shear forces")
             N0Rd = 0.0
 
         else:
@@ -998,9 +998,27 @@ if __name__ == '__main__':
     from sections.steel.RHS import RHS, SHS
     #YJ = Y_example()
     
-    KJ = K_example()
+    #KJ = K_example()
+    
+    
+    C = RHS(60,40,3,fy=700)
+    C.material.fy = 770
+    B1 = RHS(40,40,4,fy=700)
+    B1.material.fy = 770
+    B2 = RHS(40,40,4,fy=700)
+    B2.material.fy = 770
+    
+    C.Ned = -500e3
+    B1.Ned = 200e3
+    B2.Ned = -200e3
+    
+    K = RHSKGapJoint(C, [B1,B2], [45,45],15,N0=C.Ned)
+    
+    K.info()
     
     """
+    
+    
     
     
     

@@ -385,13 +385,13 @@ class EndPlateJoint:
         return cm.col_web_shear_k(self.col,self.beta,z)
             
     
-    def Fc_wc_Rd(self):
+    def Fc_wc_Rd(self,verb=True):
         """ Column web in compression """
         
         if self.stiffeners["col_bottom_flange"] is None:
             # Calculate compression stress
             sigma_com_Ed = self.col.sigma_com()
-            Fc_wc_Rd, beff_wc = cm.col_web_trv_comp(self.col, self.beam, self.end_plate.t, self.ebottom, self.weld_f, self.beta, sigma_com_Ed)
+            Fc_wc_Rd, beff_wc = cm.col_web_trv_comp(self.col, self.beam, self.end_plate.t, self.ebottom, self.weld_f, self.beta, sigma_com_Ed, verb)
             self.beff_wc = beff_wc
         else:
             Fc_wc_Rd = cm.col_web_trv_comp_stiffened(self.col, self.stiffeners["col_bottom_flange"])

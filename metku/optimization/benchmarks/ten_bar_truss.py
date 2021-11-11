@@ -203,7 +203,7 @@ class TenBarTruss(OptimizationProblem):
                     disp_con.fea_required = True
                     self.add(comp_con)
                     self.add(tension_con)
-                    self.add(disp_con)
+                    #self.add(disp_con)
 
     def create_objective(self):
 
