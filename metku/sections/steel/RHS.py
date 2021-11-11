@@ -334,7 +334,7 @@ def RHS_paint_area(H, B, R):
 
 
 def RHS_shear_area(A, H, B):
-    Ashear = A * B / (H + B)
+    Ashear = A * H / (H + B)
     return Ashear
 
 
