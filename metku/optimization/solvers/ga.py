@@ -20,40 +20,67 @@ from deap import base, creator, tools
 
 import time
 
+
 class GA(OptSolver):
 
-    def __init__(self, pop_size=10, mut_rate=0.05, cx_rate=0.8, penalty=None,
-                 mut_fun=tools.mutShuffleIndexes,
-                 mutation_kwargs={'indpb': 0.05},
-                 cx_fun=tools.cxTwoPoint,
-                 cx_kwargs={},
-                 first_improvement=False,
-                 best_f=1e100):
+    def __init__(self, pop_size: int = 10,
+                 mutation_rate: float = 0.05,
+                 crossover_rate: float = 0.8,
+                 penalty: callable = None,
+                 mutation_fun: callable = None,
+                 mutation_kwargs: dict = None,
+                 crossover_fun: callable = None,
+                 crossover_kwargs: dict = None,
+                 select: callable = None,
+                 select_kwargs: dict = None,
+                 first_improvement: bool = False,
+                 best_f: float = 1e100) -> None:
         """ Constructor
+
+            All deap functions and  parameters can be found here:
+            https://deap.readthedocs.io/en/master/api/tools.html
+
             :param pop_size: population size
-            :mut_rate: mutation rate
-            :cx_rate: crossover rate
-            :penalty: penalty function
-            :mut_fun: mutation function
-            :cx_fun: cross over function
-            :cx_kwargs: arguments for the cross over function
-            :first_improvement: if True, the iteration is stopped when a first better solution
-            than the initial solution has been found. If False, the iteration is continued
-            until no improvement has been made in the last 10 rounds.
-            :best_f: initial best known value of the objective function
-        
+
+            :param mutation_rate: mutation rate
+            :param crossover_rate: crossover rate
+            :param penalty: penalty function, arguments: constraint values
+            :param mutation_fun: mutation function,
+             arguments: individual gene
+            :param mutation_kwargs: mutation function parameters
+            :param crossover_fun: crossover function,
+             arguments: parent gene1, parent gene2
+            :param crossover_kwargs: crossover function parameters
+            :param select: selection function,
+             arguments: population
+            :param select_kwargs: selection function parameters
+            :param first_improvement:
+            :param best_f: current best value
         """
         super().__init__()
+
+        # Defaults
+        if select_kwargs is None and select is None:
+            select = tools.selBest
+            select_kwargs = {"k": 2}
+        if mutation_kwargs is None and mutation_fun is None:
+            mutation_fun = tools.mutShuffleIndexes
+            mutation_kwargs = {"indpb": 0.05}
+        if crossover_kwargs is None and crossover_fun is None:
+            crossover_fun = tools.cxTwoPoint
+            crossover_kwargs = {}
 
         """ Toolbox contains basic evolutionary operators """
         self.toolbox = base.Toolbox()
         self.pop_size = pop_size
-        self.mut_rate = mut_rate
-        self.cx_rate = cx_rate
-        self.mut_fun = mut_fun
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        self.mutation_fun = mutation_fun
         self.mutation_kwargs = mutation_kwargs
-        self.cx_kwargs = cx_kwargs
-        self.cx_fun = cx_fun
+        self.crossover_kwargs = crossover_kwargs
+        self.crossover_fun = crossover_fun
+        self.select = select
+        self.select_kwargs = select_kwargs
         self.plot = False
         self.best_f = best_f
         self.prev_best = best_f
@@ -67,7 +94,6 @@ class GA(OptSolver):
             self.penalty = penalty
         else:
             self.penalty = penalty
-
 
         self.counter = 0
 
@@ -86,19 +112,18 @@ class GA(OptSolver):
         """
         self.problem.substitute_variables(ind)
         X = [round(var.value, 3) for var in self.problem.vars]
-        
+
         """ Evaluate objective function """
         obj_val = self.problem.obj(X)
         """ Evaluate constraints """
         constr_vals = self.problem.eval_cons(X)
         """ Apply penalty on constraints """
         penalty_val = self.penalty(constr_vals)
-        
+
         """ Fitness function equals objective function value + penalty """
         val = obj_val + penalty_val
         if self.plot:
             self.update_plot(self.fig, self.ax)
-
 
         # print("GAPS: ", [j.g1 for j in self.problem.structure.joints.values()])
 
@@ -118,7 +143,7 @@ class GA(OptSolver):
 
     def create_fitness(self):
 
-        """ Create Fitness class called FitnessMin 
+        """ Create Fitness class called FitnessMin
             The weight -1.0 corresponds to minimization problem
         """
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -140,7 +165,9 @@ class GA(OptSolver):
         var = self.problem.vars[idx]
 
         """ Creates random integer value for index or integer variables """
-        if isinstance(var, (IndexVariable, IntegerVariable)):
+        if self.x0 is not None:
+            val = self.x0[idx]
+        elif isinstance(var, (IndexVariable, IntegerVariable)):
             val = np.random.randint(var.lb, var.ub)
 
         else:
@@ -149,12 +176,12 @@ class GA(OptSolver):
         return val
 
     def register(self):
-        """ Registers a set of functions to be used in the algorithm 
+        """ Registers a set of functions to be used in the algorithm
             the arguments for the register method are:
                 1. alias for the function to be registered
                 2. the actual method to registered
                 3. arguments to be passed to the aliased method
-        
+
         """
         self.toolbox.register("attribute", self.attribute_generator)
 
@@ -165,15 +192,18 @@ class GA(OptSolver):
         # Evaluation function
         self.toolbox.register("evaluate", self.eval_individual)
         # Crossover operator
-        self.toolbox.register("mate", self.cx_fun, **self.cx_kwargs)
+        self.toolbox.register("mate", self.crossover_fun,
+                              **self.crossover_kwargs)
         # Mutation
-        self.toolbox.register("mutate", self.mut_fun, **self.mutation_kwargs)
+        self.toolbox.register("mutate", self.mutation_fun,
+                              **self.mutation_kwargs)
 
         # operator for selecting individuals for breeding the next
         # generation: each individual of the current generation
         # is replaced by the 'fittest' (best) of three individuals
         # drawn randomly from the current generation.
-        self.toolbox.register("select", tools.selBest, k=2)
+        # self.toolbox.register("select", tools.selBest, k=2)
+        self.toolbox.register("select", self.select, **self.select_kwargs)
 
         # Define the population to be a list of individuals
         self.toolbox.register("population", tools.initRepeat,
@@ -185,7 +215,7 @@ class GA(OptSolver):
         :param offspring: list of offsprings
         :return: new population
         """
-        idx = np.random.randint(len(offspring)-1)
+        idx = np.random.randint(len(offspring) - 1)
         self.problem.substitute_variables(self.best_x)
         values = [var.value for var in self.problem.vars]
         for i, val in enumerate(offspring[idx]):
@@ -199,14 +229,12 @@ class GA(OptSolver):
 
         return new_population
 
-
     def solve(self, problem, x0=None, maxiter=100, maxtime=-1, log=False,
               min_diff=1e-5, verb=False, plot=False):
 
 
-        
-        self.toolbox = base.Toolbox() # THIS COMMAND IS ALREADY IN THE CONSTRUCTOR!
         self.problem = problem
+        self.x0 = x0
         """ Creates the fitness function 
             but the create_fitness method does not return anything!
         """
@@ -224,7 +252,9 @@ class GA(OptSolver):
 
         """ Create population """
         pop = self.toolbox.population(n=self.pop_size)
-        
+        if x0 is not None:
+            for ind in pop:
+                self.toolbox.mutate(ind)
         """ Evaluate fitness """
         fitnesses = list(map(self.toolbox.evaluate, pop))
 
@@ -232,7 +262,7 @@ class GA(OptSolver):
         #       are crossed
         #
         # MUTPB is the probability for mutating an individual
-        CXPB, MUTPB = self.cx_rate, self.mut_rate
+        CXPB, MUTPB = self.crossover_rate, self.mutation_rate
 
         # Main loop
         it = 0
@@ -253,7 +283,6 @@ class GA(OptSolver):
                 # cross two individuals with probability CXPB
                 if random.random() < CXPB:
                     self.toolbox.mate(child1, child2)
-
                     # fitness values of the children
                     # must be recalculated later
                     del child1.fitness.values
@@ -272,6 +301,7 @@ class GA(OptSolver):
                 ind.fitness.values = fit
             # The population is entirely replaced by the offspring
             pop[:] = offspring
+
             # Gather all the fitnesses in one list and print the stats
             fits = [ind.fitness.values[0] for ind in pop]
             length = len(pop)
@@ -285,6 +315,8 @@ class GA(OptSolver):
                       f"Obj: {problem.obj(self.best_x)} \n"
                       f"Max con: {max(problem.eval_cons(self.best_x)):.3f}  "
                       f"{problem.cons[np.argmax(problem.eval_cons(self.best_x))].name}")
+
+            # Set new best values to problem
             problem.substitute_variables(self.best_x)
 
             if plot:
@@ -294,8 +326,9 @@ class GA(OptSolver):
                 return self.best_f, self.best_x
 
             if self.counter > (10 - 3):
-                print(f"The result has not improved in the last 10 generations."
-                      f"\n Returning current best values.")
+                print(
+                    f"The result has not improved in the last 10 generations."
+                    f"\n Returning current best values.")
                 return self.best_f, self.best_x
 
             elif it > 0 and prev_val == min(fits):
@@ -311,11 +344,6 @@ class GA(OptSolver):
                 problem.gvals.append(max(self.constr_vals))
                 self.fvals.append(self.best_f)
                 self.xvals.append(self.best_x)
-
-        # best_idx = np.argmin(fits)
-        # xopt = pop[best_idx]
-        # print("XOPT: ", xopt)
-        # fopt = fits[best_idx]
 
         return self.best_f, self.best_x
 

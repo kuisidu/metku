@@ -1,7 +1,0 @@
-stages:
-  - test
-
-test:
-  stage: test
-  script:
-  - echo "HELLO CI!"
