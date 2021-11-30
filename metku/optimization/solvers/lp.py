@@ -38,71 +38,107 @@ class LP(OptSolver):
         
         """
     
-        import gurobipy as grb
+        if self.algo == "gurobi":
+            import gurobipy as grb
+            
+            try:
+                lp = grb.Model("lp")
+            except:
+                self.algo = 'ortools'
+                from ortools.linear_solver import pywraplp
+                lp = pywraplp.Solver.CreateSolver('GLOP')
                 
-        lp = grb.Model("lp")
-        
+        else:
+            from ortools.linear_solver import pywraplp
+            lp = pywraplp.Solver.CreateSolver('GLOP')
                 
         x = []
         for var in problem.vars:
             """
                 create variable, including the objective function
                 coefficient and name
-            """                    
-            x.append(lp.addVar(var.lb,var.ub,vtype=grb.GRB.CONTINUOUS,name=var.name))
+            """
+            if self.algo == "gurobi":
+                x.append(lp.addVar(var.lb,var.ub,vtype=grb.GRB.CONTINUOUS,name=var.name))
+            else:
+                x.append(lp.NumVar(var.lb,var.ub,var.name))
                 
         #nvars = len(x)
                 
         if problem.obj.obj_type == "MIN":
-            obj_sense = grb.GRB.MINIMIZE
+            if self.algo == "gurobi":
+                obj_sense = grb.GRB.MINIMIZE
+            else:
+                lp.Minimize(lp.Sum(C * X for C, X in zip(problem.obj.c,x)))
         else:
-            obj_sense = grb.GRB.MAXIMIZE
+            if self.algo == "gurobi":
+                obj_sense = grb.GRB.MAXIMIZE
+            else:
+                lp.Maximize(lp.Sum(C * X for C, X in zip(problem.obj.c,x)))
         
-        lp.setObjective(grb.LinExpr(problem.obj.c,x),sense=obj_sense)
-        
-        
+        if self.algo == "gurobi":
+            lp.setObjective(grb.LinExpr(problem.obj.c,x),sense=obj_sense)
+            
+        # Generate constraints
         for con in problem.cons:
             if isinstance(con,sopt.LinearConstraint):
-                if con.type == '<':
-                    con_sense = grb.GRB.LESS_EQUAL
-                            #lp.addLConstr(LinExpr(con.a, x), grb.GRB.LESS_EQUAL, con.b)
-                            #lp.addConstr(grb.quicksum([con.a[j]*x[j] for j in range(nvars)]) <= con.b[i])
-                elif con.type == '>':
-                    con_sense = grb.GRB.GREATER_EQUAL
-                            #lp.addLConstr(LinExpr(con.a, x), grb.GRB.LESS_EQUAL, con.b)
-                            #lp.addConstr(grb.quicksum([con.a[j]*x[j] for j in range(nvars)]) >= con.b[i])
+                if self.algo == "gurobi":
+                    if con.type == '<':
+                        con_sense = grb.GRB.LESS_EQUAL
+                                #lp.addLConstr(LinExpr(con.a, x), grb.GRB.LESS_EQUAL, con.b)
+                                #lp.addConstr(grb.quicksum([con.a[j]*x[j] for j in range(nvars)]) <= con.b[i])
+                    elif con.type == '>':
+                        con_sense = grb.GRB.GREATER_EQUAL
+                                #lp.addLConstr(LinExpr(con.a, x), grb.GRB.LESS_EQUAL, con.b)
+                                #lp.addConstr(grb.quicksum([con.a[j]*x[j] for j in range(nvars)]) >= con.b[i])
+                    else:
+                        con_sense = grb.GRB.EQUAL
+                                #lp.addConstr(grb.quicksum([con.a[j]*x[j] for j in range(nvars)]) = con.b[i])
+                    
+                    lp.addLConstr(grb.LinExpr(con.a, x), con_sense, con.b)
                 else:
-                    con_sense = grb.GRB.EQUAL
-                            #lp.addConstr(grb.quicksum([con.a[j]*x[j] for j in range(nvars)]) = con.b[i])
-                
-                lp.addLConstr(grb.LinExpr(con.a, x), con_sense, con.b)
-                
-
-        lp.update()                
+                    lhs = lp.Sum(A * X for A, X in zip(con.a,x))
+            
+                    if con.type == '<':
+                        lp.Add(lhs <= con.b)
+                    elif con.type == '>':
+                        lp.Add(lhs >= con.b)
+                    else:
+                        lp.Add(lhs == con.b)
+        
+        if self.algo == "gurobi":
+            lp.update()                
        
 
-        #for var in lp.getVars():
-        #    print(var.lb,var.ub)
-        
-        
-        if not verb:
-            lp.setParam("LogToConsole",0)
-                #qp.update()
-        lp.optimize()
-                
-        if lp.Status == grb.GRB.OPTIMAL:
-            self.feasible = True
-        elif lp.Status == grb.GRB.INFEASIBLE:
-            self.feasible = False
-                
-        X = []
-        for v in lp.getVars():
-            #print('%s %g' % (v.varName, v.x))                    
-            X.append(v.x)
-        
-        # bounds = [x*self.move_limits for x in self.X]
-        #
-        # res = linprog(df, A, B, bounds=bounds)
+            #for var in lp.getVars():
+            #    print(var.lb,var.ub)
+            
+            
+            if not verb:
+                lp.setParam("LogToConsole",0)
+                    #qp.update()
+            lp.optimize()
+                    
+            if lp.Status == grb.GRB.OPTIMAL:
+                self.feasible = True
+            elif lp.Status == grb.GRB.INFEASIBLE:
+                self.feasible = False
+                    
+            X = []
+            for v in lp.getVars():
+                #print('%s %g' % (v.varName, v.x))                    
+                X.append(v.x)
+            
+            # bounds = [x*self.move_limits for x in self.X]
+            #
+            # res = linprog(df, A, B, bounds=bounds)
+        else:
+            status = lp.Solve()
+            
+            X = []
+            if status == lp.OPTIMAL:
+                for v in lp.variables():
+                    X.append(v.solution_value())    
 
         self.X = X
         #return X
@@ -147,11 +183,12 @@ def Arora_Ex63():
     for con in cons:
         p.add(con)
     
-    solver = LP("gurobi")
+    #solver = LP("gurobi")
+    solver = LP("ortools")
     solver.solve(p)
     p(solver.X)
 
-    return solver
+    return solver, p
 
 def Arora_Ex67():
     x = []
@@ -173,7 +210,8 @@ def Arora_Ex67():
     for con in cons:
         p.add(con)
     
-    solver = LP("gurobi")
+    #solver = LP("gurobi")
+    solver = LP("ortools")
     solver.solve(p)
     p(solver.X)
     
@@ -181,7 +219,7 @@ def Arora_Ex67():
 
 if __name__ == '__main__':
     
-    solver, p = Arora_Ex67()
+    solver, p = Arora_Ex63()
     
 
     

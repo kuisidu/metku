@@ -2740,8 +2740,11 @@ class FrameMember:
                 horzalign = 'center'
                 vertalign = 'center'
     
-            x, y = self.to_global(0.3) - self.perpendicular * 50
+            x, y = self.to_global(0.5) - self.perpendicular * 50
             rot = np.degrees(self.angle)
+    
+            if rot > 90:
+                rot = -(180-rot)
     
             if print_text:
                 ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
