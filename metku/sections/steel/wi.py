@@ -56,6 +56,10 @@ class WISection(SteelSection):
         
         #self.fy = fy
         
+        # Section class
+        self.web_class = 1
+        self.flanges_class = [1,1]
+        
         # Reduction factors for effective width of parts
         self.eff_top = {'rho':1.0,'bneg':0.0}
         self.eff_bottom = {'rho':1.0,'bneg':0.0}
@@ -88,7 +92,20 @@ class WISection(SteelSection):
         else:
             self.imp_factor_LT_gen = en1993_1_1.buckling_curve["d"]
             self.imp_factor_LT = en1993_1_1.buckling_curve["d"]
-            
+        
+    def __repr__(self):
+        s = f'WI{self.h:.0f}-{self.tw:.0f}-'
+        
+        if self.b[0] != self.b[1] or self.tf[0] != self.tf[1]:
+            # Doubly symmetric profile
+            s += f'{self.b[0]:.0f}x{self.tf[0]:.0f}'
+        else:
+            # Monosymmetric profile
+            s += f'{self.b[0]:.0f}x{self.tf[0]:.0f}-'
+            s += f'{self.b[1]:.0f}x{self.tf[1]:.0f}'
+        
+        return s
+    
     def __getattribute__(self, name):
         """ override the attribute access for those attributes
             that depend on the section dimensions and that are
@@ -373,6 +390,8 @@ class WISection(SteelSection):
         rf = self.cf_top / self.tt
         cFlange = en1993_1_1.outstand_part_in_compression(rf, self.eps)
 
+        self.flanges_class[0] = cFlange
+
         if verb:
             print("Flange classification (outstand element):")
             print("cf = {0:4.2f}, tf = {1:4.2f}".format(self.cf_top, self.tt))
@@ -385,6 +404,8 @@ class WISection(SteelSection):
         """ Determine class of compressed web """
         rw = self.cw / self.tw
         cWeb = en1993_1_1.internal_part_in_compression(rw, self.eps)
+
+        self.web_class = cWeb
 
         if verb:
             print("Web classification (internal part in compression):")
@@ -410,6 +431,8 @@ class WISection(SteelSection):
                     / (self.h - self.tt - self.tb - 2 * math.sqrt(2))
 
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, alpha, psi)
+                                                  
+        self.web_class = cWeb
 
         if verb:
             print("Web classification (internal part in compression and "
@@ -433,7 +456,7 @@ class WISection(SteelSection):
         p = -1
 
         cWeb = en1993_1_1.internal_part_comp_bend(rw, self.eps, a, p)
-
+        self.web_class = cWeb
         if verb:
             print("Web classification (internal part in compression and "
                   "bending):")
@@ -808,6 +831,53 @@ class WISection(SteelSection):
 
         # plt.savefig('testi' + 'plot.png')
 
+    def draw_eff(self):
+        """ Draw effective cross-section """
+        fig, ax = plt.subplots(1)
+        
+        # create section parts
+        bot_flange = patches.Rectangle((-0.5*self.bb + self.eff_bottom['bneg'], 0), width=self.bb-2*self.eff_bottom['bneg'],
+                                       height=self.tb, fill=False, hatch='\\')
+        
+        ax.add_patch(bot_flange)
+        
+        if self.eff_web['rho'] < 1.0:
+            yweb_bot = self.hw-self.weld_throat*np.sqrt(2)-self.eff_web['be'][0]-self.eff_web['bneg']
+            web1 = patches.Rectangle((-0.5*self.tw, self.tb), width=self.tw,
+                                    height=yweb_bot, fill=False, hatch='\\')
+            
+            web_neg = patches.Rectangle((-0.5*self.tw, self.tb+yweb_bot), width=self.tw,
+                                    height=self.eff_web['bneg'], fill=False, hatch='')
+            
+            web_2 = patches.Rectangle((-0.5*self.tw, self.tb+yweb_bot + self.eff_web['bneg']), width=self.tw,
+                                    height=self.eff_web['be'][0] + self.weld_throat*np.sqrt(2), fill=False, hatch='\\')
+            
+            ax.add_patch(web1)
+            ax.add_patch(web_neg)
+            ax.add_patch(web_2)
+            
+        else:
+            web = patches.Rectangle((-0.5*self.tw, self.tb), width=self.tw,
+                                    height=self.hw, fill=False, hatch='\\')
+            
+            ax.add_patch(web)
+    
+        top_flange = patches.Rectangle((-0.5*self.bt + self.eff_top['bneg'], self.h-self.tt),
+                                       width=self.bt - 2*self.eff_top['bneg'], height=self.tt,
+                                       fill=False, hatch='\\')
+                
+        ax.add_patch(top_flange)
+        ax.set_xlim(-0.5*max(self.b), 0.5*max(self.b))
+        ax.set_ylim(0, self.h)
+        
+        zel = self.effective_neutral_axis()
+        
+        plt.plot(0.0, zel, 'or')
+        
+        
+        ax.set_aspect('equal')
+        
+        plt.show()
 
 def test_sym():
     """ symmetric I-beam """

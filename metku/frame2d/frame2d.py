@@ -712,7 +712,7 @@ class Frame2D:
             support.add_support(self.f)
 
         # Add point loads (if any)
-        for pointLoad in self.point_loads.values():
+        for pointLoad in self.point_loads.values():            
             pointLoad.add_load(self.f)
             # Creates new loadcase if one with same load_id does not exist
             lcase_ids = [lc.load for lc in self.f.loadcases.values()]

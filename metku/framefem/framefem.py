@@ -507,7 +507,7 @@ class FrameFEM:
         load_id = self.loadcases[lcase].load
         p = self.global_load_vector(load_id)
        
-        
+        #print(p)
         """ Take supports into account
             The method is based on Filippa's Lecture Notes (3.5.2)
             
@@ -522,6 +522,8 @@ class FrameFEM:
         rem_dofs = []
         """ Vector of global unsupported dofs """
         glob_dofs = np.arange(self.dofs)
+        
+        
         
         for supp in self.supports:
             if supp.sid == supp_id:                

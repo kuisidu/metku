@@ -9,6 +9,7 @@ Created on Wed Aug  7 09:15:25 2019
 
 import math
 from materials.steel_data import Steel
+from eurocodes.en1993.constants import gammaM2
 
 fasteners = {'SXC14-S19-5.5':{'d':5.5,'dS':5.1,'d1':4.59}}
 
@@ -24,6 +25,33 @@ def ruukki_panel(name='SPA E', thickness=100, length=6000):
     panel = SandwichPanel([TopFace,BottomFace],core,width,length)
     
     return panel
+
+class SandwichScrew:
+    """ Class for sandwich panel fasteners """
+    
+    def __init__(self,d=5.5,dS=5.1,d1=4.59):
+        """
+        Constructor
+
+        Parameters
+        ----------
+        d : float, optional
+            Diameter [mm]. The default is 5.5.
+        dS : TYPE, optional
+            Diameter [mm]. The default is 5.1.
+        d1 : TYPE, optional
+            Diameter [mm]. The default is 4.59.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.d = d
+        self.dS = dS
+        self.d1 = d1
+    
 
 class Face:
     """ Face of sandwich panel """
@@ -104,7 +132,8 @@ class Core:
 class SandwichPanel:
     """ Class for sandwich panels """
     
-    def __init__(self,faces,core,width=1200,length=6000):
+    def __init__(self,faces,core,width=1200,length=6000,c=[1000],
+                 fastener=SandwichScrew(d=5.5,dS=5.1,d1=4.59)):
         """ Constructor
 
             Parameters:
@@ -112,6 +141,8 @@ class SandwichPanel:
                 :param faces: list of class Face objects
                 :param core: class core object
                 :param width, length: self-evident [mm]
+                :param c: list of screw pair distances [mm], starting from
+                        outermost screws
 
                 Variables:
                 ----------
@@ -125,6 +156,8 @@ class SandwichPanel:
         self.core = core
         self.width = width
         self.length = length
+        self.c = c
+        self.fastener = fastener
         
     @property
     def thickness(self):
@@ -161,17 +194,26 @@ class SandwichPanel:
         EA = [face.EA(self.width) for face in self.faces]
         
         return EA[0]*EA[1]/sum(EA)*self.d**2
+    
+    @property
+    def tF2_cor(self):
+        """ Thickness of steel core of face 2 """
         
+        return self.faces[1].tcor
+    
+    @property
+    def fu_F2(self):
+        """ Ultimate strength of face 2 """
+        return self.faces[1].fu
 
-    def fastener_transverse_stiffness(self,tsup,fastener='SXC14-S19-5.5'):
+    def fastener_transverse_stiffness(self,tsup,verb=False):
         """ Transverse stiffness of the fastener according to
             ECCS recommendations
             
             :param tsup: thickness of supporting structure [mm]
-            :param fastener: name of the fastener (see fasteners list)
         """
-        d1 = fasteners[fastener]['d1']
-        dS = fasteners[fastener]['dS']
+        d1 = self.fastener.d1
+        dS = self.fastener.dS
         
         # bending stiffness of fastener
         EI = 200000*math.pi*dS**4/64
@@ -181,7 +223,7 @@ class SandwichPanel:
         
         # Stiffness of internal face (hole elongation)
         if self.faces[1].tcor < 0.7:
-            kF2 = 6.93*self.faces[1].fu*math.sqrt(self.faces[1].tcor**3*d1)/(0.26 + 0.8 * self.faces[1].khp)
+            kF2 = 6.93*self.faces[1].fu*math.sqrt(self.faces[1].tcor**3*d1)/(0.26 + 0.8 * self.faces[1].t)
         else:
             kF2 = 4.2*self.faces[1].fu*math.sqrt(self.faces[1].tcor**3*d1)/0.373
 
@@ -191,16 +233,46 @@ class SandwichPanel:
         
         kv = 1/(xF/kF2 + (tsup**2 + 2*(1-xF)*D*tsup)/4/Csup + (3*(1-xF)*D*tsup**2 + tsup**3)/24/EI)
         
-        print("EI = {0:4.2f}".format(EI))
-        print("Csup = {0:4.2f}".format(Csup))
-        print("kF2 = {0:4.2f}".format(kF2))
-        print("xF = {0:4.4f}".format(xF))
-        
-        print("1/k1 = {0:4.4g}".format(xF/kF2))
-        print("1/k2 = {0:4.4g}".format((tsup**2 + 2*(1-xF*D*tsup))/4/Csup))
-        print("1/k3 = {0:4.4g}".format((3*(1-xF)*D*tsup**2 + tsup**3)/24/EI))
-        
+        if verb:
+            print("EI = {0:4.2f}".format(EI))
+            print("Csup = {0:4.2f}".format(Csup))
+            print("kF2 = {0:4.2f}".format(kF2))
+            print("xF = {0:4.4f}".format(xF))
+            
+            print("1/k1 = {0:4.4g}".format(xF/kF2))
+            print("1/k2 = {0:4.4g}".format((tsup**2 + 2*(1-xF*D*tsup))/4/Csup))
+            print("1/k3 = {0:4.4g}".format((3*(1-xF)*D*tsup**2 + tsup**3)/24/EI))
+            
         return kv
+    
+    def shear_stiffness_for_support(self,tsup,L,n):
+        """
+        Shear stiffness of the panel that it provides for stabilisation of an individual member
+
+        Returns
+        -------
+        None.
+
+        """
+        kv = self.fastener_transverse_stiffness(tsup)
+        
+        Si = 0.5*kv*n/L*sum([ci**2 for ci in self.c])
+        
+        return Si
+        
+    def fastener_shear_resistance(self):
+        """
+        Shear resistance of fastener
+
+        Returns
+        -------
+        None.
+
+        """
+        VRk = 4.2*math.sqrt(self.tF2_cor**3*self.fastener.d1)*self.fu_F2
+        
+        return VRk/gammaM2
+        
     
 def example():
     

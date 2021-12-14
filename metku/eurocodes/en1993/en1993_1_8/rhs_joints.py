@@ -134,6 +134,8 @@ class RHSJoint:
         
         self.r = 0
 
+        self.chord_face_plate = {'lp': 0, 'bp': 0,'tp': 0}
+        self.chord_web_plate = {'lp': 0, 'bp': 0,'tp': 0}
              
     
     @property    
@@ -389,7 +391,11 @@ class RHSKGapJoint(RHSJoint):
         kn = self.eval_KN()
         r = self.strength_reduction()
         fy0 = self.fy0
-        t0 = self.t0
+        if self.chord_face_plate['tp'] == 0:
+            t0 = self.t0
+        else:
+            t0 = self.chord_face_plate['tp']
+            
         NRd = []
         NRd0 = r*8.9*kn*fy0*t0**2*math.sqrt(g)*b/gammaM5
         for angle in self.angles:
@@ -409,7 +415,7 @@ class RHSKGapJoint(RHSJoint):
         # Check first, if the chord can sustain the shear force
         if self.V0gap/self.chord.shear_force_resistance() > 1:
             # Chord profile is not sufficient, so set resistance to 0.0.
-            print("Chord is not strong enough for shear forces")
+            #print("Chord is not strong enough for shear forces")
             N0Rd = 0.0
 
         else:
@@ -431,7 +437,10 @@ class RHSKGapJoint(RHSJoint):
         t = np.array(self.t)
         fy = np.array(self.fy)
         fy0 = self.fy0
-        t0 = self.t0
+        if self.chord_face_plate['tp'] == 0:
+            t0 = self.t0
+        else:
+            t0 = self.chord_face_plate['tp']
         beff = np.minimum(10/(self.b0/t0)*fy0*t0/(fy*t),1)*b
         #beff_arr = np.array([min(x,beff[i]) for i, x in enumerate(b)])
             
@@ -441,7 +450,10 @@ class RHSKGapJoint(RHSJoint):
     def punching_shear(self):
         b = self.b
         fy0 = self.fy0
-        t0 = self.t0
+        if self.chord_face_plate['tp'] == 0:
+            t0 = self.t0
+        else:
+            t0 = self.chord_face_plate['tp']
         bep = np.minimum(10/(self.b0/t0),1)*b 
         r = self.strength_reduction()
         
@@ -449,6 +461,38 @@ class RHSKGapJoint(RHSJoint):
             
         NRd = r*fy0*t0/math.sqrt(3)/s*(2*self.h/s+b+bep)/gammaM5
         return NRd
+    
+    def add_chord_face_plate(self,lp=0,bp=0,tp=0):
+        """
+        Adds a reinforcement plate to the chord face
+
+        Parameters
+        ----------
+        lp : float
+            length of the plate.
+        bp : float
+            width of the plate.
+        tp : float
+            thickness of the plate.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        lp_min = 1.5*(self.braces[0].h/np.sin(np.radians(self.angles[0])) + self.gap + 
+                                              self.braces[1].h/np.sin(np.radians(self.angles[1])))
+        
+        lp = max(lp,lp_min)
+        
+        bp = max(bp,self.b0-2*self.t0)
+
+        tp = max(tp,2*max(self.t))
+        
+        self.chord_face_plate = {'lp':lp, 'bp':bp,'tp':tp}
+        
+        
     
     def validity(self,verb=False):
         """ Check the conditions of Table 7.8 regarding the geometry of the joint  

@@ -144,6 +144,119 @@ def axial_force_resistance(self,Ned,A,**kwargs):
           
     return NRd
 
+def RwRd_two_webs(fyb,r,t,phi,hw,ss,verb=False,code='old',**kwargs):
+    """    
+
+    Parameters
+    ----------
+    fyb : float
+        Yield strength of the base material [MPa].
+    r : float
+        internal corner radius.
+    t : float
+        thickness of the steel core
+    phi : float
+        angle of the web relative to flanges (degrees), 45 <= phi <= 90
+    hw : float
+        Height of the web.
+    ss : float
+        Support width.
+    category : integer, optional
+        Loading category. value is either 1 or 2. The default is 1.
+    force_type : string
+        Type of loading. Either 'load' for local load or 'support' for support
+    **kwargs : 
+        either empty, or 'e = ' or 'c = '.
+
+    Returns
+    -------
+    Resistance [N]
+
+    """
+    # Young's modulus
+    E = 210000
+    
+    e = -1
+    c = -1
+    
+    for key, value in kwargs.items():        
+        if key == 'e':
+            e = value            
+        elif key == 'c':
+            c = value        
+        elif key == 'VEd':
+            # list of shear forces of transverse shear forces on each side
+            # of the local load or support reaction, with
+            # abs(VEd[0]) > abs(VEd[1])
+            VEd = value
+        else:
+            raise ValueError('Incorrect input value, give either c or e.')
+            
+    category = 1
+        
+    # The last condition corresponds to internal support reaction, which means
+    # that neither 'c' or 'e' is given as input parameter    
+    if e > 1.5*hw or c > 1.5*hw or (e < 0 and c < 0):
+        
+        category = 2
+
+        
+    if category == 1:
+        # This a value is for trapezoidal sheeting
+        # for liner trays and hats, use a = 0.057
+        if code == 'old':
+            a = 0.075
+        else:
+            if e > 0:
+                # Sheeting with opposite loading
+                a = 0.075
+            else:
+                # Sheeting near clear end
+                a = min(0.18*np.sqrt((c+ss)/1.5/hw),0.15)
+        # Effective bearing length
+        la = 10.0
+    else:
+        # This a value is for trapezoidal sheeting
+        # for liner trays and hats, use a = 0.115
+        a = 0.15
+        
+        if code == 'old':
+            VEd = [abs(V) for V in VEd]
+            
+            beta_v = (VEd[0]-VEd[1])/(VEd[0]+VEd[1])
+            
+            if beta_v <= 0.2:
+                la = ss
+            elif beta_v >= 0.3:
+                la = 10.0
+            else:
+                # linear intepolation
+                la = ss - (beta_v-0.2)/0.1*(ss-10)
+        else:
+            la = ss
+        
+        la = min(la,200)
+    
+    RwRd = a*t**2*np.sqrt(fyb*E)*(1-0.1*np.sqrt(r/t))*(0.5+np.sqrt(0.02*la/t))*(2.4+(phi/90)**2)/gammaM1   
+    
+    if verb:
+        print("Resistance for transverse loads:")
+        print(f"Category: {category}")
+        print(f"Web height: hw = {hw:{4}.{2}f} mm")
+        print(f"Support width: ss = {ss:{4}.{2}f} mm")
+        print(f"alpha = {a:{4}.{2}f}")
+        
+        if category == 2 and code == "old":
+            print(f"beta_v = {beta_v:{4}.{2}f}")
+        
+        print(f"Effective bearing length: la = {la:{4}.{2}f} mm")
+        
+        print(f" Rw_Rd = {RwRd*1e-3:{4}.{2}f} kN")
+        
+        
+    
+    return RwRd
+
 """ Chapter 8: Design of Joints """
 
 """ Table 8.2: Design resistances for self-tapping screws """
@@ -330,5 +443,9 @@ if __name__ == "__main__":
     
     plate = Steel("S350GD")
     
-    screw_bearing_resistance(fu=plate.fu,d=4.2,t=0.5,t1=3.0,verb=True)
+    R = RwRd_two_webs(fyb=350, r=2.4, t=1.16, phi=65, hw=130, ss=150,verb=True,code='new',
+                      c=1.6*130,VEd=[300,100])
+    #print(R)
+    
+    #screw_bearing_resistance(fu=plate.fu,d=4.2,t=0.5,t1=3.0,verb=True)
     

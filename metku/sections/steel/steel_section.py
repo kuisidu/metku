@@ -73,6 +73,7 @@ class SteelSection(metaclass=ABCMeta):
         self.code = design_code
         self.density = constants.density
         self.rotate = False
+        
 
 
     def __repr__(self):

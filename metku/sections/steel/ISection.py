@@ -464,7 +464,7 @@ class IPE(ISection):
     """
 
     def __init__(self, height=100, fy=355, catalogue=True):
-        name = 'IPE ' + str(height)
+        name = 'IPE ' + str(height)        
         # H,B,tf,tb,r,fy=355
         if catalogue or name in profile.keys():
             try:
