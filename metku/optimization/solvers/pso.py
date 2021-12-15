@@ -1,5 +1,4 @@
-""" Particle swarm optimization
-"""
+""" Particle swarm optimization """
 
 import operator
 import random
@@ -202,10 +201,12 @@ class PSO(OptSolver):
         
 
     def initizalize_population(self):
+        """ Creates initial population with random positions 
+        
+            NOTE! This has to be checked for discrete variables.
+            The 'random_values()' method of the OptimizationProblem class
+            should generate only allowable values for the discrete variables.
         """
-        Creates initial population with random positions
-        """
-
         rng = np.random.default_rng()
         n = self.problem.nvars()
         
@@ -296,7 +297,7 @@ class PSO(OptSolver):
                 # Update design
                 # NOTE! This must be modified for discrete variables!
                 # (Employ rounding of discrete variables)
-                part.move(xlb,xub, self.problem)
+                part.move(xlb,xub)
                 # evaluate particle at its new location
                 self.eval_particle(part)
             
@@ -371,24 +372,14 @@ class Particle:
         self.c2 = None
         self.w = None
 
-    def move(self, xlb, xub, problem):
+    def move(self,xlb,xub):
         """
         Moves particle
-        problem: type == OptimizationProblem
         """
         xnew = self.x + self.v
-
         # Ensure that the particle does not exit the variable bounds
         # (Perhaps the velocity should be changed instead?)
-
         self.x = np.minimum(np.maximum(xnew,xlb),xub)
-        type_of_problem = problem.type_of_vars()
-
-        if type_of_problem == "DiscreteVariable":
-            possible_values = problem.vars[0].values
-            # Round values
-            self.x = np.array([min(possible_values, key=lambda x: abs(x - var))
-                      for var in self.x])
     
     def update_best(self):
         """ Updates the best value found so far """

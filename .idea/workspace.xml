@@ -2,13 +2,14 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="8fecfb21-8252-4478-b18a-04ac9a509fb5" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/frame2d.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/frame2d.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_2.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1995/constants.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1995/constants.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1995/en1995_1_1.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1995/en1995_1_1.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/metku/frame2d/frame2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/frame2d/frame2d.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/metku/optimization/benchmarks/ten_bar_truss.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/optimization/benchmarks/ten_bar_truss.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/metku/optimization/solvers/pso.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/optimization/solvers/pso.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/metku/optimization/structopt.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/optimization/structopt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/framefem/elements/ebbeam.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/framefem/elements/ebbeam.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/materials/steel_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/materials/steel_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/sections/steel/ISection.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/sections/steel/ISection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/sections/steel/steel_section.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/sections/steel/steel_section.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -102,13 +103,11 @@
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
-    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
-    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../metku4" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
   </component>
-  <component name="RunManager" selected="Python.pso">
+  <component name="RunManager" selected="Python.frame2d (1)">
     <configuration name="frame2d (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="frame2d" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -130,19 +129,19 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="pso" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="wi" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="frame2d" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
-      <option name="SDK_HOME" value="C:\Users\ollil\PycharmProjects\pythonProject\metku15.12.2021\venv\Scripts\python.exe" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/optimization/solvers" />
-      <option name="IS_MODULE_SDK" value="false" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/sections/steel" />
+      <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/metku/optimization/solvers/pso.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/sections/steel/wi.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -195,11 +194,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.pso" />
         <item itemvalue="Python.frame2d (1)" />
         <item itemvalue="Python tests.Unittests for test_frame2d.TestFrame2D" />
         <item itemvalue="Python tests.Unittests in test_frame2d.py" />
         <item itemvalue="Python tests.Unittests for test_frame2d.TestFrame2D.test_Ned" />
+        <item itemvalue="Python.wi" />
       </list>
     </recent_temporary>
   </component>
@@ -252,24 +251,6 @@
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
     </layout>
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/metku/optimization/solvers/pso.py</url>
-          <line>384</line>
-          <option name="timeStamp" value="1" />
-        </line-breakpoint>
-      </breakpoints>
-      <default-breakpoints>
-        <breakpoint type="python-exception">
-          <properties notifyOnTerminate="true" exception="BaseException">
-            <option name="notifyOnTerminate" value="true" />
-          </properties>
-        </breakpoint>
-      </default-breakpoints>
-    </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/metku/sections/steel/ISection.py">
@@ -392,7 +373,7 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/Frame2D/frame2d/src/frame2d/test_frame2d.py">
+    <entry file="file://$PROJECT_DIR$/../../Frame2D/frame2d/src/frame2d/test_frame2d.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="340">
           <caret line="23" column="40" lean-forward="true" selection-end-line="150" selection-end-column="19" />

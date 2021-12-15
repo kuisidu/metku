@@ -818,25 +818,6 @@ class OptimizationProblem:
         return res
         #return np.all(self.eval_cons(self.X) <= self.con_tol)
 
-    def type_of_vars(self):
-        '''
-        :return: "Variable", "IntegerVariable", "BinaryVariable",
-        IndexVariable or "DiscreteVariable"
-        '''
-        var = self.vars[0]
-        if isinstance(var, BinaryVariable):
-            return "BinaryVariable"
-        elif isinstance(var, IndexVariable):
-            return "IndexVariable"
-        elif isinstance(var, DiscreteVariable):
-            return "DiscreteVariable"
-        elif isinstance(var, IntegerVariable):
-            return "IntegerVariable"
-        elif isinstance(var, Variable):
-            return "Variable"
-        else:
-            raise Exception("Error, type of type_of_vars is none of above")
-
     def clear_vars(self):
         """
             Deletes all variables
@@ -862,17 +843,14 @@ class OptimizationProblem:
 
         """
         xrand = np.zeros(self.nvars())
-        rng = np.random.default_rng()
-
+        rng = np.random.default_rng()    
+        
         for i, var in enumerate(self.vars):
             if isinstance(var,IntegerVariable) or isinstance(var,IndexVariable):
                 xrand[i] = rng.integers(var.lb,var.ub+1)
-            elif isinstance(var, DiscreteVariable):
-                possible_values = var.values
-                random_value = (var.ub - var.lb) * rng.random() + var.lb
-                xrand[i] = min(possible_values, key=lambda x:abs(x-random_value))
             else:
                 xrand[i] = (var.ub-var.lb)*rng.random() + var.lb
+        
         return xrand
 
     def print_vars(self):
