@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as mlines
 import matplotlib.path as mpath
-from loadIDs import LoadIDs
+
 
 try:
     import metku.framefem.framefem as fem
@@ -27,6 +27,7 @@ try:
     from metku.sections.steel.CHS import CHS
     from metku.sections.steel.RHS import RHS, SHS
     from metku.sections.steel.ISection import IPE, HEA, HEB
+    from metku.loadIDs import LoadIDs
 except:
     import framefem.framefem as fem
     from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
@@ -41,6 +42,7 @@ except:
     from sections.steel.CHS import CHS
     from sections.steel.RHS import RHS, SHS
     from sections.steel.ISection import IPE, HEA, HEB
+    from loadIDs import LoadIDs
 
 from time import time
 # Rounding precision (number of decimals)
