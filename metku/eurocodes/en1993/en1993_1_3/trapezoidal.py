@@ -67,13 +67,16 @@ class TrapezoidalSheet:
         return self.material.E
     
     @property
+    def nu(self):
+        return self.material.nu
+    
+    @property
     def fy(self):
         return self.material.fy
     
     @property
     def fu(self):
         return self.material.fu
-    
     
     @property
     def hw(self):
@@ -91,6 +94,12 @@ class TrapezoidalSheet:
         return self.bb+self.bt+2*self.h*np.cos(self.angle_rad)
     
     @property
+    def width(self):
+        """ Sheet width """
+        return self.pitch*self.ntrough
+    
+    @property
     def A(self):
         """ Cross-sectional area """
         return self.ntrough*self.t*(self.bt+self.bb+2*self.sw)
+    
