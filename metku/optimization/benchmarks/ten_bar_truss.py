@@ -165,11 +165,15 @@ class TenBarTruss(OptimizationProblem):
             return mem.ned / (mem.A * mem.fy) - 1
 
         def disp_fun(x):
-            displacements = mem.nodal_displacements.values()
-            max_vals = [max(l[0:2]) for l in displacements]
-            min_vals = [min(l[0:2]) for l in displacements]
+            displacementsList = list(mem.nodal_displacements.values())
+            displacementsMultipleArrays = displacementsList[0].values()
+
+            max_vals = [max(array) for array in displacementsMultipleArrays]
+            min_vals = [min(array) for array in displacementsMultipleArrays]
+
             max_val = max(max_vals)
             min_val = min(min_vals)
+
             abs_max = max(max_val, abs(min_val))
             return abs_max / self.delta_max - 1
 
