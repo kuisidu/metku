@@ -21,7 +21,7 @@ from eurocodes.en1993.constants import gammaM0, gammaM1
 class TrapezoidalSheet:
     """ Class for trapezoidal sheeting """
     
-    def __init__(self,t,h,bt,bb,angle,r=3,material=Steel("350GD"),ntroughs=3):
+    def __init__(self,t,h,bt,bb,angle,r=3,material=Steel("S350GD"),ntroughs=3):
         """
         Constructor
 
@@ -62,6 +62,19 @@ class TrapezoidalSheet:
         self.ntrough = ntroughs
         
         
+    @property
+    def E(self):
+        return self.material.E
+    
+    @property
+    def fy(self):
+        return self.material.fy
+    
+    @property
+    def fu(self):
+        return self.material.fu
+    
+    
     @property
     def hw(self):
         """ Profile height between center lines """
