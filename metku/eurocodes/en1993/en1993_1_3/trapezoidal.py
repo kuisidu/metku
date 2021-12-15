@@ -86,6 +86,11 @@ class TrapezoidalSheet:
         return self.hw*np.sin(self.angle_rad)
     
     @property
+    def pitch(self):
+        """ Pitch of corrugations """
+        return self.bb+self.bt+2*self.h*np.cos(self.angle_rad)
+    
+    @property
     def A(self):
         """ Cross-sectional area """
         return self.ntrough*self.t*(self.bt+self.bb+2*self.sw)

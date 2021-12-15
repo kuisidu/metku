@@ -51,6 +51,8 @@ class StressedSkin:
         self.b = b
         self.n = n
                 
+        self.p = sheet.pitch
+        
         self.fastener_calc = 'en1993'
     
     def Fs(self):
@@ -127,7 +129,7 @@ class StressedSkinRafters(StressedSkin):
         The corrugations are spanning in the direction of the building.
     """
     
-    def __init__(self,sheet,a,b,n,seam_fastener,rafter,edge_member):
+    def __init__(self,sheet,a,b,n,seam_fastener,edge_fastener,rafter,edge_member):
         """
 
         Parameters
@@ -157,6 +159,7 @@ class StressedSkinRafters(StressedSkin):
         
         self.rafter = rafter
         self.edge_member = edge_member
+        self.edge_fastener = edge_fastener
         
     @property
     def ns(self):
@@ -164,6 +167,13 @@ class StressedSkinRafters(StressedSkin):
             excluding the seam-to-rafter fasteners.
         """
         return int(self.b/self.seam_fastener['spacing'])-1
+    
+    @property
+    def nsc(self):
+        """ Number of edge member fasteners in one panel,
+            excluding the seam-to-rafter fasteners.
+        """
+        return int(self.b/self.edge_fastener['spacing'])
     
     @property
     def rafter_t(self):
@@ -175,6 +185,19 @@ class StressedSkinRafters(StressedSkin):
             t = self.rafter.T
         elif hasattr(self.rafter,'tt'):
             t = self.rafter.tt
+        
+        return t
+    
+    @property
+    def edge_member_t(self):
+        """ Return edge member wall thickness """
+        
+        if hasattr(self.edge_member,'tf'):
+            t = self.edge_member.tf
+        elif hasattr(self.edge_member,'T'):
+            t = self.edge_member.T
+        elif hasattr(self.edge_member,'tt'):
+            t = self.edge_member.tt
         
         return t
     
@@ -203,6 +226,32 @@ class StressedSkinRafters(StressedSkin):
             Fp = min(1.9*fu*d*t,Fpmax)
         
         return Fp
+    
+    def Fsc(self):
+        """ Shear resistance of fastener between edge member and sheet """
+        
+        fu = self.sheet.fu
+        d = self.edge_fastener['d']
+        t = self.sheet.t
+        
+        if self.fastener_calc == 'en1993':        
+            # Calculate resistance as bearing resistance according to
+            # EN 1993-1-3            
+            t1 = self.edge_member_t
+                        
+            F = en1993_1_3.screw_bearing_resistance(fu,d,t,t1)[0]
+        else:
+            # Calculation according to ECCS guide
+            if d == 5.5:
+                Fmax = 6.5e3
+            elif d == 6.3:
+                Fmax = 8.0e3
+            else:
+                raise ValueError("ECCS Guide only allows 5.5 mm or 6.3 mm sheet-to-edge member fasteners.")
+                
+            F = min(1.9*fu*d*t,Fmax)
+        
+        return F
         
     def seam_strength(self,verb=False):
         """ Resistance of the seam """
@@ -229,15 +278,73 @@ class StressedSkinRafters(StressedSkin):
                     
         return Vs
 
+    def edge_member_fastener_strength(self,verb=False):
+        """ ECCS (1995), 5.8.1.2 """
+        
+        Fsc = self.Fsc()
+        nsc = self.nsc
+        
+        V = self.a/self.b*Fsc*nsc
+        
+        if verb:
+            print("Edge member fastener strength:")
+            print(f"Fsc = {Fsc*1e-3:.2f} kN")
+            print(f"nsc = {nsc:.0f} ")
+            print(f"V = {V*1e-3:.2f} kN")
+        
+    def sheet_rafter_fastener_strength(self,verb=False):
+        """ ECCS (1995), 5.8.3.1 """
+        
+        V = 0.6*self.a*self.Fp()/self.p
+
+        if verb:
+            print("Sheet-to-rafter fastener strength:")
+            print(f"a = {self.a:.2f} mm")
+            print(f"p = {self.p:.2f} mm ")
+            print(f"V = {V*1e-3:.2f} kN")
+    
+        return V
+
+    def end_collapse(self,verb=False):
+        """ ECCS (1995), 5.8.3.2 """
+        
+        t = self.sheet.t
+        fy = self.sheet.fy
+        a = self.a
+        d = self.sheet.pitch
+        
+        every_corrugation_fastened = True
+        
+        if every_corrugation_fastened:
+            K = 0.9
+        else:
+            K = 0.3
+        
+        V = K*t**1.5*a*fy/np.sqrt(d)
+        
+        if verb:
+            print("End collapse resistance:")
+            print(f"a = {a:.2f} mm")
+            print(f"t = {t:.2f} mm ")
+            print(f"fy = {fy:.2f} MPa ")
+            print(f"d = {d:.2f} mm ")
+            print(f"V = {V*1e-3:.2f} kN")
 
 if __name__ == "__main__":
     
-    sheet = TrapezoidalSheet(1.0,130,70,50,60)
+    sheet = TrapezoidalSheet(1.0,130,111,75,61)
     rafter = RHS(160,160,6)
     edge_member = RHS(100,100,5)
     seam_fastener = {'d':4.8, 'spacing':500, 'loc':'trough'}
+    edge_fastener = {'d':5.5, 'spacing':250}
     a = 24000
     b = 6000
     n = 12
     
-    s = StressedSkinRafters(sheet, a, b, n, seam_fastener, rafter, edge_member)
+    s = StressedSkinRafters(sheet, a, b, n, seam_fastener, edge_fastener, rafter, edge_member)
+    
+    s.seam_strength(True)
+    s.edge_member_fastener_strength(True)
+    s.sheet_rafter_fastener_strength(True)
+    s.end_collapse(True)
+    
