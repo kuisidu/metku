@@ -314,8 +314,6 @@ def test3d_frame():
     
     f = ff.FrameFEM()
     
-
-
     for x in X:
         f.add_node(x[0],x[1],x[2])
 
@@ -478,7 +476,7 @@ def test3d_beam():
 
 if __name__ == '__main__':
     
-    pf, KG = simple_portal_fem(L=4000,H=4000,ne=4)
+    #pf, KG = simple_portal_fem(L=4000,H=4000,ne=4)
     
     #pf = simple_column(L=8000,ne=6)
     
@@ -488,6 +486,6 @@ if __name__ == '__main__':
     
     #f = test_beam_and_spring()
     
-    #f = test3d_frame()
+    f = test3d_frame()
     #f = test3d_frame2()
     #f = test3d_beam()

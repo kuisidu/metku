@@ -80,6 +80,10 @@ class Line:
         """ Calculates the coordinates for local coordinate t """
         
         return self.p1 + t*self.v
+    
+    def __repr__(self):
+        
+        return f"Line: p1 = ({self.p1[0]:.3f},{self.p1[1]:.3f}), v = ({self.v[0]:.3f},{self.v[1]:.3f})"
             
     def intersect(self,line):
         """ Finds intersection point between two lines
@@ -89,9 +93,9 @@ class Line:
         u = line.v
         r = line.p1
         
-        A = np.array([v,-u])
+        A = np.array([[v[0],-u[0]],[v[1],-u[1]]])
         b = r-p
-        
+                        
         t = np.linalg.solve(A,b)
         
         x_intersect = p + t[0]*v
@@ -683,6 +687,23 @@ class RHSKGapJoint(RHSJoint):
         
         ax.plot(p0[0],p0[1],'ko')
         ax.plot([p0[0],p[0]],[p0[1],p[1]],linewidth=INNER,color='k',linestyle='dashed')
+
+class RHSKTGapJoint(RHSJoint):
+    """ For KT Gap joints between RHS members """
+    
+    def __init__(self,chord,braces,angles,gaps=[20,20], **kwargs):
+        """ Constructor
+            input:
+                chord .. chord profile (RHS or SHS class object)
+                braces .. list of brace profiles (RHS or SHS class objects)
+                angles .. list of angles (degrees) between the braces and the chord
+                gap .. gap between the braces
+        """
+        RHSJoint.__init__(self,chord, **kwargs)
+                
+        self.braces = braces
+        self.gaps = gaps
+        self.angles = angles
 
 class RHSYJoint(RHSJoint):
     

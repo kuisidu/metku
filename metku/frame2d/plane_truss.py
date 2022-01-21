@@ -1883,9 +1883,9 @@ if __name__ == '__main__':
     truss.add(XYHingedSupport(truss.top_coords[0]))
     truss.add(YHingedSupport(truss.top_coords[-1]))
     
-    #truss.plot()
-    truss.generate()
-    truss.calculate()
+    truss.plot()
+    #truss.generate()
+    #truss.calculate()
     #truss.bmd(scale=100,loads=False)
 
     # truss.H1 = 1000

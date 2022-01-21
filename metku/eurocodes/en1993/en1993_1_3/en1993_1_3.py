@@ -10,7 +10,8 @@ EN 1993-1-3 Supplementary rules for cold-formed members and sheeting
 import math
 import numpy as np
 
-from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
+from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2, gammaMfi
+from eurocodes.en1993 import en1993_1_2 
 
 def linear_interpolation(p1,p2,x):
     """ Performs linear interpolation.
@@ -311,6 +312,33 @@ def screw_bearing_resistance(fu,d,t,t1,verb=False):
     
     return FbRd, alfa
 
+def screw_bearing_resistance_elevated_temp(fu,d,t,fub,e1,e2,T,verb=False):
+    """ Bearing resistance at elevated temperatures """
+    
+    fuT = en1993_1_2.fyT(T,fu)
+    kb = en1993_1_2.kbT(T)
+    fubT = kb*fub
+
+    ad = e1/3/d
+    abT = min([ad,fubT/fuT,1.0])
+
+    k1 = min(2*e2/d-1,2.5)
+    
+    FbRd = k1*abT*fubT*d*t/gammaMfi
+    
+    if verb:
+        print("Self-tapping screw:")
+        print(f"fuT = {fuT:.2f} MPa")
+        print(f"kbT = {kb:.3f}")
+        print(f"fubT = {fubT:.2f} MPa")
+        print(f"d = {d} mm")
+        print(f"t = {t} mm")
+        print(f"alpha_(b,T) = {abT:.2f}")
+        print(f"k1 = {k1:.2f}")
+        print(" FbRd = {0:4.3f} kN".format(FbRd*1e-3))
+    
+    return FbRd
+
 def screw_net_secton_resistance(Anet,fu):
     """ Net-section resistance
         input:
@@ -441,11 +469,13 @@ if __name__ == "__main__":
     
     from materials.steel_data import Steel    
     
-    plate = Steel("S350GD")
+    #plate = Steel("S350GD")
     
-    R = RwRd_two_webs(fyb=350, r=2.4, t=1.16, phi=65, hw=130, ss=150,verb=True,code='new',
-                      c=1.6*130,VEd=[300,100])
+    #R = RwRd_two_webs(fyb=350, r=2.4, t=1.16, phi=65, hw=130, ss=150,verb=True,code='new',
+    #                  c=1.6*130,VEd=[300,100])
     #print(R)
     
-    #screw_bearing_resistance(fu=plate.fu,d=4.2,t=0.5,t1=3.0,verb=True)
+    d = 5.5
+    t = 1.0-0.04
+    FbRd = screw_bearing_resistance_elevated_temp(fu=420,d=d,t=t,fub=800,e1=109*d,e2=2.1*d,T=639,verb=True)    
     

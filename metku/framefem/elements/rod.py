@@ -20,14 +20,16 @@ class Rod(Element):
     """ Rod element, carries only axial loads """
 
     def __init__(self, n1, n2, section, material):
-        Element.__init__(self, n1, n2, section, material)
-        
+        super().__init__(n1, n2, section, material)
+                
         # Dimension of the element
         self.dim = len(n1.coord)
+        self.L = self.transformation_matrix()
 
     def transformation_matrix(self):
         """ From local to global coordinates """
         c = self.direction_cosines()
+        #c = self.dcos
         L1 = np.hstack((c, np.zeros(len(c))))
         L2 = np.hstack((np.zeros(len(c)), c))
         L = np.vstack((L1, L2))
@@ -67,6 +69,7 @@ class Rod(Element):
         E = self.material.young
         A = self.section.A
         Le = self.length()
+        #Le = self.len
 
         """ Stiffness matrix in local coordinates """
         return E * A / Le * np.array([[1, -1], [-1, 1]])
@@ -77,7 +80,7 @@ class Rod(Element):
 
         """ Transformation matrix """
         L = self.transformation_matrix()
-
+        
         """ Transform stiffness matrix to global coordinates """
         ke = L.transpose().dot(k0.dot(L))
 
@@ -125,6 +128,9 @@ class Rod(Element):
 
         dc = self.direction_cosines()
         L = self.length()
+        
+        #dc = self.dcos
+        #L = self.len
 
         fglob[[0, 2]] = 0.5 * dc[1] * q[0] * L
         fglob[[1, 3]] = 0.5 * dc[0] * q[1] * L
@@ -139,6 +145,7 @@ class Rod(Element):
         E = self.material.young
         A = self.section.A
         L = self.length()
+        #L = self.len
         self.fint[lcase]['fx'][0] = E * A / L * (q[1] - q[0])
         self.fint[lcase]['fx'][1] = self.fint[lcase]['fx'][0]
 

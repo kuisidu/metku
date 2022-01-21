@@ -167,6 +167,7 @@ class TrussMILP:
     
         """
         for k, lc in enumerate(self.structure.load_cases):
+                        
             for i, mem in self.structure.members.items():                            
                 for j, p in enumerate(self.members[i]['profiles']):
                     self.vars['force'][i][k].append(
@@ -630,7 +631,7 @@ if __name__ == '__main__':
     member_profiles = None
     lp = TrussMILP('TrussMILP',t,P,scaling={'N':1e-3,'u':1e-1},ulb=-200,uub=200,member_profiles=member_profiles,groups=groups)
     
-    lp.create_milp(problem_type='topology')
+    lp.create_milp(problem_type='sizing')
     MILPsolver = MILP()
     MILPsolver.solve(lp.milp,verb=True)
     x = MILPsolver.X

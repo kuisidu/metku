@@ -5,6 +5,8 @@ Created on Sun Jun 28 15:02:50 2020
 @author: kmela
 """
 
+
+
 try:
     from metku.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, \
         Support, Hinge, XYHingedSupport, PREC
@@ -31,6 +33,7 @@ except:
     #from loadIDs import LoadIDs
     
 import numpy as np
+from timeit import default_timer as timer
 
 class SimpleTruss(Frame2D):
     """ Class for simple trusses. Essentially, the structure is a collection of
@@ -191,7 +194,8 @@ def ten_bar_truss(L,F):
     t.add(XYHingedSupport(nodes[5]))
     
     t.generate()
-    t.calculate()
+    t.f.nodal_dofs()
+    #t.calculate()
     
     #t.plot()
     return t
@@ -237,12 +241,21 @@ def fifteen_bar_truss(L=360,h=120,P=10000):
     return t
     
 if __name__ == '__main__':
-    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1)
-    #t = ten_bar_truss(L=3000,F=200e3)
+    
+    import cProfile
+    #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1)
+    t = ten_bar_truss(L=3000,F=200e3)
     
     #t = fifteen_bar_truss()
     
-    #t.generate()
-    #t.calculate(load_id='all',support_method="REM")
+    t.generate()
+    load_id = t.load_ids[0]
+    #start = timer()    
+    #t.f.linear_statics(lcase=load_id,support_method="REM")
+    #t.calculate(load_id="all",support_method="REM")
+    #end = timer()
+    #print(end-start)
+    cProfile.run('t.f.linear_statics(lcase=load_id,support_method="REM")')
+    #cProfile.run('t.calculate(load_id="all",support_method="REM")')
         
        

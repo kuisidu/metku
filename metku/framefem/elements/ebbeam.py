@@ -127,6 +127,7 @@ class EBBeam(Element):
             rel = self.releases
             # nrel is the list of non-released forces
             nrel = np.setdiff1d(np.arange(6),rel)
+            
             K22 = k0[np.ix_(rel,rel)]
             K11 = k0[np.ix_(nrel,nrel)]
             K12 = k0[np.ix_(nrel,rel)]
@@ -150,7 +151,9 @@ class EBBeam(Element):
             print('K21')
             print(K21)
             """
+            
             #K221K21inv = np.linalg.inv(K22).dot(K21)
+            
             kc = K11 - K12.dot(np.linalg.inv(K22).dot(K21))
             
             """
@@ -162,6 +165,7 @@ class EBBeam(Element):
             k0[rel,:] = 0
             k0[:,rel] = 0
             #print(k0)
+            
 
         return k0
 
@@ -250,7 +254,7 @@ class EBBeam(Element):
 
         T = self.transformation_matrix()
         L = self.length()
-
+        
         if isinstance(load,LineLoad):
             q1 = load.qval[0]
             q2 = load.qval[1]
@@ -389,6 +393,7 @@ class EBBeam(Element):
         self.bending_moment[:2] = [-R[2], R[5]]
         self.shear_force[:2] = [R[1], -R[4]]
         """
+        
         self.fint[lcase]['fx'] = [-R[0], R[3]]
         self.fint[lcase]['my'] = [-R[2], R[5]]
         self.fint[lcase]['fz'] = [R[1], -R[4]]
@@ -439,8 +444,10 @@ class EBBeam3D(Element):
     """
     
     def __init__(self, n1, n2, section, material, nref = None):
+        
+        
         Element.__init__(self, n1, n2, section, material)
-
+        
         self.dim = 3
         
         """ Reference node for orienting the member
@@ -467,7 +474,8 @@ class EBBeam3D(Element):
                 nref = FEMNode(-1,n2.coord[0]+1,n2.coord[1],n2.coord[2])
             else:
                 nref = FEMNode(-1,n2.coord[0],n2.coord[1],n2.coord[2]+1)
-        
+                
+            
         self.nref = nref
         
     def init_dofs(self):
@@ -779,8 +787,8 @@ class EBBeam3D(Element):
             q = self.local_displacements(lcase)
             ke = self.local_stiffness_matrix()
     
-            print('q=')
-            print(q)
+            #print('q=')
+            #print(q)
     
             try:            
                 R = ke.dot(q) - self.floc[lcase]

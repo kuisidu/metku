@@ -292,15 +292,91 @@ def kyz(kz,section_class=2):
         ky = kz
     return ky
 
-def equivalent_moment_factor(M,load="uniform"):
+def equivalent_moment_factor(Mend,Mspan=None,load="uniform"):
     """ EN 1993-1-1, Table B.3
         input:
-            M .. array
-                 M[0] .. moment at end 1
-                 M[1] .. moment at mid-span
-                 M[2] .. moment at end 2
+            Mend .. M[0] .. moment at end 1
+                 M[1] .. moment at end 2
+            Mspan .. moment at mid-span
+                 
             load .. "uniform" or "point"
     """
+    
+    def psi(Mend):
+        # Ratio of smaller end moment and larger end moment
+        if abs(Mend[1]) > 1e-6:
+            r = Mend[0]/Mend[1]
+        else:
+            # If one of the end moments is zero, the ratio is automatically
+            # zero, too.
+            r = 0
         
-                         
+        if abs(r) > 1.0:
+            r = 1/r
+        
+        return r
+    
+    if Mspan is None:
+        # If no midspan moment is given, assume that the moment
+        # distribution is linear.
+        p = psi(Mend)
+        
+        # For linear distribution, the Cm factor is not dependent on
+        # loading type.
+        Cm = max(0.6+0.4*p,0.4)
+    else:
+        p = psi(Mend)
+        # Mid-span-moment is given. Now the task is to determine
+        # the shape of the bending moment diagram based on the
+        # three moment values.
+        if abs(Mspan - 0.5*sum(Mend)) < 1e-6:
+            # Linear distribution            
+            Cm = max(0.6+0.4*p,0.4)
+        else:
+            # Nonlinear distribution
+            if abs(Mend[0]) > abs(Mend[1]):
+                Mh = Mend[0]
+            else:
+                Mh = Mend[1]
+            
+            alpha = Mspan/Mh
+            
+            if abs(alpha) > 1.0:
+                # Moment in the span is larger than the maximum end moment
+                alpha = 1/alpha
+                
+                if alpha >= 0:
+                    if load == "uniform":
+                        Cm = 0.95+0.05*alpha
+                    else:
+                        Cm = 0.90+0.1*alpha
+                else:                
+                    if p >= 0:
+                        if load == "uniform":
+                            Cm = 0.95+0.05*alpha
+                        else:
+                            Cm = 0.90+0.1*alpha
+                    else:
+                        if load == "uniform":
+                            Cm = 0.95+0.05*alpha*(1+2*p)
+                        else:
+                            Cm = 0.90+0.1*alpha*(1+2*p)
+            else:
+                # Moment in span is smaller than the maximum end moment
+                if alpha >= 0:
+                    Cm = max(0.2 + 0.8*alpha,0.4)
+                else:                
+                    if p >= 0:
+                        if load == "uniform":
+                            Cm = max(0.1 -0.8*alpha,0.4)
+                        else:
+                            Cm = max(-0.8*alpha,0.4)
+                    else:
+                        if load == "uniform":
+                            Cm = max(0.1*(1-p) -0.8*alpha,0.4)
+                        else:
+                            Cm = max(0.2*(-p)-0.8*alpha,0.4)
+        
+    return Cm
+                
     

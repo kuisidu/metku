@@ -74,6 +74,12 @@ class FrameFEM:
         self.load_factors = []
         self.buckling_modes = []
         
+    def __repr__(self):
+        
+        s = f"Frame {self.dim}D model: {self.nels()} elements, {self.nnodes()} nodes"
+        
+        return s
+        
     def nels(self):
         """ Number of elements
 
@@ -161,13 +167,14 @@ class FrameFEM:
             """
 
             self.nodal_coords.append([x, y])            
-            for i in range(self.nloadcases()):
-                newNode.u = np.vstack((newNode.u, [0.0, 0.0, 0.0]))
+            for load_id in self.loadcases.keys():   
+                newNode.u[load_id] = np.zeros(len(newNode.dofs))
+                #newNode.u[load_id] = [0.0, 0.0, 0.0]
         else:
             self.dim = 3
             self.nodal_coords.append([x, y, z])
-            for i in range(self.nloadcases()):
-                newNode.u = np.vstack((newNode.u, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+            #for i in range(self.nloadcases()):
+            #    newNode.u = np.vstack((newNode.u, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
 
         self.nodes.append(newNode)
         return newNode
@@ -232,7 +239,12 @@ class FrameFEM:
         :type new_elem: Element
 
         """
+        
+        for lcase in self.loadcases.keys():
+            new_elem.add_loadcase(lcase)
+        
         self.elements.append(new_elem)
+        
 
     def add_support(self, sid, nid, dof, val=0):
         """ Add support condition
@@ -309,7 +321,7 @@ class FrameFEM:
                            for which the corresponding internal forces
                            are released (set to zero)
         """
-        
+        print("vapautus")
         self.elements[eid].releases = dofs
     
     def nodal_dofs(self):
@@ -322,6 +334,8 @@ class FrameFEM:
             ARE CONNECTED TO ONLY TRUSS ELEMENTS, THOSE NODES WILL NOT
             HAVE A ROTATION.
         """
+        self.dofs = 0
+        
         for elem in self.elements:
             elem.init_dofs()
 
@@ -461,7 +475,7 @@ class FrameFEM:
                 and the global degrees of freedom of these loads
             """
             if load.sid == sid:
-                v, vdofs = load.load_and_dofs()
+                v, vdofs = load.load_and_dofs()                
                 global_load[vdofs.astype(int)] += v
 
         # print("FrameFEM  ", '\n', global_load)
@@ -522,7 +536,6 @@ class FrameFEM:
         rem_dofs = []
         """ Vector of global unsupported dofs """
         glob_dofs = np.arange(self.dofs)
-        
         
         
         for supp in self.supports:
@@ -604,7 +617,7 @@ class FrameFEM:
 
 
         """ Calculate element internal forces """
-        for el in self.elements:
+        for i, el in enumerate(self.elements):            
             el.internal_forces(lcase=lcase)
         #end = time.time()
         # print("FRAMEFEM TIME: ", end - start)
@@ -1188,7 +1201,8 @@ class LineLoad(Load):
 
         # Get equivalent nodal loads        
         F = self.elem.equivalent_nodal_loads(self)
-
+        
+        
         # Number of degrees of freedom
         dofs = np.array(self.elem.global_dofs())
 
@@ -1376,7 +1390,7 @@ class Element(metaclass=ABCMeta):
 
     def __init__(self, n1, n2, section, material):
         self.nodes = [n1, n2]
-        self.material = material
+        self.material = material        
         self.section = section
         self.fint = {}
         #self.axial_force = [0.0, 0.0]
@@ -1391,6 +1405,10 @@ class Element(metaclass=ABCMeta):
         
         """ Dimension of the element """
         self.dim = 2
+        
+        #self.x = self.coord()
+        #self.len = self.length()
+        #self.dcos = self.direction_cosines()
 
     def coord(self):
         """ Nodal coordinates of the element
@@ -1413,11 +1431,15 @@ class Element(metaclass=ABCMeta):
             :rtype: np.array
 
         """
+        
+        
         X = self.coord()
         dX = X[1, :] - X[0, :]
         L = self.length()
         c = dX / L
         return c
+        
+        #return (self.x[1]-self.x[0])/self.len
 
     @abstractclassmethod
     def equivalent_nodal_loads(self, q):
@@ -1435,11 +1457,12 @@ class Element(metaclass=ABCMeta):
             :rtype: float
 
         """
+        
+        #X = self.__x
         X = self.coord()
-        L = np.linalg.norm(X[1] - X[0])
-        
-        
+        L = np.linalg.norm(X[1] - X[0])        
         return round(L, 3)
+        #return round(np.linalg.norm(self.x[1]-self.x[0]),3)
 
     @abstractclassmethod
     def local_stiffness_matrix(self, E, A, I, L):

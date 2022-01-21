@@ -18,6 +18,7 @@ except:
     from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
     # import metku.materials.steel_data as sd
     from materials import steel_data as sd
+    
 # EN 1993-1-2: Table 3.1
 REDUCTION_FACTORS_CS = {20:{'ky':1.0,'kp':1.0,'kE':1.0,'kp02':1.0},
                         100:{'ky':1.0,'kp':1.0,'kE':1.0,'kp02':1.0},
@@ -50,7 +51,22 @@ REDUCTION_FACTORS_14301 = {20:{'ky':0.26,'k02':1.0,'ku':1.0,'kE':1.0,'kEct':0.11
                            1200:{'ky':0.040,'k02':0.0,'ku':0.00,'kE':0.0,'kEct':0.02,'epsU': 0.20},
                            }
 
-SPECIAL_TEMPS = np.array([20,100,200,300,400,500,600,700,800,900,1000,1100,1200])
+# EN 1993-1-2, Table D.1
+REDUCTION_FACTORS_BOLTS = {20:{'kb':1.0},
+                           100:{'kb':0.968},
+                           150:{'kb':0.952},
+                           200:{'kb':0.935},
+                           300:{'kb':0.903},
+                           400:{'kb':0.775},
+                           500:{'kb':0.550},
+                           600:{'kb':0.220},
+                           700:{'kb':0.100},
+                           800:{'kb':0.067},
+                           900:{'kb':0.033},
+                           1000:{'kb':0.0},
+                           }
+
+SPECIAL_TEMPS = np.array([20,100,150,200,300,400,500,600,700,800,900,1000,1100,1200])
 
 
 
@@ -102,6 +118,8 @@ def reduce_property(t,prop,steel='carbon'):
             rf = REDUCTION_FACTORS_CS[t][prop]
         elif steel =='1.4301':
             rf = REDUCTION_FACTORS_14301[t][prop]
+        elif steel == 'bolts':
+            rf = REDUCTION_FACTORS_BOLTS[t][prop]
         else:
             print("Unidentified steel grade!")
     else:
@@ -120,7 +138,10 @@ def reduce_property(t,prop,steel='carbon'):
         elif steel == '1.4301':
             p_smaller = REDUCTION_FACTORS_14301[t_smaller][prop]
             p_larger = REDUCTION_FACTORS_14301[t_larger][prop]
-        
+        elif steel == 'bolts':
+            p_smaller = REDUCTION_FACTORS_BOLTS[t_smaller][prop]
+            p_larger = REDUCTION_FACTORS_BOLTS[t_larger][prop]
+            
         rf = linear_interpolation((t_smaller,p_smaller), (t_larger,p_larger), t)
     
     return rf
@@ -153,7 +174,7 @@ def fpT(t,fp=355,steel='carbon'):
     kp = reduce_property(t,'kp',steel)
     return kp*fp
 
-def f02pT(t,fy=210,steel="1.4301"):
+def f02pT(t,fy=355,steel="1.4301"):
     """ Temperature-dependent value for proof strength at 0.2 plastic strain """
 
     k = reduce_property(t,'k02',steel)
@@ -178,6 +199,12 @@ def fuT(t,fy_T,steel='carbon'):
         fu_T = ku*fy_T
         
     return fu_T
+
+def kbT(t):
+    """ Temperature-dependent value for bolt shear and tension resistance """
+
+    k = reduce_property(t,'kb','bolts')    
+    return k
     
 
 def stress(strain,t,Ea,fya,hardening=False):

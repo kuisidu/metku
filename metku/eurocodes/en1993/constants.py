@@ -27,3 +27,6 @@ gammaM0 = 1.0
 gammaM1 = 1.0
 gammaM2 = 1.25
 gammaM5 = 1.0
+
+# Safety factor for fire
+gammaMfi = 1.0

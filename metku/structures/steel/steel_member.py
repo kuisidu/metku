@@ -55,19 +55,28 @@ class SteelMember:
         # self.lcr[0] = Lcr[0]*length
         # self.lcr[1] = Lcr[1]*length
         self.type = mtype
-        self.ned = []
-        self.myed = []
-        self.mzed = []
-        self.vyed = []
-        self.vzed = []
-        self.ted = []
-        self.loc = []
+        #self.ned = []
+        #self.myed = []
+        #self.mzed = []
+        #self.vyed = []
+        #self.vzed = []
+        #self.ted = []
+        #self.loc = []
         self.LTB = LT_buckling
         self.symmetry = symmetry
         
-        self.Cmy = 0.9
-        self.Cmz = 0.9
-        self.CmLT = 1.0
+        # Dictionary of sections
+        # key = local coordinate running from 0 to 1
+        # value = dict with key, value pairs
+        # {'ned':axial_force, 'myed':bending_moment_yaxis,
+        #  'mzed': bending_moment_zaxis, 'vyed': shear force, y axis,
+        #  'vzed': shear force z axis, 'ted': torsional moment,
+        # 'utilization': utilization ratio in different loading cases}
+        self.sections = {}
+        
+        self.__Cmy = 0.9
+        self.__Cmz = 0.9
+        self.__CmLT = 1.0
         
         
         self.utilization = []
@@ -80,6 +89,68 @@ class SteelMember:
         """
         self.stability = {'buck_y':0.0,'buck_z':0.0,'LTB':0.0,'bc_y':0.0,'bc_z':0.0}
 
+    @property
+    def ned(self):
+        """ Return a list of axial forces in the sections """
+        return np.array([sec['N'] for sec in self.sections.values()])
+    
+    @ned.setter
+    def ned(self,val):
+        """ Set the same axial force for all sections """
+        
+        for sec in self.sections.values():
+            sec['N'] = val        
+        
+    @property
+    def myed(self):
+        """ Return a list of bending moments MyEd in the sections """
+        return np.array([sec['My'] for sec in self.sections.values()])
+    
+    @myed.setter
+    def myed(self,val):
+        for sec in self.sections.values():
+            sec['My'] = val
+    
+    @property
+    def mzed(self):
+        """ Return a list of bending moments MzEd in the sections """
+        return np.array([sec['Mz'] for sec in self.sections.values()])
+    
+    @mzed.setter
+    def mzed(self,val):
+        for sec in self.sections.values():
+            sec['Mz'] = val
+    
+    @property
+    def vyed(self):
+        """ Return a list of shear forces VyEd in the sections """
+        return np.array([sec['Vy'] for sec in self.sections.values()])
+    
+    @vyed.setter
+    def vyed(self,val):
+        for sec in self.sections.values():
+            sec['Vy'] = val
+    
+    @property
+    def vzed(self):
+        """ Return a list of shear forces VzEd in the sections """
+        return np.array([sec['Vz'] for sec in self.sections.values()])
+
+    @vzed.setter
+    def vzed(self,val):
+        for sec in self.sections.values():
+            sec['Vz'] = val
+
+    @property
+    def ted(self):
+        """ Return a list of torques TEd in the sections """
+        return np.array([sec['T'] for sec in self.sections.values()])
+    
+    @ted.setter
+    def ted(self,val):
+        for sec in self.sections.values():
+            sec['T'] = val
+    
     @property
     def NbRd(self):
         return np.asarray(self.buckling_strength())
@@ -109,11 +180,34 @@ class SteelMember:
 
     def nsect(self):
         """ Number of sections """
-        return len(self.ned)
+        #return len(self.ned)
+        return len(self.sections)
 
     def fy(self):
         """ Yield strength of the member """
         return self.profile.fy
+    
+    def Cmy(self,sway=True,load="uniform"):
+        """ Equivalent moment factor """
+        if sway:
+            return 0.9
+        else:
+            try:
+                # Get end moments
+                Mend = [self.sections[0]['My'],self.sections[1]['My']]
+            except:
+                # If no end moments are given, use the value stored in Cmy variable
+                return self.__Cmy
+            
+            # Get span moment. If it is not given, assume linear distribution
+            try:                    
+                Mspan = self.sections[0.5]['My']
+            except:
+                Mspan = None
+            
+            self.__Cmy = en1993_1_1.equivalent_moment_factor(Mend,Mspan,load)
+                            
+        return self.__Cmy
 
     def ncrit(self, verb=False):
         """ Buckling force according to Euler """
@@ -159,11 +253,11 @@ class SteelMember:
         """ Non-dimensional slenderness for lateral-torsional buckling.
         """
         MRd = self.profile.MRd
-        lambdaLT = np.sqrt(MRd[0] / Mcr)
+        lambdaLT = np.sqrt(MRd / Mcr)
         if verb:
             # print("MRd: {}, Mcr: {}".format(MRd, Mcr))
             # print("MRd0 = {0:4.2f}".format(MRd[0] * 1e-6))
-            if MRd[0] < 0:
+            if MRd < 0:
                 print(self.profile.h, self.profile.tw, self.profile.tf, self.profile.b)
             # print("MRd1 = {0:4.2f}".format(MRd[1] * 1e-6))
             # print("Mcr = {0:4.2f}".format(Mcr * 1e-6))
@@ -327,6 +421,11 @@ class SteelMember:
                     ted=0.0, loc=0.0):
         """ Adds new section with internal forces and location """
 
+        self.sections[loc] = {'N': ned, 'My': myed, 'Mz': mzed,
+                              'Vy': vyed, 'Vz': vzed, 'T': ted,
+                              'utilization': {}}
+
+        """
         self.ned.append(ned)
         self.myed.append(myed)
         self.mzed.append(mzed)
@@ -335,8 +434,13 @@ class SteelMember:
         self.ted.append(ted)
         self.loc.append(loc)
         self.utilization.append({})
-
+        """
+        
     def clear_sections(self):
+        
+        self.sections.clear()
+        
+        """
         self.ned.clear()
         self.myed.clear()
         self.mzed.clear()
@@ -345,10 +449,23 @@ class SteelMember:
         self.ted.clear()
         self.loc.clear()
         self.utilization.clear()
+        """
+    
+    def check_section(self, loc=0, verb=False):
+        """ Verify resistance of section at location 'loc' """
+        self.profile.Ned = self.sections[loc]['N']
+        self.profile.Med[0] = self.sections[loc]['My']
+        self.profile.Ved[1] = self.sections[loc]['Vz']
+                
 
+        r = self.profile.section_resistance(verb=verb)
+        
+        self.sections[loc]['utilization'] = {'n':r[0],'vz':r[1],'my':r[2],'mny':r[3]}
+        return r
 
+    """
     def check_section(self, n=0, verb=False):
-        """ Verify resistance of section 'n' """
+        # Verify resistance of section 'n'
         self.profile.Ned = self.ned[n]
         self.profile.Med = self.myed[n]
         self.profile.Ved = self.vzed[n]
@@ -358,14 +475,20 @@ class SteelMember:
         
         self.utilization[n] = {'n':r[0],'vz':r[1],'my':r[2],'mny':r[3]}
         return r
-
+    """
     def check_sections(self, class1or2=True, verb=False):
         """ Verify resistance of all sections """
-        r = np.zeros_like(self.check_section())
-        for n in range(self.nsect()):
-            r = np.vstack((r, self.check_section(n)))
+        r = 0.0
+        for loc in self.sections.keys():
+            r = max(r,max(self.check_section(loc)))
+        
+        return r
+        
+        #r = np.zeros_like(self.check_section())
+        #for n in range(self.nsect()):
+        #    r = np.vstack((r, self.check_section(n)))
             # r.append(self.check_section(n))
-        return np.max(r, axis=0)
+        #return np.max(r, axis=0)
 
     def check_buckling(self):
         """ Verify buckling resistance
@@ -400,9 +523,19 @@ class SteelMember:
 
         return r
 
-    def check_beamcolumn(self, section_class=None):
+    def check_beamcolumn(self, sway=False, load="uniform", section_class=None):
         """ Verify stability for combined axial force and bending moment
         """
+        
+        """ Find maximum bending moment along the member """
+        MyEd = self.MEdY
+        
+        if abs(MyEd) < 1e-6:
+            # If there is no bending moment, there is no need to
+            # continue
+            return [0,0]
+            
+        
         # find the largest compression force in the member
         NEd = self.NcEd
         self.profile.Ned = NEd
@@ -422,14 +555,30 @@ class SteelMember:
         UNy = abs(NEd) / NbRd[0]
         UNz = abs(NEd) / NbRd[1]
 
-        kyy = en1993_1_1.kyy(UNy, slend[0], self.Cmy,
+        # Determine equivalent moment factor
+        Cmy = self.Cmy(sway,load)        
+
+        kyy = en1993_1_1.kyy(UNy, slend[0], Cmy,
                              section_class=cross_section_class)
 
-        kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=self.CmLT,
-                             section_class=cross_section_class)
-
-        """ Find maximum bending moment along the member """
-        MyEd = self.MEdY
+        if self.LTB:
+            # Member is susceptible to lateral-torsional buckling
+            kzy = en1993_1_1.kzy(kyy, UNz, slend[1], CmLT=self.CmLT,
+                                 section_class=cross_section_class)
+        else:
+            MzEd = self.MEdZ
+            
+            if MzEd == 0:
+                # Uniaxial bending: according to current EN 1993-1-1,
+                # kzy = 0 is possible
+                # In the revised eurocode, this is no longer valid.
+                kzy = 0
+            else:
+                if cross_section_class < 3:
+                    kzy = 0.6*kyy
+                else:
+                    kzy = 0.8*kyy
+        
 
         """ For now, assume no bending with respect to z axis """
         # MzEd1 = np.max(np.array(self.mzed))
@@ -439,8 +588,8 @@ class SteelMember:
         #MRd = self.profile.bending_resistance(C=cross_section_class)
         MRd = self.profile.MRd
       
-        com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd[0]
-        com_comp_bend_z = -NEd / NbRd[1] + kzy * MyEd / MRd[0]
+        com_comp_bend_y = -NEd / NbRd[0] + kyy * MyEd / MRd
+        com_comp_bend_z = -NEd / NbRd[1] + kzy * MyEd / MRd
 
         com_comp_bend = [com_comp_bend_y, com_comp_bend_z]
         
@@ -460,7 +609,7 @@ class SteelMember:
         
         return Sreq
 
-    def design(self,verb=False):
+    def design(self,sway=False,verb=False):
         """ Carry out member design 
             
             Returns:
@@ -479,8 +628,8 @@ class SteelMember:
             rmax = max(rmax,rLTB)
         
         if self.NcEd < 0.0:
-            rbuck = self.check_buckling()
-            rbeam_column = self.check_beamcolumn()
+            rbuck = self.check_buckling()            
+            rbeam_column = self.check_beamcolumn(sway)
             rmax = max(rmax,np.max(rbuck))
             rmax = max(rmax,np.max(rbeam_column))
 
@@ -497,13 +646,18 @@ if __name__ == "__main__":
     from metku.sections.steel.ISection import HEA
     from metku.sections.steel.RHS import RHS
     
-    p = HEA(240)
-    R = RHS(200,200,8)
-    p = RHS(100,100,5)
-    m = SteelMember(p,3000)
-    mr = SteelMember(R,6000)    
-    m.ncrit(True)
-    print(m.weight())
+    #p = HEA(240)
+    #R = RHS(200,200,8)
+    p = RHS(160,160,8)
+    #m = SteelMember(p,3000)
+    mr = SteelMember(p,3680,Lcr=[0.9,1.0])
+    mr.add_section(loc=0.0,ned=-725.57e3,myed=-22.12e6)
+    mr.add_section(loc=0.5,ned=-725.57e3,myed=17.07e6)
+    mr.add_section(loc=1.0,ned=-725.57e3,myed=-24.95e6)
+    
+    #r = mr.check_section()
+    #m.ncrit(True)
+    #print(m.weight())
     #m.ncrit_T(True)
     #mr.ncrit_T(True)
     #mr.ncrit(True)

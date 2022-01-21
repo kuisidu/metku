@@ -190,6 +190,31 @@ hea_profiles = {"HE 100 A": {"h": 96.0, "b": 100.0, "t_w": 5.0, "t_f": 8.0, "r":
                 "HE 900 A": {"h": 890.0, "b": 300.0, "t_w": 16.0, "t_f": 30.0, "r": 30.0},
                 "HE 1000 A": {"h": 990.0, "b": 300.0, "t_w": 16.5, "t_f": 31.0, "r": 30.0}}
 
+heb_profiles = {"HE 100 B": {"h": 100.0, "b": 100.0, "t_w": 6.0, "t_f": 10.0, "r": 12.0},            
+                "HE 120 B": {"h": 120.0, "b": 120.0, "t_w": 6.5, "t_f": 11.0, "r": 12.0},                
+                "HE 140 B": {"h": 140.0, "b": 140.0, "t_w": 7.0, "t_f": 12.0, "r": 12.0},                
+                "HE 160 B": {"h": 160.0, "b": 160.0, "t_w": 8.0, "t_f": 13.0, "r": 15.0},                
+                "HE 180 B": {"h": 180.0, "b": 180.0, "t_w": 8.5, "t_f": 14.0, "r": 15.0},                
+                "HE 200 B": {"h": 200.0, "b": 200.0, "t_w": 9.0, "t_f": 15.0, "r": 18.0},                
+                "HE 220 B": {"h": 220.0, "b": 220.0, "t_w": 9.5, "t_f": 16.0, "r": 18.0},                
+                "HE 240 B": {"h": 240.0, "b": 240.0, "t_w": 10.0, "t_f": 17.0, "r": 21.0},                
+                "HE 260 B": {"h": 260.0, "b": 260.0, "t_w": 10.0, "t_f": 17.5, "r": 24.0},                
+                "HE 280 B": {"h": 280.0, "b": 280.0, "t_w": 10.5, "t_f": 18.0, "r": 24.0},                
+                "HE 300 B": {"h": 300.0, "b": 300.0, "t_w": 11.0, "t_f": 19.0, "r": 27.0},                
+                "HE 320 B": {"h": 320.0, "b": 300.0, "t_w": 11.5, "t_f": 20.5, "r": 27.0},                
+                "HE 340 B": {"h": 340.0, "b": 300.0, "t_w": 12.0, "t_f": 21.5, "r": 27.0},                
+                "HE 360 B": {"h": 360.0, "b": 300.0, "t_w": 12.5, "t_f": 22.5, "r": 27.0},                
+                "HE 400 B": {"h": 400.0, "b": 300.0, "t_w": 13.5, "t_f": 24.0, "r": 27.0},                
+                "HE 450 B": {"h": 450.0, "b": 300.0, "t_w": 14.0, "t_f": 26.0, "r": 27.0},                
+                "HE 500 B": {"h": 500.0, "b": 300.0, "t_w": 14.5, "t_f": 28.0, "r": 27.0},                
+                "HE 550 B": {"h": 550.0, "b": 300.0, "t_w": 15.0, "t_f": 29.0, "r": 27.0},                
+                "HE 600 B": {"h": 600.0, "b": 300.0, "t_w": 15.5, "t_f": 30.0, "r": 27.0},                
+                "HE 650 B": {"h": 650.0, "b": 300.0, "t_w": 16.0, "t_f": 31.0, "r": 27.0},                
+                "HE 700 B": {"h": 700.0, "b": 300.0, "t_w": 17.0, "t_f": 32.0, "r": 27.0},                
+                "HE 800 B": {"h": 800.0, "b": 300.0, "t_w": 17.5, "t_f": 33.0, "r": 30.0},                
+                "HE 900 B": {"h": 900.0, "b": 300.0, "t_w": 18.5, "t_f": 35.0, "r": 30.0},                
+                "HE 1000 B": {"h": 1000.0, "b": 300.0, "t_w": 19.0, "t_f": 36.0, "r": 30.0}}
+
 h_profiles = {"HE 100 AA": {"h": 91.0, "b": 100.0, "t_w": 4.2, "t_f": 5.5, "r": 12.0},
                "HE 100 A": {"h": 96.0, "b": 100.0, "t_w": 5.0, "t_f": 8.0, "r": 12.0},
                "HE 100 B": {"h": 100.0, "b": 100.0, "t_w": 6.0, "t_f": 10.0, "r": 12.0},
@@ -768,6 +793,72 @@ chs_profiles = {'CHS 26.9X2.0': {'d': 26.9, 't': 2.0},
                  'CHS 323.9X8.0': {'d': 323.9, 't': 8.0},
                  'CHS 323.9X10.0': {'d': 323.9, 't': 10.0},
                  'CHS 323.9X12.5': {'d': 323.9, 't': 12.5}}
+
+def make_ipe(key):
+    """ Makes an IPE section out of the 'key' used """
+    from sections.steel.ISection import IPE
+    import re
+    
+    # Find height of the profile from 'key'
+    h = int(re.findall('\d+',key)[0])
+    
+    return IPE(h,catalogue=True)
+
+def make_hea(key):
+    """ Makes an HEA section out of the 'key' used """
+    from sections.steel.ISection import HEA
+    import re
+    
+    # Find height of the profile from 'key'
+    h = int(re.findall('\d+',key)[0])
+            
+    return HEA(h,catalogue=True)
+
+def make_heb(key):
+    """ Makes an HEB section out of the 'key' used """
+    from sections.steel.ISection import HEB
+    import re
+    
+    # Find height of the profile from 'key'
+    h = int(re.findall('\d+',key)[0])
+            
+    return HEB(h,catalogue=True)
+
+
+def make_rhs(key):
+    """ Makes an RHS section out of the 'key' used """
+    from sections.steel.RHS import RHS
+    import re
+    
+    # Find height of the profile from 'key'
+    p = [float(a) for a in re.findall('(\d+\.?\d)+',key)]
+    
+    return RHS(p[0],p[1],p[2])    
+
+def make_section(key):
+    """ Makes a steel section out of key """
+    import re
+            
+    prof_name = re.findall('(\S+)',key)
+    
+    #print(prof_name)
+    
+    if prof_name[0] == "IPE":
+        p = make_ipe(prof_name[1])
+    elif prof_name[0] == "RHS":
+        p = make_rhs(prof_name[1])
+    elif prof_name[0] == "HE":
+        if prof_name[2] == "A":
+            p = make_hea(prof_name[1])
+        elif prof_name[2] == "B":
+            p = make_heb(prof_name[1])
+        else:
+            raise ValueError("Only HEA and HEB supported of H sections.")
+    else:
+        raise ValueError(f'Unknown profile name {key}.')
+    
+    return p
+    
 
 def print_shs():
     

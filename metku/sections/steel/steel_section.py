@@ -50,8 +50,46 @@ class SteelSection(metaclass=ABCMeta):
                  Ned=0.0,
                  Med=0.0,
                  Ved=0.0,
+                 Ted=0.0,
                  design_code=en1993_1_1):
-        #self.fy = fy
+        """
+
+        Parameters
+        ----------
+        material : int or str
+            Either yields strength or name of the material.
+        A : float
+            Cross-sectional area.
+        I : List
+            second moment of area with respect to principal axes.
+            I[0] .. major axis
+            I[1] .. minor axis
+        Au : float
+            circumferential area per unit length.
+        Wpl : list
+            plastic section modulus with respect to principal axes.
+        Wel : list
+            elastic section modulus with respect to principal axes..
+        Ashear : float
+            shear area.
+        Ned : float, optional
+            design value of axial force. The default is 0.0.
+        Med : list or float, optional
+            bending moment. The default is 0.0.
+        Ved : list or float, optional
+            shear force. The default is 0.0.
+            Ved[0] .. shear force is along the major axis
+            Ved[1] .. shear force is along the minor axis
+        Ted: float, optional
+            torque, The default is 0.0
+        design_code : TYPE, optional
+            DESCRIPTION. The default is en1993_1_1.
+
+        Returns
+        -------
+        None.
+
+        """
         
         #print(material)
         if isinstance(material,str):
@@ -65,14 +103,31 @@ class SteelSection(metaclass=ABCMeta):
         self.Au = Au
         self.Wpl = np.asarray(Wpl)
         self.Wel = np.asarray(Wel)
-        self.Ashear = Ashear
+    
+        if isinstance(Ashear, list):             
+            self.Ashear = Ashear
+        else:
+            self.Ashear = [0.0, Ashear]
+                
+            
         self.Ned = Ned
-        self.Med = Med
-        self.Ved = Ved
+        if not isinstance(Med,list):
+            self.Med = [Med, 0.0]
+        else:
+            self.Med = Med
+        
+        if not isinstance(Ved,list):
+            self.Ved = [0.0, Ved]
+        else:
+            self.Ved = Ved
+        
+        self.Ted = Ted
+        
         self.imp_factor = None
         self.code = design_code
         self.density = constants.density
         self.rotate = False
+        
         
 
 
@@ -214,25 +269,69 @@ class SteelSection(metaclass=ABCMeta):
 
     @property
     def VRd(self):
-        if abs(self.Ashear) < 1e-6 or self.fy < 1e-3:
-            print("STEEL SECTION, ASHEAR: ", self.Ashear)
-        return self.code.shear_resistance(self.Ashear, self.fy)
+        if abs(self.Ashear[1]) < 1e-6 or self.fy < 1e-3:
+            print("STEEL SECTION, ASHEAR: ", self.Ashear[1])
+        return self.code.shear_resistance(self.Ashear[1], self.fy)
+    
+    @property
+    def VyRd(self):
+        if abs(self.Ashear[0]) < 1e-6 or self.fy < 1e-3:
+            print("STEEL SECTION, ASHEAR: ", self.Ashear[0])
+        return self.code.shear_resistance(self.Ashear[0], self.fy)
 
+    @property
+    def VzRd(self):
+        if abs(self.Ashear[1]) < 1e-6 or self.fy < 1e-3:
+            print("STEEL SECTION, ASHEAR: ", self.Ashear[1])
+        return self.code.shear_resistance(self.Ashear[1], self.fy)
 
     @property
     def MRd(self):
+        M, C = self.bending_resistance(axis="y")        
+        return M
 
+        """
         if self.C < 3:
-            return self.code.bending_resistance(self.Wpl, self.fy)
+            return self.code.bending_resistance(self.Wpl[0], self.fy)
         elif self.C == 3:
-            return self.code.bending_resistance(self.Wel, self.fy)
+            return self.code.bending_resistance(self.Wel[0], self.fy)
         else:
 
             #  print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
-            return self.code.bending_resistance(self.Wel, self.fy)
+            return self.code.bending_resistance(self.Wel[0], self.fy)
 
             #raise NotImplemented("Calculation of cross-section class 4 is not implemented yet")
+        """
+    @property
+    def MyRd(self):
+        M, C = self.bending_resistance(axis="y")        
+        return M
 
+        """
+        if self.C < 3:
+            return self.code.bending_resistance(self.Wpl[0], self.fy)
+        elif self.C == 3:
+            return self.code.bending_resistance(self.Wel[0], self.fy)
+        else:
+
+            #  print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
+            return self.code.bending_resistance(self.Wel[0], self.fy)
+        """
+    @property
+    def MzRd(self):
+        M, C = self.bending_resistance(axis="z")        
+        return M
+
+        """
+        if self.C < 3:
+            return self.code.bending_resistance(self.Wpl[1], self.fy)
+        elif self.C == 3:
+            return self.code.bending_resistance(self.Wel[1], self.fy)
+        else:
+
+            #  print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
+            return self.code.bending_resistance(self.Wel[1], self.fy)
+        """
     @property
     def C(self):
         C = self.section_class()
@@ -309,6 +408,7 @@ class SteelSection(metaclass=ABCMeta):
         NOTE: compression is positive, thus
         the '-' sign in front of Ned.
         """
+        
 
         stmax = -self.Ned / self.A - self.Med / self.Wel[0]
         stmin = -self.Ned / self.A + self.Med / self.Wel[1]
@@ -339,8 +439,10 @@ class SteelSection(metaclass=ABCMeta):
         """ Determines cross-section class """
 
         C = 1
+        Med = self.Med[0]
         # Pure bending
-        if abs(self.Ned) < 1e-4 and abs(self.Med) > 1e-4:
+        
+        if abs(self.Ned) < 1e-4 and abs(Med) > 1e-4:
             if verb:
                 print("Pure bending")
             Cflange = self.flange_class(verb)
@@ -350,7 +452,7 @@ class SteelSection(metaclass=ABCMeta):
         # Compression
         elif self.Ned < 0.0:
             # Pure compression
-            if abs(self.Med) < 1e-4:
+            if abs(Med) < 1e-4:
                 Cflange = self.flange_class(verb)
                 Cweb = self.web_class_comp(verb)                
                 C = max(Cweb, Cflange)
@@ -363,7 +465,7 @@ class SteelSection(metaclass=ABCMeta):
                 C = max(Cweb, Cflange)
 
         # Axial tension and bending
-        elif self.Ned > 0.0 and abs(self.Med) > 1e-4:
+        elif self.Ned > 0.0 and abs(Med) > 1e-4:
             C = 1
 
         if verb:
@@ -422,19 +524,24 @@ class SteelSection(metaclass=ABCMeta):
             n = 1
         return self.code.bending_resistance(self.Wpl[n], self.fy)
 
-    def shear_force_resistance(self, C=0, verb=False):
+    def shear_force_resistance(self, C=0, axis="z", verb=False):
         if C == 0:
             C = self.section_class()
 
-        if C < 3:
-            VRd = self.code.shear_resistance(self.Ashear, self.fy)
-        elif C == 3:
-            VRd = self.code.shear_resistance(self.Ashear, self.fy)
+        if axis == "y":
+            n = 0
         else:
-            VRd = self.code.shear_resistance(self.Ashear, self.fy)
+            n = 1
+
+        if C < 3:
+            VRd = self.code.shear_resistance(self.Ashear[n], self.fy)
+        elif C == 3:
+            VRd = self.code.shear_resistance(self.Ashear[n], self.fy)
+        else:
+            VRd = self.code.shear_resistance(self.Ashear[n], self.fy)
 
         if verb:
-            print("Shear area = {0:4.2f} mm2".format(self.Ashear))
+            print("Shear area = {0:4.2f} mm2".format(self.Ashear[n]))
             print("VRd = {0:4.2f} kN".format(VRd*1e-3))
 
         return VRd
@@ -484,20 +591,29 @@ class SteelSection(metaclass=ABCMeta):
         """
         if axis == 'y':
             idx = 0
+            MRd = self.MyRd
+            Med = self.Med[0]
+            Ved = self.Ved[1]
+            VRd = self.VzRd
         else:
             idx = 1
+            Med = self.Med[1]
+            Ved = self.Ved[0]
+            MRd = self.MzRd
+            VRd = self.VyRd
+                
 
         # Normal force
         UN = abs(self.Ned) / self.NRd
         # Shear force
-        UV = abs(self.Ved) / self.VRd
+        UV = abs(Ved) / VRd
         # Bending moment
-        UM = abs(self.Med) / self.MRd[idx]
+        UM = abs(Med) / MRd
 
         if self.C < 3:
-            MNRd = self.moment_axial_force_interact(UN, self.MRd[idx])
+            MNRd = self.moment_axial_force_interact(UN, MRd)
             if MNRd > 0.0:
-                UMN = abs(self.Med) / MNRd
+                UMN = abs(Med) / MNRd
             else:
                 UMN = UN + UM
                 #UMN = INFEASIBLE
@@ -513,7 +629,7 @@ class SteelSection(metaclass=ABCMeta):
         if verb:
             print("Cross-section design: " + self.__repr__() + " S" + str(self.fy))
             print("NEd = {0:4.2f} kN; NRd = {1:4.2f} kN => UN = {2:4.2f}".format(self.Ned*1e-3,self.NRd*1e-3,UN))
-            print("VEd = {0:4.2f} kN; VRd = {1:4.2f} kN => UV = {2:4.2f}".format(self.Ved*1e-3,self.VRd*1e-3,UV))
-            print("MEd = {0:4.2f} kNm; MRd = {1:4.2f} kNm => UM = {2:4.2f}".format(self.Med*1e-6,self.MRd[idx]*1e-6,UM))            
+            print("VEd = {0:4.2f} kN; VRd = {1:4.2f} kN => UV = {2:4.2f}".format(Ved*1e-3,VRd*1e-3,UV))
+            print("MEd = {0:4.2f} kNm; MRd = {1:4.2f} kNm => UM = {2:4.2f}".format(Med*1e-6,MRd*1e-6,UM))            
             
         return r

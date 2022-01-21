@@ -38,7 +38,8 @@ class RHS(SteelSection):
         I = [0.0, 0.0]
         I[0] = RHS_second_moment(H, B, T, R)
         I[1] = RHS_second_moment(B, H, T, R)
-        Ashear = RHS_shear_area(A, H, B)
+        Ashear = [RHS_shear_area(A,B,H),RHS_shear_area(A, H, B)]
+        
         Au = RHS_paint_area(H, B, R)
         Wel = [0.0, 0.0]
         Wel[0] = RHS_elastic_modulus(H, I[0])
@@ -64,6 +65,9 @@ class RHS(SteelSection):
                            en1993_1_1.buckling_curve["c"]]
         self.imp_factor_LT_gen = en1993_1_1.buckling_curve["c"]  # TODO
         self.imp_factor_LT = en1993_1_1.buckling_curve["c"]  # TODO
+        
+        
+    
 
     @property
     def h(self):
@@ -133,7 +137,7 @@ class RHS(SteelSection):
             I[0] = RHS_second_moment(self.H, self.B, self.T, self.R)
             I[1] = RHS_second_moment(self.B, self.H, self.T, self.R)
             self.I = np.asarray(I)
-            self.Ashear = RHS_shear_area(self.A, self.H, self.B)
+            self.Ashear = [RHS_shear_area(self.A, self.B, self.B),RHS_shear_area(self.A, self.H, self.B)]
             self.Au = RHS_paint_area(self.H, self.B, self.R)
             Wel = [0.0, 0.0]
             Wel[0] = RHS_elastic_modulus(self.H, I[0])

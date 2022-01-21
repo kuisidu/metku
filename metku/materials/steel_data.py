@@ -54,6 +54,11 @@ class Steel:
         
         return f"{self.name}"
     
+    @property
+    def young(self):
+        """ Young's modulus: alternative way of calling 'E' """
+        return self.E
+    
     def eps(self):
         return sqrt(235.0/self.fy)
     

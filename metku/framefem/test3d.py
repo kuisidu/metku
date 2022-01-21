@@ -8,7 +8,7 @@ Created on Sat Aug 17 14:01:25 2019
 from framefem import FrameFEM, Section, PointLoad
 from framefem.elements.rod import Rod
 
-def truss3dTest()
+def truss3dTest():
     truss3d = FrameFEM()
     # Units: kN,mm
     
@@ -60,5 +60,9 @@ def frame3dTest():
     truss3d.add_node(-3e3,0.0,0.0)
     truss3d.add_node(0.0,0.0,4e3)
     truss3d.add_node(0.0,5e3,0.0)
+
+if __name__ == "__main__":
+    
+    t = truss3dTest()
     
 
