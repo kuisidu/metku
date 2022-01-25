@@ -93,6 +93,10 @@ class ISection(SteelSection):
     def __repr__(self):
         return f"{type(self).__name__} {self.h:.0f}"
     
+    def robot(self):
+        # Format name of the profile according to Robot Structural Analysis
+        return self.__repr__()
+    
     def info(self,latex=False):
         """ Prints a bunch of section properties """
         
@@ -524,6 +528,10 @@ class HEA(ISection):
     def __repr__(self):
         return self.name
         #return "HEA " + str(self.b-(self.b%10))
+    
+    def robot(self):
+        # Format name suitable for Robot Structural Analysis
+        return self.name[:2] + self.name[-1] + self.name[2:-2]
 
 class HEAA(ISection):
     """ European wide flange sections
@@ -591,6 +599,13 @@ class HEB(ISection):
 
         ISection.__init__(self, H, B, tf, tw, r, fy=fy)
 
+    def __repr__(self):
+        return self.name
+        #return "HEA " + str(self.b-(self.b%10))
+    
+    def robot(self):
+        # Format name suitable for Robot Structural Analysis
+        return self.name[:2] + self.name[-1] + self.name[2:-2]
 
 class HEC(ISection):
     """ HEC sections

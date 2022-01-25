@@ -87,6 +87,10 @@ class RHS(SteelSection):
     
     def __repr__(self):
         return f"{type(self).__name__} {self.H:.0f}X{self.B:.0f}X{self.T:.1f}"
+    
+    def robot(self):
+        
+        return f"RRHS {self.H:.0f}x{self.B:.0f}x{self.T:.1f}"
 
     def info(self,latex=False):
         """ Prints a bunch of section properties """

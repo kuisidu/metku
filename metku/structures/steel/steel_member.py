@@ -88,7 +88,7 @@ class SteelMember:
             bc_z .. beam-column stability, z axis
         """
         self.stability = {'buck_y':0.0,'buck_z':0.0,'LTB':0.0,'bc_y':0.0,'bc_z':0.0}
-
+    
     @property
     def ned(self):
         """ Return a list of axial forces in the sections """
@@ -339,14 +339,24 @@ class SteelMember:
         """ Weight per unit length
             
             Default units: kg/mm
-        """
-        w = self.profile.A * constants.density
-        return w
+        """        
+        return self.profile.weight()
 
     def weight(self):
         """ Weight of the member (kg) """
         w = self.weight_per_length() * self.length
         return w
+    
+    def cost(self):
+        """ Cost of member (€, $, etc.).
+            By default, the cost includes only material cost.
+            
+            More specific cost function should be implemented for
+            particular steel member using the class of that member
+        """
+        
+        return self.profile.cost() * self.length
+        
 
     def mcrit(self, C=[1.12, 0.45, 0.525], k=[1, 1],za=0.0,verb=False):
         """ Critical moment for lateral-torsional buckling

@@ -128,12 +128,16 @@ class SteelSection(metaclass=ABCMeta):
         self.density = constants.density
         self.rotate = False
         
-        
+        # Cost of section, €/kg (or $/kg, or...)
+        self.unit_cost = 1.0
 
 
     def __repr__(self):
         return type(self).__name__
 
+    def cost(self):
+        """ Material cost of section, units: €/m """
+        return self.weight()*self.unit_cost
 
     @property
     def G(self):
@@ -391,6 +395,10 @@ class SteelSection(metaclass=ABCMeta):
 
         """
 
+    def robot(self):
+        # returns the name of the section that Robot Structural Analysis can identify.
+        pass
+
     def weight(self):
         """ Weight per unit length kg/mm """
         w = self.A * constants.density
@@ -433,7 +441,7 @@ class SteelSection(metaclass=ABCMeta):
     
     def sigmaM(self):
         """ Axial stress from bending moment """
-        return self.Med/self.Wel[0]
+        return self.Med[0]/self.Wel[0]
 
     def section_class(self,verb=False):
         """ Determines cross-section class """

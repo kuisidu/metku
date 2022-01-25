@@ -2030,3 +2030,14 @@ def full_strength_weld_throat(mat=Steel("S355")):
     fu = mat.fu
     
     return beta/math.sqrt(2)*gammaM2/gammaM0*fy/fu
+
+def full_strength_weld_tube(mat=Steel("S355")):
+    """ Throat thickness of single-sided fillet weld,
+        when there is tension in the welded plate
+    """
+    
+    beta = correlation_coefficient[mat.name]
+    fy = mat.fy
+    fu = mat.fu
+    
+    return 2*beta/math.sqrt(2)*gammaM2/gammaM0*fy/fu

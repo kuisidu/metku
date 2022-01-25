@@ -28,6 +28,7 @@ TODO:
 """
 
 import copy
+from colorama import Fore
 from cost.cost_data import BASIC_STEEL_PRICE
 
 NOT_IMPLEMENTED = "NOT IMPLEMENTED YET! Add this feature: "
@@ -80,6 +81,8 @@ maintenance_index = 181 # Q4/2014
 building_height = 8.0 # m
 real_estate_maintenance_cost = building_height*industrial_hall_maintenance*maintenance_index/100
 
+#print(f'{real_estate_maintenance_cost:.2f} €')
+
 """ Cost of electricity """
 cost_energy = 0.1 # €/kWh
 cost_energy_min = cost_energy/60
@@ -124,6 +127,7 @@ for paint, films in paints.items():
     paints[paint]["TPP"] = TPP
     paints[paint]["CP"] = CP
 
+
 """ Welding consumables, prices """
 """ Welding process 135 (MAG with solid wire) """
 wire_prices = {"S355": 1.66,
@@ -152,9 +156,65 @@ sawing_parameters = {"S235":{"Sm":2.0, "Q":1800},
                      "S700":{"Sm":2.0, "Q":1800}}
 
 """ Cost of one saw blade [€] """
-saw_blade_cost = 100.0
+#saw_blade_cost = 100.0
+saw_blade_cost = 170.0
 
+def print_initial_cost_data():
+    """ Prints a set of initial data used in cost calculations """
+    
+    header = "-----"
+    
+    print("Cost analysis following Haapio (2012)")
+    print(header + " Working time " + header)
+    print(f"Working days per year: {work_days_per_year} d")
+    print(f"Working hours per shift: {work_hours_per_day} h")
+    print(f"Working minutes per year: {work_minutes_per_year}")
+    
+    print('\n' + header + " Wages " + header)
+    
+    for key, value in wages.items():
+        print(f'{key}: {value:.2f} €/h')
+    
+    print(f'Overhead: {overhead}')
 
+    for key, value in wage_per_minute.items():
+        print(f'{key}: {value:.3f} €/min')
+    
+    print('\n' + header + " Real estate " + header)
+    
+    print(f"Construction cost: {construction_cost} €/m2") 
+    print(f"Plot efficiency: {plot_efficiency} ") 
+    print(f"Raw land cost: {raw_land_cost} €/m2") 
+    print(f"Land cost (Seinäjoki, Finland): {land_cost} €/m2") 
+    print(f"Interest rate of real estate: {IRealS*100:.1f}%")
+    print(f"Life time of real estate: {nRealS} a")
+   
+    print(f"Maintenance cost, industrial hall: {industrial_hall_maintenance} €/(m3*a)") 
+    print(f"Maintenance index (Q4/2014): {maintenance_index} ") 
+    print(f"Building height: {building_height} m")
+    print(f"Real estate maintenance cost: {real_estate_maintenance_cost:.2f} €/(m2*a)")
+    
+    print('\n' + header + " Cost of electricity " + header)
+    print(f'Cost of energy: {cost_energy} €/kWh')
+    print(f'Cost of energy per minute: {cost_energy_min:.2f} €/kWh/min')
+
+    print('\n' + header + " Investment of equipment " + header)
+    print(f'Interest rate of equipment: {IEq*100} %')
+    print(f'Life time of equipment: {nEq} a')
+    
+    print('\n' + header + " Painting " + header)
+    for paint, values in paints.items():
+        print(f"{paint}: TPP = {values['TPP']:.2e}, CP = {values['CP']:.2e} ")
+        
+    
+    
+    """
+    paints = {"alkyd": {"vol_solid":[0.48,0.45,0.45], "DFT":[80,40,40],"price":[2.8,3.6,3.6],"time":3,"TPP":0.0,"CP":0.0},
+              "epoxy": {"vol_solid":[0.50,0.50,0.48], "DFT":[60,60,40],"price":[4.2,4.2,4.9],"time":14,"TPP":0.0,"CP":0.0},
+              "polyurethane": {"vol_solid":[0.50,0.50], "DFT":[60,60],"price":[4.2,5.9],"time":27,"TPP":0.0,"CP":0.0},
+              "acryl": {"vol_solid":[0.48,0.48,0.40], "DFT":[60,60,40],"price":[6.4,6.4,6.4],"time":7,"TPP":0.0,"CP":0.0},
+              }
+    """
 # Annual cost, Haapio, eq (2)
 # Uniform series end-of-period installment [e/a]
 def annual_cost(P, I, n):
@@ -170,6 +230,8 @@ class CostCentre:
     """
     def __init__(self,length=20,width=10,workers=1,
                  eq_invest=1000,eq_resale=0,eq_maint=1000,eq_year=nEq):
+        
+        self.name = "Cost Centre"
         self.length = length
         self.width = width
         self.nw = workers        
@@ -225,7 +287,17 @@ class CostCentre:
         return sum(self.times.values())*sum(self.costs.values())/self.utility + \
                 self.times["productive"]*sum(self.productive_costs.values()) + \
                 self.consumables_cost
+    
+    def info(self):
         
+        print(Fore.GREEN + f"Cost centre: {self.name}")
+        print(Fore.RESET + f"Area: {self.Area:.2f} m2")
+        
+        print(f"Labour costs: {self.costs['labour']:.2f} €/min")
+        print(f"Equipment costs: {self.costs['equipment']:.2f} €/min")
+        print(f"Equipment maintenance costs: {self.costs['equip_maintenance']:.2f} €/min")
+        print(f"Real estate costs: {self.costs['real_estate']:.2f} €/min")
+        print(f"Real estate maintenance costs: {self.costs['real_maintenance']:.2f} €/min")
 # Cost center for beam welding
 class BeamWeldingCost(CostCentre):
 
@@ -235,6 +307,7 @@ class BeamWeldingCost(CostCentre):
         CostCentre.__init__(self, length,width,workers,
                             eq_invest,eq_resale,eq_maint)
         
+        self.name = "Beam Welding"
         
         self.times["non-productive"] = 6.25 # minutes
         
@@ -297,7 +370,7 @@ class BeamWeldingCost(CostCentre):
             b = self.weld_size
             weld_weight = self.weld_length*b**2/2*7850e-9
         
-        self.times["productive"] = welding_weight/self.deposit_rate
+        self.times["productive"] = weld_weight/self.deposit_rate
         
 
     def consumables(self):
@@ -320,11 +393,13 @@ class BeamWeldingCost(CostCentre):
 # Cost center for blasting
 class BlastingCost(CostCentre):
 
-    def __init__(self,length=20,width=10,workers=1,speed=3000,
+    def __init__(self,length=40,width=10,workers=1,speed=3000,
                  eq_invest=200000.0,eq_resale=0.0,eq_maint=1000.0):
     
         CostCentre.__init__(self, length,width,workers,
                             eq_invest,eq_resale,eq_maint)
+        
+        self.name = "Blasting"
         # Productive time
         self.vc = speed                         # Conveyor speer [mm/m]        
 
@@ -336,7 +411,8 @@ class BlastingCost(CostCentre):
         # For utilization ratio of 0.5, grain consumption is 10kg/8h
         grain_consump = 0.042                   
         # Grain weight price [e/kg]
-        grain_unit_cost = 0.50                  
+        #grain_unit_cost = 0.50                  
+        grain_unit_cost = 0.75 
 
         # Cost of consumables [e/min]
         self.productive_costs["consumables"] = grain_consump*grain_unit_cost
@@ -369,6 +445,8 @@ class CuttingCost(CostCentre):
 
         CostCentre.__init__(self, length,width,workers,
                             eq_invest,eq_resale,eq_maint)
+        
+        self.name = "Cutting"
         
         self.times["non-productive"] = 3.0          
         
@@ -442,19 +520,22 @@ class PaintingCost(CostCentre):
 
     def __init__(self, length=15.0,width=5.0, workers=1.0,
                  paint = "alkyd"):
+        """ NOTE: Drying costs are missing, 26.1.2022 """
 
         CostCentre.__init__(self, length,width,workers,
                             eq_invest=0.0,eq_resale=0.0,eq_maint=0.0)        
         
+        self.name = "Painting"
+        
         self.paint = paint
         # flow of paint through the tip of the paint gun
         # (mm3/min)
-        self.tip_flow = 900000
+        self.tip_flow = tip_flow
             
         self.costs["labour"] = self.nw*wage_per_minute["machine"]
             
 
-    def ProductiveTime(self,Ap):
+    def productive_time(self,Ap):
         """ Productive time of painting
             input: Ap .. area to be painted (mm2)
         """
@@ -464,7 +545,7 @@ class PaintingCost(CostCentre):
         self.times["productive"] = T_P
         return T_P
 
-    def Consumables(self,Ap):
+    def consumables(self,Ap):
         """ Cost of painting consumables
             input: Ap .. area to be painted (mm2)
         """
@@ -472,13 +553,13 @@ class PaintingCost(CostCentre):
         # Total cost of non-time-related consumables [e]
         C_C = paints[self.paint]["CP"]*Ap
        
-        self.productive_costs["consumables"] = C_C
+        self.consumables_cost = C_C
         
     def cost(self,Ap):
         """ Evaluate total painting cost """
         
-        self.ProductiveTime(Ap)
-        self.Consumables(Ap)
+        self.productive_time(Ap)
+        self.consumables(Ap)
         
         return super().cost()
         
@@ -507,15 +588,19 @@ class AssemblingCostWeld(CostCentre):
         """
         CostCentre.__init__(self, length,width,workers,
                             eq_invest,eq_resale,eq_maint,eq_year)                            
-                        
+        
+        self.name = "Assembly welding"
+        
         self.weld_type = weld_type
         self.weld_length = weld_length
         self.weld_size = weld_size
-           
+        
+        number_of_tacks = 4
+        
         self.tacking_times = {"debur":0.5,
                          "insertion":0.5,
                          "clamp":0.27,
-                         "tack":0.09*3+0.05}
+                         "tack":0.09*number_of_tacks+0.05}
         
         self.power = 200*30*1e-3 # current * voltage (kW)
         self.productive_costs["energy"] = self.power*cost_energy_min
@@ -596,7 +681,12 @@ class SawingCost(CostCentre):
         """
         CostCentre.__init__(self, length,width,workers,
                             eq_invest,eq_resale,eq_maint,eq_year)                            
-                        
+        
+        self.name = "Sawing"
+        
+        # Here, a basic value for the non-productive time is calculated.
+        # It consists of setting up the machine, fixing the profile,
+        # descending and ascending the blade for both ends
         self.times["non-productive"] = sawing_times["setup"]+\
             2*(sawing_times["blade_descent"]+sawing_times["blade_raising"]+\
                sawing_times["profile_fixing"])
@@ -620,7 +710,8 @@ class SawingCost(CostCentre):
         
         self.times["non-productive"] = sawing_base_time + saw_bevel_time*bevels + L/self.conveyor_speed
         
-            
+        return self.times["non-productive"]    
+        
     def productive_time(self,steel_grade,h,t,Ah):
         """ Productive time of sawing
             input: h .. vertical part of the material, where thickness of sawed
@@ -628,17 +719,20 @@ class SawingCost(CostCentre):
                    t ..plate thickness corresponding to h
                 Ah .. area of the horizontal part of the profile [mm2]
         """
-        self.times["productive"] = 0.0
+        #self.times["productive"] = 0.0
         Sm = sawing_parameters[steel_grade]["Sm"]
         Q = sawing_parameters[steel_grade]["Q"]
         # calculate productive time for obth ends
-        for i in range(1):
-            S = self.feeding_speed(t[i])
-            self.times["productive"] += h[i]/Sm/S
-            self.times["productive"] += Ah[i]/Q
+        #for i, T in enumerate(t):
+        #S = self.feeding_speed(T)
+            #TPadd = h[i]/Sm/S + Ah[i]/Q
+            #self.times["productive"] += TPadd            
+        S = self.feeding_speed(t)
+        TP = h/Sm/S + Ah/Q
+        return TP
         
         
-    def consumables(self,At,t,steel_grade='S355'):
+    def consumables(self,At,t,TP,steel_grade='S355',verb=False):
         """ Cost of sawing consumables 
             Input:
                 At .. cross-sectional area of the sawed profile
@@ -647,9 +741,15 @@ class SawingCost(CostCentre):
         
         St = self.blade_durability(t,steel_grade)
         
-        self.consumables_cost = At/St/self.times["productive"]*saw_blade_cost
+        if verb:
+            print(f'St = {St:.2f}')
+            print(f'At = {At:.2f}')
+            print(f'TP = {TP:.2f}')
+            print(f'Saw blade = {self.blade_cost:.2f}')
         
-        return self.consumables_cost
+        return At/St/TP*self.blade_cost
+        
+        #return self.consumables_cost
     
     def feeding_speed(self,t):
         """ Speed of the blade
@@ -702,13 +802,59 @@ class SawingCost(CostCentre):
         return Fsp
     
     def blade_durability(self,t,steel_grade="S355"):
-        """ Durability of the blade
+        """ Durability of the blade 
+            t .. thickness of the plate to be sawn
         """
+        
         Q = sawing_parameters[steel_grade]["Q"]
         Fsp = self.Fsp(t)
         St = Q*self.Fs*Fsp
         
         return St
+    
+    def cost(self,L,bevels, steel_grade, H, T, AH, AT):
+        """
+        
+
+        Parameters
+        ----------
+        L : float
+            Length of member.
+        bevels : float/int
+            Number of bevels (0, 1 or 2).
+        steel_grade : string
+            Steel grade, one of the values in sawing_parameters dict.
+        h : float
+            height of the sawn portion, where the thickness of the plate
+            is close to wall thickness.
+        T : list
+            wall thicknesses of the "thin" portion of the sawn part at each end of the member
+        AH : list
+            area of the "solid" part of the section at each end.
+        AT : list
+            total cross_sectional area of the profile at each end.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        
+        
+        TNP = self.non_productive_time(L,bevels)
+        #TP  = self.productive_time(steel_grade, H, T, AH)
+        TP = 0.0
+        cCS = 0.0
+        # calculate productive time and cost of consumables for each end.   
+        for t, h, Ah, At in zip(T,H,AH,AT):     
+            TPnew = self.productive_time(steel_grade, h, t, Ah)
+            cCS += self.consumables(At, t, TPnew, steel_grade)
+            TP += TPnew            
+                    
+        self.times["productive"] = TP
+        self.consumables_cost = cCS
+        return super().cost()        
 
 class Workshop:
     """
@@ -722,6 +868,8 @@ class Workshop:
     def __init__(self,steel_price={"plates":BASIC_STEEL_PRICE},cost_centres=None):
         """ Constructor """        
     
+        self.name = "Steel Workshop"
+        
         self.steel_price = steel_price
     
         if cost_centres is None:
@@ -735,4 +883,10 @@ class Workshop:
             self.cost_centres = {}
             for key, value in cost_centres.items():
                 self.cost_centres[key] = value
+        
     
+    def info(self):
+        """ Prints a bunch of information regarding the workshop """
+        
+        for centre in self.cost_centres.values():
+            centre.info()
