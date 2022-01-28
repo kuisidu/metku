@@ -595,7 +595,7 @@ class AssemblingCostWeld(CostCentre):
         self.weld_length = weld_length
         self.weld_size = weld_size
         
-        number_of_tacks = 4
+        number_of_tacks = 3
         
         self.tacking_times = {"debur":0.5,
                          "insertion":0.5,

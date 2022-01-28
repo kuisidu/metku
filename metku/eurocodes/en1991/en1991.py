@@ -14,6 +14,7 @@ import copy
 from abc import ABC, abstractmethod
 
 # RIL 201-1-2008 Osa 0 Taulukko A1.1
+# Combination factors for live loads.
 comb_factors = {
     'A': [0.7, 0.5, 0.3],
     'B': [0.7, 0.5, 0.3],
@@ -68,13 +69,13 @@ class AreaLoad(Load):
 class ImposedLoad(Load):
     """ Class for imposed (live) loads """
     
-    def __init__(self,value_ground=2.0,comb_factors=[0.7,0.5,0.2]):
+    def __init__(self,value=2.0,comb_factors=[0.7,0.5,0.2]):
         """ Constructor
         
             :param value_ground: value of snow load on ground [kN/m2]
         """
         
-        super().__init__(value_ground,comb_factors)
+        super().__init__(value,comb_factors)
 
     def __copy__(self):
         return ImposedLoad(self.value, self.comb_factors)
@@ -104,7 +105,7 @@ class SnowLoad(Load):
 
     def __repr__(self):
         
-        return "Snow load"
+        return f"Snow load: sk = {self.value:.1f} kN/m2"
 
 
 class WindLoad(Load):
@@ -143,24 +144,33 @@ class Combiner(ABC):
         elif CC == 1:
             self.kfi = 0.9
         self.kk_jako = kk_jako
-
-        self.G_k = []
-        self.Q_k = []
+        
+        self.G_k = [] # List of permanent loads
+        self.Q_k = [] # List of variable loads
 
     def get_comb_factors(self):
+        """ Combination factors for live load """
         return comb_factors[self.structure_class]
 
     def add(self, *args):
+        """ Adds a load to the load combination """
+        
         for l in args:
+            # l[0] .. Load class object
+            # l[1] .. 'x', 'y', or 'z', direction of the load
+            # l[2] .. ???
             load = [copy.copy(l[0]), l[1], l[2]]
             if isinstance(load[0], (SnowLoad, WindLoad, ImposedLoad)):
                 if isinstance(load[0], ImposedLoad):
                     load[0].comb_factors = self.get_comb_factors()
+                # Change the value of the load to a line load
                 load[0].value *= self.kk_jako
                 self.Q_k.append(load)
             elif isinstance(load[0], (Load, AreaLoad)):
                 if isinstance(load[0], AreaLoad):
+                    # Change the value of the load to a line load
                     load[0].value *= self.kk_jako
+                    
                 load[0].comb_factors = self.get_comb_factors()
                 self.G_k.append(load)
 

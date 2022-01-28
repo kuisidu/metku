@@ -293,6 +293,10 @@ class RHSKGapJoint(RHSJoint):
         self.gap = gap
         self.angles = angles
     
+    @property
+    def NEd(self):
+        """ Numpy array of axial forces in braces """
+        return np.array([self.braces[0].Ned,self.braces[1].Ned])
     
     @property
     def N1(self):
@@ -687,6 +691,35 @@ class RHSKGapJoint(RHSJoint):
         
         ax.plot(p0[0],p0[1],'ko')
         ax.plot([p0[0],p[0]],[p0[1],p[1]],linewidth=INNER,color='k',linestyle='dashed')
+    
+    def design(self):
+        """
+        Designs the joint
+
+        Returns
+        -------
+        Utilization ratios N1Ed/NjRd and N2Ed/NjRd
+
+        """
+        
+        b = self.beta()
+        g = self.gamma()
+        
+        NiEd = self.NEd
+        
+        N_cff_Rd = self.chord_face_failure()
+        N_cs_Rd, N0Rd = self.chord_shear()
+        N_bf_Rd = self.brace_failure()
+        
+        NjRd = np.minimum(N_cff_Rd,N_cs_Rd)
+        NjRd = np.minimum(NjRd,N_bf_Rd)
+        if b <= 1-1/g:
+            N_ps_Rd = self.punching_shear()        
+            NjRd = np.minimum(NjRd,N_ps_Rd)
+
+        res = abs(self.NEd)/NjRd
+
+        return res
 
 class RHSKTGapJoint(RHSJoint):
     """ For KT Gap joints between RHS members """

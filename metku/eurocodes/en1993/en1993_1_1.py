@@ -334,16 +334,22 @@ def equivalent_moment_factor(Mend,Mspan=None,load="uniform"):
             Cm = max(0.6+0.4*p,0.4)
         else:
             # Nonlinear distribution
+            
             if abs(Mend[0]) > abs(Mend[1]):
                 Mh = Mend[0]
             else:
                 Mh = Mend[1]
             
-            alpha = Mspan/Mh
+            if abs(Mh) < 1e-6:
+                # Both end moments are zero in this case
+                alpha = 0
+            else:            
+                alpha = Mspan/Mh
             
-            if abs(alpha) > 1.0:
+            if abs(alpha) > 1.0 or alpha == 0:
                 # Moment in the span is larger than the maximum end moment
-                alpha = 1/alpha
+                if abs(alpha) > 1.0:
+                    alpha = 1/alpha
                 
                 if alpha >= 0:
                     if load == "uniform":
