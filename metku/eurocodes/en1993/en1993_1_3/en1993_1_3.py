@@ -145,6 +145,126 @@ def axial_force_resistance(self,Ned,A,**kwargs):
           
     return NRd
 
+def RwRd(fyb,t,hw,ss,c,r,phi=90,e=0.0,flange_stiffeners=False,web_stiffeners=False,verb=False):
+    """ Resistance to transverse forces, cross sections with a single
+        web. EN 1993-1-3, 6.1.7.2
+    
+
+    Parameters
+    ----------
+    fyb : float
+        Yield strength of the base material.
+    t : float
+        Design value of wall thickness.
+
+    Returns
+    -------
+    RwRd : Resistance value, in N.
+
+    """
+    
+    def k1(k):
+        return 1.33-0.33*k
+    
+    def k2(r,t):
+        return min(max(1.15-0.15*r/t,0.5),1.0)
+    
+    def k3(phi):
+        return 0.7 + 0.3*(phi/90**2)
+
+    def k4(k):
+        return 1.22-0.22*k
+    
+    def k5(r,t):
+        return min(1.06-0.06*r/t,1.0)
+    
+    def k5_star(k):
+        return max(1.49-0.53*k,0.6)
+    
+    def k6(t):
+        return 0.88-0.12*t/1.9
+    
+    def k7(hw,t):
+        hw_t = hw/t
+        
+        if hw_t < 150:
+            return 1+hw_t/750
+        else:
+            return 1.2
+    
+    def k8(hw,t,k):
+        hw_t = hw/t
+        
+        if hw_t < 66.5:
+            return 1/k
+        else:
+            return (1.1-hw_t/665)*k
+    
+    def k9(t):
+        return 0.82 + 0.15*t/0.19
+    
+    def k10(hw,t,k):
+        return (0.98-hw/t/865)*k
+    
+    def k11(t):
+        return 0.64+0.31*t/1.9
+    
+    # Base value of the resistance
+    Rw0 = t**2*fyb/gammaM1
+    
+    k = fyb/228
+    
+    if abs(e) < 1e-6:
+        # In this case, the transverse load is acting at the end
+        # of the member.
+        if c <= 1.5*hw:
+            if web_stiffeners:
+                C0 = k7(hw,t)*(8.8+1.1*np.sqrt(ss/t))
+            else:
+                # Load is close to the end of the member
+                C0 = k1(k)*k2(r,t)*k3(phi)
+                ss_t = ss/t
+                if flange_stiffeners:
+                    C = C0*(9.04-hw/t/60)*(1+0.01*ss_t)
+                else:
+                    if ss_t <= 60:
+                        C = C0*(5.92-hw/t/132)*(1+0.01*ss_t)
+                    else:
+                        C = C0*(5.92-hw/t/132)*(0.71+0.015*ss_t)
+        else:
+            if web_stiffeners:
+                C0 = k5_star(k)*k6(t)*(13.2+2.87*np.sqrt(ss/t))                
+            else:
+                C0 = k3(phi)*k4(k)*k5(r,t)
+                ss_t = ss/t
+                if ss_t <= 60:
+                    C = C0*(14.7-hw/t/49.5)*(1+0.007*ss_t)
+                else:
+                    C = C0*(14.7-hw/t/49.5)*(0.75+0.011*ss_t)
+    else:
+        # Two opposite forces.
+        # Assume for now that the distance between forces is
+        # e < 1.5*hw.
+        # If this is not the case, then we go for case 1 and examine
+        # the two forces separately.
+        if c <= 1.5*hw:
+            if web_stiffeners:
+                C0 = k10(hw,t,k)*k11(t)*(8.8+1.1*np.sqrt(ss/t))
+            else:
+                # Load is close to the end of the member
+                C0 = k1(k)*k2(r,t)*k3(phi)
+                C = C0*(6.66-hw/t/64)*(1+0.01*ss/t)
+        else:
+            if web_stiffeners:
+                C0 = k8(hw,t,k)*k9(t)*(13.2+2.87*np.sqrt(ss/t))
+            else:
+                C0 = k3(phi)*k4(k)*k5(r,t)
+                C = C0*(21.0-hw/t/16.3)*(1+0.0013*ss/t)
+            
+    RwRd = C*Rw0
+    
+    return RwRd
+    
 def RwRd_two_webs(fyb,r,t,phi,hw,ss,verb=False,code='old',**kwargs):
     """    
 

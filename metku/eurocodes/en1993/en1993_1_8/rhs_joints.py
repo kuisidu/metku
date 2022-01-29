@@ -717,7 +717,7 @@ class RHSKGapJoint(RHSJoint):
             N_ps_Rd = self.punching_shear()        
             NjRd = np.minimum(NjRd,N_ps_Rd)
 
-        res = abs(self.NEd)/NjRd
+        res = np.array(abs(self.NEd)/NjRd,abs(self.N0/N0Rd))
 
         return res
 
