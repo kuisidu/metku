@@ -249,6 +249,24 @@ class SteelMember:
 
         return slend
 
+    def slenderness_torsional(self, verb=False):
+        """ Non-dimensional slenderness for torsional buckling
+            according to EN 1993-1-1 
+        """
+        NRd = self.profile.A * self.fy()
+        Ncr = self.ncrit_T(verb)
+        # if NRd <= 1e-6:
+        # print(self.profile.A)
+        # print(self.profile.h)
+        # print(NRd, Ncr)
+
+        slend = np.sqrt(NRd / Ncr)
+
+        if verb:
+            print("lambda_T = {0:4.2f}".format(slend))
+           
+        return slend
+
     def LT_slenderness(self, Mcr, verb=False):
         """ Non-dimensional slenderness for lateral-torsional buckling.
         """
@@ -288,25 +306,36 @@ class SteelMember:
 
             NbRd.append(NRd * r)
 
-        # NbRd = self.profile.A*self.fy()*r;
+        return NbRd
+    
+    def torsional_buckling_strength(self, verb=False):
+        """ Member torsional buckling strength according to EN 1993-1-1 
+            EN 1993-1-1, 6.3.1.4        
+        """
+        if verb:
+            print("** Torsional buckling strength** ")
+        
+        slend = self.slenderness_torsional(verb)        
+        NRd = self.profile.A * self.fy()
+                
+        p = 0.5*(1 + self.profile.imp_factor[1]*(slend-0.2) + slend**2)
+        r = min(1/(p + math.sqrt(p**2-slend**2)), 1.0)
+        NbRd = r*NRd
+        if verb:      
+            print(f"lambda_t = {slend:4.3f}")
+            print(f"Psi = {p:4.2f}")
+            print(f"chi = {r:4.2f}")
+            print(f"NbRd = {NbRd*1e-3:4.2f}")
+        
         return NbRd
 
-    def LT_buckling_strength(self, Mcr, axis='y', method='specific',
-                             verb=False):
-        """ Member lateral-torsional bending strength """
+    def LT_buckling_strength(self, Mcr, method='specific',verb=False):
+        """ Member lateral-torsional buckling strength """
 
         MRd = self.profile.bending_resistance()[0]
-        """
-        if axis == 'y':
-            idx = 0
-        else:
-            idx = 1
-        """
-        lambdaLT = self.LT_slenderness(Mcr) # [idx]
         
-        # self.profile.define_imp_factor_LT()
-        # alpha = self.profile.ImperfectionLT
-
+        lambdaLT = self.LT_slenderness(Mcr)
+        
         if method == 'general':
             alphaLT = self.profile.imp_factor_LT_gen
             lambdaLT0 = 0.2
@@ -417,7 +446,7 @@ class SteelMember:
             print("Critical moment for LT buckling")
             print("kz = {0:4.2f}; kw = {1:4.2f}".format(kz,kw))
             print("C1 = {0:4.2f}; C2 = {1:4.2f}".format(C1,C2))
-            print("Mcr = {0:6.4f}".format(Mcr*1e-6))
+            print("Mcr = {0:6.4f} kNm".format(Mcr*1e-6))
 
         # print("Iz = {0:4.2f}".format(Iz*1e-4))
         # print("Iw = {0:4.2f}".format(Iw*1e-6))
@@ -426,7 +455,95 @@ class SteelMember:
         # print("kz =", kz, "kw =", kw, "L =", L, "part3 =", part3))
 
         return Mcr
+    
+    def mcrit_cantilever(self,load="uniform",loc="middle",warping_free=True,verb=False):
+        """ Critical buckling moment for cantilevers with I-sections 
+            Based on Andrade et al. (2007), J Constr Steel Res.
+            
+            load .. type of load "uniform" or "point"
+            loc .. location of load "middle", "top" or "bottom"
+            warping .. is warping of the fixed end free
+        """
+        C1 = 1.0
+        C2 = 0.0
+        
+        # hS is the distance between center lines of the flanges
+        hS = self.profile.h-self.profile.tf
+        
+        # K is a constant that is used in the equations.
+        K = np.pi/self.length*np.sqrt(self.profile.E*self.profile.Iz*hS**2/4/self.profile.G/self.profile.It)
+        
+        if K < 0.1 or K > 2.5:
+            print(f"Warning: constant K = {K:4.2f} is out of scope")
+        
+        denom = np.sqrt(1+K**2)
+        
+        if warping_free:
+            if load == 'point':
+                C1 = 2.437/denom + 0.613*K/denom - 0.105*K**2/denom
+                
+                if loc == "top":
+                    C2 = 0.409 + 1.444*K + 0.070*K**2
+                elif loc == "bottom":
+                    C2 = 0.529 + 0.234*K + 0.149*K**2
+            else:
+                C1 = 3.840/denom + 1.496*K/denom - 0.247*K**2/denom
+                
+                if loc == "top":
+                    C2 = 0.984 + 1.420*K + 0.165*K**2
+                elif loc == "bottom":
+                    C2 = 1.028 + 0.388*K + 0.150*K**2
+        else:
+            # Warping fully restrained
+            if load == 'point':
+                C1 = 2.462/denom + 2.383*K/denom
+                
+                if loc == "top":
+                    C2 = 0.380 + 2.092*K - 0.318*K**2
+                elif loc == "bottom":
+                    C2 = 0.512 + 0.370*K -0.033*K**2
+            else:
+                C1 = 3.962/denom + 5.531*K/denom
+                
+                if loc == "top":
+                    C2 = 1.130 + 1.539*K - 0.176*K**2
+                elif loc == "bottom":
+                    C2 = 1.049 + 0.234*K - 0.020*K**2
+        
+        if loc == "top":
+            za = 0.5*self.profile.h
+        elif loc == "bottom":
+            za = -0.5*self.profile.h
+        else:
+            za = 0.0
+        
+        Mcr = self.mcrit([C1,C2,0],[2,1], za,verb)
+        
+        if verb:
+            print(f'K = {K:4.3f}')
+        
+        return Mcr
+                
+    
+    def mcrit_buckling(self,verb=False):
+        """ Evaluate elastic critical moment by buckling of compressed
+            flange
+        """
+        
+        # Determine compressed flange and its
+        # buckling load
+        _, Ifz = self.profile.compressed_flange()
+        Ncrz = np.pi**2*self.profile.E*Ifz/self.length**2
+        
+        Mcr = Ncrz * self.profile.h
+        
+        if verb:
+            print("Critical moment for LT buckling using compressed flange")
+            print("Ifz = {0:4.2f} mm4".format(Ifz))
+            print("Ncr_z = {0:4.2f} kN".format(Ncrz*1e-3))
+            print("Mcr = {0:6.4f} kNm".format(Mcr*1e-6))
 
+        
     def add_section(self, ned=0.0, myed=0.0, mzed=0.0, vyed=0.0, vzed=0.0,
                     ted=0.0, loc=0.0):
         """ Adds new section with internal forces and location """

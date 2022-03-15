@@ -17,6 +17,15 @@ import matplotlib.lines as lines
 try:
     from metku.eurocodes.en1993 import constants
     from metku.eurocodes.en1993 import en1993_1_1
+    from metku.sections.steel.ISection import HEA
+    from materials import steel_data
+    import eurocodes.en1992.en1992_1_1 as en1992
+    import eurocodes.en1992.constants as en1992_const
+    from sections.steel.ISection import HEA
+    from structures.steel.plates import RectPlate
+    from materials.steel_data import Steel
+    from eurocodes.en1993.en1993_1_8.en1993_1_8 import TStubEndPlate, BoltRow, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
+    from eurocodes.en1993.en1993_1_8.en1993_1_8 import ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, TENSION_ROW, COMPRESSION_ROW, OTHER_INNER_ROW
 except:
     from eurocodes.en1993 import constants
     from eurocodes.en1993 import en1993_1_1
@@ -26,7 +35,8 @@ except:
     from sections.steel.ISection import HEA
     from structures.steel.plates import RectPlate
     from materials.steel_data import Steel
-
+    from eurocodes.en1993.en1993_1_8.en1993_1_8 import TStubEndPlate, BoltRow, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
+    from eurocodes.en1993.en1993_1_8.en1993_1_8 import ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, TENSION_ROW, COMPRESSION_ROW, OTHER_INNER_ROW
 
 # Anchor bolts
     
@@ -82,6 +92,7 @@ class ColumnBase:
         """
 
         self.column = column_profile
+        self.beam = column_profile
         self._c = plate_edges
         h = column_profile.h
         b = column_profile.b
@@ -103,6 +114,8 @@ class ColumnBase:
         self.flange_weld = 5.0
         self.web_weld = 5.0
         self.bolt_rows = []
+        self.add_bolt_row(anchor_bolts, bolt_x[0], self.p)
+        self.add_bolt_row(anchor_bolts, bolt_x[1], self.p)
         self.beta_j = 2.0/3.0
         
     
@@ -114,6 +127,21 @@ class ColumnBase:
                  z > 0: right side
             p .. distance between bolts
         """
+        #(self,bolt,p,z,flange_loc=INNER_ROW, plate_loc=OTHER_INNER_ROW,joint=None, row_type=TENSION_ROW)
+        
+        if z < -0.5*self.column.h:
+            ploc = ROW_OUTSIDE_BEAM_TENSION_FLANGE
+            row_type = TENSION_ROW
+        elif z < 0:
+            ploc = FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
+            row_type = TENSION_ROW
+        else:
+            ploc = OTHER_INNER_ROW
+            row_type = COMPRESSION_ROW
+        
+        new_row = BoltRow(bolt,p,z,plate_loc=ploc,joint=self,row_type=row_type)
+        
+        self.bolt_rows.add(new_row)
     
     @property
     def fcd(self):
@@ -166,7 +194,7 @@ class ColumnBase:
             
         return coords
     
-    def FCRd(self):
+    def Fc_pl_Rd(self,verb=False):
         """ Compression strength of T-stub 
             EN 1993-1-8, Eq. (6.4)
         """
@@ -175,14 +203,64 @@ class ColumnBase:
         leff = self.leff(c)
         fjd = self.fjd
         
-        return fjd*beff*leff
+        FRd = fjd*beff*leff
+        
+        if verb:
+            print("Compression resistance of T-stub:")
+            print(f"c = {c:4.2f} mm")
+            print(f"beff = {beff:4.2f} mm")
+            print(f"fjd = {fjd:4.2f} MPa")
+            print(f"FC,Rd = {FRd*1e-3:4.2f} kN")
+        
+        return FRd
 
-    def Fc_fc_Rd(self):
+    def Fc_fc_Rd(self,verb=False):
         """ Column flange and web in compression 
             EN 1993-1-8 6.2.6.7
         """
-        McRd = self.column.MRd[0]
-        return McRd/(self.column.h-self.column.tf)
+        McRd = self.column.MRd
+        Fc = McRd/(self.column.h-self.column.tf)
+        
+        if verb:
+            print("Column flange and web in compression")
+            print(f"McRd = {McRd*1e-6:4.2f} kNm")
+            print(f" h = {self.column.h:4.2f} mm")
+            print(f" tf = {self.column.tf:4.2f} mm")
+            print(f" Fc_fc_Rd = {Fc*1e-3:4.2f} kN")
+        
+        return Fc
+    
+    def FCRd(self,verb=False):
+        """ Compression strength of the connection """
+        
+        FcplRd = self.Fc_pl_Rd(verb)
+        FcfcRd = self.Fc_fc_Rd(verb)
+        
+        FC = min(FcplRd,FcfcRd)
+        
+        return FC
+    
+    def Ft_ep_Rd(self,verb=False):
+        """ Tension side: bending of base plate.
+            EN 1993-1-8, 6.2.6.5. Base plate is treated as end plate.
+        """
+        
+        ex = 0.5*self.plate.h+self.xb[0]
+        mx = 0.5*self.column.h+0.8*self.flange_weld*math.sqrt(2) + self.xb[0]
+        
+        T = TStubEndPlate(self.bolt_rows[0],
+                          material=self.plate.material,
+                          tf=self.plate.t,
+                          emin=ex,
+                          m=mx,
+                          e=ex,
+                          w=self.p,
+                          bp=self.plate.b)
+        
+        F12Rd = T.F_T_12_Rd()
+        F3Rd = T.F_T_3_Rd()
+        
+        
     
     def draw(self, name=""):
         """ Draw the connection """
@@ -270,8 +348,8 @@ if __name__ == '__main__':
     #conc = en1992.concrete["C25/30"]
     
     col.Ned = -263.22e3
-    col.Med = 39.57e6
-    col.Ved = 16.70e3
+    col.Med[0] = 39.57e6
+    col.Ved[1] = 16.70e3
     
     c = [100,100,50,50]
     tp = 40
@@ -281,7 +359,7 @@ if __name__ == '__main__':
                        plate_thickness = tp,\
                        anchor_bolts = bolts,\
                        bolt_p = 100,\
-                       concrete="C25/30")
+                       concrete="C30/37")
         
     ax = joint.draw()
     

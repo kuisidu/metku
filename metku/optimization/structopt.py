@@ -99,6 +99,7 @@ class Variable:
         self.value = value
         self.lb = lb
         self.ub = ub
+        
         self.target = target
         self.profiles = profiles
         self.locked = False
@@ -162,7 +163,7 @@ class Variable:
             """ Substitute a new value for the variable """
             self.value = new_value
             """ Modify target object(s) if any """            
-            if self.target is not None:
+            if not self.target is None:
                 for obj in self.target['objects']:
                     prop = self.target['property']
                     """ If the variable affects several properties at a time
@@ -439,6 +440,7 @@ class Constraint:
             """ Collect current variable values stored in each
                 optimization variable to X
             """
+            
             X = np.array([var.value for var in self.problem.vars])            
             x = np.asarray(x)
             

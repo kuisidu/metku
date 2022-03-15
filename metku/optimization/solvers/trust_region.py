@@ -107,7 +107,9 @@ class TrustRegionConstr(OptSolver):
         constraints = []
         
         for con in self.problem.cons:           
-            if isinstance(con,sopt.NonLinearConstraint):
+            #if isinstance(con,sopt.NonLinearConstraint):
+            # Nonlinear constraints have 'con' as an attribute
+            if hasattr(con,'con'):
                 lb = -np.inf
                 ub = np.inf
                 if con.type == "<" or con.type == "<=":                
@@ -118,6 +120,8 @@ class TrustRegionConstr(OptSolver):
                     lb = 0
                     ub = 0
                     
+                #print(lb,ub)
+                    
                 constraints.append(NonlinearConstraint(
                     con,
                     lb,
@@ -125,7 +129,8 @@ class TrustRegionConstr(OptSolver):
                     jac='2-point',
                     # finite_diff_rel_step=1e-6
                     ))
-            elif isinstance(con,sopt.LinearConstraint):
+            else:
+            #elif isinstance(con,sopt.LinearConstraint):
                 lb = -np.inf
                 ub = np.inf
                 if con.type == "<" or con.type == "<=":                
@@ -138,7 +143,7 @@ class TrustRegionConstr(OptSolver):
                                     
                 
                 constraints.append(LinCon(con.a,lb,ub))
-            
+                
         
         bounds = self._create_bounds()
         """
@@ -148,7 +153,7 @@ class TrustRegionConstr(OptSolver):
         
         bnd_cons = LinCon(A=np.eye(problem.nvars()), lb=bounds.lb, ub=bounds.ub)
 
-        constraints.append(bnd_cons)
+        #constraints.append(bnd_cons)
 
         # Create initial guess if one isn't provided
         if x0 is None:
@@ -206,10 +211,14 @@ class TrustRegionConstr(OptSolver):
                            )
         """
         
+        self.bounds = bounds
+        self.cons = constraints
+        
         try:
             out = minimize(self.problem.obj,
                            x0,
                            method='trust-constr',
+                           jac=self.problem.grad,
                            tol = 1e-10,
                            bounds=bounds,
                            constraints=constraints,
@@ -233,12 +242,12 @@ class TrustRegionConstr(OptSolver):
             else:
                 self.feasible = True
 
-            return out.fun, out.x, out.nit
+            return out.fun, out.x
 
         except:
             self.best_x = x0
             self.best_f = -np.inf
-            return -np.inf, x0, 0
+            return -np.inf, x0
 
     def callback(self, xk, state):
         fval = self.problem.obj(xk)

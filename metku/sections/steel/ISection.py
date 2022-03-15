@@ -171,6 +171,27 @@ class ISection(SteelSection):
             
 
         return cFlange
+    
+    def compressed_flange(self):
+        """ Returns cross-sectional area and second moment of
+            area of the compression flange which include one flange
+            and 1/3 of the height of the compressed web.
+            It is assumed that the cross-section is in bending, so half
+            of the web is in compression.
+        """
+        h0 = self.h-2*self.tf
+        Af = 0.5*self.A-1/3*h0*self.tw
+        
+        hw = self.hw
+        # Second moment of area of one flange and corners
+        Ifz0 = 0.5*self.Iz-0.5/12*hw*self.tw**3
+        R = self.r
+        hFlat = 1/6*h0-R
+        Ifz = Ifz0 + 1/12*hFlat*self.tw**3
+        
+        return Af, Ifz
+        
+        
 
     def web_class_comp(self,verb=False):
         """ Determine class of compressed web """

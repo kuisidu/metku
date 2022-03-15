@@ -86,7 +86,7 @@ class SLSQP(OptSolver):
         eqcons = self._create_eqcons()
         ieqcons = self._create_ieqcons()
         
-        print(bounds)
+        #print(bounds)
         
         # Create initial guess if one isn't provided
         if x0 is None:
@@ -97,9 +97,14 @@ class SLSQP(OptSolver):
         """
             'eps' is the step length in numerical differentiation
         """
+        if verb == True:
+            iprint = 2
+        else:
+            iprint = 1
+        
         options = {'maxiter': maxiter,
-                   'disp': verb,
-                   'iprint': 1,
+                   'disp': verb,                   
+                   'iprint': iprint,
                    'eps': 1e-6,
                    'ftol': 1e-5}
 
@@ -113,15 +118,16 @@ class SLSQP(OptSolver):
             con = {'type': 'ineq', 'fun': ineqcon}
             constraints.append(con)
 
-        self.start = time.time()
+        self.start = time.time()        
         out = minimize(self.problem.obj,
                        x0,
                        method='slsqp',
+                       jac=self.problem.grad,
                        tol=1e-5,
                        bounds=bounds,
                        constraints=constraints,
                        options=options,
-                       #callback=self.callback,
+                       callback=self.feasibility_stop,
                        )
 
         print(out)
@@ -149,7 +155,14 @@ class SLSQP(OptSolver):
             print(f"Iteration took: {end - self.start :.2f} s")
             self.start = end
 
-
+    def feasibility_stop(self, xk):
+        
+        self.problem.substitute_variables(xk)
+        is_feasible = self.problem.feasible        
+        return is_feasible
+        
+        #self.calc_constraints(xk)
+        
 class COBYLA(SLSQP):
 
     def solve(self, problem, maxiter=100, x0=[]):

@@ -187,11 +187,100 @@ def rect_building_wall_pressure(length,width,h,qp,wind_dir="long"):
     
     print("*** Wind load ***")
     print("Wind to " + wind_dir + " side of the building")
-    print("b = {0:4.2g} m".format(b))
-    print("d = {0:4.2g} m".format(d))
-    print("h = {0:4.2g} m".format(h))
-    print("e = {0:4.2g} m".format(e))
-    print("h/d = {0:4.3g} m".format(hd_ratio))
+    print("b = {0:4.2f} m".format(b))
+    print("d = {0:4.2f} m".format(d))
+    print("h = {0:4.2f} m".format(h))
+    print("e = {0:4.2f} m".format(e))
+    print("h/d = {0:4.2f} m".format(hd_ratio))
+    
+    if A > 10:
+        zones["A"]['cpe'] = ext_pressure_walls["A"][5]["cpe10"]
+        zones["B"]['cpe'] = ext_pressure_walls["B"][5]["cpe10"]
+        zones["C"]['cpe'] = ext_pressure_walls["C"][5]["cpe10"]
+
+        if hd_ratio >= 5:
+            zones["D"]['cpe'] = ext_pressure_walls["D"][5]["cpe10"]
+            zones["E"]['cpe'] = ext_pressure_walls["E"][5]["cpe10"]
+        elif hd_ratio >= 1:
+            """ Linear interpolation for E """
+            zones["D"]['cpe'] = ext_pressure_walls["D"][1]["cpe10"]
+            Y = [ext_pressure_walls["E"][1]["cpe10"],
+                 ext_pressure_walls["E"][5]["cpe10"]]
+            X = [1,5]            
+            zones["E"]['cpe'] = interpolate(X,Y,hd_ratio)
+        elif hd_ratio >= 0.25:
+            """ Linear interpolation for D and E """            
+            X = [0.25,1]                        
+            YD = [ext_pressure_walls["D"][0.25]["cpe10"],
+                 ext_pressure_walls["D"][1]["cpe10"]]            
+            YE = [ext_pressure_walls["E"][0.25]["cpe10"],
+                 ext_pressure_walls["E"][1]["cpe10"]]            
+            zones["D"]['cpe'] = interpolate(X,YD,hd_ratio)
+            zones["E"]['cpe'] = interpolate(X,YE,hd_ratio)
+            
+            #zones["E"]['cpe'] = ext_pressure_walls["E"][1]["cpe10"]
+        else:
+            zones["D"]['cpe'] = ext_pressure_walls["D"][0.25]["cpe10"]
+            zones["E"]['cpe'] = ext_pressure_walls["E"][0.25]["cpe10"]
+
+    for key, value in zones.items():
+        value['we'] = qp*value['cpe']
+        
+    return zones
+
+def monopitch_roof_pressure(length,width,h,qp,wind_angle=180,alpha=5):
+    """ Calculates external wind pressures in various zones
+        for a rectangular building.
+        
+        EN 1991-1-4, Figure 7.5
+    
+        :param length: length of the building
+        :param width: width of the building
+        :param h: height of the building
+        :param qp: peak velocity pressure
+        :param wind_anlge: wind direction.
+                        0 .. up the slope
+                        180 .. against the slope
+                        90 .. perpendicular to the slope
+    """
+    
+    if wind_angle == 0 or wind_angle == 180:
+        b = length
+        d = width
+    else:
+        b = width
+        d = length
+    
+    e = min(b,2*h)
+    
+    """ Define a dict for the wind pressures in the various
+        zones of the wall
+    """
+    zones = {"F":{"length":0.25*e,'width':0.1*e,'cpe':0.0,'we':0.0},
+             "G":{"length":0.5*e,'width':0.1*e,'cpe':0.0,'we':0.0},
+             "H":{"length":b,'width':0.9*e,'cpe':0.0,'we':0.0},
+             "I":{"length":b,'width':0.0,'cpe':0.0,'we':0.0},
+             "Fup":{"length":0.25*e,'width':0.1*e,'cpe':0.0,'we':0.0},
+             "Flow":{"length":0.25*e,'width':0.1*e,'cpe':0.0,'we':0.0},
+             }
+    
+    if wind_angle == 90:
+        zones['H']['width'] = 0.4*e
+        zones['I']['width'] = length-0.5*e
+            
+    
+    """ Area of the wind """
+    A = b*h
+    
+    hd_ratio = h/d
+    
+    print("*** Wind load ***")
+    print("Wind to " + wind_dir + " side of the building")
+    print("b = {0:4.2f} m".format(b))
+    print("d = {0:4.2f} m".format(d))
+    print("h = {0:4.2f} m".format(h))
+    print("e = {0:4.2f} m".format(e))
+    print("h/d = {0:4.2f} m".format(hd_ratio))
     
     if A > 10:
         zones["A"]['cpe'] = ext_pressure_walls["A"][5]["cpe10"]
@@ -229,12 +318,6 @@ def rect_building_wall_pressure(length,width,h,qp,wind_dir="long"):
     return zones
 
 if __name__ == "__main__":
-    
-    vb = basic_wind_velocity()
-    
-    #H = 6
-    H = 10
-    qp = peak_velocity_pressure(H, 2, vb)
 
     #wind = rect_building_wall_pressure(length=72,width=24,h=8,qp=qp,wind_dir="long")
     #wind = rect_building_wall_pressure(length=15,width=12,h=7,qp=qp,wind_dir="long")

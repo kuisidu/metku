@@ -82,6 +82,7 @@ correlation_coefficient = {"S235": 0.8,
 TENSION_ROW = 'tension row'
 SHEAR_ROW = 'shear row'
 COMBI_ROW = 'tension and shear row'
+COMPRESSION_ROW = 'compression row'
 
 """ Bolt row positions 
 
@@ -1206,7 +1207,11 @@ class TStub:
     def F_T_2_Rd(self):
         """ Tension resistance of mode 2 """
         return (2*self.MplRd_2 + self.n*self.F_T_3_Rd())/(self.m+self.n)
-        
+    
+    def F_T_12_Rd(self):
+        """ Tension resistance without prying forces """
+        return 2*self.MplRd_1/self.m
+    
     def F_T_3_Rd(self):
         """ Tension resistance of mode 3 
             Bolt failure
