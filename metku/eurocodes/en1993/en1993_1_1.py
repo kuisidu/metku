@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela <kristo.mela@tuni.fi>
+
 """
 Created on Wed Mar 14 19:11:28 2018
 
 EN 1993-1-1 General rules for steel structures
 
-@author: kmela
 """
 
 import math
