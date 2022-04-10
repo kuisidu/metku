@@ -42,7 +42,7 @@ except:
     from sections.steel.CHS import CHS
     from sections.steel.RHS import RHS, SHS
     from sections.steel.ISection import IPE, HEA, HEB
-    from loadIDs import LoadIDs
+    from eurocodes.en1991.loadIDs import LoadIDs
 
 from time import time
 # Rounding precision (number of decimals)

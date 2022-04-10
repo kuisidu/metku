@@ -191,7 +191,7 @@ def rect_building_wall_pressure(length,width,h,qp,wind_dir="long"):
     print("d = {0:4.2f} m".format(d))
     print("h = {0:4.2f} m".format(h))
     print("e = {0:4.2f} m".format(e))
-    print("h/d = {0:4.2f} m".format(hd_ratio))
+    print("h/d = {0:4.2f} ".format(hd_ratio))
     
     if A > 10:
         zones["A"]['cpe'] = ext_pressure_walls["A"][5]["cpe10"]
@@ -317,11 +317,11 @@ def monopitch_roof_pressure(length,width,h,qp,wind_angle=180,alpha=5):
         
     return zones
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
 
     #wind = rect_building_wall_pressure(length=72,width=24,h=8,qp=qp,wind_dir="long")
     #wind = rect_building_wall_pressure(length=15,width=12,h=7,qp=qp,wind_dir="long")
     #wind = rect_building_wall_pressure(length=30,width=18,h=H,qp=qp,wind_dir="long")
-    wind = rect_building_wall_pressure(length=12*6,width=5*4.8,h=H,qp=qp,wind_dir="short")
+    #wind = rect_building_wall_pressure(length=12*6,width=5*4.8,h=H,qp=qp,wind_dir="short")
 
-    print(qp)    
+    #print(qp)    

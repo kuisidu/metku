@@ -12,10 +12,8 @@ EN 1993-1-1 General rules for steel structures
 
 import math
 
-try:
-    from metku.eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
-except:
-    from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
+from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2
+
 
 #                 a0     a    b      c     d 
 buckling_curve = {"a0": 0.13, "a": 0.21, "b": 0.34, "c": 0.49, "d": 0.76}

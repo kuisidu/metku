@@ -11,7 +11,7 @@ import numpy as np
 
 
 from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint
-from raami_plane_truss import TubularKGapJoint
+from raami.raami_plane_truss import TubularKGapJoint
 import optimization.structopt as sop
 from optimization.solvers.slsqp import SLSQP
 from optimization.solvers.trust_region import TrustRegionConstr
@@ -154,7 +154,7 @@ def minimize_eccentricity(truss,min_gap=20):
 
 if __name__ == "__main__":
     
-    from raami_plane_truss import Ktruss_example, Ntruss_example
+    from raami.raami_plane_truss import Ktruss_example, Ntruss_example
     
     #t = Ktruss_example(h2=1800,h1=1500,dx1=1000, dx2=1000,first=True, edges=False)
     t = Ntruss_example(h2=1700,dx1=2000, dx2=2000, first=False,edges=True)

@@ -6,10 +6,9 @@ WQ sections (welded box beam)
 
 @author: kmela
 """
-import math
+
 from eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
 from sections.steel.steel_section import SteelSection
-
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches

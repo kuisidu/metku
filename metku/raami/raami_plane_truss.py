@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from copy import copy
 
-from raami import Raami
+from raami.raami import Raami
 from frame_node import FrameNode
 from frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
 from frame_loads import PointLoad, LineLoad, LoadIDs

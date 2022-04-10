@@ -1,13 +1,9 @@
 """ Class for steel members """
 
 import math
-
 import numpy as np
 
-try:
-    from metku.eurocodes.en1993 import constants, en1993_1_1
-except:
-    from eurocodes.en1993 import constants, en1993_1_1
+from eurocodes.en1993 import constants, en1993_1_1
 
 
 class SteelMember:
@@ -244,8 +240,8 @@ class SteelMember:
         slend = np.sqrt(NRd / Ncr)
 
         if verb:
-            print("lambda,y = {0:4.2f}".format(slend[0]))
-            print("lambda,z = {0:4.2f}".format(slend[1]))
+            print("lambda,y = {0:4.3f}".format(slend[0]))
+            print("lambda,z = {0:4.3f}".format(slend[1]))
 
         return slend
 
@@ -285,7 +281,7 @@ class SteelMember:
         """ Member buckling strength according to EN 1993-1-1 """
 
         if verb:
-            print("** Buckling strength** ")
+            print("** Buckling strength ** ")
 
         slend = self.slenderness(verb)
         NbRd = []
@@ -300,8 +296,8 @@ class SteelMember:
                        slend[i] ** 2)
             r = min(1 / (p + math.sqrt(p ** 2 - slend[i] ** 2)), 1.0)
             if verb:
-                print("Psi,{0:1} = {1:4.2f}".format(i, p))
-                print("chi,{0:1} = {1:4.2f}".format(i, r))
+                print("Psi,{0:1} = {1:4.3f}".format(i, p))
+                print("chi,{0:1} = {1:4.3f}".format(i, r))
                 print("NbRd,{0:1} = {1:4.2f}".format(i, NRd * r * 1e-3))
 
             NbRd.append(NRd * r)
@@ -607,7 +603,7 @@ class SteelMember:
         """ Verify resistance of all sections """
         r = 0.0
         for loc in self.sections.keys():
-            r = max(r,max(self.check_section(loc)))
+            r = max(r,max(self.check_section(loc,verb)))
         
         return r
         
@@ -650,11 +646,11 @@ class SteelMember:
 
         return r
 
-    def check_beamcolumn(self, sway=False, load="uniform", section_class=None):
+    def check_beamcolumn(self, sway=False, load="uniform", section_class=None,verb=False):
         """ Verify stability for combined axial force and bending moment
         """
         
-        """ Find maximum bending moment along the member """
+        """ Find maximum bending moment along the member """        
         MyEd = self.MEdY
         
         if abs(MyEd) < 1e-6:
@@ -706,6 +702,11 @@ class SteelMember:
                 else:
                     kzy = 0.8*kyy
         
+        if verb:
+            print("Beam-column stability:")
+            print(f'Cmy = {Cmy:4.2f}')
+            print(f'kyy = {kyy:4.3f}')
+            print(f'kzy = {kzy:4.3f}')
 
         """ For now, assume no bending with respect to z axis """
         # MzEd1 = np.max(np.array(self.mzed))
@@ -722,6 +723,19 @@ class SteelMember:
         
         self.stability['bc_y'] = com_comp_bend_y
         self.stability['bc_z'] = com_comp_bend_z
+        
+        if verb:
+            if com_comp_bend_y <= 1.0:
+                yOK = 'OK!'
+            else:
+                yOK = 'NOT OK!'
+                
+            if com_comp_bend_z <= 1.0:
+                zOK = 'OK!'
+            else:
+                zOK = 'NOT OK!'
+            print(f"y-axis: {com_comp_bend_y:4.3f} <= 1.0 ({yOK})")
+            print(f"z-axis: {com_comp_bend_z:4.3f} <= 1.0 ({zOK})")
         
         return com_comp_bend
     
@@ -755,8 +769,9 @@ class SteelMember:
             rmax = max(rmax,rLTB)
         
         if self.NcEd < 0.0:
+            print("Check stability")
             rbuck = self.check_buckling()            
-            rbeam_column = self.check_beamcolumn(sway)
+            rbeam_column = self.check_beamcolumn(sway,verb=verb)
             rmax = max(rmax,np.max(rbuck))
             rmax = max(rmax,np.max(rbeam_column))
 
@@ -764,9 +779,7 @@ class SteelMember:
         
         
         
-        
-        
-        
+"""
 
 if __name__ == "__main__":
     
@@ -788,3 +801,4 @@ if __name__ == "__main__":
     #m.ncrit_T(True)
     #mr.ncrit_T(True)
     #mr.ncrit(True)
+"""

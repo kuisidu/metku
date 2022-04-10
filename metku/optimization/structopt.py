@@ -30,10 +30,8 @@ from collections.abc import Iterable
 from functools import lru_cache
 from copy import deepcopy
 import copy
-try:
-    from metku.loadIDs import LoadIDs
-except:
-    from loadIDs import LoadIDs
+
+from eurocodes.en1991.loadIDs import LoadIDs
 
 CACHE_BOUND = 2**8
 INT_TOL = 1e-4

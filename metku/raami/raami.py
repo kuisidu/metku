@@ -15,7 +15,7 @@ import matplotlib.lines as mlines
 import matplotlib.path as mpath
 from datetime import datetime
 
-import metku.framefem.framefem as fem
+import framefem.framefem as fem
 from frame_node import FrameNode
 from frame_member import FrameMember, SteelFrameMember
 from frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination
