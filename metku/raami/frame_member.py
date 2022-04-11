@@ -27,11 +27,12 @@ from sections.steel.ISection import IPE, HEA, HEB
 
 from .frame_loads import LoadIDs
 
-def profile_list(cross_section,prof_type="CURRENT",Tmin=3.0):
+def profile_list(cross_section,prof_type="CURRENT",Tmin=3.0,sec_class=3):
     """ Returns a list of profiles matching the type of 'cross_section.
         This is used in 'optimum_design' methods.    
        
         Tmin .. minimum wall thickness, for RHS/SHS profiles
+        sec_class .. maximum section class (in compression)
     """
     
     prof_type = prof_type.upper()
@@ -64,6 +65,10 @@ def profile_list(cross_section,prof_type="CURRENT",Tmin=3.0):
     elif prof_type == "RHS":
         profiles = []
         for key, value in rhs_profiles.items():
+            pnew = make_section(key)
+            pnew.Ned = -100e3
+            if pnew.section_class() > sec_class:
+                continue
             if value['t'] >= Tmin:
                 profiles.append(key)
         #profiles = rhs_profiles.keys()
@@ -189,6 +194,11 @@ class FrameMember:
     def material(self):
         """ Material of the member """
         return self.cross_section.material
+    
+    @material.setter
+    def material(self,val):
+        """ Set member material """
+        self.cross_section.material = val
     
     def coords(self):
         """ Return nodal coordinates """
@@ -995,7 +1005,7 @@ class SteelFrameMember(FrameMember):
             
         self.utilization[load_id] = rmax
     
-    def optimum_design(self, prof_type='CURRENT',verb=False):
+    def optimum_design(self, prof_type='CURRENT',verb=False,material="S355",sec_class=3):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
@@ -1004,7 +1014,7 @@ class SteelFrameMember(FrameMember):
         
         # Get list of profiles profiles of chosen type
         profiles = profile_list(self.cross_section,prof_type)
-                
+        
         initial_profile = self.cross_section
 
         for profile in profiles:
@@ -1012,6 +1022,10 @@ class SteelFrameMember(FrameMember):
             # It is converted to a SteelSection object using the make_section
             # function of the 'catalogue.py' file.
             self.cross_section = make_section(profile)
+            self.material = material
+            self.cross_section.Ned = -1
+            if self.cross_section.section_class() > sec_class:
+                continue
             
             for load_id in self.frame.load_ids:
                 self.design(load_id)
@@ -1173,6 +1187,19 @@ class MemberGroup:
                 mem.cross_section = val
         
             mem.update_element_sections()
+    
+    @property
+    def material(self):
+        """ Material of the member """
+        return self.__cross_section.material
+    
+    @material.setter
+    def material(self,val):
+        """ Set member material """
+        self.__cross_section.material = val
+        if len(self.members) > 0:
+            for mem in self.members:
+                mem.cross_section.material = val
             
     def add_member(self,new_member):
         
@@ -1192,7 +1219,7 @@ class MemberGroup:
         return (self.cross_section.A-profile.A)**2 + (self.cross_section.Iy-profile.Iy)**2 < 1e-6
     
     def design(self,load_id = LoadIDs['ULS']):
-        """ Designs the member (check resistance) """
+        """ Designs the member group (check resistance) """
         
         rmax = 0
         
@@ -1207,7 +1234,7 @@ class MemberGroup:
             
         self.utilization[load_id] = rmax
     
-    def optimum_design(self,prof_type="CURRENT",verb=False):
+    def optimum_design(self,prof_type="CURRENT",verb=False,material="S355",sec_class=3):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
@@ -1224,7 +1251,12 @@ class MemberGroup:
             # profile is a string containing the name of the profile
             # It is converted to a SteelSection object using the make_section
             # function of the 'catalogue.py' file.
-            self.cross_section = make_section(profile)
+            self.cross_section = make_section(profile)            
+            self.material = material
+            sec = self.cross_section
+            sec.Ned = -1            
+            if sec.section_class() > sec_class:
+                continue
             
             for load_id in self.frame.load_ids:   
                 self.design(load_id)

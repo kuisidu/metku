@@ -173,7 +173,7 @@ if __name__ == "__main__":
     
     solver = SLSQP()
     #solver = TrustRegionConstr()
-    #min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
+    min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
     
     #P(x0)
     

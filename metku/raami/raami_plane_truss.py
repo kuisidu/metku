@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 from copy import copy
 
 from raami.raami import Raami
-from .frame_node import FrameNode
-from .frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
-from .frame_loads import PointLoad, LineLoad, LoadIDs
-from .frame_supports import XYHingedSupport, YHingedSupport
+from raami.frame_node import FrameNode
+from raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
+from raami.frame_loads import PointLoad, LineLoad, LoadIDs
+from raami.frame_supports import XYHingedSupport, YHingedSupport
 
 from framefem.elements.ebbeam import EBBeam, EBBeam3D
 from framefem.elements.rod import Rod
@@ -1292,13 +1292,83 @@ class SlopedTruss(PlaneTruss):
                 plt.axis('equal')
                 plt.show()
                 
-    def optimize_members(self, prof_type="CURRENT",verb=False):
+    def optimize_members(self, prof_type="CURRENT",verb=False,**kwargs):    
         """ Finds minimum weight profiles for members """
         
-        # First run the optimization method of Raami class
-        super().optimize_members(prof_type,verb)
+        # TODO!
+        # Optimoinnissa voidaan haluta:
+        # Sauvoille tietty materiaali (yläpaarre, alapaarre, uumasauvat)
+        # Sauvoille tietty poikkileikkausluokka (1 tai 2)
+        #
+        top = {'material': 'S700', 'class': 2}
+        bottom = {'material': 'S500', 'class': 2}
+        braces = {'material': 'S420', 'class': 2}
+            
+        for key, value in kwargs.items():
+            if key == 'top':
+                top = value
+            elif key == 'bottom':
+                bottom = value
+            elif key == 'braces':
+                braces = value
         
-        # Then set profiles for chords
+        kmax = 10
+        k = 1
+                        
+        while k < kmax:            
+            explored = []
+            MEM_PROFILES_CHANGED = []
+            self.structural_analysis('all','REM')
+            if verb:
+                print(f"Optimize profiles, iteration {k}")
+                
+            # Go through groups first
+            for name, group in self.member_groups.items():
+                if name == "top_chord":
+                    material = top['material']
+                    sec_class = top['class']
+                elif name == 'bottom_chord':
+                    material = bottom['material']
+                    sec_class = bottom['class']
+                    
+                group.optimum_design(prof_type,verb,material,sec_class)
+                
+                for mem in group.members:
+                    explored.append(mem)
+                
+            
+            for member in self.members.values():
+                #print(member)                
+                if not member in explored:
+                    if verb:
+                        print(member)
+                    explored.append(member)
+                    if isinstance(member,TrussBrace):
+                        material = braces['material']
+                        sec_class = braces['class']
+                    else:
+                        material = 'S355'
+                        sec_class = 2
+                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class))
+                                        
+                    if not member.symmetry_pair is None:
+                        explored.append(member.symmetry_pair)
+                    
+                    #print(member.cross_section)
+            
+            # If none of the members changed profile, exit the loop
+            if not any(MEM_PROFILES_CHANGED):
+                break
+                
+            k += 1
+        
+        if verb:
+            print(f"Number of iterations: {k}.")
+        
+        # First run the optimization method of Raami class
+        # super().optimize_members(prof_type,verb)
+        
+        
         
     
 class TrussMember(SteelFrameMember):
@@ -2308,7 +2378,9 @@ if __name__ == "__main__":
     #t.bmd(scale=20,load_id=t.load_ids[0],loads=False)
     #t.cost()
     #start = timer()
-    #t.optimize_members(verb=True)
+    t.optimize_members(verb=True,top={'material':'S700','class':2},
+                       bottom={'material':'S700','class':2},
+                       braces={'material':'S700','class':2})
     #end = timer()
     #print(f"Time elapsed: {end-start:.2f} s")
     """

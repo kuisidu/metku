@@ -87,10 +87,12 @@ class SteelSection(metaclass=ABCMeta):
         """
         
         #print(material)
-        if isinstance(material,str):
-            self.material = Steel(material)
-        elif isinstance(material,(float,int)):
-            self.material = Steel("S" + str(int(material)))
+        #if isinstance(material,str):
+        #    self.material = Steel(material)
+        #elif isinstance(material,(float,int)):
+        #    self.material = Steel("S" + str(int(material)))
+        
+        self.material = material
 
         self.E = constants.E
         self.A = A
@@ -133,6 +135,18 @@ class SteelSection(metaclass=ABCMeta):
     def cost(self):
         """ Material cost of section, units: €/m """
         return self.weight()*self.unit_cost
+    
+    @property
+    def material(self):
+        return self.__material
+    
+    @material.setter
+    def material(self,val):
+        """ Sets the material of section """
+        if isinstance(val,str):
+            self.__material = Steel(val)
+        elif isinstance(val,(float,int)):
+            self.__material = Steel("S" + str(int(val)))
 
     @property
     def G(self):
