@@ -16,10 +16,10 @@ import matplotlib.path as mpath
 from datetime import datetime
 
 import framefem.framefem as fem
-from frame_node import FrameNode
-from frame_member import FrameMember, SteelFrameMember
-from frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination
-from frame_supports import Support, FixedSupport, XYHingedSupport, XHingedSupport, YHingedSupport
+from raami.frame_node import FrameNode
+from raami.frame_member import FrameMember, SteelFrameMember
+from raami.frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination
+from raami.frame_supports import Support, FixedSupport, XYHingedSupport, XHingedSupport, YHingedSupport
 
 #from loadIDs import LoadIDs
 

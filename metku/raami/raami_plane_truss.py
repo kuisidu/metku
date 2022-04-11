@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 from copy import copy
 
 from raami.raami import Raami
-from frame_node import FrameNode
-from frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
-from frame_loads import PointLoad, LineLoad, LoadIDs
-from frame_supports import XYHingedSupport, YHingedSupport
+from .frame_node import FrameNode
+from .frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
+from .frame_loads import PointLoad, LineLoad, LoadIDs
+from .frame_supports import XYHingedSupport, YHingedSupport
 
 from framefem.elements.ebbeam import EBBeam, EBBeam3D
 from framefem.elements.rod import Rod

@@ -14,7 +14,7 @@ import matplotlib.lines as mlines
 import matplotlib.path as mpath
 
 from structures.steel.steel_member import SteelMember
-from frame_node import FrameNode
+from .frame_node import FrameNode
 import framefem.framefem
 from framefem.elements.ebbeam import EBBeam, EBBeam3D
 from framefem.elements.rod import Rod
@@ -25,7 +25,7 @@ from sections.steel.ISection import IPE, HEA, HEB
 
 #from loadIDs import LoadIDs
 
-from frame_loads import LoadIDs
+from .frame_loads import LoadIDs
 
 def profile_list(cross_section,prof_type="CURRENT",Tmin=3.0):
     """ Returns a list of profiles matching the type of 'cross_section.
