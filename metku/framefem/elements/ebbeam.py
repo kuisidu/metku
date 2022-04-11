@@ -12,11 +12,12 @@ from functools import lru_cache
 
 CACHE_BOUND = 2**10
 
-try:
-    from metku.framefem import Element, LineLoad, FEMNode
-except:
-    from framefem import Element, LineLoad
+#try:
+#    from metku.framefem import Element, LineLoad, FEMNode
+#except:
+#    from framefem import Element, LineLoad
 
+from ..framefem import Element, LineLoad
 
 class EBBeam(Element):
     """ Euler-Bernoulli beam element
@@ -254,6 +255,8 @@ class EBBeam(Element):
 
         T = self.transformation_matrix()
         L = self.length()
+        
+        #print(isinstance(load,LineLoad))
         
         if isinstance(load,LineLoad):
             q1 = load.qval[0]

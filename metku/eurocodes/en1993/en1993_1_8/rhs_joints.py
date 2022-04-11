@@ -14,10 +14,7 @@ import matplotlib.patches as patches
 import matplotlib.lines as lines
 import numpy as np
 
-try:
-    from metku.eurocodes.en1993.constants import gammaM5, E
-except:
-    from eurocodes.en1993.constants import gammaM5, E
+from eurocodes.en1993.constants import gammaM5, E
 
 def eccentricity(h0,h1,h2,t1,t2,g):
     """ Eccentricity of a K gap joint """

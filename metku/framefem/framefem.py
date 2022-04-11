@@ -474,8 +474,10 @@ class FrameFEM:
             """ Get the loads to be added to the vector 
                 and the global degrees of freedom of these loads
             """
-            if load.sid == sid:
-                v, vdofs = load.load_and_dofs()                
+            if load.sid == sid:                
+                #print('Calculate nodal forces')
+                v, vdofs = load.load_and_dofs()
+                #print(v,vdofs)
                 global_load[vdofs.astype(int)] += v
 
         # print("FrameFEM  ", '\n', global_load)
@@ -518,8 +520,9 @@ class FrameFEM:
         
         #print(lcase)
         #print(self.loadcases)
-        load_id = self.loadcases[lcase].load
+        load_id = self.loadcases[lcase].load        
         p = self.global_load_vector(load_id)
+        
        
         #print(p)
         """ Take supports into account

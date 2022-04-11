@@ -15,7 +15,8 @@ import matplotlib.lines as mlines
 import matplotlib.path as mpath
 from datetime import datetime
 
-import framefem.framefem as fem
+#import ..framefem.framefem as fem
+from framefem import framefem as fem
 from raami.frame_node import FrameNode
 from raami.frame_member import FrameMember, SteelFrameMember
 from raami.frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination

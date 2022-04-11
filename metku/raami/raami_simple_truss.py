@@ -10,11 +10,11 @@ Class for simple (pin-jointed) trusses. Primarily intended for optimization
 import numpy as np
 from timeit import default_timer as timer
 
-from raami import Raami
-from frame_node import FrameNode
-from frame_member import FrameMember, SteelFrameMember
-from frame_loads import PointLoad
-from frame_supports import XYHingedSupport
+from raami.raami import Raami
+from raami.frame_node import FrameNode
+from raami.frame_member import FrameMember, SteelFrameMember
+from raami.frame_loads import PointLoad
+from raami.frame_supports import XYHingedSupport
 
 class SimpleTruss(Raami):
     """ Class for simple trusses. Essentially, the structure is a collection of

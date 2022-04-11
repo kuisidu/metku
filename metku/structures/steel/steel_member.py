@@ -769,7 +769,7 @@ class SteelMember:
             rmax = max(rmax,rLTB)
         
         if self.NcEd < 0.0:
-            print("Check stability")
+            #print("Check stability")
             rbuck = self.check_buckling()            
             rbeam_column = self.check_beamcolumn(sway,verb=verb)
             rmax = max(rmax,np.max(rbuck))

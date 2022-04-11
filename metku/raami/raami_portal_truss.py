@@ -9,14 +9,12 @@ Portal truss: two columns and a truss
 
 import matplotlib.pyplot as plt
 
-from raami import Raami
-from frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember
-from frame_node import FrameNode
-from frame_loads import PointLoad, LineLoad, LoadIDs
-from frame_supports import XYHingedSupport, FixedSupport
-from raami_plane_truss import SlopedTruss
-
-
+from raami.raami import Raami
+from raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember
+from raami.frame_node import FrameNode
+from raami.frame_loads import PointLoad, LineLoad, LoadIDs
+from raami.frame_supports import XYHingedSupport, FixedSupport
+from raami.raami_plane_truss import SlopedTruss
 
 from sections.steel.ISection import HEA, HEB, IPE
 
@@ -287,11 +285,11 @@ if __name__ == "__main__":
     #p.weight_detailed(True)
     #Wtop, Wbottom, Wbraces = p.truss.weight_detailed(True)
     p.generate_fem(truss_eccentricity=False)
-    
-    #p.optimize_members(verb=True)
+        
     #print(p.weight())
     p.structural_analysis(load_id=p.load_ids[0],support_method="REM")
-    #p.bmd(scale=20,load_id=p.load_ids[0],loads=False)
+    #p.optimize_members(verb=True)
+    p.bmd(scale=20,load_id=p.load_ids[0],loads=False)
     #p.fem.draw()
     #p.plot()
     
