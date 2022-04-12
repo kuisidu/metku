@@ -1,0 +1,8 @@
+{
+    "python.testing.pytestArgs": [
+        "winrami_adapter",
+        "winrami_adapter_tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}
