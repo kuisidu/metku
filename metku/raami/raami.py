@@ -6,7 +6,7 @@ Raami: for operating frame structures
 
 @author: kmela
 """
-
+import os
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -756,7 +756,146 @@ class Raami:
             """
             f.write("END")
                     
-                                
+    def to_abaqus(self,target_dir='C:/Users/kmela/Data/',filename="Raami",partname='Frame'):
+        """ Writes the finite element model to ABAQUS 
+        
+            1. Create folder for the files
+            2. Create main file using 'filename'
+            3. Write data to main file
+            4. For each member, write a file for cross-sectional data        
+        """
+        
+        path = os.path.join(target_dir,filename + '_ABAQUS')
+        
+        print(path)
+        
+        try:
+            os.mkdir(path)
+        except OSError as error:
+            print(f"Kansio {path} on jo olemassa")
+        
+        inp_file = path + '/' + filename + '.inp'
+        
+        secfiles = []
+        
+        for mem_name, mem in self.members.items():
+            # Create cross-section a file for each member
+            sec_name = mem.cross_section.__repr__().replace('.','_')
+            sec_name = sec_name.replace(' ','_')
+            sec_name += '_' + mem.material.__repr__()
+            secfile = partname + '_' + mem_name + '_' + sec_name + '.txt'
+            secfile_path = path + '/' + secfile
+            
+            mem.cross_section.abaqus(secfile_path,matname="Steel",setname=mem_name)
+            secfiles.append(secfile)
+        
+        with open(inp_file,'w') as file:
+            now = datetime.now()
+            print(now)
+            date_str = now.strftime(" Date: %d/%m/%Y    %H:%M ")
+            file.write(f'** {filename}\n')
+            file.write(f'** Created on {date_str}\n')
+            file.write('**\n')
+            file.write(f'*Part, name={partname}\n')
+            # Write nodal coordinates
+            file.write('*Node\n')
+            for node in self.fem.nodes:
+                file.write(f'{node.nid+1:>7g}, {node.x*1e-3:>14.10f},  0.0000000000, {node.y*1e-3:>14.10f}\n')
+                    
+            # Write elements
+            file.write('*Element, type=B31\n')
+            for eid, el in enumerate(self.fem.elements):
+                file.write(f'{eid+1:>5g}, {el.nodes[0].nid+1:>6g}, {el.nodes[1].nid+1:>6g}\n')
+            
+            # Element sets: each member has
+            for mem_name, mem in self.members.items():                
+                nel = len(mem.fem_elements)
+                if nel > 1:
+                    #file.write(f'*Elset, elset={mem_name}, generate\n')
+                    file.write(f'*Elset, elset={mem_name}\n')
+                    for i, ele in enumerate(mem.fem_elements):
+                        ndx = self.fem.elements.index(ele)+1
+                        if i < nel-1:
+                            file.write(f'{ndx:>5g}, ')
+                        else:
+                            file.write(f'{ndx:>5g}')
+                    file.write('\n')
+                else:
+                    file.write(f'*Elset, elset={mem_name}\n')
+                    e1 = self.fem.elements.index(mem.fem_elements[0])+1
+                    file.write(f'{e1:>5g}\n')
+                        #e1 = self.fem.elements.index(mem.fem_elements[0])+1
+                        #e2 = self.fem.elements.index(mem.fem_elements[-1])+1
+                        #file.write(f'{e1:>5g}, {e2:>5g},   1\n')
+            
+            # Poikkileikkaustiedostot
+            #*Include, Input=S023C005M002_RedMat.txt
+            for secfile in secfiles:
+                file.write(f'*Include, Input={secfile}\n')
+            
+            
+            file.write('*End Part\n')
+            
+            # Start Assembly part of the file. This includes
+            # 1) Supports
+            # 2) Multi-point constraints (hinges)
+            # 3) Loads
+            file.write('**\n**\n** ASSEMBLY \n**\n')
+            file.write(f'*Assembly, name={partname}_Assembly \n**\n')
+            
+            # Name of the assembly instance
+            insname = filename
+            file.write(f'*Instance, name={insname}, part={partname}\n')
+            file.write('*End Instance\n**\n')
+
+            # Node sets for the following groups
+            # 1) Symmetry conditions to prevent displacement in y direction
+            #   (all nodes EXCEPT slave nodes of MPC)
+            # 2) Supports: a) pinned support, b) slide support, where displacement in z direction
+            #   is prevented.
+            # 3) Monitored node: node, whose displacement will be traced.
+            
+            # Supported nodes
+            supp_fem_nodes = {'fixed':[], 'hinged':[], 'y_supp': [], 'x_supp': []}            
+            for supp in self.supports.values():                
+                if isinstance(supp,XYHingedSupport):
+                    supp_fem_nodes['hinged'].append(supp.node.fem_node.nid)
+                elif isinstance(supp,YHingedSupport):
+                    supp_fem_nodes['y_supp'].append(supp.node.fem_node.nid)
+                elif isinstance(supp,XHingedSupport):
+                    supp_fem_nodes['x_supp'].append(supp.node.fem_node.nid)
+                elif isinstance(supp,FixedSupport):
+                    supp_fem_nodes['fixed'].append(supp.node.fem_node.nid)
+            
+            #print(supp_fem_nodes)
+            
+            file.write('** Node sets for supports\n')
+            for supp_type, nids in supp_fem_nodes.items():
+                nnodes = len(nids)
+                if nnodes > 0:
+                    file.write(f'*Nset, nset={supp_type}, instance={insname}\n')
+                    for i, nid in enumerate(nids):                    
+                        if i < nnodes-1:
+                            file.write(f'{nid+1:>5g}, ')
+                        else:
+                            file.write(f'{nid+1:>5g}')
+                    file.write('\n')
+            
+            # Write supports
+            file.write('**\n** BOUNDARY CONDITIONS\n**\n')        
+            for supp_type, nids in supp_fem_nodes.items():
+                nnodes = len(nids)
+                if nnodes > 0:
+                    file.write('*Boundary\n')
+                    if supp_type == 'hinged':
+                        supp_code = 'PINNED'
+                    elif supp_type == 'fixed':
+                        supp_code = 'ENCASTRE'
+                    elif supp_type == 'y_supp':
+                        supp_code = 'YSYMM' # pitäisikö olla ZSYMM?
+                    elif supp_type == 'x_supp':
+                        supp_code = 'XSYMM'
+                    file.write(f'{supp_type}, {supp_code}\n')
                     
             
 if __name__ == '__main__':

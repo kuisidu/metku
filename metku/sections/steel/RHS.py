@@ -310,7 +310,83 @@ class RHS(SteelSection):
         ax.set_ylim(-(0.5+a)*h, (0.5+a)*h)
         
         ax.set_aspect('equal')
+    
+    def abaqus(self,filename,matname='Steel',setname='Set-1'):
+        """ Writes section data for exporting to abaqus """
+        unit_conv = 1e-3
+        
+        # Calculate coordinates for abaqus cross-section
+        W = self.B*unit_conv
+        H = self.H*unit_conv
+        T = self.T*unit_conv
+        NomT = self.T*unit_conv
+        R = self.R*unit_conv
+        
+        RMid=R-T/2
+            
+        angle=math.radians(22.5)
+        
+        X=[]
+        Y=[]
+        
+        X.append(0.0)
+        Y.append((H-T)/2)
+        
+        X.append(W/2-R-2*T)
+        Y.append((H-T)/2)  
+        
+        X.append(W/2-R)
+        Y.append((H-T)/2)
+        
+        X.append(W/2-R+RMid*math.sin(angle))
+        Y.append((H-T)/2-(RMid-RMid*math.cos(angle)))
+        
+        X.append(W/2-R+RMid*math.sin(2*angle))
+        Y.append((H-T)/2-(RMid-RMid*math.cos(2*angle))) 
+        
+        X.append(W/2-R+RMid*math.sin(3*angle))
+        Y.append((H-T)/2-(RMid-RMid*math.cos(3*angle))) 
+        
+        X.append((W-T)/2)
+        Y.append(H/2-R) 
+        
+        X.append((W-T)/2)
+        Y.append(H/2-R-2*T) 
+        
+        X.append((W-T)/2)
+        Y.append(0.0)
+        
 
+        X += X[7::-1]
+        Y += [-y for y in Y[7::-1]]
+        
+        X += [-x for x in X[1:9]]
+        Y += [-y for y in Y[1:9]]
+        
+        X += [-x for x in X[7:0:-1]]
+        Y += Y[7:0:-1]
+        
+        X.append(X[0])
+        Y.append(Y[0])
+        
+        # Write coordinates to file
+        MatName = matname + "_RedMat"
+        nx = len(X)
+        with open(filename,'w') as file:
+            #file.write(f"** Member {mem_name}\n")
+            file.write("** Cross-section dimensions \n")
+            file.write(f"** WIDTH = {W}\n")
+            file.write(f"** HEIGHT = {H}\n")
+            file.write(f"** THICKNESS = {T}\n")
+            file.write(f"** CORNER RADIUS = {R}\n**\n")
+            file.write(f"*Beam Section, elset={setname}, material={MatName}, section=ARBITRARY\n")
+            file.write(f'{nx-1}, {X[0]:8.6f},{Y[0]:8.6f},{X[1]:8.6f},{Y[1]:8.6f},{T:8.6f}\n')                 
+                   
+            for x, y in zip(X[2:],Y[2:]):
+                file.write(f"{x:8.6f},{y:8.6f},{T:8.6f}\n")
+        
+            file.write("0.,1.,0.\n")
+        
 
 class SHS(RHS):
     """ Square hollow sections

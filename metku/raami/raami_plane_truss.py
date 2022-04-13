@@ -2336,7 +2336,7 @@ def KTtruss_example(h2=2000,h1=1500,dx=1000,first=False,edges=True):
     t = SlopedTruss(h2=h2,h1=h1,dx1=dx,dx2=dx)
     t.generate_topology('KT',3,first_diagonal_up=first,edge_verticals=edges)
     
-    t.plot()
+    #t.plot()
     
     return t
 
@@ -2378,9 +2378,9 @@ if __name__ == "__main__":
     #t.bmd(scale=20,load_id=t.load_ids[0],loads=False)
     #t.cost()
     #start = timer()
-    t.optimize_members(verb=True,top={'material':'S700','class':2},
-                       bottom={'material':'S700','class':2},
-                       braces={'material':'S700','class':2})
+    #t.optimize_members(verb=True,top={'material':'S700','class':2},
+    #                   bottom={'material':'S700','class':2},
+    #                   braces={'material':'S700','class':2})
     #end = timer()
     #print(f"Time elapsed: {end-start:.2f} s")
     """
@@ -2388,4 +2388,5 @@ if __name__ == "__main__":
     
     t.plot(geometry=True)
     #t.plot(mem_dim=True)
-    """        
+    """
+    t.to_abaqus(filename='KT-ristikko',partname="KT-ristikko")

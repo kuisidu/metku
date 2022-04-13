@@ -22,7 +22,7 @@ LoadIDs = {'ULS': 0,
 
 class LoadCase:
     """ Class for load cases. One load case represents a set of loads that
-        are due to a single source. These loads can be of different type
+        are due to a single source. These loads can be of different type (PointLoad or LineLoad)
         and they can act on different parts of the structure, but they act
         simultaneously.
     """

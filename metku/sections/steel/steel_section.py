@@ -407,6 +407,10 @@ class SteelSection(metaclass=ABCMeta):
     def robot(self):
         # returns the name of the section that Robot Structural Analysis can identify.
         pass
+    
+    def abaqus(self):
+        # writes cross-section data to a file that abaqus can read
+        pass
 
     def weight(self):
         """ Weight per unit length kg/mm """
