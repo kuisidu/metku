@@ -24,6 +24,11 @@ from raami.frame_supports import Support, FixedSupport, XYHingedSupport, XHinged
 
 #from loadIDs import LoadIDs
 
+# default options for writing to abaqus
+# x_monitor: x-coordinate of the fem nodes to follow (or closest)
+# n_monitored: number of monitored nodes
+def_opts = {'x_monitor':0,'n_monitored':2}
+
 class Raami:
     """ Class for dealing with frame structures.
         The frame can be 2D or 3D, and the frame members
@@ -756,7 +761,7 @@ class Raami:
             """
             f.write("END")
                     
-    def to_abaqus(self,target_dir='C:/Users/kmela/Data/',filename="Raami",partname='Frame'):
+    def to_abaqus(self,target_dir='C:/Users/kmela/Data/',filename="Raami",partname='Frame',options=def_opts):
         """ Writes the finite element model to ABAQUS 
         
             1. Create folder for the files
@@ -855,6 +860,15 @@ class Raami:
             #   is prevented.
             # 3) Monitored node: node, whose displacement will be traced.
             
+            file.write('** Node set for monitored nodes.\n')
+            # Find 'n_monitored' closed nodes with respect to the x coordinate in the FEM
+            # nodes. These will be monitored
+            monitored_nodes_set = 'Monitored_Nodes'
+            monitored_nodes = list(np.argsort([abs(n.x-options['x_monitor']) for n in self.fem.nodes])[:options['n_monitored']])
+            file.write(f'*Nset, nset={monitored_nodes_set}, instance={insname}\n')
+            file.write(', '.join(str(mn) for mn in monitored_nodes))
+            file.write('\n')
+            
             # Supported nodes
             supp_fem_nodes = {'fixed':[], 'hinged':[], 'y_supp': [], 'x_supp': []}            
             for supp in self.supports.values():                
@@ -881,6 +895,7 @@ class Raami:
                             file.write(f'{nid+1:>5g}')
                     file.write('\n')
             
+            
             # Write supports
             file.write('**\n** BOUNDARY CONDITIONS\n**\n')        
             for supp_type, nids in supp_fem_nodes.items():
@@ -892,11 +907,37 @@ class Raami:
                     elif supp_type == 'fixed':
                         supp_code = 'ENCASTRE'
                     elif supp_type == 'y_supp':
-                        supp_code = 'YSYMM' # pitäisikö olla ZSYMM?
+                        supp_code = '3' # pitäisikö olla ZSYMM?
                     elif supp_type == 'x_supp':
                         supp_code = 'XSYMM'
                     file.write(f'{supp_type}, {supp_code}\n')
-                    
+            
+            file.write('** --------------------------------\n')
+            file.write('** STEP ')
+            file.write('*Step, name=Buckling, nlgeom=YES, extrapolation=NO, inc=200\n')
+            file.write('*Static, riks\n')
+            file.write('0.01, 1., 1e-16, 0.05, 1.,\n')
+
+            # Write loads
+            file.write('**\n** LOADS\n**\n')
+            
+            # Self-weight, imposed on all elements
+            file.write('*Dload\n')
+            file.write(', GRAV, 9.81, 0., 0., -1.\n')
+            
+            # Write output requests
+            file.write('**\n** OUTPUT REQUESTS\n**\n')
+            file.write('**FIELD OUTPUT:\n')
+            file.write('*Output, field, variable=PRESELECT\n')
+            file.write('*Output, field\n')
+            file.write('*Node Output\n')
+            file.write('U\n')
+            file.write('*Element Output, directions=YES\n')
+            file.write('E, PEEQ, S, MISES, SF\n')
+            
+            file.write('*Output, field\n')
+            file.write(f'*Node Output, nset={monitored_nodes_set}\n')
+            file.write('U1, U2, U3, UR1, UR2, UR3\n')
             
 if __name__ == '__main__':
     

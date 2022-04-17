@@ -1221,6 +1221,138 @@ class SlopedTruss(PlaneTruss):
             
             # Set nodal degrees of freedom
             self.fem.nodal_dofs()
+        elif model == "ecc_elements":
+            # Eccentricity elements are added for K joints
+            # from the intersection of brace centerline and chord
+            # face to the chord centerline.
+            for joint in self.joints.values():
+                if isinstance(joint,TubularYJoint):      
+                    # For Y joints, no eccentricity elements are used.
+                    newNode = self.fem.add_node(joint.node.x,joint.node.y)                    
+                    joint.fem_nodes['xc'] = newNode
+                    joint.node.fem_node = newNode
+                elif isinstance(joint,TubularKGapJoint):
+                    # For K gap joints, we introduce the following FEM nodes:
+                    # 1) intersection of each brace and chord face
+                    # 2) chord centerline points closest to the chord face points.
+                    
+                    
+                    """
+                    if joint is self.ridge_joint:
+                        xc = joint.node.coords
+                        xcNode = self.fem.add_node(xc[0],xc[1])
+                        joint.fem_nodes['xc'] = xcNode
+                        
+                        xface, xcenter = joint.brace_chord_face_x()
+                        print(xface,xcenter)
+                    else:
+                        xface, xcenter = joint.brace_chord_face_x()
+                        
+                        for brace, xf in xface.items():
+                            newNode = self.fem.add_node(xf[0],xf[1])
+                            joint.fem_nodes['xcf'][brace] = newNode
+                        
+                        for brace, xc in xcenter.items():
+                            newNode = self.fem.add_node(xc[0],xc[1])
+                            joint.fem_nodes['xch'][brace] = newNode
+                    """
+                    xface, xcenter = joint.brace_chord_face_x()
+                    for brace, xf in xface.items():
+                        newNode = self.fem.add_node(xf[0],xf[1])
+                        joint.fem_nodes['xcf'][brace] = newNode
+                    
+                    for brace, xc in xcenter.items():
+                        newNode = self.fem.add_node(xc[0],xc[1])
+                        joint.fem_nodes['xch'][brace] = newNode
+                    
+                    # For the apex, create a FEM node to the intersection
+                    # of chord centerlines
+                    if joint is self.ridge_joint:
+                        xc = joint.node.coords
+                        xcNode = self.fem.add_node(xc[0],xc[1])
+                        joint.fem_nodes['xc'] = xcNode
+                        joint.node.fem_node = xcNode
+                    
+                    """
+                    xpNode = self.fem.add_node(xp[0],xp[1])
+                    if joint is self.ridge_joint:
+                        xc = joint.node.coords
+                    else:
+                        xc = joint.xchord()
+                    """
+                    
+                    """
+                    if np.linalg.norm(xp-xc) < 1e-6:
+                        xcNode = xp
+                    else:
+                        xcNode = self.fem.add_node(xc[0],xc[1])
+                        
+                    joint.fem_nodes['xc'] = xcNode
+                    joint.fem_nodes['xp'] = xpNode
+                    joint.node.fem_node = newNode
+                    """
+                elif isinstance(joint,TubularKTGapJoint):
+                    # For KT gap joints, 
+                    newNode = self.fem.add_node(joint.node.x,joint.node.y)                    
+                    joint.fem_nodes['xc'] = newNode
+                    joint.node.fem_node = newNode
+            
+            for mem in self.braces.values():
+                #Generate member elements                
+                mem.generate_elements(self.fem,model)
+            
+            for mem in self.top_chord:
+                mem.generate_elements(self.fem,model)
+        
+            for mem in self.bottom_chord:
+                mem.generate_elements(self.fem,model)
+            
+            # TODO! Change eccentricity elements to rigid links!
+            # (Is it needed, or do IPE 500 elements suffice?)
+            for joint in self.joints.values():
+                if isinstance(joint,TubularKGapJoint):
+                    n1 = joint.fem_nodes['xcf'][joint.left_brace]
+                    nc1 = joint.fem_nodes['xch'][joint.left_chord]
+                    cs = IPE(500)
+                                 
+                    newElement = EBBeam(n1,nc1,cs,cs.material)                    
+                    
+                    self.fem.add_element(newElement)
+                    
+                    n1 = joint.fem_nodes['xcf'][joint.right_brace]
+                    nc2 = joint.fem_nodes['xch'][joint.right_chord]
+                                 
+                    newElement = EBBeam(n1,nc2,cs,cs.material)               
+                    
+                    self.fem.add_element(newElement)
+                    
+                    if joint.ridge:
+                        nApex = joint.fem_nodes['xc']
+                        cs_chord = joint.chords[0].cross_section
+                        newElement = EBBeam(nc1,nApex,cs_chord,cs_chord.material)
+                        self.fem.add_element(newElement)
+                        newElement = EBBeam(nApex,nc2,cs_chord,cs_chord.material)
+                        self.fem.add_element(newElement)
+                    else:
+                        cs_chord = joint.chords[0].cross_section
+                        newElement = EBBeam(nc1,nc2,cs_chord,cs_chord.material)
+                        self.fem.add_element(newElement)
+            
+            # Generate supports
+            for supp in self.supports.values():
+                supp.add_support(self.fem)
+                            
+            # Generate loads
+            for load in self.loads.values():
+                load.add_load(self.fem)
+                # Creates new loadcase if one with same load_id does not exist
+                lcase_ids = [lc.load for lc in self.fem.loadcases.values()]
+                if load.load_id not in lcase_ids:
+                    self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
+            
+            # Set nodal degrees of freedom
+            self.fem.nodal_dofs()
+            
         else:
             print("Weird FEM model.")
     
@@ -1457,7 +1589,42 @@ class TopChord(SteelFrameMember):
                 
                 fem.add_element(newElement)
                 self.fem_elements.append(newElement)
-
+        
+        elif model == "ecc_elements":
+            if isinstance(self.joints[0],TubularYJoint):
+                self.fem_nodes.append(self.joints[0].fem_nodes['xc'])                
+            elif isinstance(self.joints[0],TubularKGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                self.fem_nodes.append(self.joints[0].fem_nodes['xch'][self])
+            
+            # Generate internal nodes:
+            # global_node_coord include also the end node coordinates,
+            # so they are not used in the iteration
+            for x in self.global_node_coords[1:-1]:                
+                if self.frame.dim == 2:
+                    newNode = fem.add_node(x[0],x[1])    
+                else:
+                    newNode = fem.add_node(x[0],x[1],x[2])
+                    
+                self.fem_nodes.append(newNode)
+        
+            if isinstance(self.joints[1],TubularYJoint):
+                self.fem_nodes.append(self.joints[1].fem_nodes['xc'])                
+            elif isinstance(self.joints[1],TubularKGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                self.fem_nodes.append(self.joints[1].fem_nodes['xch'][self])
+            
+            for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
+                if self.frame.dim == 2:                   
+                    newElement = EBBeam(n1,n2,self.cross_section,self.material)                    
+                else:
+                    newElement = EBBeam3D(n1,n2,self.cross_section,self.material)
+                    
+                fem.add_element(newElement)
+                self.fem_elements.append(newElement)
+        
         if self.hinges[0]:
             """ There is a hinge in the first end """
             self.fem_elements[0].releases = [2]
@@ -1560,6 +1727,40 @@ class BottomChord(SteelFrameMember):
                     
                 fem.add_element(newElement)
                 self.fem_elements.append(newElement)
+        elif model == "ecc_elements":
+            if isinstance(self.joints[0],TubularYJoint):
+                self.fem_nodes.append(self.joints[0].fem_nodes['xc'])                
+            elif isinstance(self.joints[0],TubularKGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                self.fem_nodes.append(self.joints[0].fem_nodes['xch'][self])
+            
+            # Generate internal nodes:
+            # global_node_coord include also the end node coordinates,
+            # so they are not used in the iteration
+            for x in self.global_node_coords[1:-1]:                
+                if self.frame.dim == 2:
+                    newNode = fem.add_node(x[0],x[1])    
+                else:
+                    newNode = fem.add_node(x[0],x[1],x[2])
+                    
+                self.fem_nodes.append(newNode)
+        
+            if isinstance(self.joints[1],TubularYJoint):
+                self.fem_nodes.append(self.joints[1].fem_nodes['xc'])                
+            elif isinstance(self.joints[1],TubularKGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                self.fem_nodes.append(self.joints[1].fem_nodes['xch'][self])
+            
+            for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
+                if self.frame.dim == 2:                   
+                    newElement = EBBeam(n1,n2,self.cross_section,self.material)                    
+                else:
+                    newElement = EBBeam3D(n1,n2,self.cross_section,self.material)
+                    
+                fem.add_element(newElement)
+                self.fem_elements.append(newElement)
         
         if self.hinges[0]:
             """ There is a hinge in the first end """
@@ -1568,6 +1769,7 @@ class BottomChord(SteelFrameMember):
         if self.hinges[1]:
             """ There is a hinge in the last end """
             self.fem_elements[-1].releases = [5]
+            
 
 class TrussBrace(SteelFrameMember):
     """ Class for truss web members, or braces """
@@ -1656,6 +1858,27 @@ class TrussBrace(SteelFrameMember):
             elif isinstance(self.bottom_joint,TubularKGapJoint):
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xp'])
             
+            # Create element
+            n1 = self.fem_nodes[0]
+            n2 = self.fem_nodes[1]
+            newElement = Rod(n1,n2,self.cross_section,self.material)
+            
+            fem.add_element(newElement)
+            self.fem_elements.append(newElement)
+        elif model == "ecc_elements":
+            # Attach FEM nodes to the current member
+            if isinstance(self.top_joint,TubularYJoint):
+                self.fem_nodes.append(self.top_joint.fem_nodes['xc'])                
+            elif isinstance(self.top_joint,TubularKGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                self.fem_nodes.append(self.top_joint.fem_nodes['xcf'][self])
+            
+            if isinstance(self.bottom_joint,TubularYJoint):
+                self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])                
+            elif isinstance(self.bottom_joint,TubularKGapJoint):
+                #self.fem_nodes.append(self.bottom_joint.fem_nodes['xp'])
+                self.fem_nodes.append(self.bottom_joint.fem_nodes['xcf'][self])
             # Create element
             n1 = self.fem_nodes[0]
             n2 = self.fem_nodes[1]
@@ -2057,9 +2280,38 @@ class TubularKGapJoint(TubularJoint):
         if self.joint.gap < min_gap:            
             self.joint.gap = min_gap
         
+        # Determine which brace and chord member are on the left (right) side
+        # of the joint node.
+        if self.braces[0].opposite_node(self.node).x < self.braces[1].opposite_node(self.node).x:
+            self.left_brace = self.braces[0]
+            self.right_brace = self.braces[1]        
+        else:
+            self.left_brace = self.braces[1]
+            self.right_brace = self.braces[0]
+        
+        if len(self.chords) == 1:
+            # This can happen for bottom chord joints where the chord
+            # end at the joint.
+            if self.chords[0].opposite_node(self.node).x < self.node.x:
+                self.left_chord = self.chords[0]
+                self.right_chord = None
+            else:
+                self.left_chord = None
+                self.right_chord = self.chords[0]
+        else:        
+            if self.chords[0].opposite_node(self.node).x < self.chords[1].opposite_node(self.node).x:
+                self.left_chord = self.chords[0]
+                self.right_chord = self.chords[1]        
+            else:
+                self.left_chord = self.chords[1]
+                self.right_chord = self.chords[0]
         
         # Point of intersection of brace centerlines
+        # This point is for the ideal model where the brace centerlines
+        # meet at the centerline of the chord
         self.xp = FrameNode(node.coords)
+        
+        # Set initial eccentricity
         self.yloc = 0.25*self.chords[0].cross_section.H
         """
         if len(self.chords) == 2 and \
@@ -2081,8 +2333,23 @@ class TubularKGapJoint(TubularJoint):
         self.fem_nodes['xp'] = None
         self.fem_nodes['xc'] = None
         
+        # FEM nodes for the model, where nodes are
+        # added at chord face and on the chord center line
+        # perpendicular to the chord face nodes
+        self.fem_nodes['xcf'] = {braces[0]: None, braces[1]: None}
+        #self.fem_nodes['xcf2'] = None
+        
+        if len(chords) > 1:
+            self.fem_nodes['xch'] = {chords[0]: None, chords[1]: None}
+        else:
+            self.fem_nodes['xch'] = {chords[0]: None}
+        #self.fem_nodes['xch2'] = None
         # Line passing in the direction of chord through its centerline
         #self.chord_line = Line(v=self.chords[0].dir_vector,p1=self.node.coords)
+        self.ridge = False
+        if len(self.chords) > 1 and abs(abs(self.chords[0].dir_vector.dot(self.chords[1].dir_vector)) -1) > 1e-8:
+            self.ridge = True
+        
     
     def __repr__(self):
         
@@ -2160,7 +2427,92 @@ class TubularKGapJoint(TubularJoint):
         """ Coordinates of the chord face point closest to the coordinates
             of 'node' on the side of the joint
         """
-        return self.node.coords + 0.5*self.joint.h0*self.chords[0].perpendicular
+        if self.ridge:
+            xc = self.node.coords - np.array([0,0.5*self.joint.h0/np.cos(self.chords[0].angle)])
+        else:
+            xc = self.node.coords - 0.5*self.joint.h0*self.chords[0].perpendicular
+        
+        return xc
+    
+    def brace_chord_face_x(self):
+        """ Determine the points of interesection between braces and chord face 
+            Additionally, determine the points on the chord center line closest to
+            the surface points.
+        """
+        
+        xint = {}
+        xchord = {}
+        
+        if self.ridge:
+            # Direction vector of chord on the left hand side of the ridge
+            vleft = self.left_chord.dir_vector
+            xcf = self.xc_face()
+            
+            xp = self.xp_coord
+            
+            chord_face_line = Line(v=vleft,p1=xcf)
+            chord_center_line = Line(v=vleft,p1=self.node.coords)
+            
+            b_v = self.left_brace.dir_vector_xp()     
+            b_line = Line(v=b_v,p1=xp)
+            tb, xb = b_line.intersect(chord_face_line)
+            xint[self.left_brace] = xb
+            
+            d, xc = chord_center_line.distance(xb)
+            xchord[self.left_chord] = xc
+            
+            # Right side brace:
+            vright = self.right_chord.dir_vector
+            
+            chord_face_line = Line(v=vright,p1=xcf)
+            chord_center_line = Line(v=vright,p1=self.node.coords)
+            
+            b_v = self.right_brace.dir_vector_xp()     
+            b_line = Line(v=b_v,p1=xp)
+            tb, xb = b_line.intersect(chord_face_line)
+            xint[self.right_brace] = xb
+            
+            d, xc = chord_center_line.distance(xb)
+            xchord[self.right_chord] = xc
+            
+        else:
+            # Make a line in the direction of the chord 
+            # passing through the chord face point
+            v = self.chords[0].dir_vector
+            xcf = self.xc_face()        
+            chord_face_line = Line(v=v,p1=xcf)
+            chord_center_line = Line(v=v,p1=self.node.coords)
+            
+            xp = self.xp_coord
+            
+            for brace in self.braces:
+                b_v = brace.dir_vector_xp()        
+                b_line = Line(v=b_v,p1=xp)
+            
+                # calculate intersection point between brace
+                # center line and chord face line
+                tb, xb = b_line.intersect(chord_face_line)
+                #t.append(tb)
+                #xint.append(xb)
+                # keys of xint are the brace objects. These will be
+                # used later in generating the fem model.
+                xint[brace] = xb
+                
+                d, xc = chord_center_line.distance(xb)
+                #D.append(d)
+                #xchord.append(xc)
+                # TODO! PAARTEEN KESKILINJAN SOLMU PITÄISI LIITTÄÄ
+                # KO. PAARRESAUVAAN, KOSKA SOLMUSTA TEHDÄÄN PAARRESAUVALLE
+                # FEM-SOLMU.
+                # MITEN KYTKETÄÄN LIITOKSEN UUMASAUVA brace OIKEAAN PAARRESAUVAAN?
+                if brace == self.left_brace:
+                    xchord[self.left_chord] = xc
+                else:
+                    xchord[self.right_chord] = xc
+        #print(t,xint)
+        
+        return xint, xchord
+        
     
     def xchord(self):
         """ Finds the point on the centerline of the chord closest to the
@@ -2389,4 +2741,5 @@ if __name__ == "__main__":
     t.plot(geometry=True)
     #t.plot(mem_dim=True)
     """
-    t.to_abaqus(filename='KT-ristikko',partname="KT-ristikko")
+    opts = {'x_monitor':0.5*t.span, 'n_monitored':2}
+    t.to_abaqus(filename='KT-ristikko',partname="KT-ristikko",options=opts)

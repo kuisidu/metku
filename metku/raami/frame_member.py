@@ -428,6 +428,17 @@ class FrameMember:
         
         return False
         
+    def opposite_node(self,node):
+        """ Returns the node of the member opposite to the 'node'
+            in the input argument.
+        """
+        n = None
+        
+        for n in self.nodes:
+            if n != node:
+                break
+        
+        return n
     
     def generate_elements(self,fem):
         """ Creates internal nodes and elements between nodes """

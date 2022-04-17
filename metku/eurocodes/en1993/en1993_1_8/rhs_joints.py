@@ -101,7 +101,7 @@ class Line:
     
     def distance(self,xR):
         """ Finds distance from a point with coordinates in xR
-            Returns alsto the nearest point on the line
+            Returns also the nearest point on the line
         """
         dx = self.p1-xR
         t_close = -self.v.dot(dx)
