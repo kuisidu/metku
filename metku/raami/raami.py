@@ -21,13 +21,14 @@ from raami.frame_node import FrameNode
 from raami.frame_member import FrameMember, SteelFrameMember
 from raami.frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination
 from raami.frame_supports import Support, FixedSupport, XYHingedSupport, XHingedSupport, YHingedSupport
+from raami.exports import AbaqusOptions
 
 #from loadIDs import LoadIDs
 
 # default options for writing to abaqus
 # x_monitor: x-coordinate of the fem nodes to follow (or closest)
 # n_monitored: number of monitored nodes
-def_opts = {'x_monitor':0,'n_monitored':2}
+def_opts = {'x_monitor':0,'n_monitored':2,'mpc':[],'ecc_elements':[]}
 
 class Raami:
     """ Class for dealing with frame structures.
@@ -761,7 +762,7 @@ class Raami:
             """
             f.write("END")
                     
-    def to_abaqus(self,target_dir='C:/Users/kmela/Data/',filename="Raami",partname='Frame',options=def_opts):
+    def to_abaqus(self,target_dir='C:/Users/kmela/Data/',filename="Raami",partname='Frame',options=AbaqusOptions()):
         """ Writes the finite element model to ABAQUS 
         
             1. Create folder for the files
@@ -782,6 +783,7 @@ class Raami:
         inp_file = path + '/' + filename + '.inp'
         
         secfiles = []
+        matfiles = []
         
         for mem_name, mem in self.members.items():
             # Create cross-section a file for each member
@@ -789,10 +791,12 @@ class Raami:
             sec_name = sec_name.replace(' ','_')
             sec_name += '_' + mem.material.__repr__()
             secfile = partname + '_' + mem_name + '_' + sec_name + '.txt'
+            matfile = partname + '_' + mem_name + '_' + sec_name + '_Mat.txt'
             secfile_path = path + '/' + secfile
             
             mem.cross_section.abaqus(secfile_path,matname="Steel",setname=mem_name)
             secfiles.append(secfile)
+            matfiles.append(matfile)
         
         with open(inp_file,'w') as file:
             now = datetime.now()
@@ -810,11 +814,19 @@ class Raami:
             # Write elements
             file.write('*Element, type=B31\n')
             for eid, el in enumerate(self.fem.elements):
-                file.write(f'{eid+1:>5g}, {el.nodes[0].nid+1:>6g}, {el.nodes[1].nid+1:>6g}\n')
+                if not el in options.ecc_elements:
+                    file.write(f'{eid+1:>5g}, {el.nodes[0].nid+1:>6g}, {el.nodes[1].nid+1:>6g}\n')
             
-            # Element sets: each member has
+            # Element sets: the element set for each member
+            # is for setting the cross-section for the elements
+            s1_rel = []
+            s2_rel = []
             for mem_name, mem in self.members.items():                
                 nel = len(mem.fem_elements)
+                
+                if mem.hinges[0]:
+                    s1_rel.append
+                
                 if nel > 1:
                     #file.write(f'*Elset, elset={mem_name}, generate\n')
                     file.write(f'*Elset, elset={mem_name}\n')
@@ -824,6 +836,15 @@ class Raami:
                             file.write(f'{ndx:>5g}, ')
                         else:
                             file.write(f'{ndx:>5g}')
+                        
+                        # If member has releases add it to the corresponding
+                        # release set. '2' is for rotational release at the first node
+                        # and '5' is for rotational release at the second node
+                        if 2 in ele.releases:
+                            s1_rel.append(ndx)
+                        elif 5 in ele.releases:
+                            s2_rel.append(ndx)
+                        
                     file.write('\n')
                 else:
                     file.write(f'*Elset, elset={mem_name}\n')
@@ -833,11 +854,48 @@ class Raami:
                         #e2 = self.fem.elements.index(mem.fem_elements[-1])+1
                         #file.write(f'{e1:>5g}, {e2:>5g},   1\n')
             
+            # Gap elements (if any)
+            top_ndx = []            
+            for el in options.top_gap_elements:
+                top_ndx.append(self.fem.elements.index(el)+1)
+            
+            if len(top_ndx) > 1:
+                top_gap = 'TopChordGaps'
+                file.write(f'*Elset, elset={top_gap}\n')
+                file.write(', '.join(str(r) for r in top_ndx))
+                file.write('\n')            
+            bottom_ndx = []
+            for el in options.bottom_gap_elements:
+                bottom_ndx.append(self.fem.elements.index(el)+1)
+            
+            if len(bottom_ndx) > 1:
+                bottom_gap = 'BottomChordGaps'
+                file.write(f'*Elset, elset={bottom_gap}\n')
+                file.write(', '.join(str(r) for r in bottom_ndx))
+                file.write('\n')
+            
+            # Release sets
+            file.write('**\n*Nset, nset=S1Release\n')
+            file.write(', '.join(str(r) for r in s1_rel))
+            file.write('\n')
+            file.write('**\n*Nset, nset=S2Release\n')
+            file.write(', '.join(str(r) for r in s2_rel))
+            file.write('\n')
+            
             # Poikkileikkaustiedostot
             #*Include, Input=S023C005M002_RedMat.txt
             for secfile in secfiles:
                 file.write(f'*Include, Input={secfile}\n')
             
+            
+            
+            # Element releases            
+            file.write('**\n*RELEASE\n')
+            file.write('S1Release, S1, M1\n')
+            file.write('S2Release, S2, M1\n')
+
+            #[elementti setin nimi alkupää], S1, M1
+            #[elementti setin nimi loppupää], S2, M1
             
             file.write('*End Part\n')
             
@@ -859,12 +917,28 @@ class Raami:
             # 2) Supports: a) pinned support, b) slide support, where displacement in z direction
             #   is prevented.
             # 3) Monitored node: node, whose displacement will be traced.
+            file.write('** Node set for out-of-plane support\n')
+            file.write(f'*Nset, nset=BC_Y_symm_nodes, instance={insname}\n')
+            
+            # By default, all nodes are master nodes            
+            y_symm_nodes = [n.nid+1 for n in self.fem.nodes]
+            for mpc in options.mpc:
+                # If MPCs have been defined in 'options', the first
+                # element in each member of mpc list is the slave node index
+                # (in abaqus numbering)
+                y_symm_nodes.remove(mpc[0])
+            
+            i = 0
+            while i < len(y_symm_nodes):
+                file.write(', '.join(str(r) for r in y_symm_nodes[i:i+16]))
+                file.write('\n')
+                i += 16
             
             file.write('** Node set for monitored nodes.\n')
             # Find 'n_monitored' closed nodes with respect to the x coordinate in the FEM
             # nodes. These will be monitored
             monitored_nodes_set = 'Monitored_Nodes'
-            monitored_nodes = list(np.argsort([abs(n.x-options['x_monitor']) for n in self.fem.nodes])[:options['n_monitored']])
+            monitored_nodes = list(np.argsort([abs(n.x-options.x_monitor) for n in self.fem.nodes])[:options.n_monitored])
             file.write(f'*Nset, nset={monitored_nodes_set}, instance={insname}\n')
             file.write(', '.join(str(mn) for mn in monitored_nodes))
             file.write('\n')
@@ -895,6 +969,17 @@ class Raami:
                             file.write(f'{nid+1:>5g}')
                     file.write('\n')
             
+            # Eccentricity elements: write them as MPCs.
+            for mpc in options.mpc:
+                file.write('*MPC\n')
+                file.write(f'BEAM, {mpc[0]}, {mpc[1]}\n')
+            
+            file.write('*End Assembly\n')
+            
+            # Write material files:
+            file.write('**\n** MATERIALS\n**\n')
+            for matfile in matfiles:
+                file.write(f'*Include, Input={matfile}\n')
             
             # Write supports
             file.write('**\n** BOUNDARY CONDITIONS\n**\n')        
@@ -938,6 +1023,14 @@ class Raami:
             file.write('*Output, field\n')
             file.write(f'*Node Output, nset={monitored_nodes_set}\n')
             file.write('U1, U2, U3, UR1, UR2, UR3\n')
+            
+            file.write('**HISTORY OUTPUT:\n')
+            file.write('*Output, history, variable=PRESELECT\n')
+            file.write('*Output, history\n')
+            file.write(f'*Node Output, nset={monitored_nodes_set}\n')
+            file.write('U1, U2, U3, UR1, UR2, UR3\n')
+
+            file.write('*End Step\n')
             
 if __name__ == '__main__':
     

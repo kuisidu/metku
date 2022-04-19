@@ -15,6 +15,7 @@ import matplotlib.lines as lines
 import numpy as np
 
 from eurocodes.en1993.constants import gammaM5, E
+from structures.steel.steel_member import SteelMember
 
 def eccentricity(h0,h1,h2,t1,t2,g):
     """ Eccentricity of a K gap joint """
@@ -116,22 +117,27 @@ class Line:
 class RHSJoint:
     """ Class for joints between RHS members """
     
-    def __init__(self,chord_profile, N0=0.0, V0=0.0, M0=0.0):
+    def __init__(self,chord, N0=0.0, V0=0.0, M0=0.0):
         """ Constructor
             Input:
                 
-            :param: chord_profile .. RHS or SHS class member, sets the chord profile
+            :param: chord.. can be SteelMember or RHS or SHS class member, for setting the chord profile
             :param: N0 .. magnitude of the largest axial force in the chord around the joint.
             :param: V0 .. magnitude of the largest shear force in the chord around the joint.
             :param: M0 .. magnitude of the largest bending moment in the chord.
         
         
         """
-        self.chord = chord_profile
+        if not isinstance(chord,SteelMember):
+            chord = SteelMember(chord,length=1000)
+        
+        self.chord = chord
         
         self.N0 = N0
         self.V0 = V0
         self.M0 = M0
+        
+        
         
         self.r = 0
 
@@ -141,23 +147,23 @@ class RHSJoint:
     
     @property    
     def h0(self):
-        return self.chord.H
+        return self.chord.profile.H
         
     @property
     def b0(self):
-        return self.chord.B
+        return self.chord.profile.B
         
     @property
     def t0(self):
-        return self.chord.T
+        return self.chord.profile.T
     
     @property
     def r0(self):
-        return self.chord.R
+        return self.chord.profile.R
     
     @property
     def fy0(self):
-        return self.chord.fy
+        return self.chord.fy()
 
     def gamma(self):
         return 0.5*self.b0/self.t0
@@ -210,8 +216,8 @@ class RHSJoint:
     
     def chord_stress(self):
         """ Chord stress ratio """
-        A0 = self.chord.A
-        Wel0 = self.chord.Wel[0];                 
+        A0 = self.chord.profile.A
+        Wel0 = self.chord.profile.Wel[0];                 
         # s0Ed is positive, if the stress in the chord
         # is compressive.
         # CAREFUL WITH UNITS HERE!
@@ -234,8 +240,8 @@ class RHSJoint:
             Based on the new proposal, where plastic bending resistance is 
             used instead of elastic
         """
-        A0 = self.chord.A
-        Wpl0 = self.chord.Wpl[1]
+        A0 = self.chord.profile.A
+        Wpl0 = self.chord.profile.Wpl[1]
         # s0Ed < 0 for compression
         s0Ed = -self.N0/A0+self.M0/Wpl0
         return s0Ed
@@ -243,7 +249,7 @@ class RHSJoint:
     def info(self):
         """ Prints information on the joint """
         
-        print("  Chord: {0:s}".format(self.chord.__repr__()))
+        print("  Chord: {0:s}".format(self.chord.profile.__repr__()))
         print("    N_0,Ed = {0:4.2f} kN".format(self.N0*1e-3))
         print("    M_0,Ed = {0:4.2f} kNm".format(self.M0*1e-6))
     
@@ -279,13 +285,19 @@ class RHSKGapJoint(RHSJoint):
     def __init__(self,chord,braces,angles,gap=20, **kwargs):
         """ Constructor
             input:
-                chord .. chord profile (RHS or SHS class object)
+                chord .. chord member or profile (Steel Member, RHS or SHS class object)
                 braces .. list of brace profiles (RHS or SHS class objects)
                 angles .. list of angles (degrees) between the braces and the chord
                 gap .. gap between the braces
         """
         RHSJoint.__init__(self,chord, **kwargs)
-                
+        
+        if not isinstance(braces[0],SteelMember):
+            brace_members = [SteelMember(brace,length=1000) for brace in braces]
+            for brace, bsec in zip(brace_members,braces):
+                brace.add_section(ned=bsec.Ned)
+            braces = brace_members
+        
         self.braces = braces
         self.gap = gap
         self.angles = angles
@@ -293,20 +305,20 @@ class RHSKGapJoint(RHSJoint):
     @property
     def NEd(self):
         """ Numpy array of axial forces in braces """
-        return np.array([self.braces[0].Ned,self.braces[1].Ned])
+        return np.array([self.braces[0].NEd,self.braces[1].NEd])
     
     @property
     def N1(self):
         """ Axial force in the compression member """
-        if self.braces[0].Ned <= 0.0:
-            return self.braces[0].Ned
+        if self.braces[0].NcEd < 0.0:
+            return abs(self.braces[0].NcEd)
         else:
-            return self.braces[1].Ned
+            return self.braces[1].NEd
         
     @property
     def angle1(self):
         """ Angle of the compression member """
-        if self.braces[0].Ned <= 0.0:
+        if self.braces[0].NcEd < 0.0:
             return self.angles[0]
         else:
             return self.angles[1]
@@ -314,10 +326,10 @@ class RHSKGapJoint(RHSJoint):
     @property
     def N2(self):
         """ Axial force in the tension member """
-        if self.braces[0].Ned <= 0.0:
-            return self.braces[1].Ned
+        if self.braces[0].NcEd <= 0.0:
+            return abs(self.braces[1].NcEd)
         else:
-            return self.braces[0].Ned
+            return self.braces[0].NEd
     
     @property
     def angle2(self):
@@ -360,22 +372,22 @@ class RHSKGapJoint(RHSJoint):
     @property
     def h(self):
         """ Brace heights """
-        return np.asarray([self.braces[0].H,self.braces[1].H])
+        return np.asarray([self.braces[0].profile.H,self.braces[1].profile.H])
     
     @property
     def b(self):
         """ Brace widths """
-        return np.asarray([self.braces[0].B,self.braces[1].B])
+        return np.asarray([self.braces[0].profile.B,self.braces[1].profile.B])
     
     @property
     def t(self):
         """ Brace thickness """
-        return np.asarray([self.braces[0].T,self.braces[1].T])
+        return np.asarray([self.braces[0].profile.T,self.braces[1].profile.T])
     
     @property
     def fy(self):
         """ Brace yield strength """
-        return np.asarray([self.braces[0].fy,self.braces[1].fy])
+        return np.asarray([self.braces[0].fy(),self.braces[1].fy()])
     
     def beta(self):
         return (sum(self.b)+ sum(self.h)) / (4*self.b0)
@@ -418,13 +430,13 @@ class RHSKGapJoint(RHSJoint):
         NiRd = fy0*Aeta/math.sqrt(3)/s/gammaM5
         # chord
         # Check first, if the chord can sustain the shear force
-        if self.V0gap/self.chord.shear_force_resistance() > 1:
+        if self.V0gap/self.chord.profile.shear_force_resistance() > 1:
             # Chord profile is not sufficient, so set resistance to 0.0.
             #print("Chord is not strong enough for shear forces")
             N0Rd = 0.0
 
         else:
-            N0Rd = fy0*((self.chord.A-Aeta)+Aeta*math.sqrt(1-(self.V0gap/self.chord.VRd)**2))/gammaM5
+            N0Rd = fy0*((self.chord.profile.A-Aeta)+Aeta*math.sqrt(1-(self.V0gap/self.chord.profile.VRd)**2))/gammaM5
             
         r = self.strength_reduction()
         NiRd = r*NiRd
@@ -522,7 +534,7 @@ class RHSKGapJoint(RHSJoint):
         
         
         b = self.b
-        if self.braces[0].Ned < 0:
+        if self.braces[0].NcEd < 0:
             b1 = b[0]
             b2 = b[1]
         else:
@@ -553,21 +565,21 @@ class RHSKGapJoint(RHSJoint):
         super().info()
         
         for brace, angle in zip(self.braces,self.angles):
-            print("  Brace: {0:s}".format(brace.__repr__()))
-            if brace.Ned < 0:
+            print("  Brace: {0:s}".format(brace.profile.__repr__()))
+            if brace.NcEd < 0:
                 Nsense = "compression"
-            elif brace.Ned > 0:
+            elif max(brace.ned) > 0:
                 Nsense = "tension"
             else:
                 Nsense = "no axial force"
-            print("  NEd: {0:4.2f} kN ({1:s})".format(brace.Ned*1e-3,Nsense))
+            print("  NEd: {0:4.2f} kN ({1:s})".format(brace.NEd*1e-3,Nsense))
             print("    Angle to chord: {0:4.2f} deg".format(angle))
         
         beta = self.beta()
         print("  Beta = {0:4.2f}".format(beta))
         print("  Gamma = {0:4.2f}".format(self.gamma()))        
         print("  Gap = {0:4.2f} mm".format(self.gap))
-        print("    t1 + t2 = {0:4.2f} mm".format(sum([brace.t for brace in self.braces])))
+        print("    t1 + t2 = {0:4.2f} mm".format(sum([brace.profile.t for brace in self.braces])))
         print("    0.5*b0*(1-beta) = {0:4.2f} mm".format(0.5*self.b0*(1-beta)))
         print("    1.5*b0*(1-beta) = {0:4.2f} mm".format(1.5*self.b0*(1-beta)))
         

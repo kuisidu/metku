@@ -16,6 +16,7 @@ from raami.frame_node import FrameNode
 from raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
 from raami.frame_loads import PointLoad, LineLoad, LoadIDs
 from raami.frame_supports import XYHingedSupport, YHingedSupport
+from raami.exports import AbaqusOptions
 
 from framefem.elements.ebbeam import EBBeam, EBBeam3D
 from framefem.elements.rod import Rod
@@ -111,6 +112,10 @@ class PlaneTruss(Raami):
         
         self.workshop = workshop
         self.costs = {}
+        
+        # Flag for stating whether or not the braces will be modelled as beams (True)
+        # or rod elements (False)
+        self.braces_as_beams = False
         #self.generate_outline()
         #self.top = topology
         #self.ndiv = ndiv
@@ -244,6 +249,13 @@ class PlaneTruss(Raami):
             self.braces[this.mem_id] = this
             self.members["B" + str(this.mem_id)] = this
             this.frame = self
+            
+            if self.braces_as_beams:
+                # If braces are modelled as beam elements, add hinges to
+                # both ends
+                this.add_hinge(loc=0)
+                this.add_hinge(loc=1)
+            
         # JOINT
         elif isinstance(this, TubularJoint):
             this.joint_id = len(self.joints)
@@ -329,6 +341,52 @@ class PlaneTruss(Raami):
                     for R in r:
                         s += f" {R:.2f} "
                     print(s)
+    
+    def to_abaqus(self,target_dir='C:/Users/kmela/Data/',filename="Raami",partname='Truss',options=AbaqusOptions()):
+        """ Exports truss to abaqus 
+            The export method of 'raami' is mainly used. The main point here is to
+            write the MPCs corresponding to eccentricity elements
+        """
+        
+        # options
+        #opts = {'x_monitor':0.5*self.span, 'n_monitored':2, 'mpc':[],'ecc_elements':[]}
+        
+        
+        
+        for joint in self.joints.values():
+            if isinstance(joint,TubularKGapJoint):
+                if not(joint.fem_elements['ecc'] is None):
+                    # This applies if the model 'en1993' was used
+                    pass
+                elif not(joint.fem_elements['left_ecc'] is None):
+                    # Determine which node of the left eccentricity element
+                    # is in the brace member. That is the slave node
+                    n = joint.fem_elements['left_ecc'].nodes[0]
+                    if n in joint.left_brace.fem_nodes:
+                        options.mpc.append([n.nid+1,joint.fem_elements['left_ecc'].nodes[1].nid+1])
+                    else:
+                        options.mpc.append([joint.fem_elements['left_ecc'].nodes[1].nid+1,n.nid+1])
+                    
+                    n = joint.fem_elements['right_ecc'].nodes[0]
+                    if n in joint.right_brace.fem_nodes:
+                        options.mpc.append([n.nid+1,joint.fem_elements['right_ecc'].nodes[1].nid+1])
+                    else:
+                        options.mpc.append([joint.fem_elements['right_ecc'].nodes[1].nid+1,n.nid+1])
+                    
+                    options.ecc_elements.append(joint.fem_elements['left_ecc'])
+                    options.ecc_elements.append(joint.fem_elements['right_ecc'])
+                    
+                    if joint.chord == "top":
+                        if joint.ridge:
+                            options.top_gap_elements += joint.fem_elements['gap']
+                        else:
+                            options.top_gap_elements.append(joint.fem_elements['gap'])
+                    elif joint.chord == 'bottom':
+                        options.bottom_gap_elements.append(joint.fem_elements['gap'])
+        
+        
+        
+        super().to_abaqus(target_dir,filename,partname,options)
                     
     
 
@@ -444,7 +502,9 @@ class SlopedTruss(PlaneTruss):
                           bottom_chord_profile = SHS(140,5),
                           brace_profile = SHS(90,5),
                           first_diagonal_up=False,
-                          edge_verticals=True):
+                          edge_verticals=True,
+                          nel_chord=4,
+                          nel_brace=1):
         """ Generates truss members for a given topology 
         
             :param: topology .. 'K', 'N', or 'KT'
@@ -580,59 +640,15 @@ class SlopedTruss(PlaneTruss):
                         
             for Xb in Xbot:
                 self.add(Xb) 
-            
-            """
-            # Top chord nodes:
-            # Local coordinates of the top chord
-            S = np.linspace(0,1,ndiv+1)
-            
-            #            
-            X0 = np.array([self.origin[0],self.origin[1]])
-            X2 = np.array([self.origin[0]+self.span,self.origin[1]])
-                                 
-            X1 = self.xmid()
-            X2 = self.xend()
-            
-            v1 = X1-X0
-            v2 = X2-X1
-            
-            dx1 = self._dx_left            
-            dx2 = self._dx_right
-                                  
-            Xtop = [FrameNode(X0+s*v1) for s in S]            
-            Xtop += [FrameNode(X1+s*v2) for s in S[1:]]
-            
-            for Xt in Xtop:
-                self.add(Xt)                
-            
-            # Bottom chord nodes:
-            S = np.linspace(0,1,ndiv)
-            
-            ycoord = self.origin[1]-self.Hleft
-            
-            # First half
-            X0 = np.array([self.origin[0]+dx1,ycoord])
-            X1 = np.array([self.origin[0]+0.5*self.span-dx1,ycoord])  
-            X2 = np.array([self.origin[0]+self.span-dx2,ycoord])
-            
-            Xbot = [FrameNode(X0+s*(X1-X0)) for s in S]
-            
-            # Second half
-            X1 = np.array([self.origin[0]+0.5*self.span+dx1,ycoord])  
-            Xbot += [FrameNode(X1+s*(X2-X1)) for s in S]
-        
-            for Xb in Xbot:
-                self.add(Xb)
-            """
-            
+                                    
         
             # Generate top chord members
             for i in range(len(Xtop)-1):                
-                self.add(TopChord([Xtop[i],Xtop[i+1]],copy(top_chord_profile)))
+                self.add(TopChord([Xtop[i],Xtop[i+1]],copy(top_chord_profile),nel=nel_chord))
         
             # Generate bottom chord members
             for i in range(len(Xbot)-1):
-                self.add(BottomChord([Xbot[i],Xbot[i+1]],copy(bottom_chord_profile)))
+                self.add(BottomChord([Xbot[i],Xbot[i+1]],copy(bottom_chord_profile),nel=nel_chord))
         
             
             # Generate braces
@@ -642,26 +658,26 @@ class SlopedTruss(PlaneTruss):
                 if first_diagonal_up:
                     # Diagonals run from bottom chord to top chord
                     for i in range(1,2*ndiv+2):
-                        self.add(TrussBrace([Xtop[i],Xbot[i-1]],copy(brace_profile)))
-                        self.add(TrussBrace([Xtop[i],Xbot[i]],copy(brace_profile)))
+                        self.add(TrussBrace([Xtop[i],Xbot[i-1]],copy(brace_profile),nel=nel_brace))
+                        self.add(TrussBrace([Xtop[i],Xbot[i]],copy(brace_profile),nel=nel_brace))
                 else:
                     # Diagonals run from top chord to bottom chord                    
                     for i in range(1,2*ndiv+1):
-                        self.add(TrussBrace([Xbot[i],Xtop[i-1]],copy(brace_profile)))
-                        self.add(TrussBrace([Xbot[i],Xtop[i]],copy(brace_profile)))
+                        self.add(TrussBrace([Xbot[i],Xtop[i-1]],copy(brace_profile),nel=nel_brace))
+                        self.add(TrussBrace([Xbot[i],Xtop[i]],copy(brace_profile),nel=nel_brace))
                 
                 # Close with verticals
                 if edge_verticals:
-                    self.add(TrussBrace([Xbot[0],Xtop[0]],copy(brace_profile)))
-                    self.add(TrussBrace([Xbot[-1],Xtop[-1]],copy(brace_profile)))
+                    self.add(TrussBrace([Xbot[0],Xtop[0]],copy(brace_profile),nel=nel_brace))
+                    self.add(TrussBrace([Xbot[-1],Xtop[-1]],copy(brace_profile),nel=nel_brace))
             
             else:
                 # If the first node of the bottom chord is not at the same
                 # x location as the first node of the top chord,
                 # the first diagonal goes from top to bottom chord.
                 for i in range(0,2*ndiv):
-                    self.add(TrussBrace([Xbot[i],Xtop[i]],copy(brace_profile)))
-                    self.add(TrussBrace([Xbot[i],Xtop[i+1]],copy(brace_profile)))
+                    self.add(TrussBrace([Xbot[i],Xtop[i]],copy(brace_profile),nel=nel_brace))
+                    self.add(TrussBrace([Xbot[i],Xtop[i+1]],copy(brace_profile),nel=nel_brace))
                 
                 
            
@@ -740,50 +756,50 @@ class SlopedTruss(PlaneTruss):
             
             # Generate top chord members
             for i in range(len(Xtop)-1):                
-                self.add(TopChord([Xtop[i],Xtop[i+1]],copy(top_chord_profile)))
+                self.add(TopChord([Xtop[i],Xtop[i+1]],copy(top_chord_profile),nel=nel_chord))
         
             # Generate bottom chord members
             for i in range(len(Xbot)-1):
-                self.add(BottomChord([Xbot[i],Xbot[i+1]],copy(bottom_chord_profile)))
+                self.add(BottomChord([Xbot[i],Xbot[i+1]],copy(bottom_chord_profile),nel=nel_chord))
             
             # Generate braces
             if dx1 == 0:
                 # Verticals
                 if edge_verticals:
                     for X, Y in zip(Xtop,Xbot):
-                        self.add(TrussBrace([X,Y],copy(brace_profile)))
+                        self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                 else:
                     for X, Y in zip(Xtop[1:-1],Xbot[1:-1]):
-                        self.add(TrussBrace([X,Y],copy(brace_profile)))
+                        self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                 # Diagonals
                 if first_diagonal_up:
                     # Diagonals run from bottom chord to top chord
                     for X, Y in zip(Xtop[1:ndiv+1],Xbot[:ndiv]):
-                        self.add(TrussBrace([X,Y],copy(brace_profile)))
+                        self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                         
                     for X, Y in zip(Xtop[ndiv:-1],Xbot[ndiv+1:]):
-                        self.add(TrussBrace([X,Y],copy(brace_profile)))
+                        self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                 else:
                     # Diagonals run from top chord to bottom chord
                     for X, Y in zip(Xtop[:ndiv],Xbot[1:ndiv+1]):
-                        self.add(TrussBrace([X,Y],copy(brace_profile)))
+                        self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                         
                     for X, Y in zip(Xtop[ndiv+1:],Xbot[ndiv:-1]):
-                        self.add(TrussBrace([X,Y],copy(brace_profile)))
+                        self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
             else:
                 # Lower chord is shorter than top chord. Now the first
                 # diagonal is downward anyway.
                 
                 # Verticals
                 for X, Y in zip(Xtop[1:-1],Xbot):
-                    self.add(TrussBrace([X,Y],copy(brace_profile)))
+                    self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                     
                 # Diagonals run from top chord to bottom chord
                 for X, Y in zip(Xtop[:ndiv],Xbot[:ndiv]):
-                    self.add(TrussBrace([X,Y],copy(brace_profile)))
+                    self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                     
                 for X, Y in zip(Xtop[ndiv+1:],Xbot[ndiv-1:]):
-                    self.add(TrussBrace([X,Y],copy(brace_profile)))
+                    self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
         
         elif topology == "KT":
             # KT truss:
@@ -919,11 +935,11 @@ class SlopedTruss(PlaneTruss):
                 
             # Generate top chord members
             for i in range(len(Xtop)-1):                
-                self.add(TopChord([Xtop[i],Xtop[i+1]],copy(top_chord_profile)))
+                self.add(TopChord([Xtop[i],Xtop[i+1]],copy(top_chord_profile),nel=nel_chord))
         
             # Generate bottom chord members
             for i in range(len(Xbot)-1):
-                self.add(BottomChord([Xbot[i],Xbot[i+1]],copy(bottom_chord_profile)))
+                self.add(BottomChord([Xbot[i],Xbot[i+1]],copy(bottom_chord_profile),nel=nel_chord))
             
             # Generate braces
             if dx1 == 0:
@@ -931,29 +947,29 @@ class SlopedTruss(PlaneTruss):
                     # Verticals
                     if edge_verticals:
                         for X, Y in zip(Xtop[::2],Xbot):
-                            self.add(TrussBrace([X,Y],copy(brace_profile)))
+                            self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                     else:
                         for X, Y in zip(Xtop[2::2],Xbot[1:-1]):
-                            self.add(TrussBrace([X,Y],copy(brace_profile)))
+                            self.add(TrussBrace([X,Y],copy(brace_profile),nel=nel_brace))
                 
                     # Diagonals
-                    self.add(TrussBrace([Xbot[0],Xtop[1]],copy(brace_profile)))                    
+                    self.add(TrussBrace([Xbot[0],Xtop[1]],copy(brace_profile),nel=nel_brace))                    
                     
                     for i in range(1,len(Xbot)-1):
-                        self.add(TrussBrace([Xtop[2*i-1],Xbot[i]],copy(brace_profile)))
-                        self.add(TrussBrace([Xtop[2*i+1],Xbot[i]],copy(brace_profile)))
+                        self.add(TrussBrace([Xtop[2*i-1],Xbot[i]],copy(brace_profile),nel=nel_brace))
+                        self.add(TrussBrace([Xtop[2*i+1],Xbot[i]],copy(brace_profile),nel=nel_brace))
                         
                     
-                    self.add(TrussBrace([Xbot[-1],Xtop[-2]],copy(brace_profile)))
+                    self.add(TrussBrace([Xbot[-1],Xtop[-2]],copy(brace_profile),nel=nel_brace))
                 else:   
                     if edge_verticals:
-                        self.add(TrussBrace([Xbot[0],Xtop[0]],copy(brace_profile)))
-                        self.add(TrussBrace([Xbot[-1],Xtop[-1]],copy(brace_profile)))
+                        self.add(TrussBrace([Xbot[0],Xtop[0]],copy(brace_profile),nel=nel_brace))
+                        self.add(TrussBrace([Xbot[-1],Xtop[-1]],copy(brace_profile),nel=nel_brace))
                    
                     for i in range(1,len(Xbot)-1):                           
-                        self.add(TrussBrace([Xtop[2*i-2],Xbot[i]],copy(brace_profile)))
-                        self.add(TrussBrace([Xtop[2*i-1],Xbot[i]],copy(brace_profile)))
-                        self.add(TrussBrace([Xtop[2*i],Xbot[i]],copy(brace_profile)))
+                        self.add(TrussBrace([Xtop[2*i-2],Xbot[i]],copy(brace_profile),nel=nel_brace))
+                        self.add(TrussBrace([Xtop[2*i-1],Xbot[i]],copy(brace_profile),nel=nel_brace))
+                        self.add(TrussBrace([Xtop[2*i],Xbot[i]],copy(brace_profile),nel=nel_brace))
                                        
                     
                    
@@ -981,9 +997,9 @@ class SlopedTruss(PlaneTruss):
                     
                 for i in range(len(Xbot)):
                     #print(i)                       
-                    self.add(TrussBrace([Xtop[2*i],Xbot[i]],copy(brace_profile)))
-                    self.add(TrussBrace([Xtop[2*i+1],Xbot[i]],copy(brace_profile)))
-                    self.add(TrussBrace([Xtop[2*i+2],Xbot[i]],copy(brace_profile)))
+                    self.add(TrussBrace([Xtop[2*i],Xbot[i]],copy(brace_profile),nel=nel_brace))
+                    self.add(TrussBrace([Xtop[2*i+1],Xbot[i]],copy(brace_profile),nel=nel_brace))
+                    self.add(TrussBrace([Xtop[2*i+2],Xbot[i]],copy(brace_profile),nel=nel_brace))
         """    
         fig, ax = plt.subplots(1)
         
@@ -1187,7 +1203,7 @@ class SlopedTruss(PlaneTruss):
             
             for mem in self.braces.values():
                 #Generate member elements                
-                mem.generate_elements(self.fem,model)
+                mem.generate_elements(self.fem,model,self.braces_as_beams)
             
             for mem in self.top_chord:
                 mem.generate_elements(self.fem,model)
@@ -1206,6 +1222,7 @@ class SlopedTruss(PlaneTruss):
                     newElement = EBBeam(n1,n2,cs,cs.material)                    
                     
                     self.fem.add_element(newElement)
+                    joint.fem_elements['ecc'] = newElement
             
             # Generate supports
             for supp in self.supports.values():
@@ -1299,7 +1316,7 @@ class SlopedTruss(PlaneTruss):
             
             for mem in self.braces.values():
                 #Generate member elements                
-                mem.generate_elements(self.fem,model)
+                mem.generate_elements(self.fem,model,self.braces_as_beams)
             
             for mem in self.top_chord:
                 mem.generate_elements(self.fem,model)
@@ -1311,6 +1328,7 @@ class SlopedTruss(PlaneTruss):
             # (Is it needed, or do IPE 500 elements suffice?)
             for joint in self.joints.values():
                 if isinstance(joint,TubularKGapJoint):
+                    # Eccentricity elements
                     n1 = joint.fem_nodes['xcf'][joint.left_brace]
                     nc1 = joint.fem_nodes['xch'][joint.left_chord]
                     cs = IPE(500)
@@ -1318,25 +1336,31 @@ class SlopedTruss(PlaneTruss):
                     newElement = EBBeam(n1,nc1,cs,cs.material)                    
                     
                     self.fem.add_element(newElement)
+                    joint.fem_elements['left_ecc'] = newElement
                     
                     n1 = joint.fem_nodes['xcf'][joint.right_brace]
                     nc2 = joint.fem_nodes['xch'][joint.right_chord]
                                  
-                    newElement = EBBeam(n1,nc2,cs,cs.material)               
+                    newElement = EBBeam(n1,nc2,cs,cs.material)
+                    
+                    joint.fem_elements['right_ecc'] = newElement
                     
                     self.fem.add_element(newElement)
                     
+                    # Add gap elements
                     if joint.ridge:
                         nApex = joint.fem_nodes['xc']
                         cs_chord = joint.chords[0].cross_section
-                        newElement = EBBeam(nc1,nApex,cs_chord,cs_chord.material)
-                        self.fem.add_element(newElement)
-                        newElement = EBBeam(nApex,nc2,cs_chord,cs_chord.material)
-                        self.fem.add_element(newElement)
+                        newElement1 = EBBeam(nc1,nApex,cs_chord,cs_chord.material)
+                        self.fem.add_element(newElement1)
+                        newElement2 = EBBeam(nApex,nc2,cs_chord,cs_chord.material)
+                        self.fem.add_element(newElement2)
+                        joint.fem_elements['gap'] = [newElement1,newElement2]
                     else:
                         cs_chord = joint.chords[0].cross_section
                         newElement = EBBeam(nc1,nc2,cs_chord,cs_chord.material)
                         self.fem.add_element(newElement)
+                        joint.fem_elements['gap'] = newElement
             
             # Generate supports
             for supp in self.supports.values():
@@ -1609,6 +1633,7 @@ class TopChord(SteelFrameMember):
                     
                 self.fem_nodes.append(newNode)
         
+            
             if isinstance(self.joints[1],TubularYJoint):
                 self.fem_nodes.append(self.joints[1].fem_nodes['xc'])                
             elif isinstance(self.joints[1],TubularKGapJoint):
@@ -1616,6 +1641,7 @@ class TopChord(SteelFrameMember):
                 # intersection between brace center line and chord face            
                 self.fem_nodes.append(self.joints[1].fem_nodes['xch'][self])
             
+            # Add elements between first and last node.
             for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
                 if self.frame.dim == 2:                   
                     newElement = EBBeam(n1,n2,self.cross_section,self.material)                    
@@ -1734,6 +1760,10 @@ class BottomChord(SteelFrameMember):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
                 self.fem_nodes.append(self.joints[0].fem_nodes['xch'][self])
+            elif isinstance(self.joints[0],TubularKTGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                self.fem_nodes.append(self.joints[0].fem_nodes['xc'])
             
             # Generate internal nodes:
             # global_node_coord include also the end node coordinates,
@@ -1752,6 +1782,10 @@ class BottomChord(SteelFrameMember):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
                 self.fem_nodes.append(self.joints[1].fem_nodes['xch'][self])
+            elif isinstance(self.joints[1],TubularKTGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                self.fem_nodes.append(self.joints[1].fem_nodes['xc'])
             
             for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
                 if self.frame.dim == 2:                   
@@ -1784,6 +1818,9 @@ class TrussBrace(SteelFrameMember):
         
         self.top_joint = None
         self.bottom_joint = None
+        
+        self.top_chord_face_point = None
+        self.bottom_chord_face_point = None
         
         # See if the member is vertical
         # This used with joints.
@@ -1841,7 +1878,7 @@ class TrussBrace(SteelFrameMember):
         """
         return f'ELEments {self.mem_id+1} ORIgin RY END RY\n'
     
-    def generate_elements(self,fem,model="no_eccentricity"):
+    def generate_elements(self,fem,model="no_eccentricity",beams=False):
         """ Generate finite elements """
         
         if model == "no_eccentricity":
@@ -1852,40 +1889,132 @@ class TrussBrace(SteelFrameMember):
                 self.fem_nodes.append(self.top_joint.fem_nodes['xc'])                
             elif isinstance(self.top_joint,TubularKGapJoint):
                 self.fem_nodes.append(self.top_joint.fem_nodes['xp'])
+            elif isinstance(self.top_joint,TubularKTGapJoint):
+                self.fem_nodes.append(self.top_joint.fem_nodes['xc'])
+            
+            if beams:
+                # Generate internal nodes:
+                # global_node_coord include also the end node coordinates,
+                # so they are not used in the iteration
+                for x in self.global_node_coords[1:-1]:                
+                    if self.frame.dim == 2:
+                        newNode = fem.add_node(x[0],x[1])    
+                    else:
+                        newNode = fem.add_node(x[0],x[1],x[2])
+                        
+                    self.fem_nodes.append(newNode)
             
             if isinstance(self.bottom_joint,TubularYJoint):
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])                
             elif isinstance(self.bottom_joint,TubularKGapJoint):
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xp'])
+            elif isinstance(self.bottom_joint,TubularKTGapJoint):
+                self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])
             
-            # Create element
-            n1 = self.fem_nodes[0]
-            n2 = self.fem_nodes[1]
-            newElement = Rod(n1,n2,self.cross_section,self.material)
+            # Create elements
+            # It can be desired, that also braces are modelled with beam elements.
+            # In this case, 'beams' is True.            
+            if beams:
+                for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
+                    if self.frame.dim == 2:        
+                        newElement = EBBeam(n1,n2,self.cross_section,self.material)
+                    else:
+                        newElement = EBBeam3D(n1,n2,self.cross_section,self.material)
+                    
+                    fem.add_element(newElement)
+                    self.fem_elements.append(newElement)
+            else:
+                n1 = self.fem_nodes[0]
+                n2 = self.fem_nodes[1]
+                newElement = Rod(n1,n2,self.cross_section,self.material)
             
-            fem.add_element(newElement)
-            self.fem_elements.append(newElement)
+                fem.add_element(newElement)
+                self.fem_elements.append(newElement)
         elif model == "ecc_elements":
             # Attach FEM nodes to the current member
+            
+            # First node is the node connected to the top chord. This depends
+            # on the joint type.
             if isinstance(self.top_joint,TubularYJoint):
-                self.fem_nodes.append(self.top_joint.fem_nodes['xc'])                
+                n1 = self.top_joint.fem_nodes['xc']                
             elif isinstance(self.top_joint,TubularKGapJoint):
                 # in case of K gap joint, the node is created at the
-                # intersection between brace center line and chord face            
-                self.fem_nodes.append(self.top_joint.fem_nodes['xcf'][self])
+                # intersection between brace center line and chord face 
+                n1 = self.top_joint.fem_nodes['xcf'][self]                
+            elif isinstance(self.top_joint,TubularKTGapJoint):
+                n1 = self.top_joint.fem_nodes['xc']
+                            
+            self.fem_nodes.append(n1)
             
+            # Last node is the node connected to the bottom chord.
+            # This will be appended after the internal nodes in case
+            # of using beam elements.
+            if isinstance(self.bottom_joint,TubularYJoint):
+                n2 = self.bottom_joint.fem_nodes['xc']                
+            elif isinstance(self.bottom_joint,TubularKGapJoint):
+                n2 = self.bottom_joint.fem_nodes['xcf'][self]                
+            elif isinstance(self.bottom_joint,TubularKTGapJoint):
+                n2 = self.bottom_joint.fem_nodes['xc']                
+            
+            if beams:
+                # Generate internal nodes:
+                # global_node_coord include also the end node coordinates,
+                # so they are not used in the iteration
+                if self.frame.dim == 2:
+                    r1 = np.array([n1.x,n1.y])
+                    r2 = np.array([n2.x,n2.y])
+                else:
+                    r1 = np.array([n1.x,n1.y,n1.z])
+                    r2 = np.array([n2.x,n2.y,n2.z])
+                #r0 = self.top_chord_face_point
+                #r1 = self.bottom_chord_face_point
+                X = [r1 + t*(r2-r1) for t in self.local_node_coords[1:-1]]
+                
+                for x in X:
+                    if self.frame.dim == 2:
+                        newNode = fem.add_node(x[0],x[1])    
+                    else:
+                        newNode = fem.add_node(x[0],x[1],x[2])
+                        
+                    self.fem_nodes.append(newNode)
+            
+            self.fem_nodes.append(n2)
+            
+            """
             if isinstance(self.bottom_joint,TubularYJoint):
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])                
             elif isinstance(self.bottom_joint,TubularKGapJoint):
                 #self.fem_nodes.append(self.bottom_joint.fem_nodes['xp'])
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xcf'][self])
+            elif isinstance(self.bottom_joint,TubularKTGapJoint):
+                self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])
+            """
             # Create element
-            n1 = self.fem_nodes[0]
-            n2 = self.fem_nodes[1]
-            newElement = Rod(n1,n2,self.cross_section,self.material)
             
-            fem.add_element(newElement)
-            self.fem_elements.append(newElement)
+            if beams:
+                for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
+                    if self.frame.dim == 2:        
+                        newElement = EBBeam(n1,n2,self.cross_section,self.material)
+                    else:
+                        newElement = EBBeam3D(n1,n2,self.cross_section,self.material)
+                    
+                    fem.add_element(newElement)
+                    self.fem_elements.append(newElement)
+            else:
+                n1 = self.fem_nodes[0]
+                n2 = self.fem_nodes[1]
+                newElement = Rod(n1,n2,self.cross_section,self.material)
+            
+                fem.add_element(newElement)
+                self.fem_elements.append(newElement)
+        
+        if self.hinges[0]:
+            """ There is a hinge in the first end """
+            self.fem_elements[0].releases = [2]
+        
+        if self.hinges[1]:
+            """ There is a hinge in the last end """
+            self.fem_elements[-1].releases = [5]
     
     def angle_top(self):
         """ Angle between the brace and top chord """
@@ -2047,7 +2176,7 @@ class TubularJoint:
         None.
 
         """
-    
+                
         self.joint_id = None
         self.node = node
         self.braces = braces
@@ -2061,6 +2190,13 @@ class TubularJoint:
         self.costs = {'welding':0.0}
         
         self.utilization = {}
+        
+        if isinstance(chords[0],TopChord):
+            self.chord = "top"
+        elif isinstance(chords[0],BottomChord):
+            self.chord = "bottom"
+        else:
+            self.chord = None
         
     @property
     def h0(self):
@@ -2350,6 +2486,7 @@ class TubularKGapJoint(TubularJoint):
         if len(self.chords) > 1 and abs(abs(self.chords[0].dir_vector.dot(self.chords[1].dir_vector)) -1) > 1e-8:
             self.ridge = True
         
+        self.fem_elements = {'ecc':None, 'left_ecc':None, 'right_ecc': None, 'gap': None}
     
     def __repr__(self):
         
@@ -2458,6 +2595,8 @@ class TubularKGapJoint(TubularJoint):
             tb, xb = b_line.intersect(chord_face_line)
             xint[self.left_brace] = xb
             
+            self.left_brace.top_chord_face_point = xb
+            
             d, xc = chord_center_line.distance(xb)
             xchord[self.left_chord] = xc
             
@@ -2471,6 +2610,8 @@ class TubularKGapJoint(TubularJoint):
             b_line = Line(v=b_v,p1=xp)
             tb, xb = b_line.intersect(chord_face_line)
             xint[self.right_brace] = xb
+            
+            self.right_brace.top_chord_face_point = xb
             
             d, xc = chord_center_line.distance(xb)
             xchord[self.right_chord] = xc
@@ -2497,6 +2638,11 @@ class TubularKGapJoint(TubularJoint):
                 # keys of xint are the brace objects. These will be
                 # used later in generating the fem model.
                 xint[brace] = xb
+                
+                if self.chord == "top":
+                    brace.top_chord_face_point = xb
+                elif self.chord == "bottom":
+                    brace.bottom_chord_face_point = xb
                 
                 d, xc = chord_center_line.distance(xb)
                 #D.append(d)
@@ -2607,6 +2753,7 @@ class TubularKTGapJoint(TubularJoint):
     def __init__(self,node,chords,braces,gaps=[0,0]):
         """
         
+        One of the braces is 
 
         Parameters
         ----------
@@ -2626,6 +2773,16 @@ class TubularKTGapJoint(TubularJoint):
         """
         
         super().__init__(node,chords,braces)
+        
+        # yloc and xloc are the local coordinates of the point of
+        # intersection of the braces. 
+        # Local coordinate axis of the joint is such that origin
+        # is at 'node',
+        # xloc is the coordinate along the chord and
+        # yloc is the coordinate perpendicular to the chord. 'yloc' is
+        # positive when moving away from the joint side.
+        self.__yloc = 0
+        self.__xloc = 0
         
         # How to determine gap and angles?
         gaps = [max(20,gap) for gap in gaps]
