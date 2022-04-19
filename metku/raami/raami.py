@@ -972,7 +972,7 @@ class Raami:
             # Eccentricity elements: write them as MPCs.
             for mpc in options.mpc:
                 file.write('*MPC\n')
-                file.write(f'BEAM, {mpc[0]}, {mpc[1]}\n')
+                file.write(f'BEAM, {insname}.{mpc[0]}, {insname}.{mpc[1]}\n')
             
             file.write('*End Assembly\n')
             
@@ -998,7 +998,7 @@ class Raami:
                     file.write(f'{supp_type}, {supp_code}\n')
             
             file.write('** --------------------------------\n')
-            file.write('** STEP ')
+            file.write('** STEP\n')
             file.write('*Step, name=Buckling, nlgeom=YES, extrapolation=NO, inc=200\n')
             file.write('*Static, riks\n')
             file.write('0.01, 1., 1e-16, 0.05, 1.,\n')
@@ -1020,9 +1020,9 @@ class Raami:
             file.write('*Element Output, directions=YES\n')
             file.write('E, PEEQ, S, MISES, SF\n')
             
-            file.write('*Output, field\n')
-            file.write(f'*Node Output, nset={monitored_nodes_set}\n')
-            file.write('U1, U2, U3, UR1, UR2, UR3\n')
+            #file.write('*Output, field\n')
+            #file.write(f'*Node Output, nset={monitored_nodes_set}\n')
+            #file.write('U1, U2, U3, UR1, UR2, UR3\n')
             
             file.write('**HISTORY OUTPUT:\n')
             file.write('*Output, history, variable=PRESELECT\n')
