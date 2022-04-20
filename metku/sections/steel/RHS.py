@@ -370,7 +370,7 @@ class RHS(SteelSection):
         Y.append(Y[0])
         
         # Write coordinates to file
-        MatName = matname + "_RedMat"
+        MatName = matname + "_Mat"
         nx = len(X)
         with open(filename,'w') as file:
             #file.write(f"** Member {mem_name}\n")

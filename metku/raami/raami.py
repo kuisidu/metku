@@ -794,7 +794,18 @@ class Raami:
             matfile = partname + '_' + mem_name + '_' + sec_name + '_Mat.txt'
             secfile_path = path + '/' + secfile
             
-            mem.cross_section.abaqus(secfile_path,matname="Steel",setname=mem_name)
+            mem.cross_section.abaqus(secfile_path,matname=mem_name,setname=mem_name)
+            secfiles.append(secfile)
+            matfiles.append(matfile)
+        
+        for set_name, els in options.elsets.items():
+            sec_name = els[0].section.__repr__().replace('.','_')
+            sec_name = sec_name.replace(' ','_')
+            sec_name += '_' + els[0].material.__repr__()
+            secfile = partname + '_' + set_name + '_' + sec_name + '.txt'
+            matfile = partname + '_' + set_name + '_' + sec_name + '_Mat.txt'
+            secfile_path = path + '/' + secfile
+            els[0].section.abaqus(secfile_path,matname=set_name,setname=set_name)
             secfiles.append(secfile)
             matfiles.append(matfile)
         
@@ -873,6 +884,16 @@ class Raami:
                 file.write(f'*Elset, elset={bottom_gap}\n')
                 file.write(', '.join(str(r) for r in bottom_ndx))
                 file.write('\n')
+            
+            # If there are any other element sets, they are printed here
+            for set_name, els in options.elsets.items():
+                file.write(f'*Elset, elset={set_name}\n')
+                i = 0
+                el_ndx = [self.fem.elements.index(el)+1 for el in els]
+                while i < len(el_ndx):
+                    file.write(', '.join(str(r) for r in el_ndx[i:i+16]))
+                    file.write('\n')
+                    i += 16
             
             # Release sets
             file.write('**\n*Nset, nset=S1Release\n')

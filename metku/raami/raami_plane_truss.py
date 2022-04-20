@@ -351,7 +351,23 @@ class PlaneTruss(Raami):
         # options
         #opts = {'x_monitor':0.5*self.span, 'n_monitored':2, 'mpc':[],'ecc_elements':[]}
         
+        # Create element sets for top chord and bottom chord
+        # top chord is halved
+        L2 = 0.5*self.span
+        options.elsets['Top_chord_left'] = []
+        options.elsets['Top_chord_right'] = []
+        options.elsets['Bottom_chord'] = []
         
+        for mem in self.top_chord:
+            for el in mem.fem_elements:
+                if all([n.x <= L2 for n in el.nodes]):
+                    options.elsets['Top_chord_left'].append(el)
+                else:
+                    options.elsets['Top_chord_right'].append(el)
+        
+        for mem in self.bottom_chord:
+            for el in mem.fem_elements:
+                options.elsets['Bottom_chord'].append(el)
         
         for joint in self.joints.values():
             if isinstance(joint,TubularKGapJoint):
@@ -384,7 +400,15 @@ class PlaneTruss(Raami):
                     elif joint.chord == 'bottom':
                         options.bottom_gap_elements.append(joint.fem_elements['gap'])
         
+        for el in options.top_gap_elements:
+            if all([n.x <= L2 for n in el.nodes]):
+                options.elsets['Top_chord_left'].append(el)
+            else:
+                options.elsets['Top_chord_right'].append(el)
         
+        for el in options.bottom_gap_elements:
+            options.elsets['Bottom_chord'].append(el)
+            
         
         super().to_abaqus(target_dir,filename,partname,options)
                     

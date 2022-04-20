@@ -33,6 +33,8 @@ class AbaqusOptions:
         self.top_gap_elements = []
         self.bottom_gap_elements = []
         
+        self.elsets = {}
+        
         attr = self.__dict__.keys()
         
         for key, val in kwargs.items():
