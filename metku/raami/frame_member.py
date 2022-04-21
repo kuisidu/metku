@@ -494,6 +494,10 @@ class FrameMember:
             """ There is a hinge in the last end """
             self.fem_elements[-1].releases = [5]
     
+    def clear_fem(self):
+        """ Removes FEM nodes and elements """
+        self.fem_nodes.clear()
+        self.fem_elements.clear()
     
     def update_element_sections(self):
         """ Updates the cross sections of the finite elements of the member """
@@ -529,7 +533,7 @@ class FrameMember:
             
             # Plot text
             if self.mtype == 'beam':
-                horzalign = 'center'
+                horzalign = 'center'                
                 vertalign = 'bottom'
     
             elif self.mtype == 'column':

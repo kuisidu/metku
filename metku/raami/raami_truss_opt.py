@@ -59,13 +59,13 @@ def minimize_eccentricity(truss,min_gap=20):
                 yvars.append(i)
         
         def obj_value(x):
-            return 0
-            #return sum(np.array(x)[yvars]**2)
+            #return 0
+            return sum(np.array(x)[yvars]**2)
         
         def obj_grad(x):
             """ Gradient of the objective function """
             df = np.zeros(n)
-            #df[yvars] = 2*np.array(x)[yvars]
+            df[yvars] = 2*np.array(x)[yvars]
             
             return df
         
@@ -167,6 +167,7 @@ if __name__ == "__main__":
     t.generate_fem(model='no_eccentricity')
     
     t.optimize_members(verb=True)
+    t.plot(geometry=True,loads=False)
     
     P, x0 = minimize_eccentricity(t)
     #x0[0] = 20
@@ -174,6 +175,8 @@ if __name__ == "__main__":
     solver = SLSQP()
     #solver = TrustRegionConstr()
     min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
+    
+    t.plot(geometry=True,loads=False)
     
     #P(x0)
     

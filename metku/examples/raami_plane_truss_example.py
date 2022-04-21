@@ -10,6 +10,9 @@ Plane truss example using raami package
 from raami.raami_plane_truss import Ktruss_example, Ntruss_example
 from raami.raami_plane_truss import SlopedTruss
 from raami.exports import AbaqusOptions
+from raami.raami_truss_opt import minimize_eccentricity
+from optimization.solvers.slsqp import SLSQP
+from optimization.solvers.trust_region import TrustRegionConstr
 
 def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     # Create K truss for Lauri
@@ -20,9 +23,29 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     t.generate_supports()
     t.generate_joints()
     t.generate_uniform_load(q=-25)
-    t.generate_fem(model='ecc_elements')
-    opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
-    t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
+    t.generate_fem(model='no_eccentricity')
+        
+    print("Structural analysis..")
+    t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
+    print("Done.")
+    t.optimize_members(verb=True)
+     
+    P, x0 = minimize_eccentricity(t,min_gap=20)   
+    
+        
+    solver = SLSQP()
+    #solver = TrustRegionConstr()
+    min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
+    #t.plot(geometry=True,loads=False)
+    
+    t.clear_fem()
+    t.generate_fem(model="ecc_elements")
+    #t.fem.draw()
+    
+    #t.generate_fem(model='ecc_elements')
+    #opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
+    #t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
+    
     
     return t
     
@@ -35,8 +58,8 @@ if __name__ == "__main__":
     
     #t.generate_fem(model='en1993')
     #t.generate_fem(model='no_eccentricity')
-    t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
+    #t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
     #x, xc = t.joints[4].brace_chord_face_x()
     #t.bmd(scale=10,load_id=t.load_ids[0])
 
-t.plot(geometry=True,loads=False)
+#t.plot(geometry=True,loads=False)

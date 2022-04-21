@@ -253,6 +253,7 @@ class PlaneTruss(Raami):
             if self.braces_as_beams:
                 # If braces are modelled as beam elements, add hinges to
                 # both ends
+                this.mtype = 'beam'
                 this.add_hinge(loc=0)
                 this.add_hinge(loc=1)
             
@@ -1154,8 +1155,14 @@ class SlopedTruss(PlaneTruss):
                 #print(joint.gap)
                 joint.calc_gap()                
                 #print(joint.gap)
-            
     
+    def clear_fem(self):
+        """ Clears FEM data """
+        super().clear_fem()
+        
+        for joint in self.joints.values():
+            joint.clear_fem()
+        
     def generate_fem(self,model="no_eccentricity"):
         """
         Creates FEM model
@@ -1176,6 +1183,7 @@ class SlopedTruss(PlaneTruss):
         None.
 
         """
+                
         
         if model == "no_eccentricity":
             # Here, we can use the fem model generation of Raami class
@@ -1194,7 +1202,10 @@ class SlopedTruss(PlaneTruss):
             # This is more complicated:
             # 1) braces are bars that meet at the intersection points of centerlines
             for joint in self.joints.values():
-                if isinstance(joint,TubularYJoint):               
+                if isinstance(joint,TubularYJoint):
+                    # For Y joints, a single FEM node is created and this coincides
+                    # with the point of the FrameNode object, which is located at the
+                    # center line
                     newNode = self.fem.add_node(joint.node.x,joint.node.y)                    
                     joint.fem_nodes['xc'] = newNode
                     joint.node.fem_node = newNode
@@ -1333,7 +1344,8 @@ class SlopedTruss(PlaneTruss):
                     joint.node.fem_node = newNode
                     """
                 elif isinstance(joint,TubularKTGapJoint):
-                    # For KT gap joints, 
+                    # For KT gap joints, currently only a node in the
+                    # initial FrameNode location is created.
                     newNode = self.fem.add_node(joint.node.x,joint.node.y)                    
                     joint.fem_nodes['xc'] = newNode
                     joint.node.fem_node = newNode
@@ -1480,9 +1492,9 @@ class SlopedTruss(PlaneTruss):
         # Sauvoille tietty materiaali (yläpaarre, alapaarre, uumasauvat)
         # Sauvoille tietty poikkileikkausluokka (1 tai 2)
         #
-        top = {'material': 'S700', 'class': 2}
-        bottom = {'material': 'S500', 'class': 2}
-        braces = {'material': 'S420', 'class': 2}
+        top = {'material': 'S355', 'class': 2}
+        bottom = {'material': 'S355', 'class': 2}
+        braces = {'material': 'S355', 'class': 2}
             
         for key, value in kwargs.items():
             if key == 'top':
@@ -2150,20 +2162,10 @@ class TrussBrace(SteelFrameMember):
                     ax.plot([X0[0]-h[0], X1[0]-h[0]], [X0[1]-h[1], X1[1]-h[1]], color, linestyle='solid')
                 else:
                     ax.plot([X0[0], X1[0]], [X0[1], X1[1]], color)
+                                
+                horzalign = 'center'
+                vertalign = 'center'
                 
-                # Plot text
-                if self.mtype == 'beam':
-                    horzalign = 'center'
-                    vertalign = 'bottom'
-        
-                elif self.mtype == 'column':
-                    horzalign = 'right'
-                    vertalign = 'center'
-        
-                else:
-                    horzalign = 'center'
-                    vertalign = 'center'
-        
                 x, y = self.local_to_global(0.5) - self.perpendicular * 50
                 rot = np.degrees(self.angle)
         
@@ -2309,7 +2311,11 @@ class TubularJoint:
     
     def design(self,load_id):
         return 0.0
-            
+    
+    def clear_fem(self):
+        pass
+        
+        
 class TubularYJoint(TubularJoint):
     """ Class for Y joints """
     
@@ -2372,6 +2378,10 @@ class TubularYJoint(TubularJoint):
         
         return r
 
+    def clear_fem(self):
+        
+        self.fem_nodes['xc'] = None
+
 class TubularKGapJoint(TubularJoint):
     """ Class for K gap joints """
     
@@ -2412,6 +2422,10 @@ class TubularKGapJoint(TubularJoint):
 
         """
         super().__init__(node,chords,braces)
+        
+        self.ridge = False
+        if len(self.chords) > 1 and abs(abs(self.chords[0].dir_vector.dot(self.chords[1].dir_vector)) -1) > 1e-8:
+            self.ridge = True
         
         # yloc and xloc are the local coordinates of the point of
         # intersection of the braces. 
@@ -2506,9 +2520,7 @@ class TubularKGapJoint(TubularJoint):
         #self.fem_nodes['xch2'] = None
         # Line passing in the direction of chord through its centerline
         #self.chord_line = Line(v=self.chords[0].dir_vector,p1=self.node.coords)
-        self.ridge = False
-        if len(self.chords) > 1 and abs(abs(self.chords[0].dir_vector.dot(self.chords[1].dir_vector)) -1) > 1e-8:
-            self.ridge = True
+        
         
         self.fem_elements = {'ecc':None, 'left_ecc':None, 'right_ecc': None, 'gap': None}
     
@@ -2549,8 +2561,10 @@ class TubularKGapJoint(TubularJoint):
         """
         self.__yloc = val
         
-        if len(self.chords) == 2 and \
-            np.linalg.norm(self.chords[0].dir_vector-self.chords[1].dir_vector) > 1e-6:
+        #if len(self.chords) == 2 and \
+        #    np.linalg.norm(self.chords[0].dir_vector-self.chords[1].dir_vector) > 1e-6:
+        if self.ridge:
+            # In this case, the joint is at the apex of the truss.
             # In this case, there are two chord members meeting at the joint and
             # the chord members are not parallel, i.e. the joint is located at
             # the ridge joint. Then, the point of intersection is
@@ -2771,6 +2785,20 @@ class TubularKGapJoint(TubularJoint):
         
         return r
 
+    def clear_fem(self):
+        
+        self.fem_nodes['xc'] = None
+        self.fem_nodes['xp'] = None
+        
+        for fem_node in self.fem_nodes['xcf'].values():
+            fem_node = None
+        
+        for fem_node in self.fem_nodes['xch'].values():
+            fem_node = None
+
+        for ele in self.fem_elements.values():
+            ele = None
+
 class TubularKTGapJoint(TubularJoint):
     """ Class for KT gap joints """
     
@@ -2834,6 +2862,21 @@ class TubularKTGapJoint(TubularJoint):
         
         return s
 
+    def clear_fem(self):
+        
+        self.fem_nodes['xc'] = None
+        self.fem_nodes['xp'] = None
+        
+        """
+        for fem_node in self.fem_nodes['xcf'].values():
+            fem_node = None
+        
+        for fem_node in self.fem_nodes['xch'].values():
+            fem_node = None
+
+        for ele in self.fem_elements.values():
+            ele = None
+        """
 
 def Ktruss_example(h2=2000,h1=1500,dx1=1000,dx2=1000,first=False,edges=True):
         

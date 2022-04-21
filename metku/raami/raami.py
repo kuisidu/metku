@@ -193,6 +193,7 @@ class Raami:
             The idea is that the FEM model is generated once and subsequently
             the same model is modified.
         """
+                
         
         if not self.fem_generated:
             self.fem_generated = True
@@ -226,6 +227,15 @@ class Raami:
         
         # Set nodal degrees of freedom
         self.fem.nodal_dofs()
+    
+    def clear_fem(self):
+        """ Clears all data related to FEM and set up an empty FrameFEM object """        
+        self.fem = fem.FrameFEM()
+        self.fem_generated = False
+        
+        for mem in self.members.values():
+            mem.clear_fem()
+            
     
     def structural_analysis(self, load_id=None, support_method='ZERO'):
         """ Calculates forces and displacements
