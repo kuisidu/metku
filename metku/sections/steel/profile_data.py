@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela
 ISECTIONS = {"IPE 80": {"h": 80.0, "b": 46.0, "t_w": 3.8, "t_f": 5.2, "r": 5.0},
            "IPE 100": {"h": 100.0, "b": 55.0, "t_w": 4.1, "t_f": 5.7, "r": 7.0},
            "IPE 120": {"h": 120.0, "b": 64.0, "t_w": 4.4, "t_f": 6.3, "r": 7.0},

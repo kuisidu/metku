@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela
 """
 Created on Thu Mar 15 18:12:04 2018
 

@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela
 from frame2d.frame2d import *
 from optimization.structopt import *
 from sections.steel.catalogue import rhs_profiles, ipe_profiles

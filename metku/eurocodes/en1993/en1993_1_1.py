@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2022 Kristo Mela
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
-# Author(s): Kristo Mela <kristo.mela@tuni.fi>
+# Author(s): Kristo Mela
 
 """
 Created on Wed Mar 14 19:11:28 2018
@@ -386,4 +386,5 @@ def equivalent_moment_factor(Mend,Mspan=None,load="uniform"):
         
     return Cm
                 
+                    
     

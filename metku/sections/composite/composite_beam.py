@@ -1,3 +1,6 @@
+# Author(s): Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Copyright 2022 Kristo Mela
 # -*- coding: utf-8 -*-
 """
 Created on Thu Oct 17 19:53:07 2019

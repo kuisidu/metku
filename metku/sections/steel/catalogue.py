@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela
 
 # Materials [MPa] [kg/mm^3], SFS EN 1993-1-1, table 3.1, EN 10025-2
 # Thickness <= 40 mm

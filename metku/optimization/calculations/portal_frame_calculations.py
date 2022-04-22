@@ -1,4 +1,7 @@
-# Import dependencies
+# -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela
 import numpy as np
 
 # I-profiilin mittojen ylä- ja alarajat sekä askelpituus

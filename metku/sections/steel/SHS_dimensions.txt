@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela
 25 x 25 2.0 1.36 1.74 0.093 1.48 1.19 1.47 0.92 2.53 1.80
 25 x 25 2.5 1.64 2.09 0.091 1.69 1.35 1.71 0.90 2.97 2.07
 25 x 25 3.0 1.89 2.41 0.090 1.84 1.47 1.91 0.87 3.33 2.27

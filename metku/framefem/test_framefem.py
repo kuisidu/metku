@@ -1,3 +1,7 @@
+# Author(s): Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Copyright 2022 Kristo Mela
+# -*- coding: utf-8 -*-
 import unittest
 
 #from .framefem import FrameFEM, BeamSection, LineLoad, PointLoad

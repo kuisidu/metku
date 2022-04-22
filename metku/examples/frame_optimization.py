@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright 2022 Kristo Mela
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Kristo Mela
 from metku.optimization.solvers import *
 from metku.optimization.problems.truss import TrussProblem
 from metku.sections.steel.catalogue import ipe_profiles
