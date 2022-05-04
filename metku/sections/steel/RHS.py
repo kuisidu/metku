@@ -382,7 +382,7 @@ class RHS(SteelSection):
             file.write(f"** HEIGHT = {H}\n")
             file.write(f"** THICKNESS = {T}\n")
             file.write(f"** CORNER RADIUS = {R}\n**\n")
-            file.write(f"*Beam Section, elset={setname}, material={MatName}, section=ARBITRARY\n")
+            file.write(f"*Beam Section, elset={setname}, material={MatName}, temperature=GRADIENTS, section=ARBITRARY\n")
             file.write(f'{nx-1}, {X[0]:8.6f},{Y[0]:8.6f},{X[1]:8.6f},{Y[1]:8.6f},{T:8.6f}\n')                 
                    
             for x, y in zip(X[2:],Y[2:]):

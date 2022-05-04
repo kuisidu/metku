@@ -31,6 +31,7 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     print("Structural analysis..")
     t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
     print("Done.")
+    
     t.optimize_members(verb=True)
      
     P, x0 = minimize_eccentricity(t,min_gap=20)   

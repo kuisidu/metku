@@ -1925,12 +1925,52 @@ class TrussBrace(SteelFrameMember):
         elif model == "en1993":
             # Attach FEM nodes to the current member
             if isinstance(self.top_joint,TubularYJoint):
-                self.fem_nodes.append(self.top_joint.fem_nodes['xc'])                
+                n1 = self.top_joint.fem_nodes['xc']
+                #self.fem_nodes.append(self.top_joint.fem_nodes['xc'])                
             elif isinstance(self.top_joint,TubularKGapJoint):
-                self.fem_nodes.append(self.top_joint.fem_nodes['xp'])
+                #self.fem_nodes.append(self.top_joint.fem_nodes['xp'])
+                n1 = self.top_joint.fem_nodes['xp']
             elif isinstance(self.top_joint,TubularKTGapJoint):
-                self.fem_nodes.append(self.top_joint.fem_nodes['xc'])
+                #self.fem_nodes.append(self.top_joint.fem_nodes['xc'])
+                n1 = self.top_joint.fem_nodes['xc']
             
+            self.fem_nodes.append(n1)
+            
+            if isinstance(self.bottom_joint,TubularYJoint):
+                n2 = self.bottom_joint.fem_nodes['xc']
+                #self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])                
+            elif isinstance(self.bottom_joint,TubularKGapJoint):
+                n2 = self.bottom_joint.fem_nodes['xp']
+                #self.fem_nodes.append(self.bottom_joint.fem_nodes['xp'])
+            elif isinstance(self.bottom_joint,TubularKTGapJoint):
+                n2 = self.bottom_joint.fem_nodes['xc']
+                #self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])
+            
+            if beams:
+                # Generate internal nodes:
+                # global_node_coord include also the end node coordinates,
+                # so they are not used in the iteration
+                if self.frame.dim == 2:
+                    r1 = np.array([n1.x,n1.y])
+                    r2 = np.array([n2.x,n2.y])
+                else:
+                    r1 = np.array([n1.x,n1.y,n1.z])
+                    r2 = np.array([n2.x,n2.y,n2.z])
+                #r0 = self.top_chord_face_point
+                #r1 = self.bottom_chord_face_point
+                X = [r1 + t*(r2-r1) for t in self.local_node_coords[1:-1]]
+                
+                for x in X:
+                    if self.frame.dim == 2:
+                        newNode = fem.add_node(x[0],x[1])    
+                    else:
+                        newNode = fem.add_node(x[0],x[1],x[2])
+                        
+                    self.fem_nodes.append(newNode)
+            
+            self.fem_nodes.append(n2)
+            
+            """
             if beams:
                 # Generate internal nodes:
                 # global_node_coord include also the end node coordinates,
@@ -1943,16 +1983,17 @@ class TrussBrace(SteelFrameMember):
                         
                     self.fem_nodes.append(newNode)
             
+            
             if isinstance(self.bottom_joint,TubularYJoint):
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])                
             elif isinstance(self.bottom_joint,TubularKGapJoint):
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xp'])
             elif isinstance(self.bottom_joint,TubularKTGapJoint):
                 self.fem_nodes.append(self.bottom_joint.fem_nodes['xc'])
-            
+            """
             # Create elements
             # It can be desired, that also braces are modelled with beam elements.
-            # In this case, 'beams' is True.            
+            # In this case, 'beams' is True.
             if beams:
                 for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
                     if self.frame.dim == 2:        
@@ -1969,6 +2010,25 @@ class TrussBrace(SteelFrameMember):
             
                 fem.add_element(newElement)
                 self.fem_elements.append(newElement)
+            
+            """
+            if beams:
+                for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
+                    if self.frame.dim == 2:        
+                        newElement = EBBeam(n1,n2,self.cross_section,self.material)
+                    else:
+                        newElement = EBBeam3D(n1,n2,self.cross_section,self.material)
+                    
+                    fem.add_element(newElement)
+                    self.fem_elements.append(newElement)
+            else:
+                n1 = self.fem_nodes[0]
+                n2 = self.fem_nodes[1]
+                newElement = Rod(n1,n2,self.cross_section,self.material)
+            
+                fem.add_element(newElement)
+                self.fem_elements.append(newElement)
+            """
         elif model == "ecc_elements":
             # Attach FEM nodes to the current member
             
@@ -2950,8 +3010,8 @@ if __name__ == "__main__":
     #print(t.joints[1].gap)
     #print(t.top_nodes)
     t.generate_uniform_load(q=-25)
-    #t.generate_fem(model='en1993')
-    t.generate_fem(model='no_eccentricity')
+    t.generate_fem(model='en1993')
+    #t.generate_fem(model='no_eccentricity')
     t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
     
     #t.bmd(scale=20,load_id=t.load_ids[0],loads=False)
@@ -2968,5 +3028,5 @@ if __name__ == "__main__":
     t.plot(geometry=True)
     #t.plot(mem_dim=True)
     """
-    opts = {'x_monitor':0.5*t.span, 'n_monitored':2}
-    t.to_abaqus(filename='KT-ristikko',partname="KT-ristikko",options=opts)
+    #opts = {'x_monitor':0.5*t.span, 'n_monitored':2}
+    #t.to_abaqus(filename='KT-ristikko',partname="KT-ristikko",options=opts)
