@@ -909,10 +909,10 @@ class Raami:
                     i += 16
             
             # Release sets
-            file.write('**\n*Nset, nset=S1Release\n')
+            file.write('**\n*Elset, nset=S1Release\n')
             file.write(', '.join(str(r) for r in s1_rel))
             file.write('\n')
-            file.write('**\n*Nset, nset=S2Release\n')
+            file.write('**\n*Elset, nset=S2Release\n')
             file.write(', '.join(str(r) for r in s2_rel))
             file.write('\n')
             
