@@ -360,7 +360,12 @@ class PlaneTruss(Raami):
         L2 = 0.5*self.span
         options.elsets['Top_chord_left'] = []
         options.elsets['Top_chord_right'] = []
-        options.elsets['Bottom_chord'] = []
+        #options.elsets['Bottom_chord'] = []
+        options.elsets['Bottom_chord_left'] = []
+        options.elsets['Bottom_chord_right'] = []
+        
+        for mem_id, brace in self.braces.items():
+            options.included_members.append('B' + str(mem_id))
         
         for mem in self.top_chord:
             for el in mem.fem_elements:
@@ -371,7 +376,11 @@ class PlaneTruss(Raami):
         
         for mem in self.bottom_chord:
             for el in mem.fem_elements:
-                options.elsets['Bottom_chord'].append(el)
+                #options.elsets['Bottom_chord'].append(el)
+                if all([n.x <= L2 for n in el.nodes]):
+                    options.elsets['Bottom_chord_left'].append(el)
+                else:
+                    options.elsets['Bottom_chord_right'].append(el)
         
         for joint in self.joints.values():
             if isinstance(joint,TubularKGapJoint):
@@ -411,7 +420,11 @@ class PlaneTruss(Raami):
                 options.elsets['Top_chord_right'].append(el)
         
         for el in options.bottom_gap_elements:
-            options.elsets['Bottom_chord'].append(el)
+            #options.elsets['Bottom_chord'].append(el)
+            if all([n.x <= L2 for n in el.nodes]):
+                options.elsets['Bottom_chord_left'].append(el)
+            else:
+                options.elsets['Bottom_chord_right'].append(el)
             
         
         super().to_abaqus(target_dir,filename,partname,options)

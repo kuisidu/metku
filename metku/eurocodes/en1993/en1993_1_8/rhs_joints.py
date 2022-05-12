@@ -754,33 +754,41 @@ class RHSYJoint(RHSJoint):
     
     def __init__(self, chord_profile, brace, angle, **kwargs):
         super().__init__(chord_profile, **kwargs)
-        self.brace = brace
+        
+        if not isinstance(brace,SteelMember):
+            brace_member = SteelMember(brace,length=1000)
+            brace_member.add_section(ned=brace.Ned)
+            
+            self.brace = brace_member
+        else:
+                        
+            self.brace = brace
         self.angle = angle
         
     @property
     def N1(self):
         """ Force in the brace """
-        return self.brace.Ned
+        return self.brace.NEd
     
     @property
     def h(self):
         """ Brace heights """
-        return self.brace.H
+        return self.brace.profile.H
     
     @property
     def b(self):
         """ Brace widths """
-        return self.brace.B
+        return self.brace.profile.B
     
     @property
     def t(self):
         """ Brace thickness """
-        return self.brace.T
+        return self.brace.profile.T
     
     @property
     def fy(self):
         """ Brace yield strength """
-        return self.brace.fy
+        return self.brace.profile.fy
     
     def beta(self):
         return self.b / self.b0
@@ -793,7 +801,7 @@ class RHSYJoint(RHSJoint):
         """ Yield strength to be used in chord side wall buckling. """
         
         if self.N1 < 0.0:
-            alpha = self.chord.imp_factor[0]
+            alpha = self.chord.profile.imp_factor[0]
             slend = self.slend()
             phi = 0.5*(1 + alpha*(slend - 0.2) + slend **2)
             chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
@@ -908,14 +916,14 @@ class RHSYJoint(RHSJoint):
         
         super().info()
         
-        print("  Brace: {0:s}".format(self.brace.__repr__()))
-        if self.brace.Ned < 0:
+        print("  Brace: {0:s}".format(self.brace.profile.__repr__()))
+        if self.brace.NEd < 0:
             Nsense = "compression"
         elif self.brace.Ned > 0:
             Nsense = "tension"
         else:
             Nsense = "no axial force"
-        print("  NEd: {0:4.2f} kN ({1:s})".format(self.brace.Ned*1e-3,Nsense))
+        print("  NEd: {0:4.2f} kN ({1:s})".format(self.brace.NEd*1e-3,Nsense))
         print("    Angle to chord: {0:4.2f} deg".format(self.angle))
         
         beta = self.beta()

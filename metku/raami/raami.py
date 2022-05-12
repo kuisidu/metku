@@ -798,29 +798,61 @@ class Raami:
         secfiles = []
         matfiles = []
         
+        elastic_mat_file = path + '/' + filename + '_Materials_Elastic.txt'
+        
+        # File for all section properties
+        sections_file = path + '/' + filename + '_Sections.txt'
+        
+        with open(sections_file,'w') as file:
+            now = datetime.now()            
+            date_str = now.strftime(" Date: %d/%m/%Y    %H:%M ")
+            file.write(f'** Cross-sectional data for {filename}\n')
+            file.write(f'** Created on {date_str}\n**\n')
+            
+        
+        # Create material data for elastic material model
+        with open(elastic_mat_file,'w') as file:
+            file.write(f'**\n** This file contains materials for {filename}\n**\n')
+            
+            for mem_name, mem in self.members.items():
+                if len(options.included_members) > 0 and mem_name in options.included_members:
+                    file.write(f'*Material, name={mem_name}_Mat\n')
+                    file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**')
+            
+            for set_name, els in options.elsets.items():
+                file.write(f'\n*Material, name={set_name}_Mat\n')
+                file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**')
+        
         for mem_name, mem in self.members.items():
             # Create cross-section a file for each member
-            sec_name = mem.cross_section.__repr__().replace('.','_')
-            sec_name = sec_name.replace(' ','_')
-            sec_name += '_' + mem.material.__repr__()
-            secfile = partname + '_' + mem_name + '_' + sec_name + '.txt'
-            matfile = partname + '_' + mem_name + '_' + sec_name + '_Mat.txt'
-            secfile_path = path + '/' + secfile
-            
-            mem.cross_section.abaqus(secfile_path,matname=mem_name,setname=mem_name)
-            secfiles.append(secfile)
-            matfiles.append(matfile)
+            if len(options.included_members) > 0 and mem_name in options.included_members:
+                sec_name = mem.cross_section.__repr__().replace('.','_')
+                sec_name = sec_name.replace(' ','_')
+                sec_name += '_' + mem.material.__repr__()
+                secfile = partname + '_' + mem_name + '_' + sec_name + '.txt'
+                matfile = partname + '_' + mem_name + '_' + sec_name + '_Mat.txt'
+                secfile_path = path + '/' + secfile
+                
+                #mem.cross_section.abaqus(secfile_path,matname=mem_name,setname=mem_name)
+                #secfiles.append(secfile)
+                mem.cross_section.abaqus(sections_file,matname=mem_name,setname=mem_name,open_type='a')
+                matfiles.append(matfile)
         
         for set_name, els in options.elsets.items():
+            # Create cross-section for each element set
             sec_name = els[0].section.__repr__().replace('.','_')
             sec_name = sec_name.replace(' ','_')
             sec_name += '_' + els[0].material.__repr__()
             secfile = partname + '_' + set_name + '_' + sec_name + '.txt'
             matfile = partname + '_' + set_name + '_' + sec_name + '_Mat.txt'
             secfile_path = path + '/' + secfile
-            els[0].section.abaqus(secfile_path,matname=set_name,setname=set_name)
+            els[0].section.abaqus(sections_file,matname=set_name,setname=set_name,open_type='a')
+            #els[0].section.abaqus(secfile_path,matname=set_name,setname=set_name)
             secfiles.append(secfile)
             matfiles.append(matfile)
+            
+        with open(sections_file,'a') as file:
+            file.write('**')
         
         with open(inp_file,'w') as file:
             now = datetime.now()
@@ -845,38 +877,39 @@ class Raami:
             # is for setting the cross-section for the elements
             s1_rel = []
             s2_rel = []
-            for mem_name, mem in self.members.items():                
-                nel = len(mem.fem_elements)
-                
-                if mem.hinges[0]:
-                    s1_rel.append
-                
-                if nel > 1:
-                    #file.write(f'*Elset, elset={mem_name}, generate\n')
-                    file.write(f'*Elset, elset={mem_name}\n')
-                    for i, ele in enumerate(mem.fem_elements):
-                        ndx = self.fem.elements.index(ele)+1
-                        if i < nel-1:
-                            file.write(f'{ndx:>5g}, ')
-                        else:
-                            file.write(f'{ndx:>5g}')
-                        
-                        # If member has releases add it to the corresponding
-                        # release set. '2' is for rotational release at the first node
-                        # and '5' is for rotational release at the second node
-                        if 2 in ele.releases:
-                            s1_rel.append(ndx)
-                        elif 5 in ele.releases:
-                            s2_rel.append(ndx)
-                        
-                    file.write('\n')
-                else:
-                    file.write(f'*Elset, elset={mem_name}\n')
-                    e1 = self.fem.elements.index(mem.fem_elements[0])+1
-                    file.write(f'{e1:>5g}\n')
-                        #e1 = self.fem.elements.index(mem.fem_elements[0])+1
-                        #e2 = self.fem.elements.index(mem.fem_elements[-1])+1
-                        #file.write(f'{e1:>5g}, {e2:>5g},   1\n')
+            for mem_name, mem in self.members.items():
+                if len(options.included_members) > 0 and mem_name in options.included_members:
+                    nel = len(mem.fem_elements)
+                    
+                    if mem.hinges[0]:
+                        s1_rel.append
+                    
+                    if nel > 1:
+                        #file.write(f'*Elset, elset={mem_name}, generate\n')
+                        file.write(f'*Elset, elset={mem_name}\n')
+                        for i, ele in enumerate(mem.fem_elements):
+                            ndx = self.fem.elements.index(ele)+1
+                            if i < nel-1:
+                                file.write(f'{ndx:>5g}, ')
+                            else:
+                                file.write(f'{ndx:>5g}')
+                            
+                            # If member has releases add it to the corresponding
+                            # release set. '2' is for rotational release at the first node
+                            # and '5' is for rotational release at the second node
+                            if 2 in ele.releases:
+                                s1_rel.append(ndx)
+                            elif 5 in ele.releases:
+                                s2_rel.append(ndx)
+                            
+                        file.write('\n')
+                    else:
+                        file.write(f'*Elset, elset={mem_name}\n')
+                        e1 = self.fem.elements.index(mem.fem_elements[0])+1
+                        file.write(f'{e1:>5g}\n')
+                            #e1 = self.fem.elements.index(mem.fem_elements[0])+1
+                            #e2 = self.fem.elements.index(mem.fem_elements[-1])+1
+                            #file.write(f'{e1:>5g}, {e2:>5g},   1\n')
             
             # Gap elements (if any)
             top_ndx = []            
@@ -916,10 +949,11 @@ class Raami:
             file.write(', '.join(str(r) for r in s2_rel))
             file.write('\n')
             
-            # Poikkileikkaustiedostot
-            #*Include, Input=S023C005M002_RedMat.txt
-            for secfile in secfiles:
-                file.write(f'*Include, Input={secfile}\n')
+            # Poikkileikkaustiedosto(t)
+            file.write(f'*Include, Input={sections_file}\n')
+            #*Include, Input=S023C005M002_RedMat.txt            
+            #for secfile in secfiles:
+            #    file.write(f'*Include, Input={secfile}\n')
             
             
             
@@ -1012,8 +1046,9 @@ class Raami:
             
             # Write material files:
             file.write('**\n** MATERIALS\n**\n')
-            for matfile in matfiles:
-                file.write(f'*Include, Input={matfile}\n')
+            file.write(f'*Include, Input={elastic_mat_file}\n')
+            #for matfile in matfiles:
+            #    file.write(f'*Include, Input={matfile}\n')
             
             # Write supports
             file.write('**\n** BOUNDARY CONDITIONS\n**\n')        

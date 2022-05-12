@@ -314,7 +314,7 @@ class RHS(SteelSection):
         
         ax.set_aspect('equal')
     
-    def abaqus(self,filename,matname='Steel',setname='Set-1'):
+    def abaqus(self,filename,matname='Steel',setname='Set-1',open_type='w'):
         """ Writes section data for exporting to abaqus """
         unit_conv = 1e-3
         
@@ -375,7 +375,7 @@ class RHS(SteelSection):
         # Write coordinates to file
         MatName = matname + "_Mat"
         nx = len(X)
-        with open(filename,'w') as file:
+        with open(filename,open_type) as file:
             #file.write(f"** Member {mem_name}\n")
             file.write("** Cross-section dimensions \n")
             file.write(f"** WIDTH = {W}\n")

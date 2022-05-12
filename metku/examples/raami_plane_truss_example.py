@@ -32,14 +32,14 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
     print("Done.")
     
-    t.optimize_members(verb=True)
+    #t.optimize_members(verb=True)
      
-    P, x0 = minimize_eccentricity(t,min_gap=20)   
+    #P, x0 = minimize_eccentricity(t,min_gap=20)   
     
         
-    solver = SLSQP()
+    #solver = SLSQP()
     #solver = TrustRegionConstr()
-    min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
+    #min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
     #t.plot(geometry=True,loads=False)
     
     t.clear_fem()
@@ -47,8 +47,8 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     #t.fem.draw()
     
     #t.generate_fem(model='ecc_elements')
-    #opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
-    #t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
+    opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
+    t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
     
     
     return t

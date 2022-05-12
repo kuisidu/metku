@@ -38,6 +38,9 @@ class AbaqusOptions:
         
         self.elsets = {}
         
+        # Individual members to be included as element sets
+        self.included_members = []
+        
         attr = self.__dict__.keys()
         
         for key, val in kwargs.items():
