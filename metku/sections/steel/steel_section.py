@@ -446,7 +446,7 @@ class SteelSection(metaclass=ABCMeta):
             This works for double symmetric cross-sections
         """
         sN = -self.Ned/self.A
-        sMy = self.Med/self.Wel[0]
+        sMy = self.Med[0]/self.Wel[0]
         
         return sN + sMy
 

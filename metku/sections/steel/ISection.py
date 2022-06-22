@@ -561,6 +561,7 @@ class HEAA(ISection):
         name = 'HE ' + str(height) + ' ' + 'AA'
         # HEIGHT =! TO PROFILE NUMBER
 
+        self.name = name
         # H,B,tf,tb,r,fy=355
         if catalogue:
             H = profile[name]['h']
@@ -593,6 +594,7 @@ class HEB(ISection):
     """
     def __init__(self,height=100,fy=355,catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'B'
+        self.name = name
         # H,B,tf,tb,r,fy=355
         if name in profile.keys():
             H=profile[name]['h']
@@ -633,6 +635,7 @@ class HEC(ISection):
 
     def __init__(self, height=100, fy=355, catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'C'
+        self.name = name
         # H,B,tf,tb,r,fy=355
         if catalogue:
             H = profile[name]['h']
@@ -659,7 +662,7 @@ class HEM(ISection):
     def __init__(self, height=100, fy=355, catalogue=True):
         name = 'HE ' + str(height) + ' ' + 'M'
         # HEIGHT =! TO PROFILE NUMBER
-
+        self.name = name
         # H,B,tf,tb,r,fy=355
         if catalogue:
             H = profile[name]['h']

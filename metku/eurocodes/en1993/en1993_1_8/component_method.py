@@ -105,7 +105,7 @@ def col_web_shear(column):
         Input: column .. steel_section class object
     """
     f_y_wc = column.fy    # Yield strength of column
-    A_vc = column.Ashear  # Shear area of column web
+    A_vc = column.Ashear[1]  # Shear area of column web
 
     # Calculating column web panel shear capacity
     return  0.9*f_y_wc*A_vc/sqrt(3.0)/gammaM0
@@ -116,7 +116,7 @@ def col_web_shear_k(column,beta,z):
                beta .. transformation parameter
                z .. moment arm of the connection               
     """   
-    return 0.38*column.Ashear/beta/z    
+    return 0.38*column.Ashear[1]/beta/z    
 
 def beam_web_compression(beam):
     """ Beam web in transverse compression:
@@ -125,7 +125,7 @@ def beam_web_compression(beam):
         input:
             beam .. Beam profile as a SteelSection object
     """
-    McRd = beam.MRd[0]
+    McRd = beam.MRd
     return McRd/(beam.h-beam.tf)
 
     
@@ -169,7 +169,7 @@ def col_web_trv_comp(column, beam, t_p, ebottom, a_p, beta, sigma_com_Ed=0.0,ver
     t_fc = column.tf                                  # Column flange thickness
     t_wc = column.tw                                  # Column web thickness
     d_wc = column.hw                                  # Column web height
-    A_vc = column.Ashear                                  # Shear area of column web
+    A_vc = column.Ashear[1]                                  # Shear area of column web
     f_y_wc = column.fy                                # Yield strength of column material
     E = column.E                                       # Young's modulus of column material
 
@@ -262,7 +262,7 @@ def column_web_tension(column, l_eff, beta,verb=False):# l_eff_1f, l_eff_2f):
     # Connection using screws
     # Column information
     t_wc = column.tw  # Column web thickness
-    A_vc = column.Ashear  # Shear area of column web
+    A_vc = column.Ashear[1]  # Shear area of column web
     f_y_wc = column.fy  # Yield strength of column material
 
     # Effective width of column web in tension

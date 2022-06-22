@@ -146,10 +146,16 @@ class EndPlateJoint:
     
     @property
     def MjRd(self):
+        self._MjRd = self.bending_resistance()
+        #if self._MjRd <= 0.0:
+        #    MRd = self.bending_resistance()
         return self._MjRd
     
     @property
     def VjRd(self):
+        self._VjRd = self.shear_resistance()
+        #if self._VjRd <= 0.0:
+        #    VRd = self.shear_resistance()
         return self._VjRd
     
     @property
@@ -190,10 +196,12 @@ class EndPlateJoint:
     
     @ebolts.setter
     def ebolts(self,val):
+        """ Distance of bolt center from the edge of the end plate """
         self._ebolts = val
-        #self.p = self.bp-2*val
-        for row in self.bolt_rows:
-            row.p = self.p
+        # Set the distance of bolts in each row based on the
+        # new edge distance.
+        #for row in self.bolt_rows:
+        #    row.p = self.p
     
     @property
     def etop(self):
@@ -388,7 +396,7 @@ class EndPlateJoint:
         return cm.col_web_shear_k(self.col,self.beta,z)
             
     
-    def Fc_wc_Rd(self,verb=True):
+    def Fc_wc_Rd(self,verb=False):
         """ Column web in compression """
         
         if self.stiffeners["col_bottom_flange"] is None:
@@ -593,8 +601,8 @@ class EndPlateJoint:
         """ Equivalent moment arm """
         zeq = 0.0
         
-        keff = np.array([row.keff() for row in self.bolt_rows])
-        hr = self.hr()
+        keff = np.array([row.keff() for row in self.bolt_rows if row.type != SHEAR_ROW])
+        hr = self.hr('non-shear')
         
         zeq = sum(keff*hr**2)/sum(keff*hr)
         
@@ -971,7 +979,8 @@ class EndPlateJoint:
         
         # Draw bolt rows
         for row in self.bolt_rows:
-            w = 0.5*row.p
+            #w = 0.5*row.p
+            w = 0.5*row.w
             
             h_bolt = row.bolt.head_t
             d_m = row.bolt.head_d
@@ -1605,11 +1614,14 @@ if __name__ == '__main__':
     #conn.bending_resistance(True)
     #conn.rotational_stiffness(True)
     
-    conn.add_stiffener(stiffener='col_top_flange',t=conn.beam.tf)
-    conn.add_stiffener(stiffener='col_bottom_flange',t=conn.beam.tf)
+    #conn.add_stiffener(stiffener='col_top_flange',t=conn.beam.tf)
+    #conn.add_stiffener(stiffener='col_bottom_flange',t=conn.beam.tf)
     
-    conn.bending_resistance(True)
+    """
+    conn.Sj_ini(True)
     conn.rotational_stiffness(True)
+    conn.bending_resistance(True)
+    """
     
     #ws = Workshop()
     

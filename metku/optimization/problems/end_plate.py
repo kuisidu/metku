@@ -324,7 +324,7 @@ class EndPlateOpt(sopt.OptimizationProblem):
             mcon = sopt.NonLinearConstraint(name=m_name,
                                             con_fun=m_fun,
                                             con_type='<',
-                                            fea_required=True)
+                                            fea_required=False)
             self.add(mcon)
 
         if shear_resistance:
@@ -332,7 +332,7 @@ class EndPlateOpt(sopt.OptimizationProblem):
             mcon = sopt.NonLinearConstraint(name=v_name,
                                             con_fun=v_fun,
                                             con_type='<',
-                                            fea_required=True)
+                                            fea_required=False)
             self.add(mcon)
             
         if target_stiffness:
@@ -348,7 +348,7 @@ class EndPlateOpt(sopt.OptimizationProblem):
                 self.add(sopt.NonLinearConstraint(name=key,
                                                      con_fun=value,
                                                      con_type=ctype,
-                                                     fea_required=True)
+                                                     fea_required=False)
                          )
 
         if rigid_joint:
@@ -357,7 +357,7 @@ class EndPlateOpt(sopt.OptimizationProblem):
             self.add(sopt.NonLinearConstraint(name=r_name,
                                               con_fun=r_fun,
                                               con_type='>',
-                                              fea_required=True)
+                                              fea_required=False)
                      )
             
 
@@ -511,7 +511,7 @@ class EndPlateOpt(sopt.OptimizationProblem):
         obj = sopt.ObjectiveFunction(name=name.capitalize(),
                                      obj_fun=fun,
                                      obj_type=sense,
-                                     fea_required=True)
+                                     fea_required=False)
         self.add(obj)
 
 
@@ -704,11 +704,16 @@ def run_optimization_series(conn,Starget,problem_type='rigid_joint',
         if problem_type == "min_stiffness":
             x0[0] = problem.vars[0].lb
         
+        print("Initial design:\n")
+        for x, var in zip(x0,problem.vars):
+            print(f'{var.name} = {x:4.2f}')
         
-        f_best, x_best, nit = solver.solve(problem, maxiter=500, x0=x0)
-        problem.num_iters = nit
         
-        problem(x_best, prec=5)
+        f_best, x_best = solver.solve(problem, maxiter=500, x0=x0)
+        #f_best, x_best, nit = solver.solve(problem, maxiter=500, x0=x0)
+        #problem.num_iters = nit
+        
+        #problem(x_best, prec=5)
         
         fig_name = fig_name_base + str(d) + '_' + str(conn.nrows) + '_Rows.svg'
         #conn.draw(fig_dir + fig_name)
@@ -756,7 +761,7 @@ if __name__ == '__main__':
     
     #conn = ep.example_1()
     nrows = range(2,5)
-    nrows = [4]
+    nrows = [2]
     
     for r in reversed(nrows):
         conn = ep.diax_ex_rows(MjEd=40.0,VjEd=32.0,rows=r)
@@ -780,6 +785,7 @@ if __name__ == '__main__':
         
         #conn.tp = 20
         res = run_optimization_series(conn,Starget,initial=False, problem_type='rigid_joint')
+        #res = run_optimization_series(conn,Starget,initial=False, problem_type='max_stiffness')
     
     #problem = optimize_for_rigid_joint(conn, Srigid)
     
