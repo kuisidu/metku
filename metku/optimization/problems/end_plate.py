@@ -14,6 +14,7 @@ import numpy as np
 from copy import deepcopy
 from openpyxl import Workbook, load_workbook
 import matplotlib.pyplot as plt
+import sys
 
 try:
     from metku.frame2d.frame2d import SteelBeam
@@ -262,6 +263,7 @@ class EndPlateOpt(sopt.OptimizationProblem):
             self.substitute_variables(x)
             #return self.structure.rotational_stiffness()*1e-6/((1-self.stiffness_dev*1e-2)*self.target_stiffness) - 1
             return 1e0*(self.structure.Sj_ini()*1e-6-self.Srigid)
+            #return self.structure.Sj_ini()*1e-6/self.Srigid-1
         
         con_name = "Stiffness for rigid joint"
         con_fun = Scon_rigid        
@@ -442,7 +444,7 @@ class EndPlateOpt(sopt.OptimizationProblem):
             bp_lb = bb
             bp_ub = bc + 100.0
             bp_var = sopt.Variable("bp",lb=bp_lb, ub=bp_ub, target={"property":'bp','objects':[self.structure]},
-                                  value=self.structure.etop)
+                                  value=bb)
         
             self.add(bp_var)
         # zlb = max(1.2*d0,0.5*dw)
@@ -668,20 +670,22 @@ def run_optimization_series(conn,Starget,problem_type='rigid_joint',
     
     res = []    
     
-    res_dir = 'P:\\INTRA_HOME\\Tutkimus\\IXConnections\\'
+    res_dir = 'P:\\INTRA_HOME\\00_Tutkimus\\IXConnections\\'
     #filename= res_dir + 'Diaz_Joint_Results.xlsx'
     
-    filename= res_dir + problem_type.capitalize() + '_Diaz.xlsx'
+    filename= res_dir + problem_type.capitalize() + '_NEW2' + '_Diaz.xlsx'
+    logfile = res_dir + problem_type.capitalize() + '_NEW2_opt.log'
     #filename= res_dir + 'Max_Stiffness_Results.xlsx'
     #fig_name_base = 'RigidJoint_M'
-    fig_dir = 'P:\\INTRA_HOME\\Tutkimus\\IXConnections\\figures\\'
+    fig_dir = 'P:\\INTRA_HOME\\00_Tutkimus\\IXConnections\\figures\\'
     #fig_name_base = 'DiazJoint_M'
     #fig_name_base = 'Max_Stiffness_M'
-    fig_name_base = problem_type.capitalize() + '_Diaz_M'
+    fig_name_base = problem_type.capitalize() + '_NEW2' + '_Diaz_M'
     
     
     for d in reversed([12, 16, 20, 24]): #bolt_sizes:
-        print("**** COST OPTIMIZATION FOR BOLT DIAMETER {0:2.0f}".format(d))
+        #sys.stdout = open(logfile, "a")
+        print(f"**** COST OPTIMIZATION FOR {conn.nrows:2.0f} ROWS AND BOLT DIAMETER {d:2.0f}")
         
         conn.bolt_size = d
         if problem_type == 'rigid_joint':
@@ -708,8 +712,13 @@ def run_optimization_series(conn,Starget,problem_type='rigid_joint',
         for x, var in zip(x0,problem.vars):
             print(f'{var.name} = {x:4.2f}')
         
-        
+       
+
         f_best, x_best = solver.solve(problem, maxiter=500, x0=x0)
+
+        #sys.stdout.close()
+        
+        #print("Tänne päästiin")
         #f_best, x_best, nit = solver.solve(problem, maxiter=500, x0=x0)
         #problem.num_iters = nit
         
@@ -760,8 +769,8 @@ if __name__ == '__main__':
     #from structures.steel.end_plate_joint import example_1
     
     #conn = ep.example_1()
-    nrows = range(2,5)
-    nrows = [2]
+    #nrows = range(2,5)
+    nrows = [3]
     
     for r in reversed(nrows):
         conn = ep.diax_ex_rows(MjEd=40.0,VjEd=32.0,rows=r)
@@ -770,7 +779,7 @@ if __name__ == '__main__':
         #conn = ep.example_diaz(connection='C')
         Starget = 16000.0
         Lbeam =  6000
-        #Lbeam = 12000
+        #Lbeam = 1200041.80200022598146
         Kb = conn.beam.E*conn.beam.Iy/Lbeam
         kb = 8
         Srigid = math.ceil(kb*Kb*1e-6)

@@ -817,11 +817,11 @@ class Raami:
             for mem_name, mem in self.members.items():
                 if len(options.included_members) > 0 and mem_name in options.included_members:
                     file.write(f'*Material, name={mem_name}_Mat\n')
-                    file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**')
+                    file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**\n')
             
             for set_name, els in options.elsets.items():
                 file.write(f'\n*Material, name={set_name}_Mat\n')
-                file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**')
+                file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**\n')
         
         for mem_name, mem in self.members.items():
             # Create cross-section a file for each member
@@ -942,10 +942,10 @@ class Raami:
                     i += 16
             
             # Release sets
-            file.write('**\n*Elset, nset=S1Release\n')
+            file.write('**\n*Elset, elset=S1Release\n')
             file.write(', '.join(str(r) for r in s1_rel))
             file.write('\n')
-            file.write('**\n*Elset, nset=S2Release\n')
+            file.write('**\n*Elset, elset=S2Release\n')
             file.write(', '.join(str(r) for r in s2_rel))
             file.write('\n')
             
