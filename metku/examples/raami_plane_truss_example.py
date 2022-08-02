@@ -32,8 +32,13 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
     print("Done.")
     
-    t.optimize_members(verb=True)
+    top = {'material': 'S700', 'class': 2, 'utility': 1.0}
+    bottom = {'material': 'S700', 'class': 2, 'utility': 1.0}
+    braces = {'material': 'S700', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0}
+    
+    t.optimize_members(verb=True,top=top,bottom=bottom,braces=braces)
      
+    """
     P, x0 = minimize_eccentricity(t,min_gap=20)   
     
         
@@ -49,7 +54,7 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     #t.generate_fem(model='ecc_elements')
     opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
     t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
-    
+    """
     
     return t
     

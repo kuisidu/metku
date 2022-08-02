@@ -124,6 +124,7 @@ class FrameMember:
         
         self.active = True
         self.resistance_check = True
+        self.allowable_utilization = 1.0
         
         self.fem_nodes = []
         self.fem_elements = []
@@ -416,7 +417,7 @@ class FrameMember:
 
         rmax = self.member.design()
         
-        if rmax > 1.0:
+        if rmax > self.allowable_utilization:
             self.resistance_check = False
         else:
             self.resistance_check = True
@@ -1016,14 +1017,14 @@ class SteelFrameMember(FrameMember):
 
         rmax = self.member.design(sway=self.sway)
         
-        if rmax > 1.0:
+        if rmax > self.allowable_utilization:
             self.resistance_check = False
         else:
             self.resistance_check = True
             
         self.utilization[load_id] = rmax
     
-    def optimum_design(self, prof_type='CURRENT',verb=False,material="S355",sec_class=3):
+    def optimum_design(self, prof_type='CURRENT',verb=False,material="S355",sec_class=3,max_utility=1.0):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
@@ -1053,12 +1054,12 @@ class SteelFrameMember(FrameMember):
                     self.symmetry_pair.design(load_id)
                 
                             
-            if all(r<=1.0 for r in self.utilization.values()):# <= 1.0:
+            if all(r<=max_utility for r in self.utilization.values()):# <= 1.0:
                 break
             
             # Check also symmetry pair, if it exists
             if not self.symmetry_pair is None:
-                if all(r<=1.0 for r in self.symmetry_pair.utilization.values()):# <= 1.0:
+                if all(r<=max_utility for r in self.symmetry_pair.utilization.values()):# <= 1.0:
                     break    
             
         
@@ -1145,7 +1146,7 @@ class MultiSpanSteelMember(MultiSpanMember):
             for load_id in self.frame.load_ids:   
                 self.design(load_id)
                             
-            if all(r<=1.0 for r in self.utilization.values()):# <= 1.0:
+            if all(r<=self.allowable_utilization for r in self.utilization.values()):# <= 1.0:
                 break
             
         
@@ -1252,7 +1253,7 @@ class MemberGroup:
             
         self.utilization[load_id] = rmax
     
-    def optimum_design(self,prof_type="CURRENT",verb=False,material="S355",sec_class=3):
+    def optimum_design(self,prof_type="CURRENT",verb=False,material="S355",sec_class=3,max_utility=1.0):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
@@ -1279,7 +1280,7 @@ class MemberGroup:
             for load_id in self.frame.load_ids:   
                 self.design(load_id)
                             
-            if all(r<=1.0 for r in self.utilization.values()):# <= 1.0:
+            if all(r<=max_utility for r in self.utilization.values()):# <= 1.0:
                 break
             
         

@@ -1502,15 +1502,10 @@ class SlopedTruss(PlaneTruss):
                 
     def optimize_members(self, prof_type="CURRENT",verb=False,**kwargs):    
         """ Finds minimum weight profiles for members """
-        
-        # TODO!
-        # Optimoinnissa voidaan haluta:
-        # Sauvoille tietty materiaali (yläpaarre, alapaarre, uumasauvat)
-        # Sauvoille tietty poikkileikkausluokka (1 tai 2)
-        #
-        top = {'material': 'S355', 'class': 2}
-        bottom = {'material': 'S355', 'class': 2}
-        braces = {'material': 'S355', 'class': 2}
+               
+        top = {'material': 'S355', 'class': 2, 'utility': 1.0}
+        bottom = {'material': 'S355', 'class': 2, 'utility': 1.0}
+        braces = {'material': 'S355', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0}
             
         for key, value in kwargs.items():
             if key == 'top':
@@ -1535,11 +1530,13 @@ class SlopedTruss(PlaneTruss):
                 if name == "top_chord":
                     material = top['material']
                     sec_class = top['class']
+                    max_utility = top['utility']
                 elif name == 'bottom_chord':
                     material = bottom['material']
                     sec_class = bottom['class']
+                    max_utility = bottom['utility']
                     
-                group.optimum_design(prof_type,verb,material,sec_class)
+                group.optimum_design(prof_type,verb,material,sec_class,max_utility)
                 
                 for mem in group.members:
                     explored.append(mem)
@@ -1554,10 +1551,15 @@ class SlopedTruss(PlaneTruss):
                     if isinstance(member,TrussBrace):
                         material = braces['material']
                         sec_class = braces['class']
+                        if list(member.NEd.values())[0] >= 0.0:
+                            max_utility = braces['utility_tens']
+                        else:
+                            max_utility = braces['utility_comp']
                     else:
                         material = 'S355'
                         sec_class = 2
-                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class))
+                        max_utility = 1.0
+                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class,max_utility))
                                         
                     if not member.symmetry_pair is None:
                         explored.append(member.symmetry_pair)
