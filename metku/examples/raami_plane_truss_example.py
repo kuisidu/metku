@@ -36,7 +36,7 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     bottom = {'material': 'S700', 'class': 2, 'utility': 1.0}
     braces = {'material': 'S700', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0}
     
-    t.optimize_members(verb=True,top=top,bottom=bottom,braces=braces)
+    t.optimize_members(verb=True,top=top,bottom=bottom,braces=braces,limit_width=True)
      
     """
     P, x0 = minimize_eccentricity(t,min_gap=20)   

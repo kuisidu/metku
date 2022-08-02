@@ -286,6 +286,14 @@ class Raami:
         for member in self.members.values():            
             member.design(load_id)
     
+    def print_member_utilization(self):
+        """ Prints utilization ratios for all members """
+        
+        print(f"** Utilization ratios for {self.__name__} **\n")
+        
+        for member in self.members.values():
+            member.print_utilization()
+    
     def optimize_members(self, prof_type="CURRENT", verb=False):
         """ Find minimum smallest profiles for frame members
             for given loads.

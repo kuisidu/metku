@@ -346,6 +346,16 @@ class PlaneTruss(Raami):
                         s += f" {R:.2f} "
                     print(s)
     
+    def max_brace_width(self):
+        """ Determine the maximum cross-sectional width of braces """
+        
+        bmax = 0.0
+        
+        for brace in self.braces.values():
+            bmax = max(bmax,brace.cross_section.b)
+        
+        return bmax
+    
     def to_abaqus(self,target_dir='C:/Users/kmela/Data/',filename="Raami",partname='Truss',options=AbaqusOptions()):
         """ Exports truss to abaqus 
             The export method of 'raami' is mainly used. The main point here is to
@@ -1503,10 +1513,12 @@ class SlopedTruss(PlaneTruss):
     def optimize_members(self, prof_type="CURRENT",verb=False,**kwargs):    
         """ Finds minimum weight profiles for members """
                
-        top = {'material': 'S355', 'class': 2, 'utility': 1.0}
-        bottom = {'material': 'S355', 'class': 2, 'utility': 1.0}
-        braces = {'material': 'S355', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0}
+        top = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':10, 'bmax':1e5}
+        bottom = {'material': 'S355', 'class': 2, 'utility': 1.0,'bmin':10, 'bmax':1e5}
+        braces = {'material': 'S355', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0, 'bmin':10, 'bmax':1e5}
             
+        limit_width = False
+        
         for key, value in kwargs.items():
             if key == 'top':
                 top = value
@@ -1514,6 +1526,8 @@ class SlopedTruss(PlaneTruss):
                 bottom = value
             elif key == 'braces':
                 braces = value
+            elif key == 'limit_width':
+                limit_width = value
         
         kmax = 10
         k = 1
@@ -1524,19 +1538,27 @@ class SlopedTruss(PlaneTruss):
             self.structural_analysis('all','REM')
             if verb:
                 print(f"Optimize profiles, iteration {k}")
-                
+            
+            if limit_width:
+                b_chord_min = self.max_brace_width()
+                #b_brace_max = min(self.top_chord_profile.b,self.bottom_chord_profile.b)
+                b_brace_max = 1e5
+            else:
+                b_chord_min = 10
+                b_brace_max = 1e5
+            
             # Go through groups first
             for name, group in self.member_groups.items():
                 if name == "top_chord":
                     material = top['material']
                     sec_class = top['class']
-                    max_utility = top['utility']
+                    max_utility = top['utility']                    
                 elif name == 'bottom_chord':
                     material = bottom['material']
                     sec_class = bottom['class']
-                    max_utility = bottom['utility']
+                    max_utility = bottom['utility']                    
                     
-                group.optimum_design(prof_type,verb,material,sec_class,max_utility)
+                group.optimum_design(prof_type,verb,material,sec_class,max_utility,b_chord_min)
                 
                 for mem in group.members:
                     explored.append(mem)
@@ -1559,7 +1581,8 @@ class SlopedTruss(PlaneTruss):
                         material = 'S355'
                         sec_class = 2
                         max_utility = 1.0
-                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class,max_utility))
+                        
+                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class,max_utility,bmax=b_brace_max))
                                         
                     if not member.symmetry_pair is None:
                         explored.append(member.symmetry_pair)

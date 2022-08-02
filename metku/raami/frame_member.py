@@ -424,6 +424,12 @@ class FrameMember:
             
         self.utilization[load_id] = rmax
     
+    def print_utilization(self):
+        """ Prints utilization ratios for different load cases """
+        print(f' Member {self.mem_id:3.0f}:')
+        for load_id, U in self.utilization.items():
+            print(f'  Load case {load_id}: {U:4.2f}\n')    
+    
     def optimum_design(self,prof_type,verb):
         """ Searches for the minimum weight profile of 'prof_type' 
             This method must be implemented for each material separately
@@ -1024,12 +1030,14 @@ class SteelFrameMember(FrameMember):
             
         self.utilization[load_id] = rmax
     
-    def optimum_design(self, prof_type='CURRENT',verb=False,material="S355",sec_class=3,max_utility=1.0):
+    def optimum_design(self, prof_type='CURRENT',verb=False,material="S355",
+                       sec_class = 3, max_utility=1.0,
+                       bmin=10, bmax=1e5):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
             before currrent profile.
-        """
+        """        
         
         # Get list of profiles profiles of chosen type
         profiles = profile_list(self.cross_section,prof_type)
@@ -1043,6 +1051,10 @@ class SteelFrameMember(FrameMember):
             self.cross_section = make_section(profile)
             self.material = material
             self.cross_section.Ned = -1
+            
+            if self.cross_section.b < bmin or self.cross_section.b > bmax:
+                continue
+            
             if self.cross_section.section_class() > sec_class:
                 continue
             
@@ -1253,7 +1265,9 @@ class MemberGroup:
             
         self.utilization[load_id] = rmax
     
-    def optimum_design(self,prof_type="CURRENT",verb=False,material="S355",sec_class=3,max_utility=1.0):
+    def optimum_design(self,prof_type="CURRENT",verb=False,material="S355",
+                       sec_class=3,max_utility=1.0,
+                       bmin=10, bmax=1e5):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
@@ -1274,6 +1288,10 @@ class MemberGroup:
             self.material = material
             sec = self.cross_section
             sec.Ned = -1            
+            
+            if self.cross_section.b < bmin or self.cross_section.b > bmax:
+                continue
+            
             if sec.section_class() > sec_class:
                 continue
             
