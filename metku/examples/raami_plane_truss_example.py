@@ -38,7 +38,6 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     
     t.optimize_members(verb=True,top=top,bottom=bottom,braces=braces,limit_width=True)
      
-    """
     P, x0 = minimize_eccentricity(t,min_gap=20)   
     
         
@@ -52,16 +51,16 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     #t.fem.draw()
     
     #t.generate_fem(model='ecc_elements')
-    opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
-    t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
-    """
+    #opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
+    #t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
+    
     
     return t
     
 
 if __name__ == "__main__":
     
-    t = LauriKTruss(span=24000,h2=2400,h1=1800,dx=1000,nel_chord=4,nel_brace=4,ndiv=4)
+    t = LauriKTruss(span=24000,h2=2400,h1=1800,dx=1000,nel_chord=6,nel_brace=6,ndiv=4)
     #t =  Ktruss_example(h2=2000,h1=1500,dx1=1000,dx2=1000,first=False,edges=True)
     #t =  Ntruss_example(h2=2000,h1=1500,dx1=1500,dx2=1500,first=False,edges=True)
     

@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from copy import copy
 
 from raami.raami import Raami
+from raami.raami_functions import divide_line_segment
 from raami.frame_node import FrameNode
 from raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
 from raami.frame_loads import PointLoad, LineLoad, LoadIDs
@@ -1693,15 +1694,37 @@ class TopChord(SteelFrameMember):
         
         elif model == "ecc_elements":
             if isinstance(self.joints[0],TubularYJoint):
-                self.fem_nodes.append(self.joints[0].fem_nodes['xc'])                
+                N1 = self.joints[0].fem_nodes['xc']                              
             elif isinstance(self.joints[0],TubularKGapJoint):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
-                self.fem_nodes.append(self.joints[0].fem_nodes['xch'][self])
+                N1 = self.joints[0].fem_nodes['xch'][self]                
+            
+            self.fem_nodes.append(N1)
+            
+            if isinstance(self.joints[1],TubularYJoint):
+                N2 = self.joints[1].fem_nodes['xc']                
+            elif isinstance(self.joints[1],TubularKGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face            
+                N2 = self.joints[1].fem_nodes['xch'][self]                
             
             # Generate internal nodes:
             # global_node_coord include also the end node coordinates,
             # so they are not used in the iteration
+            X = divide_line_segment(np.array([N1.x,N1.y]),np.array([N2.x,N2.y]),self.num_elements)
+            
+            for x in X[1:-1]:
+                if self.frame.dim == 2:
+                    newNode = fem.add_node(x[0],x[1])    
+                else:
+                    newNode = fem.add_node(x[0],x[1],x[2])
+                    
+                self.fem_nodes.append(newNode)
+            
+            self.fem_nodes.append(N2)
+            
+            """
             for x in self.global_node_coords[1:-1]:                
                 if self.frame.dim == 2:
                     newNode = fem.add_node(x[0],x[1])    
@@ -1709,7 +1732,7 @@ class TopChord(SteelFrameMember):
                     newNode = fem.add_node(x[0],x[1],x[2])
                     
                 self.fem_nodes.append(newNode)
-        
+            
             
             if isinstance(self.joints[1],TubularYJoint):
                 self.fem_nodes.append(self.joints[1].fem_nodes['xc'])                
@@ -1717,7 +1740,7 @@ class TopChord(SteelFrameMember):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
                 self.fem_nodes.append(self.joints[1].fem_nodes['xch'][self])
-            
+            """
             # Add elements between first and last node.
             for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
                 if self.frame.dim == 2:                   
@@ -1832,19 +1855,49 @@ class BottomChord(SteelFrameMember):
                 self.fem_elements.append(newElement)
         elif model == "ecc_elements":
             if isinstance(self.joints[0],TubularYJoint):
-                self.fem_nodes.append(self.joints[0].fem_nodes['xc'])                
+                N1 = self.joints[0].fem_nodes['xc']
+                #self.fem_nodes.append(self.joints[0].fem_nodes['xc'])                
             elif isinstance(self.joints[0],TubularKGapJoint):
                 # in case of K gap joint, the node is created at the
-                # intersection between brace center line and chord face            
-                self.fem_nodes.append(self.joints[0].fem_nodes['xch'][self])
+                # intersection between brace center line and chord face  
+                N1 = self.joints[0].fem_nodes['xch'][self]
+                #self.fem_nodes.append(self.joints[0].fem_nodes['xch'][self])
             elif isinstance(self.joints[0],TubularKTGapJoint):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
-                self.fem_nodes.append(self.joints[0].fem_nodes['xc'])
+                N1 = self.joints[0].fem_nodes['xc']
+                #self.fem_nodes.append(self.joints[0].fem_nodes['xc'])
+            
+            self.fem_nodes.append(N1)
+            
+            if isinstance(self.joints[1],TubularYJoint):
+                N2 = self.joints[1].fem_nodes['xc']
+                #self.fem_nodes.append(self.joints[1].fem_nodes['xc'])                
+            elif isinstance(self.joints[1],TubularKGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face           
+                N2 = self.joints[1].fem_nodes['xch'][self]
+                #self.fem_nodes.append(self.joints[1].fem_nodes['xch'][self])
+            elif isinstance(self.joints[1],TubularKTGapJoint):
+                # in case of K gap joint, the node is created at the
+                # intersection between brace center line and chord face          
+                N2 = self.joints[1].fem_nodes['xc']
+                #self.fem_nodes.append(self.joints[1].fem_nodes['xc'])
+            
+            X = divide_line_segment(np.array([N1.x,N1.y]),np.array([N2.x,N2.y]),self.num_elements)
+            
+            for x in X[1:-1]:
+                if self.frame.dim == 2:
+                    newNode = fem.add_node(x[0],x[1])    
+                else:
+                    newNode = fem.add_node(x[0],x[1],x[2])
+                    
+                self.fem_nodes.append(newNode)
             
             # Generate internal nodes:
             # global_node_coord include also the end node coordinates,
             # so they are not used in the iteration
+            """
             for x in self.global_node_coords[1:-1]:                
                 if self.frame.dim == 2:
                     newNode = fem.add_node(x[0],x[1])    
@@ -1863,7 +1916,8 @@ class BottomChord(SteelFrameMember):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
                 self.fem_nodes.append(self.joints[1].fem_nodes['xc'])
-            
+            """
+            self.fem_nodes.append(N2)
             for n1, n2 in zip(self.fem_nodes,self.fem_nodes[1:]):
                 if self.frame.dim == 2:                   
                     newElement = EBBeam(n1,n2,self.cross_section,self.material)                    
