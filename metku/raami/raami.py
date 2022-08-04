@@ -828,7 +828,7 @@ class Raami:
                     file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**\n')
             
             for set_name, els in options.elsets.items():
-                file.write(f'\n*Material, name={set_name}_Mat\n')
+                file.write(f'*Material, name={set_name}_Mat\n')
                 file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**\n')
         
         for mem_name, mem in self.members.items():
