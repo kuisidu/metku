@@ -28,7 +28,7 @@ from sections.steel.ISection import IPE, HEA, HEB
 
 #from loadIDs import LoadIDs
 
-from .frame_loads import LoadIDs
+from .frame_loads import LoadIDs, LineLoad
 
 def profile_list(cross_section,prof_type="CURRENT",Tmin=3.0,sec_class=3):
     """ Returns a list of profiles matching the type of 'cross_section.
@@ -170,6 +170,8 @@ class FrameMember:
         
         self.costs = {}
         
+        self.self_weight = False
+        
         
         
     def __repr__(self):        
@@ -283,6 +285,25 @@ class FrameMember:
             if angle < 0:
                 return np.pi + angle #np.radians(180) + angle
         return angle
+    
+    def add_self_weight(self):
+        """ Adds self-weight to the member's loads
+        """
+        if not self.self_weight:
+            self.self_weight = True
+            load_id = LoadIDs['SELF-WEIGHT']
+            
+            # Default units: N/mm
+            value = -self.cross_section.self_weight()
+            self.frame.add(LineLoad(self, [value, value], 'y',load_id,ltype='dead',
+                                    name='self-weight'))
+
+    def remove_self_weight(self):
+        """ Removes self-weight from loads
+        """
+        if self.self_weight:
+            self.self_weight = False
+        
     
     def calc_nodal_coordinates(self, num_elements=0):
         """ Calculates nodal coordinates along the member 

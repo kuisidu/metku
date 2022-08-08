@@ -21,7 +21,8 @@ LoadIDs = {'ULS': 0,
            'SLS_Characteristic': 1,
            'SLS_Frequent': 2,
            'SLS_Quasi_permanent': 3,
-           'ACC': 4}
+           'ACC': 4,
+           'SELF-WEIGHT':100}
 
 class LoadCase:
     """ Class for load cases. One load case represents a set of loads that
@@ -256,9 +257,9 @@ class LineLoad(Load):
         self.member = member
         self.member.loads.append(self)
         
-        self.member.has_load = True
-        self.member.q0 = values[0]
-        self.member.q1 = values[1]            
+        #self.member.has_load = True
+        #self.member.q0 = values[0]
+        #self.member.q1 = values[1]            
         
         
         self.values = np.asarray(values)

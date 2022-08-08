@@ -73,6 +73,8 @@ class Raami:
         self.fem_generated = False # Flag for checking if FEM model has been created
         self.is_analysed = False # Flag for checking if structure has been analysed
         
+        self.self_weight = False
+        
     def __repr__(self):
         
         s = "Frame " + self.__name__ + f" with {len(self.members)} members"
@@ -191,6 +193,29 @@ class Raami:
                 if member.point_intersection(this.coordinate):                    
                     member.add_node_coord(this.coordinate)
             """
+            
+    def add_self_weight(self):
+        """ Adds self weight to frame's members
+        """
+        if self.self_weight is False:
+            self.self_weight = True
+            for member in self.members.values():
+                member.add_self_weight()
+            # self.add_loads('self_weight')
+            # self.generate_frame()
+        else:
+            self.remove_self_weight()
+            self.add_self_weight()    
+    
+    def remove_self_weight(self):
+        """ Removes self weight from frame's members
+        """
+        self.self_weight = False
+        #del (self.line_loads["self_weight"])
+        for member in self.members.values():
+            member.remove_self_weight()
+        
+    
     def generate_fem(self):
         """ Generates FEM model 
             The idea is that the FEM model is generated once and subsequently

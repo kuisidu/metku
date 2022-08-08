@@ -1183,6 +1183,18 @@ class SlopedTruss(PlaneTruss):
                 joint.calc_gap()                
                 #print(joint.gap)
     
+    def symmetry(self,axis='y',sym_value=None):
+        
+        # Make general actions for symmetry
+        super().symmetry(axis,sym_value)
+        
+        # Symmetry of joints
+        #joint_list = list(self.joints.values())
+        for joint in self.joints.values():
+            #print(f"Symmetry for joint {joint.joint_id}.")
+            sym_node = joint.symmetry_joint(self.joints)
+            #print(sym_node)
+    
     def clear_fem(self):
         """ Clears FEM data """
         super().clear_fem()
@@ -2455,9 +2467,11 @@ class TubularJoint:
         
         if not self.node.symmetry_node is None:                  
             for joint in joints.values():
+                #print(joint)
                 if joint != self and joint.node == self.node.symmetry_node:
                     sym_joint = joint
                     self.sym_joint = sym_joint
+                    #print(self.sym_joint)
                     break
                         
         return sym_joint
