@@ -2614,8 +2614,11 @@ class TubularKGapJoint(TubularJoint):
         angles = [self.brace_angle(brace) for brace in braces]
            
         # Could the chord and braces be members instead of cross-sections?
-        self.joint = RHSKGapJoint(chords[0].cross_section,
-                                  [braces[0].cross_section,braces[1].cross_section],
+        #self.joint = RHSKGapJoint(chords[0].cross_section,
+        #                          [braces[0].cross_section,braces[1].cross_section],
+        #                          angles,gap)
+        self.joint = RHSKGapJoint(chords[0].member,
+                                  [braces[0].member,braces[1].member],
                                   angles,gap)
         
         min_gap = max(sum(self.joint.t),0.5*(1-self.joint.beta())*self.joint.b0)
