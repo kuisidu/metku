@@ -94,7 +94,7 @@ class TrustRegionConstr(OptSolver):
 
 
 
-    def solve(self, problem, maxiter=200, x0=None):
+    def solve(self, problem, maxiter=200, x0=None, verb=False):
 
         """
         Solves given problem
@@ -169,9 +169,14 @@ class TrustRegionConstr(OptSolver):
         #print(bounds.lb,bounds.ub)
         
         #print(constraints[-3].ub)
+        
+        if verb:
+            iprint = 2
+        else:
+            iprint = 0
 
         options = {'maxiter': maxiter,
-                   'verbose': 2,
+                   'verbose': iprint,
                    'xtol': VAR_TOL,
                    'gtol': CON_TOL,
                    'initial_tr_radius': 1,

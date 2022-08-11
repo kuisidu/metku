@@ -2772,9 +2772,9 @@ class TubularKGapJoint(TubularJoint):
             of 'node' on the side of the joint
         """
         if self.ridge:
-            xc = self.node.coords - np.array([0,0.5*self.joint.h0/np.cos(self.chords[0].angle)])
+            xc = self.node.coords - np.array([0,0.5*self.h0/np.cos(self.chords[0].angle)])
         else:
-            xc = self.node.coords - 0.5*self.joint.h0*self.chords[0].perpendicular
+            xc = self.node.coords - 0.5*self.h0*self.chords[0].perpendicular
         
         return xc
     
