@@ -1456,7 +1456,8 @@ class SlopedTruss(PlaneTruss):
             print("Weird FEM model.")
     
     def plot(self, geometry=False, print_text=True, show=True,
-             loads=True, color=False, axes=None, save=False, mem_dim=False):
+             loads=True, color=False, axes=None, save=False, mem_dim=False,
+             saveopts={'filename':'default','format':'svg','orientation':'landscape', 'papertype':'a3'}):
         """ Plots the frame
             
             Parameters
@@ -1488,6 +1489,8 @@ class SlopedTruss(PlaneTruss):
                 ax = axes
     
             # Plot members
+            plt.rcParams['text.color'] = "red"
+            plt.rcParams['font.size'] = 2.5
             for mem in self.top_chord:
                 mem.plot(print_text, color, ax, mem_dim=True)
             
@@ -1518,7 +1521,9 @@ class SlopedTruss(PlaneTruss):
                 
             ax.axis('equal')
             if save:
-                plt.savefig('default.svg', format='svg')
+                #plt.savefig('default.svg', format='svg')
+                plt.savefig(saveopts['filename'],format=saveopts['format'],\
+                            orientation=saveopts['orientation'],papertype=saveopts['papertype'])
             if show:
                 plt.axis('equal')
                 plt.show()

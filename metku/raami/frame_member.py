@@ -445,12 +445,17 @@ class FrameMember:
             
         self.utilization[load_id] = rmax
     
-    def print_utilization(self):
+    def print_utilization(self,file=None):
         """ Prints utilization ratios for different load cases """
-        print(f' Member {self.mem_id:3.0f}:')
-        for load_id, U in self.utilization.items():
-            print(f'  Load case {load_id}: {U:4.2f}\n')    
-    
+        if file is None:
+            print(f' Member {self.mem_id:3.0f}:')
+            for load_id, U in self.utilization.items():
+                print(f'  Load case {load_id}: {U:4.2f}\n')    
+        else:
+            file.write(f' Member {self.mem_id:3.0f}:')
+            for load_id, U in self.utilization.items():
+                file.write(f'  Load case {load_id}: {U:4.2f}\n')
+                       
     def optimum_design(self,prof_type,verb):
         """ Searches for the minimum weight profile of 'prof_type' 
             This method must be implemented for each material separately

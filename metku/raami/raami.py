@@ -311,13 +311,20 @@ class Raami:
         for member in self.members.values():            
             member.design(load_id)
     
-    def print_member_utilization(self):
+    def print_member_utilization(self,filename=None):
         """ Prints utilization ratios for all members """
         
-        print(f"** Utilization ratios for {self.__name__} **\n")
+        if filename is None:        
+            print(f"** Member utilization ratios for {self.__name__} **\n")
         
-        for member in self.members.values():
-            member.print_utilization()
+            for member in self.members.values():
+                member.print_utilization()
+        else:
+            with open(filename, 'w') as file:
+                file.write(f"** Member utilization ratios for {self.__name__} **\n")
+                for member in self.members.values():
+                    member.print_utilization(file)    
+                
     
     def optimize_members(self, prof_type="CURRENT", verb=False):
         """ Find minimum smallest profiles for frame members
@@ -384,7 +391,8 @@ class Raami:
             
     
     def plot(self, print_text=True, show=True,
-             loads=True, color=False, axes=None, save=False, mem_dim=False):
+             loads=True, color=False, axes=None, save=False, mem_dim=False,
+             saveopts={'filename':'default.svg','format':'svg','orientation':'landscape', 'papertype':'a3'}):
         """ Plots the frame
             
             Parameters
@@ -462,7 +470,9 @@ class Raami:
             ax.set_zlabel('z')
             
         if save:
-            plt.savefig('default.svg', format='svg')
+            #plt.savefig('default.svg', format='svg')
+            plt.savefig(saveopts['filename'],format=saveopts['format'],\
+                        orientation=saveopts['orientation'],papertype=saveopts['papertype'])
         if show:
             if self.dim == 2:
                 plt.axis('equal')

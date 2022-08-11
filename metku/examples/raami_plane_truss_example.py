@@ -50,6 +50,8 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     t.generate_fem(model="ecc_elements")
     t.fem.draw()
     
+    t.print_member_utilization('Utilization.txt')
+    
     #t.generate_fem(model='ecc_elements')
     #opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
     #t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
