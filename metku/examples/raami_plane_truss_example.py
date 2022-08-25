@@ -52,6 +52,9 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     
     t.print_member_utilization('Utilization.txt')
     
+    #fig_save_opts = {'filename':'default.pdf','format':'pdf','orientation':'landscape','papertype':'a3'}    
+    #t.plot(geometry=True,loads=False,save=True,saveopts=fig_save_opts)
+    
     #t.generate_fem(model='ecc_elements')
     #opts = AbaqusOptions(x_monitor = 0.5*t.span, n_monitored = 2)
     #t.to_abaqus(filename='K-ristikko',partname="K-ristikko",options=opts)
