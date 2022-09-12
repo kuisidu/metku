@@ -1,0 +1,6 @@
+<component name="CopyrightManager">
+  <copyright>
+    <option name="notice" value="This source code is licensed under the MIT license. See LICENSE in the repository root directory.&#10;Copyright (c) &amp;#36;originalComment.match(&quot;Copyright \(c\) (\d+)&quot;, 1, &quot;-&quot;, &quot;&amp;#36;today.year&quot;)&amp;#36;today.year. Metku team.&#10;All rights reserved." />
+    <option name="myName" value="Copyright" />
+  </copyright>
+</component>

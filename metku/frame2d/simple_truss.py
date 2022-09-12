@@ -10,30 +10,17 @@ Created on Sun Jun 28 15:02:50 2020
 
 
 
-try:
-    from metku.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, \
-        Support, Hinge, XYHingedSupport, PREC
-    from metku.framefem.elements import EBBeam, EBSemiRigidBeam
-    # from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
-    from metku.sections.steel import HEA
+from metku.frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, \
+    Support, Hinge, XYHingedSupport, PREC
+from metku.framefem.elements import EBBeam, EBSemiRigidBeam
+# from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
+from metku.sections.steel import HEA
 
-    from metku.framefem import FrameFEM, BeamSection
-    from metku.structures.steel.steel_member import SteelMember
-    from metku.eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, \
-        RHSYJoint
-except:
-    from frame2d.frame2d import Frame2D, FrameMember, PointLoad, LineLoad, \
-        Support, Hinge, XYHingedSupport, PREC
-    from framefem.elements import EBBeam, EBSemiRigidBeam
-    # from fem.elements.eb_semi_rigid_beam import EBSemiRigidBeam
-    from sections.steel import HEA
-    from sections.steel.RHS import SHS
+from metku.framefem import FrameFEM, BeamSection
+from metku.structures.steel.steel_member import SteelMember
+from metku.eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, \
+    RHSYJoint
 
-    from framefem import FrameFEM, BeamSection
-    from structures.steel.steel_member import SteelMember
-    from eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
-    
-    #from loadIDs import LoadIDs
     
 import numpy as np
 from timeit import default_timer as timer

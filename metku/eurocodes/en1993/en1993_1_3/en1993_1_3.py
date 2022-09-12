@@ -13,8 +13,8 @@ EN 1993-1-3 Supplementary rules for cold-formed members and sheeting
 import math
 import numpy as np
 
-from eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2, gammaMfi
-from eurocodes.en1993 import en1993_1_2 
+from metku.eurocodes.en1993.constants import gammaM0, gammaM1, gammaM2, gammaMfi
+from metku.eurocodes.en1993 import en1993_1_2
 
 def linear_interpolation(p1,p2,x):
     """ Performs linear interpolation.

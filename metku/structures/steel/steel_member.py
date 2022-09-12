@@ -7,7 +7,7 @@
 import math
 import numpy as np
 
-from eurocodes.en1993 import constants, en1993_1_1
+from metku.eurocodes.en1993 import constants, en1993_1_1
 
 
 class SteelMember:

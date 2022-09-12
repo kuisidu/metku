@@ -34,7 +34,7 @@ from functools import lru_cache
 from copy import deepcopy
 import copy
 
-from eurocodes.en1991.loadIDs import LoadIDs
+from metku.eurocodes.en1991.loadIDs import LoadIDs
 
 CACHE_BOUND = 2**8
 INT_TOL = 1e-4

@@ -18,8 +18,8 @@ import matplotlib.patches as patches
 import matplotlib.lines as mlines
 
 
-from eurocodes.en1993 import en1993_1_1
-from sections.steel.steel_section import SteelSection
+from metku.eurocodes.en1993 import en1993_1_1
+from metku.sections.steel.steel_section import SteelSection
 
 
 class RHS(SteelSection):

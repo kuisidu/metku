@@ -1,19 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="8fecfb21-8252-4478-b18a-04ac9a509fb5" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/copyright/Copyright.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/copyright/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/design/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/design/cross_section.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/design/steel_section.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/design/test/test_steel_section.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/profiles/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/profiles/steel/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/profiles/steel/isections.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/metku/profiles/steel/test/test_isections.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitlab-ci.yml" beforeDir="false" afterPath="$PROJECT_DIR$/setup.cfg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/frame2d.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/frame2d.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Developer_doc.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Frame2D_doc.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/Makefile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/make.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/conf.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/documentation.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/elements.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/example1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/example2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/examples.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/frame_fem.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/index.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/statics_example.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_1.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_1.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_2.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_3/en1993_1_3.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_3/en1993_1_3.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_8/component_method.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_8/component_method.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_8/en1993_1_8.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_8/en1993_1_8.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_8/rhs_joints.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/eurocodes/en1993/en1993_1_8/rhs_joints.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/examples/beam.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/examples/beam.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/metku/frame2d/frame2d.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/frame2d/frame2d.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/metku/optimization/benchmarks/ten_bar_truss.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/optimization/benchmarks/ten_bar_truss.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/metku/optimization/solvers/pso.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/optimization/solvers/pso.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/frame2d/simple_truss.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/frame2d/simple_truss.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/materials/steel.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/materials/steel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/materials/steel_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/materials/steel_data.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/metku/optimization/structopt.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/optimization/structopt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/raami/frame_loads.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/raami/frame_loads.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/sections/steel/CHS.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/sections/steel/CHS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/sections/steel/ISection.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/sections/steel/ISection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/sections/steel/RHS.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/sections/steel/RHS.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/sections/steel/steel_section.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/sections/steel/steel_section.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/sections/steel/wi.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/sections/steel/wi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/metku/structures/steel/steel_member.py" beforeDir="false" afterPath="$PROJECT_DIR$/metku/structures/steel/steel_member.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/Portal Frame.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/output_10_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/output_12_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/output_16_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/output_16_1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/output_20_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/output_5_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Portal Frame/output_7_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Simple Beam/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Simple Beam/Simple_Beam_Example.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Simple Beam/output_19_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Simple Beam/output_21_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/examples/Simple Beam/output_23_0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/hierarchy.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/index.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/docs/solvers.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mkdocs/mkdocs.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/portal_frame.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+        <option value="Python Unit Test" />
+      </list>
+    </option>
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
@@ -53,6 +127,9 @@
         <option value="$PROJECT_DIR$/metku/frame2d/frame2d.py" />
       </list>
     </option>
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="952" />
@@ -101,105 +178,108 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">
-    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
-    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../metku4" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/huusk/OneDrive/Tiedostot/GitHub/FEM/pyFEM&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
+      &quot;PLAIN_TEXT&quot;
+    ]
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\huusk\OneDrive\Tiedostot\GitHub\metku\metku\profiles\steel" />
+    </key>
   </component>
-  <component name="RunManager" selected="Python.pso">
-    <configuration name="frame2d (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="frame2d" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/frame2d" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/metku/frame2d/frame2d.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="pso" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="frame2d" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="C:\Users\ollil\PycharmProjects\pythonProject\metku15.12.2021\venv\Scripts\python.exe" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/optimization/solvers" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/metku/optimization/solvers/pso.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="Unittests for test_frame2d.TestFrame2D" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python tests.Unittests in test_isections.py">
+    <configuration name="Unittests for test_isections.MyTestCase" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
       <module name="frame2d" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/frame2d" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/profiles/steel/test" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_frame2d.TestFrame2D&quot;" />
+      <option name="_new_target" value="&quot;test_isections.MyTestCase&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Unittests for test_frame2d.TestFrame2D.test_Ned" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+    <configuration name="Unittests for test_isections.MyTestCase.test_area" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
       <module name="frame2d" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/frame2d" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/profiles/steel/test" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_frame2d.TestFrame2D.test_Ned&quot;" />
+      <option name="_new_target" value="&quot;test_isections.MyTestCase.test_area&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Unittests in test_frame2d.py" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+    <configuration name="Unittests for test_isections.MyTestCase.test_perimeter" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
       <module name="frame2d" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/frame2d" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/profiles/steel/test" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/metku/frame2d/test_frame2d.py&quot;" />
+      <option name="_new_target" value="&quot;test_isections.MyTestCase.test_perimeter&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Unittests for test_isections.MyTestCase.test_warping_constant" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+      <module name="frame2d" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/profiles/steel/test" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_isections.MyTestCase.test_warping_constant&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Unittests in test_isections.py" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+      <module name="frame2d" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/metku/profiles/steel/test" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/metku/profiles/steel/test/test_isections.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python tests.Unittests for test_isections.MyTestCase" />
+      <item itemvalue="Python tests.Unittests for test_isections.MyTestCase.test_area" />
+      <item itemvalue="Python tests.Unittests for test_isections.MyTestCase.test_perimeter" />
+      <item itemvalue="Python tests.Unittests for test_isections.MyTestCase.test_warping_constant" />
+      <item itemvalue="Python tests.Unittests in test_isections.py" />
+    </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.pso" />
-        <item itemvalue="Python.frame2d (1)" />
-        <item itemvalue="Python tests.Unittests for test_frame2d.TestFrame2D" />
-        <item itemvalue="Python tests.Unittests in test_frame2d.py" />
-        <item itemvalue="Python tests.Unittests for test_frame2d.TestFrame2D.test_Ned" />
+        <item itemvalue="Python tests.Unittests in test_isections.py" />
+        <item itemvalue="Python tests.Unittests for test_isections.MyTestCase.test_warping_constant" />
+        <item itemvalue="Python tests.Unittests for test_isections.MyTestCase.test_perimeter" />
+        <item itemvalue="Python tests.Unittests for test_isections.MyTestCase.test_area" />
+        <item itemvalue="Python tests.Unittests for test_isections.MyTestCase" />
       </list>
     </recent_temporary>
   </component>
@@ -252,6 +332,17 @@
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
     </layout>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

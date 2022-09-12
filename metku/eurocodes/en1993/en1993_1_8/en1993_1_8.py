@@ -13,10 +13,10 @@ EN 1993-1-8 Rules for connections
 import math
 import numpy as np
 
-from materials.steel_data import Steel
-from eurocodes.en1993.constants import gammaM0, gammaM2, gammaM5
-from cost.cost_data import bolt_unit_cost_part_thread, bolt_unit_cost_full_thread
-import eurocodes.en1993.en1993_1_8.component_method as cm
+from metku.materials.steel_data import Steel
+from metku.eurocodes.en1993.constants import gammaM0, gammaM2, gammaM5
+from metku.cost.cost_data import bolt_unit_cost_part_thread, bolt_unit_cost_full_thread
+import metku.eurocodes.en1993.en1993_1_8.component_method as cm
 
 # Bolt materials [MPa], SFS EN 1993-1-8, table 3.1
 mat_bolt = {4.6: {"f_yb": 240.0, "f_ub": 400.0},

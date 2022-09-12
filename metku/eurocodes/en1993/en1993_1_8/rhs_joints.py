@@ -17,8 +17,8 @@ import matplotlib.patches as patches
 import matplotlib.lines as lines
 import numpy as np
 
-from eurocodes.en1993.constants import gammaM5, E
-from structures.steel.steel_member import SteelMember
+from metku.eurocodes.en1993.constants import gammaM5, E
+from metku.structures.steel.steel_member import SteelMember
 
 def eccentricity(h0,h1,h2,t1,t2,g):
     """ Eccentricity of a K gap joint """

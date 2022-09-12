@@ -5,10 +5,6 @@
 #  Author(s): Jaakko Huusko
 
 from dataclasses import dataclass, field
-from pint import UnitRegistry
-
-ureg = UnitRegistry()
-
 
 @dataclass
 class SteelMaterial:
@@ -24,52 +20,16 @@ class SteelMaterial:
         E: 210, [GPa]
         rho: 7850 [kg/m³]
     """
-    fy: float
-    _fy: ureg.Quantity = field(repr=False, init=False)
-    fu: float
-    _fu: ureg.Quantity = field(repr=False, init=False)
-    fy_40: ureg.Quantity = None  # Yield strength when thickness over 40 mm
+    fy: float # MPa
+    fu: float # MPa
+    fy_40: float = None # Yield strength when thickness over 40 mm
     nu: float = 0.3
     E: float = 210  # GPa
     rho: float = 7850  # kg / m³
 
-    def __post_init__(self) -> None:
-        """
-            Assign units if units not assigned
-        """
-        if not isinstance(self.E, ureg.Quantity):
-            self.E *= ureg.GPa
-
-        if not isinstance(self.rho, ureg.Quantity):
-            self.rho *= ureg.kg / ureg.m ** 3
-
+    def __post_init__(self):
         if self.fy_40 is None:
             self.fy_40 = self.fy
-        elif not isinstance(self.fy_40, ureg.Quantity):
-            self.fy_40 *= ureg.MPa
-
-    @property
-    def fy(self):
-        return self._fy
-
-    @fy.setter
-    def fy(self, value):
-        if not isinstance(value, ureg.Quantity):
-            self._fy = value * ureg.MPa
-        else:
-            self._fy = value
-
-    @property
-    def fu(self) -> ureg.Quantity:
-        return self._fu
-
-    @fu.setter
-    def fu(self, value):
-        if not isinstance(value, ureg.Quantity):
-            self._fu = value * ureg.MPa
-        else:
-            self._fu = value
-
 
 class Steel:
     """

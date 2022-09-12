@@ -11,9 +11,9 @@ Hot-rolled I- and H-section
 """
 import math
 
-from eurocodes.en1993 import en1993_1_1, constants
-from sections.steel.steel_section import SteelSection
-from sections.steel.catalogue import profile
+from metku.eurocodes.en1993 import en1993_1_1, constants
+from metku.sections.steel.steel_section import SteelSection
+from metku.sections.steel.catalogue import profile
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches

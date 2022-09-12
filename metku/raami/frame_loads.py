@@ -13,7 +13,7 @@ Loads for Raami objects
 import numpy as np
 from copy import copy
 
-import framefem.framefem as fem
+import metku.framefem.framefem as fem
 
 #from loadIDs import LoadIDs
 

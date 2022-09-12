@@ -13,8 +13,8 @@ Functions of the component method as described in EN 1993-1-8
 from math import sqrt, pi
 from scipy.optimize import root_scalar
 
-from eurocodes.en1993.constants import gammaM0, gammaM1
-from eurocodes.en1993.en1993_1_1 import buckling_reduction_factor
+from metku.eurocodes.en1993.constants import gammaM0, gammaM1
+from metku.eurocodes.en1993.en1993_1_1 import buckling_reduction_factor
 
 # Reduction factor, table 6.3
 def min_coeff_w(beta, b_eff_c_wc, t_wc, A_vc):

@@ -17,36 +17,31 @@ import matplotlib.lines as mlines
 import matplotlib.path as mpath
 
 
-try:
-    import metku.framefem.framefem as fem
-    from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-    from metku.sections.steel import *
-    from metku.sections.steel.catalogue import *
-    from metku.frame2d.materials import MATERIALS
-    from metku.structures.steel.steel_member import SteelMember
-    from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
-    from metku.structures.timber.timber_member import TimberMember
-    from metku.materials.timber_data import T, Timber
-    from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
-    from metku.sections.steel.CHS import CHS
-    from metku.sections.steel.RHS import RHS, SHS
-    from metku.sections.steel.ISection import IPE, HEA, HEB
-    from metku.loadIDs import LoadIDs
-except:
-    import framefem.framefem as fem
-    from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-    from materials.steel_data import Steel
-    from sections.steel import *
-    from frame2d.materials import MATERIALS
-    from structures.steel.steel_member import SteelMember
-    from sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
-    from structures.timber.timber_member import TimberMember
-    from materials.timber_data import T, Timber
-    from sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
-    from sections.steel.CHS import CHS
-    from sections.steel.RHS import RHS, SHS
-    from sections.steel.ISection import IPE, HEA, HEB
-    from eurocodes.en1991.loadIDs import LoadIDs
+import metku.framefem.framefem as fem
+from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+from metku.sections.steel import *
+from metku.sections.steel.catalogue import *
+from metku.frame2d.materials import MATERIALS
+from metku.structures.steel.steel_member import SteelMember
+from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
+from metku.structures.timber.timber_member import TimberMember
+from metku.materials.timber_data import T, Timber
+from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
+from metku.sections.steel.CHS import CHS
+from metku.sections.steel.RHS import RHS, SHS
+from metku.sections.steel.ISection import IPE, HEA, HEB
+#from metku.raami.frame_loads import LoadIDs
+
+from enum import Enum
+class LoadIDs(Enum):
+
+    ULS = 0
+    SLS_Charasteristic = 1
+    SLS_Frequent = 2
+    SLS_Quasi_permanent = 3
+    Accidental = 4
+    Self_weight = 100
+
 
 from time import time
 # Rounding precision (number of decimals)
