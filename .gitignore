@@ -4,6 +4,9 @@
 *$py.class
 *.pyc
 
+# IntelliJ
+.idea
+
 # C extensions
 *.so
 
