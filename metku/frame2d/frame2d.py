@@ -16,25 +16,26 @@ import matplotlib.patches as patches
 import matplotlib.lines as mlines
 import matplotlib.path as mpath
 
-
 import metku.framefem.framefem as fem
 from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
 from metku.sections.steel import *
 from metku.sections.steel.catalogue import *
 from metku.frame2d.materials import MATERIALS
 from metku.structures.steel.steel_member import SteelMember
-from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
+from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, \
+    HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
 from metku.structures.timber.timber_member import TimberMember
 from metku.materials.timber_data import T, Timber
 from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
 from metku.sections.steel.CHS import CHS
 from metku.sections.steel.RHS import RHS, SHS
 from metku.sections.steel.ISection import IPE, HEA, HEB
-#from metku.raami.frame_loads import LoadIDs
+# from metku.raami.frame_loads import LoadIDs
 
 from enum import Enum
-class LoadIDs(Enum):
 
+
+class LoadIDs(Enum):
     ULS = 0
     SLS_Charasteristic = 1
     SLS_Frequent = 2
@@ -44,28 +45,30 @@ class LoadIDs(Enum):
 
 
 from time import time
+
 # Rounding precision (number of decimals)
 PREC = 3
 
 if sys.version_info[0] == 3 and sys.version_info[1] < 9:
     from typing import List, Tuple, Dict
+
     list_array = List[np.ndarray]
-    #list_out = List[float]
+    # list_out = List[float]
     llist_out = List[List[float]]
     lllist_out = List[List[List[float]]]
-    
+
     dict_str_float = Dict[str, float]
-    
+
     list_out = List
     tuple_out = Tuple
 else:
     list_array = list[np.ndarray]
-    #list_out = list[float]
+    # list_out = list[float]
     llist_out = list[list[float]]
     lllist_out = list[list[list[float]]]
-    
+
     dict_str_float = dict[str: float]
-    
+
     list_out = list
     tuple_out = tuple
 
@@ -137,8 +140,8 @@ class Frame2D:
         self.supports = {}
         self.nodes = []
         self.nodal_coordinates = []
-        #self.nodal_forces = {}          # For storing nodal forces in various load cases
-        #self.nodal_displacements = {}   # For storing nodal displacements in various load cases
+        # self.nodal_forces = {}          # For storing nodal forces in various load cases
+        # self.nodal_displacements = {}   # For storing nodal displacements in various load cases
         self.joints = {}
         self.r = []
         self.is_generated = False
@@ -161,6 +164,7 @@ class Frame2D:
     @property
     def R(self):
         return self.members[0].R
+
     @R.setter
     def R(self, r):
         for mem in self.members.values():
@@ -204,7 +208,82 @@ class Frame2D:
     def load_cases(self):
         """ Returns a list of load case labels """
         return self.load_ids
-        #return list(set([lc.load for lc in self.f.loadcases.values()]))
+        # return list(set([lc.load for lc in self.f.loadcases.values()]))
+
+    def add_lineload(self, this) -> bool:
+
+        if not (this.load_id in self.load_ids):
+            self.load_ids.append(this.load_id)
+
+        if this.name in self.line_loads.keys():
+            this.name += str(len(self.line_loads))
+        self.line_loads[this.name] = this
+
+    def add_pointload(self, this) -> bool:
+
+        """ If a point load with same 'name' is already included
+            in the frame, add a number to the end of the name
+            of the new load such that each point load has a unique
+            name.
+
+            NOTE: using 'len' to provide new id number might fail,
+            if point loads are deleted such that the number of point loads
+            changes along the way.
+        """
+        if not (this.load_id in self.load_ids):
+            self.load_ids.append(this.load_id)
+
+        if this.name in self.point_loads.keys():
+            this.name += str(len(self.point_loads))
+        self.point_loads[this.name] = this
+
+        """ If the location of the point load is in between
+            member end nodes, add a node to the corresponding member
+        """
+        for member in self.members.values():
+            if member.point_intersection(this.coordinate):
+                member.add_node_coord(this.coordinate)
+
+    def add_member(self, this) -> bool:
+        # Give member an unique id
+        # id is used in creating elements with wanted cross-sectional properties
+        this.mem_id = int(len(self.members))
+        this.frame2d = self
+        self.members[this.mem_id] = this
+        if self.num_elements:
+            this.calc_nodal_coordinates(self.num_elements)
+        else:
+            this.calc_nodal_coordinates()
+
+        # Check if members intersect
+        # If coordinate is outside of member's coordinates,
+        # it's rejected in member's add_node_coord function
+        for member in self.members.values():
+            coord = this.line_intersection(member.coordinates)
+            if isinstance(coord, list):
+                this.add_node_coord(coord)
+                member.add_node_coord(coord)
+
+        if str(this.nodal_coordinates) not in [str(c) for c in
+                                               self.nodal_coordinates]:
+            self.nodal_coordinates.extend(this.nodal_coordinates)
+            self.nodal_coordinates.sort()
+
+    def add_support(self, this) -> bool:
+        # print("Adding support")
+        # this.supp_id = len(self.supports)
+        supp_label = len(self.supports)
+        self.supports[supp_label] = this
+        # self.supports[this.supp_id] = this
+        self.support_nodes.append(this.coordinate)
+
+        """ If the support is located between end nodes of a member,
+            add a node to that member
+        """
+        for member in self.members.values():
+            # coord = member.point_intersection(this.coordinate)
+            if member.point_intersection(this.coordinate):
+                member.add_node_coord(this.coordinate)
 
     def add(self, this):
         """ Adds given item to the frame.
@@ -218,89 +297,21 @@ class Frame2D:
         """
         # MEMBERS
         if isinstance(this, FrameMember):
-            # Give member an unique id
-            # id is used in creating elements with wanted cross-sectional properties
-            this.mem_id = int(len(self.members))
-
-            this.frame2d = self
-
-            self.members[this.mem_id] = this
-            if self.num_elements:
-                this.calc_nodal_coordinates(self.num_elements)
-            else:
-                this.calc_nodal_coordinates()
-
-            # Check if members intersect
-            # If coordinate is outside of member's coordinates,
-            # it's rejected in member's add_node_coord function
-            for member in self.members.values():
-                coord = this.line_intersection(member.coordinates)
-                if isinstance(coord, list):
-                    this.add_node_coord(coord)
-                    member.add_node_coord(coord)
-
-            if str(this.nodal_coordinates) not in [str(c) for c in
-                                                   self.nodal_coordinates]:
-                self.nodal_coordinates.extend(this.nodal_coordinates)
-                self.nodal_coordinates.sort()
-
-
-
+            self.add_member(this)
 
         # POINTLOADS
         elif isinstance(this, PointLoad):
-
-            """ If a point load with same 'name' is already included
-                in the frame, add a number to the end of the name
-                of the new load such that each point load has a unique
-                name.
-                
-                NOTE: using 'len' to provide new id number might fail,
-                if point loads are deleted such that the number of point loads
-                changes along the way.
-            """
-            if not (this.load_id in self.load_ids):
-                self.load_ids.append(this.load_id)
-            
-            if this.name in self.point_loads.keys():
-                this.name += str(len(self.point_loads))
-            self.point_loads[this.name] = this
-
-            """ If the location of the point load is in between
-                member end nodes, add a node to the corresponding member
-            """
-            for member in self.members.values():
-                if member.point_intersection(this.coordinate):
-                    member.add_node_coord(this.coordinate)
+            self.add_pointload(this)
 
 
         # LINELOADS
         elif isinstance(this, LineLoad):
-
-            if not (this.load_id in self.load_ids):
-                self.load_ids.append(this.load_id)
-            
-            if this.name in self.line_loads.keys():
-                this.name += str(len(self.line_loads))
-            self.line_loads[this.name] = this
+            self.add_lineload(this)
 
 
         # SUPPORTS
         elif isinstance(this, Support):
-            #print("Adding support")
-            # this.supp_id = len(self.supports)
-            supp_label = len(self.supports)
-            self.supports[supp_label] = this
-            # self.supports[this.supp_id] = this
-            self.support_nodes.append(this.coordinate)
-
-            """ If the support is located between end nodes of a member,
-                add a node to that member
-            """
-            for member in self.members.values():
-                #coord = member.point_intersection(this.coordinate)
-                if member.point_intersection(this.coordinate):                    
-                    member.add_node_coord(this.coordinate)
+            self.add_support(this)
 
         # TRUSS
         elif type(this).__name__ == 'Truss2D':
@@ -457,7 +468,7 @@ class Frame2D:
                 if coordinate not in self.nodal_coordinates:
                     self.nodal_coordinates.append(coordinate)
 
-    def calc_nodal_forces(self,lcase=LoadIDs.ULS):
+    def calc_nodal_forces(self, lcase=LoadIDs.ULS):
         """ Calculates nodal forces and saves values to
             self.nodal_forces - dict       
         """
@@ -465,21 +476,20 @@ class Frame2D:
         # acting on that node
         for member in self.members.values():
             member.calc_nodal_forces(lcase)
-            #for node in member.nodal_forces:
+            # for node in member.nodal_forces:
             #    self.nodal_forces[node] = member.nodal_forces[node]
 
-    def calc_nodal_displacements(self,lcase=LoadIDs.ULS):
+    def calc_nodal_displacements(self, lcase=LoadIDs.ULS):
         """ Calculates nodal displacements and saves values to
             self.nodal_displacements -dict
         """
         # Iterate through every frame's member's node and calculate 
         # displacements for that node
         for member in self.members.values():
-            member.calc_nodal_displacements(self.f,lcase)
-            #for node in member.nodal_displacements.keys():
+            member.calc_nodal_displacements(self.f, lcase)
+            # for node in member.nodal_displacements.keys():
             #    self.nodal_displacements[node] = member.nodal_displacements[
             #        node]
-
 
     def update_model(self):
         """
@@ -502,10 +512,10 @@ class Frame2D:
             
             :type load_id: int / str
         """
-        
+
         if load_id is None:
             load_id = self.load_ids[0]
-        
+
         # print(f'calculation happening with load id {load_id}')
         if self.is_calculated == False:
             self.is_calculated = True
@@ -515,49 +525,48 @@ class Frame2D:
         # If load_id == 'ALL' calculates all load cases
         # calls recursively itself for each case
         if str(load_id).upper() == 'ALL':
-            #print("Calculate all cases")
-            lcase_ids = self.load_cases #[lc.load for lc in self.f.loadcases.values()]            
-            for lid in lcase_ids:                
-            #for lid in self.f.loadcases.values():
+            # print("Calculate all cases")
+            lcase_ids = self.load_cases  # [lc.load for lc in self.f.loadcases.values()]
+            for lid in lcase_ids:
+                # for lid in self.f.loadcases.values():
                 self.calculate(load_id=lid,
                                support_method=support_method)
         else:
-            #print('Calculate case:' + str(load_id))            
+            # print('Calculate case:' + str(load_id))
             self.f.linear_statics(support_method=support_method,
                                   lcase=load_id)
             self.calc_nodal_forces(load_id)
             self.calc_nodal_displacements(load_id)
             self.assign_forces(load_id)
             self.design_members(load_id)
-            #self.check_members_strength()
+            # self.check_members_strength()
             # self.alpha_cr, _ = self.f.linear_buckling(k=4)
 
     def optimize_members(self, prof_type="CURRENT"):
         """ Find minimum smallest profiles for frame members
             for given loads.
         """
-        
+
         PROFILES_CHANGED = True
         kmax = 10
         k = 0
-        
-        while PROFILES_CHANGED and k < kmax:            
-            self.calculate('all','REM')
+
+        while PROFILES_CHANGED and k < kmax:
+            self.calculate('all', 'REM')
             for member in self.members.values():
                 PROFILES_CHANGED = member.optimum_design(prof_type)
 
             k += 1
-        
-        
-    def design_members(self,load_id = LoadIDs.ULS):
+
+    def design_members(self, load_id=LoadIDs.ULS):
         """ Designs frame members (checks resistance)
         """
-        
+
         for member in self.members.values():
             member.design(load_id)
 
-        #self.check_members_strength()
-        
+        # self.check_members_strength()
+
     def check_members_strength(self):
         """ Checks if members can bear their loads
         """
@@ -683,7 +692,7 @@ class Frame2D:
         if not self.is_generated:
             self.is_generated = True
         for member in self.members.values():
-            member.calc_nodal_coordinates() # Generate FEM nodes for a member
+            member.calc_nodal_coordinates()  # Generate FEM nodes for a member
             member.round_coordinates()
             member.generate(self.f)
             for coord in member.nodal_coordinates:
@@ -713,7 +722,7 @@ class Frame2D:
             support.add_support(self.f)
 
         # Add point loads (if any)
-        for pointLoad in self.point_loads.values():            
+        for pointLoad in self.point_loads.values():
             pointLoad.add_load(self.f)
             # Creates new loadcase if one with same load_id does not exist
             lcase_ids = [lc.load for lc in self.f.loadcases.values()]
@@ -735,7 +744,6 @@ class Frame2D:
             if lineLoad.load_id not in lcase_ids:
                 self.f.add_loadcase(supp_id=1,
                                     load_id=lineLoad.load_id)
-
 
     def to_csv(self, filename, num_frames=0, s=1):
 
@@ -1088,12 +1096,11 @@ class Frame2D:
         else:
             ax = axes
 
-
         if self.is_calculated and color:
             color = True
 
         # Plot members
-        for member in self.members.values():            
+        for member in self.members.values():
             member.plot(print_text, color, ax)
 
         # Plot joints
@@ -1112,7 +1119,7 @@ class Frame2D:
             else:
                 marker = 'D'
             ax.scatter(node_coord[0], node_coord[1], s=50, c='k',
-                        marker=marker)
+                       marker=marker)
 
         # if self.truss:
         #    self.truss.plot(show=False, print_text=print_text, color=color)
@@ -1250,12 +1257,12 @@ class Frame2D:
                 if member.mtype != "column":
                     plt.plot(loc_max_x, loc_max_y, 'ro')
                     plt.text(loc_max_x, loc_max_y,
-                             "{0:5.{1}g} mm".format(max_y,prec))
+                             "{0:5.{1}g} mm".format(max_y, prec))
 
                 else:
                     plt.plot(loc_max_x, loc_max_y, 'ro')
                     plt.text(loc_max_x, loc_max_y,
-                             "{0:5.{1}g} mm".format(max_x,prec))
+                             "{0:5.{1}g} mm".format(max_x, prec))
 
         if save:
             plt.savefig('deflections.svg', format='svg')
@@ -1288,13 +1295,13 @@ class Frame2D:
         nd = np.argmin(w)
         vcrit = v[nd]
         acrit = np.min(w).real
-        print("w=",acrit)
-        print("v=",vcrit)
+        print("w=", acrit)
+        print("v=", vcrit)
         self.alpha_cr = acrit
 
         sorted_nd = np.argsort(w)
 
-        #for j in range(v.shape[1]):
+        # for j in range(v.shape[1]):
         for j in sorted_nd[:1]:
             if w[j] < 1e5:
                 if axes is None:
@@ -1303,7 +1310,7 @@ class Frame2D:
                     ax = axes
                 if show:
                     self.plot(print_text=False, show=False, loads=False,
-                              color=False,axes=ax)
+                              color=False, axes=ax)
                 for member in self.members.values():
                     X = []
                     Y = []
@@ -1316,7 +1323,7 @@ class Frame2D:
                             x1 = node.v[0]
                             y1 = node.v[1]
 
-                        print(x1,y1)
+                        print(x1, y1)
                         x = x0 + x1 * (scale)
                         y = y0 + y1 * (scale)
                         X.append(x)
@@ -1435,9 +1442,11 @@ class Frame2D:
 
         for mem in self.members.values():
             if isinstance(mem, TimberFrameMember):
-                mem.print_info(self.load_ids, self, prec, firetime=R, beam_characteristic_divider=beam_characteristic_divider,
+                mem.print_info(self.load_ids, self, prec, firetime=R,
+                               beam_characteristic_divider=beam_characteristic_divider,
                                beam_quasi_permanent_divider=beam_quasi_permanent_divider, column_divider=column_divider,
                                apxspt_kaava6_55=apxspt_kaava6_55)
+
 
 # -----------------------------------------------------------------------------
 class FrameMember:
@@ -1503,7 +1512,7 @@ class FrameMember:
                  Sj1=np.inf, Sj2=np.inf, mtype="", LT_buckling=False,
                  reverse=False):
 
-        self.active = True          # If 'active' is False, this memer is not included in analysis or plotting.
+        self.active = True  # If 'active' is False, this memer is not included in analysis or plotting.
         self.frame2d = None
         self.element_ids = []
         self.elements = {}
@@ -1532,7 +1541,7 @@ class FrameMember:
         self.nodal_forces = {}
         self.nodal_displacements = {}
         self.num_elements = num_elements
-        #self.loads = {}
+        # self.loads = {}
         self.loads = []
         self.alpha1 = 25
         self.alpha2 = 25
@@ -1544,10 +1553,10 @@ class FrameMember:
         self.ved = 0
         self.med = 0
         self.reverse = reverse
-        self.has_load = False        
+        self.has_load = False
         self.is_designed = False
         self.is_strong_enough = False
-        #self.r = np.ones(7)
+        # self.r = np.ones(7)
         self.r = {}
         self.self_weight = False
         self.is_generated = False
@@ -1559,7 +1568,7 @@ class FrameMember:
                                   Lcr=[1.0, 1.0], mtype=self.mtype)
 
         self.members = [self.member]
-        self.hinges = [False,False]
+        self.hinges = [False, False]
 
     def copy(self):
         return type(self)(self.coordinates)
@@ -1618,6 +1627,42 @@ class FrameMember:
         unit = np.array(end - start) / self.length
         return unit
 
+    def get_absmax_force_value(self, load_id, force='fx'):
+        F0 = [list(self.elements.values())[0].fint[load_id][force][0]]
+        F = [el.fint[load_id][force][1] for el in self.elements.values()]
+        F.extend(F0)
+        F_min = min(F)
+        F_max = max(F)
+        if F_max > abs(F_min):
+            FMAX = F_max
+        else:
+            FMAX = F_min
+        return FMAX
+
+    @property
+    def NEd(self):
+        NEds = {}
+        for load_id in self.load_ids:
+            NEd = self.get_absmax_force_value(load_id, 'fx')
+            NEds[load_id] = NEd
+        return NEds
+
+    @property
+    def VEd(self):
+        VEds = {}
+        for load_id in self.load_ids:
+            VEd = self.get_absmax_force_value(load_id, 'fy')
+            VEds[load_id] = VEd
+        return VEds
+
+    @property
+    def MEd(self):
+        MEds = {}
+        for load_id in self.load_ids:
+            MEd = self.get_absmax_force_value(load_id, 'my')
+            MEds[load_id] = MEd
+        return MEds
+
     @property
     def A(self):
         return self.cross_section.A
@@ -1640,7 +1685,6 @@ class FrameMember:
 
     @E.setter
     def E(self, val):
-
         self.material.young = val
 
     @property
@@ -1648,7 +1692,7 @@ class FrameMember:
         return self.material.fy
 
     @fy.setter
-    def fy(self,val):
+    def fy(self, val):
         self.material.fy = val
 
     @property
@@ -1673,11 +1717,11 @@ class FrameMember:
         x1, y1 = end_node
         if abs(x1 - x0) < 1e-6:
             # 90 degrees
-            angle = 0.5*np.pi # np.radians(90)
+            angle = 0.5 * np.pi  # np.radians(90)
         else:
             angle = np.arctan((y1 - y0) / (x1 - x0))
             if angle < 0:
-                return np.pi + angle #np.radians(180) + angle
+                return np.pi + angle  # np.radians(180) + angle
         return angle
 
     @property
@@ -1732,13 +1776,12 @@ class FrameMember:
                 vals[load_id] = 0
 
         return vals
-    
+
     @property
     def load_ids(self):
         """ Returns a list of load id's """
         n = list(self.elements.keys())[0]
         return [val for val in self.elements[n].fint.keys()]
-
 
     @property
     def MRd(self):
@@ -1854,7 +1897,7 @@ class FrameMember:
         :param val: string, profile name e.g. 'IPE 100'
         """
 
-        #print(val, isinstance(val, SteelSection))
+        # print(val, isinstance(val, SteelSection))
 
         if isinstance(val, SteelSection):
             self.cross_section = val
@@ -1870,7 +1913,7 @@ class FrameMember:
                 self.cross_section.cross_section_properties()
             else:
                 self.cross_section = CustomISection(h, b, tf, tw, r)
-        else:            
+        else:
             self.__profile = val.upper()
             splitted_val = self.profile.split(" ")
             profile_type = splitted_val[0]
@@ -1938,8 +1981,8 @@ class FrameMember:
         if len(self.elements) > 0:
             for element in self.elements.values():
                 element.section = self.cross_section
-                #element.section.A = self.cross_section.A
-                #element.section.Iy = self.cross_section.I[0]
+                # element.section.A = self.cross_section.A
+                # element.section.Iy = self.cross_section.I[0]
         # Change steel_member objects properties
         if self.member:
             self.member.profile = self.cross_section
@@ -2070,25 +2113,24 @@ class FrameMember:
         """ add optional coordinates that are derived from point loads and supports
             etc. that are located between end points of the member.
         """
-        
+
         self.nodal_coordinates.extend(self.added_coordinates)
-        
+
         """ By default, 5 elements are created, but this can be changed by
             'num_elements'
         """
-                
+
         if num_elements > 0:
             self.num_elements = num_elements
-        
 
-        dloc = 1 / self.num_elements # step length in local coordinate system
-        #for loc in np.arange(0, 1 + dloc, dloc):
+        dloc = 1 / self.num_elements  # step length in local coordinate system
+        # for loc in np.arange(0, 1 + dloc, dloc):
         for loc in np.linspace(0, 1, self.num_elements + 1):
-            
-            loc = round(loc, PREC) # round local coordinate to PREC decimals
-            
+
+            loc = round(loc, PREC)  # round local coordinate to PREC decimals
+
             """ WHY IS THIS if LOOP HERE? """
-            if loc not in self.loc:                
+            if loc not in self.loc:
                 self.loc.append(loc)
 
             coord = list(self.to_global(loc))
@@ -2192,15 +2234,15 @@ class FrameMember:
             n2 = node_ids[1]
             self.elements[index] = \
                 Rod(fem_model.nodes[n1], fem_model.nodes[n2],
-                        self.cross_section,
-                        self.material)
+                    self.cross_section,
+                    self.material)
             fem_model.add_element(self.elements[index])
             self.element_ids.append(index)
         elif self.mtype == "beam":
             if len(self.nodes) == 2:
                 n1 = node_ids[0]
                 n2 = node_ids[1]
-                
+
                 """ EBSemiRigidBeam is a special element that has
                     rotational stiffness at the ends.
                 """
@@ -2215,7 +2257,7 @@ class FrameMember:
                                         self.cross_section,
                                         self.material,
                                         rot_stiff=[self.Sj1, self.Sj2])
-                
+
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
             else:
@@ -2228,29 +2270,29 @@ class FrameMember:
                         if isinstance(self.cross_section, TaperedSection):
                             self.elements[index] = \
                                 EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
-                                       self.cross_section.small_elements[i],
-                                       self.material, rot_stiff=[self.Sj1, np.inf])
+                                                self.cross_section.small_elements[i],
+                                                self.material, rot_stiff=[self.Sj1, np.inf])
                         else:
                             self.elements[index] = \
                                 EBSemiRigidBeam(fem_model.nodes[n1],
-                                            fem_model.nodes[n2],
-                                            self.cross_section,
-                                            self.material,
-                                            rot_stiff=[self.Sj1, np.inf])
+                                                fem_model.nodes[n2],
+                                                self.cross_section,
+                                                self.material,
+                                                rot_stiff=[self.Sj1, np.inf])
                     # EBSemiRigid -element, last element
                     elif i == (len(self.nodes) - 2):
                         if isinstance(self.cross_section, TaperedSection):
                             self.elements[index] = \
                                 EBSemiRigidBeam(fem_model.nodes[n1], fem_model.nodes[n2],
-                                       self.cross_section.small_elements[i],
-                                       self.material, rot_stiff=[np.inf, self.Sj2])
+                                                self.cross_section.small_elements[i],
+                                                self.material, rot_stiff=[np.inf, self.Sj2])
                         else:
                             self.elements[index] = \
                                 EBSemiRigidBeam(fem_model.nodes[n1],
-                                            fem_model.nodes[n2],
-                                            self.cross_section,
-                                            self.material,
-                                            rot_stiff=[np.inf, self.Sj2])
+                                                fem_model.nodes[n2],
+                                                self.cross_section,
+                                                self.material,
+                                                rot_stiff=[np.inf, self.Sj2])
                     # EBBeam -elements
                     else:
                         if isinstance(self.cross_section, TaperedSection):
@@ -2261,8 +2303,8 @@ class FrameMember:
                         else:
                             self.elements[index] = \
                                 EBBeam(fem_model.nodes[n1], fem_model.nodes[n2],
-                                   self.cross_section,
-                                   self.material)
+                                       self.cross_section,
+                                       self.material)
 
                     fem_model.add_element(self.elements[index])
                     self.element_ids.append(index)
@@ -2289,15 +2331,15 @@ class FrameMember:
 
                 fem_model.add_element(self.elements[index])
                 self.element_ids.append(index)
-                
+
                 if i == 0 and self.hinges[0]:
                     """ There is a hinge in the first end """
-                    fem_model.add_release(index,[2])
-                
-                if i == N-2 and self.hinges[1]:
+                    fem_model.add_release(index, [2])
+
+                if i == N - 2 and self.hinges[1]:
                     """ There is a hinge in the first end """
-                    fem_model.add_release(index,[5])
-                
+                    fem_model.add_release(index, [5])
+
                 index += 1
 
     def generate_eccentricity_elements(self, fem_model):
@@ -2330,7 +2372,7 @@ class FrameMember:
             # rot_stiff=[np.inf, 0])
             fem_model.add_element(self.ecc_elements[idx])
 
-    def calc_nodal_forces(self,load_id=LoadIDs.ULS):
+    def calc_nodal_forces(self, load_id=LoadIDs.ULS):
         """ Gets calculated nodal forces on member's elements and
             adds them to dict where node is the key and froces are value
             self.nodal_forces[node_id] = [Fx, Fy, Mz]
@@ -2351,23 +2393,23 @@ class FrameMember:
         max_ned = 0
 
         """ i is node index """
-        i = 0        
+        i = 0
         """ node_ids is a list of node indices for the member """
         node_ids = list(self.nodes.keys())
         node_forces = {}
         for element in self.elements.values():
             node_id = node_ids[i]
-            #axial_force = absmax(element.axial_force)
+            # axial_force = absmax(element.axial_force)
             axial_force = absmax(element.fint[load_id]['fx'])
             if abs(axial_force) > abs(max_ned):
                 max_ned = axial_force
 
-            #shear_force = absmax(element.shear_force)
+            # shear_force = absmax(element.shear_force)
             shear_force = absmax(element.fint[load_id]['fz'])
             if abs(shear_force) > abs(max_ved):
                 max_ved = shear_force
 
-            #bending_moment = absmax(element.bending_moment)
+            # bending_moment = absmax(element.bending_moment)
             bending_moment = absmax(element.fint[load_id]['my'])
             if abs(bending_moment) > abs(max_med):
                 max_med = bending_moment
@@ -2385,17 +2427,17 @@ class FrameMember:
             if i == len(self.elements):
 
                 node_id = node_ids[i]
-                #axial_force = absmax(element.axial_force)
+                # axial_force = absmax(element.axial_force)
                 axial_force = absmax(element.fint[load_id]['fx'])
                 if abs(axial_force) > abs(max_ned):
                     max_ned = axial_force
 
-                #shear_force = absmax(element.shear_force)
+                # shear_force = absmax(element.shear_force)
                 shear_force = absmax(element.fint[load_id]['fz'])
                 if abs(shear_force) > abs(max_ved):
                     max_ved = shear_force
 
-                #bending_moment = absmax(element.bending_moment)
+                # bending_moment = absmax(element.bending_moment)
                 bending_moment = absmax(element.fint[load_id]['my'])
                 if abs(bending_moment) > abs(max_med):
                     max_med = bending_moment
@@ -2406,8 +2448,8 @@ class FrameMember:
                                               bending_moment]
                 """
                 node_forces[node_id] = [axial_force,
-                                    shear_force,
-                                    bending_moment]
+                                        shear_force,
+                                        bending_moment]
 
         self.nodal_forces[load_id] = node_forces
         self.med = max_med
@@ -2418,16 +2460,16 @@ class FrameMember:
         """ Calculates nodal displacements and saves them to a dict
             :param fem_model: FrameFEM -object
         """
-        #for node in self.nodes:
+        # for node in self.nodes:
         #    self.nodal_displacements[node] = fem_model.nodes[node].u[lcase]
-            #self.nodal_displacements[lcase] = fem_model.nodes[node].u[lcase]
-        
+        # self.nodal_displacements[lcase] = fem_model.nodes[node].u[lcase]
+
         U = {}
-        
+
         for n, node in self.nodes.items():
-            #print(n,node)
+            # print(n,node)
             U[n] = node.u[lcase]
-        
+
         self.nodal_displacements[lcase] = U
 
     def add_self_weight(self, frame):
@@ -2438,7 +2480,7 @@ class FrameMember:
             load_id = "self_weight"
             # self.weight is kg's, multiplier changes it to N's
             multiplier = 10
-            value = -1 * multiplier * self.weight / self.length            
+            value = -1 * multiplier * self.weight / self.length
             frame.add(LineLoad(self, [value, value], 'y'))
 
     def remove_self_weight(self):
@@ -2472,13 +2514,12 @@ class FrameMember:
         locs = []
         start_coord, end_coord = np.asarray(self.coordinates)
         for node in self.nodes.values():
-            ncoord = np.asarray(node.coord)            
+            ncoord = np.asarray(node.coord)
             loc = np.linalg.norm(start_coord - ncoord) / self.length
             locs.append(round(loc, PREC))
         return locs
 
-
-    def assign_forces(self,load_id=LoadIDs.ULS):
+    def assign_forces(self, load_id=LoadIDs.ULS):
         """
         Assigns forces to SteelMember -object.
         Creates new sections if none are created,
@@ -2488,9 +2529,9 @@ class FrameMember:
         self.member.profile = self.cross_section
         self.member.clear_sections()
         for i, element in enumerate(self.elements.values()):
-            #M1, M2 = element.bending_moment
-            #N1, N2 = element.axial_force
-            #V1, V2 = element.shear_force
+            # M1, M2 = element.bending_moment
+            # N1, N2 = element.axial_force
+            # V1, V2 = element.shear_force
             M1, M2 = element.fint[load_id]['my']
             N1, N2 = element.fint[load_id]['fx']
             V1, V2 = element.fint[load_id]['fz']
@@ -2518,7 +2559,6 @@ class FrameMember:
         #         self.steel_member.ned[i] = Fx
         #         self.steel_member.vzed[i] = Fy
         #         self.steel_member.myed[i] = Mz
-
 
     def check_cross_section(self):
         """ Checks if cross-section is strong enough.
@@ -2548,26 +2588,26 @@ class FrameMember:
         else:
             self.is_strong_enough = True
 
-    def design(self,lcase=LoadIDs.ULS):
+    def design(self, lcase=LoadIDs.ULS):
         """ Designs the member (check resistance) 
             This has to be modified for multiple load cases.
         """
-        
+
         """ Here, the internal forces of the member at sections must
             somehow be inserted. Note that SteelMember does not yet
             provide several load cases.
         """
 
         rmax = self.member.design()
-        
+
         if rmax > 1.0:
             self.is_strong_enough = False
         else:
             self.is_strong_enough = True
-            
+
         self.r[lcase] = rmax
-        
-        #self.r = max(max(r1), r2)
+
+        # self.r = max(max(r1), r2)
 
     def optimum_design(self, prof_type='CURRENT'):
         """ Goes through all profiles in list and stops iterating when 
@@ -2575,27 +2615,27 @@ class FrameMember:
             If member is previously designed, iterating starts from 3 profiles
             before currrent profile.
         """
-        
+
         prof_type = prof_type.upper()
-        
+
         if prof_type == "CURRENT":
             """ Use the cross section family of the current profile """
-            if isinstance(self.cross_section,IPE):
+            if isinstance(self.cross_section, IPE):
                 prof_type = "IPE"
-            elif isinstance(self.cross_section,HEA):
+            elif isinstance(self.cross_section, HEA):
                 prof_type = "H"
-            elif isinstance(self.cross_section,HEB):
+            elif isinstance(self.cross_section, HEB):
                 prof_type = "H"
-            elif isinstance(self.cross_section,RHS):
+            elif isinstance(self.cross_section, RHS):
                 prof_type = "RHS"
-            elif isinstance(self.cross_section,SHS):
+            elif isinstance(self.cross_section, SHS):
                 prof_type = "SHS"
-            elif isinstance(self.cross_section,CHS):
+            elif isinstance(self.cross_section, CHS):
                 prof_type = "CHS"
             else:
                 prof_type = "IPE"
-        
-        if prof_type == "IPE":            
+
+        if prof_type == "IPE":
             profiles = ipe_profiles.keys()
         elif prof_type == "H":
             profiles = h_profiles.keys()
@@ -2612,11 +2652,11 @@ class FrameMember:
 
         for profile in profiles:
             self.profile = profile
-            
-            for load_id in self.load_ids:            
+
+            for load_id in self.load_ids:
                 self.design(load_id)
-                            
-            if all(r<=1.0 for r in self.r.values()):# <= 1.0:
+
+            if all(r <= 1.0 for r in self.r.values()):  # <= 1.0:
                 break
             """
             self.profile = profile
@@ -2629,13 +2669,13 @@ class FrameMember:
             if self.r <= 1.0:
                 break
             """
-        
+
         """ If the profile changed during iteration, return 'True'. """
         if self.profile != initial_profile:
             return True
         else:
             return False
-        
+
     def line_intersection(self, coordinates):
         """
         Calculates coordinate where two members intersect
@@ -2655,10 +2695,10 @@ class FrameMember:
             return None
         else:
             px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (
-                        x3 * y4 - y3 * x4)) / (
+                    x3 * y4 - y3 * x4)) / (
                          (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
             py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (
-                        x3 * y4 - y3 * x4)) / (
+                    x3 * y4 - y3 * x4)) / (
                          (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4))
 
             return [round(px, 5), round(py, 5)]
@@ -2674,26 +2714,26 @@ class FrameMember:
         x1, y1 = start_node
         x2, y2 = end_node
         x, y = coordinate
-        
+
         res = False
-        
+
         # The line between start_node and end_node is
         # x(t) = start_node + t*(end_node-start_node), t \in [0,1]
         # If we can find t \in [0,1], for which x(t) = coordinate, then
         # the point and member intersect.
-        if abs(x2-x1)>1e-8:
-            t1 = (x-x1)/(x2-x1)
-            if 0<= t1 <= 1 and abs(y1+t1*(y2-y1) - y) < 1e-8:
+        if abs(x2 - x1) > 1e-8:
+            t1 = (x - x1) / (x2 - x1)
+            if 0 <= t1 <= 1 and abs(y1 + t1 * (y2 - y1) - y) < 1e-8:
                 res = True
-                    
+
         else:
             # Member is vertical
-            t1 = (y-y1)/(y2-y1)
-            if 0<= t1 <= 1 and abs(x1-x) < 1e-8:
+            t1 = (y - y1) / (y2 - y1)
+            if 0 <= t1 <= 1 and abs(x1 - x) < 1e-8:
                 res = True
-            
+
         return res
-                
+
         """
         # Coordinate is between member's coordinates
         if x1 <= x <= x2 and y1 <= y <= y2 or 'chord' in self.mtype:
@@ -2710,13 +2750,13 @@ class FrameMember:
         """
 
     def plot(self, print_text=True, c='k', axes=None):
-        
+
         if self.active:
             if axes is None:
                 fig, ax = plt.subplots(1)
             else:
                 ax = axes
-    
+
             X = self.coordinates
             if c:
                 if self.is_strong_enough:
@@ -2728,37 +2768,37 @@ class FrameMember:
             # Plot members
             ax.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color)
             # Plot text
-    
+
             if self.mtype == 'beam':
                 horzalign = 'center'
                 vertalign = 'bottom'
-    
+
             elif self.mtype == 'column':
                 horzalign = 'right'
                 vertalign = 'center'
-    
+
             else:
                 horzalign = 'center'
                 vertalign = 'center'
-    
+
             x, y = self.to_global(0.5) - self.perpendicular * 50
             rot = np.degrees(self.angle)
-    
+
             if rot > 90:
-                rot = -(180-rot)
-    
+                rot = -(180 - rot)
+
             if print_text:
                 ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
-                         rotation=rot, horizontalalignment=horzalign,
-                         verticalalignment=vertalign)
+                        rotation=rot, horizontalalignment=horzalign,
+                        verticalalignment=vertalign)
             else:
                 ax.text(x, y, str(self.mem_id),
-                         rotation=rot, horizontalalignment=horzalign,
-                         verticalalignment=vertalign)
+                        rotation=rot, horizontalalignment=horzalign,
+                        verticalalignment=vertalign)
 
     def plot_results(self):
         """ Plots utilization ratios for different resistances """
-        
+
         UN, UV, UM, UMN = self.cross_section.section_resistance(
             return_list=True)
         B = max(self.member.check_buckling())
@@ -2783,7 +2823,7 @@ class FrameMember:
         plt.plot(line_x, line_y, '--', c='k')
         plt.show()
 
-    def bmd(self, scale=1, load_id = LoadIDs.ULS):
+    def bmd(self, scale=1, load_id=LoadIDs.ULS):
         """ Plots bending moment diagram """
 
         # Scales Nmm to kNm
@@ -2806,7 +2846,7 @@ class FrameMember:
 
         for elem in self.elements.values():
             x0, y0 = elem.nodes[0].coord
-            #bending_moment = elem.bending_moment[0]
+            # bending_moment = elem.bending_moment[0]
             bending_moment = elem.fint[load_id]['my'][0]
             val = bending_moment * unit_scaler * scale
             x, y = np.array([x0, y0]) - val * u
@@ -2819,7 +2859,7 @@ class FrameMember:
                 plt.text(x, y, f'{bending_moment * unit_scaler:.2f} kNm',
                          horizontalalignment=horzalign)
         x0, y0 = elem.nodes[1].coord
-        #bending_moment = elem.bending_moment[1]
+        # bending_moment = elem.bending_moment[1]
         bending_moment = elem.fint[load_id]['my'][1]
         val = bending_moment * unit_scaler * scale
         x, y = np.array([x0, y0]) - val * u
@@ -2945,15 +2985,18 @@ class SteelFrameMember(FrameMember):
     def __init__(self, coordinates, mem_id='', profile='IPE 100', material="S355", num_elements=4, **kwargs):
         super().__init__(coordinates, mem_id, profile, material, num_elements, **kwargs)
         self.member = SteelMember(self.cross_section, self.length,
-                                        Lcr=[1.0, 1.0], mtype=self.mtype)
+                                  Lcr=[1.0, 1.0], mtype=self.mtype)
 
         self.members = [self.member]
 
 
 class TimberFrameMember(FrameMember):
-    def __init__(self, coordinates: list_out[list_out[int]], profile: (str, TimberSection), mem_id: str='', num_elements: int=5,
-                 varnished: bool=False, ldc: str='inst', sc: int=1, Sj1: float=np.inf, Sj2: float=np.inf, mtype: str="", lateral_support_y: list_out[float]=None,
-                 lateral_support_z: list_out[float]=None, edge_load: str='compression', beta: (float, list_out[list_out[float]])=None, k_vol: float=None):
+    def __init__(self, coordinates: list_out[list_out[int]], profile: (str, TimberSection), mem_id: str = '',
+                 num_elements: int = 5,
+                 varnished: bool = False, ldc: str = 'inst', sc: int = 1, Sj1: float = np.inf, Sj2: float = np.inf,
+                 mtype: str = "", lateral_support_y: list_out[float] = None,
+                 lateral_support_z: list_out[float] = None, edge_load: str = 'compression',
+                 beta: (float, list_out[list_out[float]]) = None, k_vol: float = None):
         """
 
         @param coordinates:
@@ -3167,7 +3210,7 @@ class TimberFrameMember(FrameMember):
             Gives boolean value for self.is_strong_enough
             Saves list of stress ratios to self.r
         """
-        self.r = np.zeros_like(self.r) # [0, 1, 2, .. 8]
+        self.r = np.zeros_like(self.r)  # [0, 1, 2, .. 8]
         # Cross-sectional stress ratios in member's nodes' locations
         self.r[:6] = self.member.check_sections()
         # Buckling about y - and z - axis
@@ -3242,7 +3285,7 @@ class TimberFrameMember(FrameMember):
             print('Z-suunnan stabiloivan tuen vaadittu jousijäykkyys')
             print(f'EC5(9.34)\t\tC\t\t {round(brC, 1)} N/mm')
             print('Z-suunnan stabiloivan tuen voima (1. muoto)')
-            print(f'EC5(9.35)\t\tFd\t\t {round(brFd/1000, 2)} kN')
+            print(f'EC5(9.35)\t\tFd\t\t {round(brFd / 1000, 2)} kN')
         print('--------------------------------------')
 
     def get_printing_color(self, val):
@@ -3366,14 +3409,21 @@ class TimberFrameMember(FrameMember):
         for id in ids:
             print(f'\nid: {id}')
             self.assign_forces(id)
-            print(f'Ned: {round(max(self.member.ned, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.ned.index(max(self.member.ned, key=abs))]})')
-            print(f'Myed: {round(max(self.member.myed, key=abs) / 1e6, prec)} kNm ({self.member.loc[self.member.myed.index(max(self.member.myed, key=abs))]})')
-            print(f'Mzed: {round(max(self.member.mzed, key=abs) / 1e6, prec)} kNm ({self.member.loc[self.member.mzed.index(max(self.member.mzed, key=abs))]})')
-            print(f'Vyed: {round(max(self.member.vyed, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.vyed.index(max(self.member.vyed, key=abs))]})')
-            print(f'Vzed: {round(max(self.member.vzed, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.vzed.index(max(self.member.vzed, key=abs))]})')
+            print(
+                f'Ned: {round(max(self.member.ned, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.ned.index(max(self.member.ned, key=abs))]})')
+            print(
+                f'Myed: {round(max(self.member.myed, key=abs) / 1e6, prec)} kNm ({self.member.loc[self.member.myed.index(max(self.member.myed, key=abs))]})')
+            print(
+                f'Mzed: {round(max(self.member.mzed, key=abs) / 1e6, prec)} kNm ({self.member.loc[self.member.mzed.index(max(self.member.mzed, key=abs))]})')
+            print(
+                f'Vyed: {round(max(self.member.vyed, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.vyed.index(max(self.member.vyed, key=abs))]})')
+            print(
+                f'Vzed: {round(max(self.member.vzed, key=abs) / 1e3, prec)} kN ({self.member.loc[self.member.vzed.index(max(self.member.vzed, key=abs))]})')
             stod_list = [self.member.sigma_t0d(n) for n in range(self.member.nsect())]
-            print(f'Sigma t0d: {round(max(stod_list, key=abs), prec)} N/mm^2 ({self.member.loc[stod_list.index(max(stod_list, key=abs))]})')
-            print(f'Sigma c0d: {round(max(stod_list, key=abs), prec)} N/mm^2 ({self.member.loc[stod_list.index(max(stod_list, key=abs))]})')
+            print(
+                f'Sigma t0d: {round(max(stod_list, key=abs), prec)} N/mm^2 ({self.member.loc[stod_list.index(max(stod_list, key=abs))]})')
+            print(
+                f'Sigma c0d: {round(max(stod_list, key=abs), prec)} N/mm^2 ({self.member.loc[stod_list.index(max(stod_list, key=abs))]})')
             try:
                 print(f'sigma t90d: {round(self.member.sigma_t90d(), prec)} N/mm^2')
                 print(f'km alpha: {round(self.member.k_m_alpha(), prec)}')
@@ -3381,8 +3431,10 @@ class TimberFrameMember(FrameMember):
                 pass
             myd_list = [self.member.sigma_md(n)[0] for n in range(self.member.nsect())]
             mzd_list = [self.member.sigma_md(n)[1] for n in range(self.member.nsect())]
-            print(f'sigma myd: {round(max(myd_list, key=abs), prec)} N/mm^2 ({self.member.loc[myd_list.index(max(myd_list, key=abs))]})')
-            print(f'sigma mzd: {round(max(mzd_list, key=abs), prec)} N/mm^2 ({self.member.loc[mzd_list.index(max(mzd_list, key=abs))]})')
+            print(
+                f'sigma myd: {round(max(myd_list, key=abs), prec)} N/mm^2 ({self.member.loc[myd_list.index(max(myd_list, key=abs))]})')
+            print(
+                f'sigma mzd: {round(max(mzd_list, key=abs), prec)} N/mm^2 ({self.member.loc[mzd_list.index(max(mzd_list, key=abs))]})')
             ty = [self.member.tau_d(n)[0] for n in range(self.member.nsect())]
             tz = [self.member.tau_d(n)[1] for n in range(self.member.nsect())]
             print(f'tau yd: {round(max(ty, key=abs), prec)} N/mm^2 ({self.member.loc[ty.index(max(ty, key=abs))]})')
@@ -3394,13 +3446,16 @@ class TimberFrameMember(FrameMember):
                     print(f'siirtymä x: {round(abs(self.dx[id]), prec)} mm')
                     print(f'taipuma y: {round(abs(self.dy[id]), prec)} mm')
                     if id == LoadIDs.SLS_Characteristic:
-                        print(f'suurin sallittu taipuma L/{beam_characteristic_divider}: {round(self.length / beam_characteristic_divider, prec)} mm')
+                        print(
+                            f'suurin sallittu taipuma L/{beam_characteristic_divider}: {round(self.length / beam_characteristic_divider, prec)} mm')
                     elif id == LoadIDs.SLS_Quasi_permanent:
-                        print(f'suurin sallittu taipuma L/{beam_quasi_permanent_divider}: {round(self.length / beam_quasi_permanent_divider, prec)} mm')
+                        print(
+                            f'suurin sallittu taipuma L/{beam_quasi_permanent_divider}: {round(self.length / beam_quasi_permanent_divider, prec)} mm')
                 else:
                     print(f'siirtymä x: {round(abs(self.dx[id]), prec)} mm')
                     print(f'siirtymä y: {round(abs(self.dy[id]), prec)} mm')
-                    print(f'suurin sallittu siirtymä L/{column_divider}: {round(self.length / column_divider, prec)} mm')
+                    print(
+                        f'suurin sallittu siirtymä L/{column_divider}: {round(self.length / column_divider, prec)} mm')
         print(f'')
 
 
@@ -3461,16 +3516,13 @@ class LoadCombination:
         self.idx = None
         self.loadcases = []
 
-
     def add(self, loadcase):
-
 
         if isinstance(loadcase, LoadCase):
             self.loadcases.append(loadcase)
         else:
             raise ValueError(f"Can't add {type(loadcase)},"
                              f"added load must be a LoadCase -object!")
-
 
 
 class LoadCase:
@@ -3492,7 +3544,6 @@ class LoadCase:
         self.idx = None
         self.ltype = ltype
         self.loads = []
-
 
     def add(self, load):
         """
@@ -3555,7 +3606,7 @@ class PointLoad(Load):
 
 class LineLoad(Load):
     def __init__(self, coordinates, values, direction, load_id=LoadIDs.ULS, f=1.0,
-                 ltype='live', name='LineLoad',coord_sys="global"):
+                 ltype='live', name='LineLoad', coord_sys="global"):
         """ Class for line loads. Line load can be uniform or trapezoidal
         
             input:
@@ -3575,7 +3626,7 @@ class LineLoad(Load):
             self.member = coordinates
             self.member.has_load = True
             self.member.q0 = values[0]
-            self.member.q1 = values[1]            
+            self.member.q1 = values[1]
             self.member.loads.append(self)
         else:
             self.mem_id = None
@@ -3601,16 +3652,16 @@ class LineLoad(Load):
 
     def add_load(self, fem_model):
         """ Add the load to the FEM model """
-        #k = self.calc_k()
+        # k = self.calc_k()
         v0, v1 = self.values
-        qvals = np.linspace(v0,v1,len(self.member.elements)+1)        
+        qvals = np.linspace(v0, v1, len(self.member.elements) + 1)
         for i, elem_id in enumerate(self.member.elements.keys()):
-            #v1 = (i * k) + v0
+            # v1 = (i * k) + v0
             load = fem.LineLoad(self.load_id,
                                 fem_model.elements[elem_id],
                                 [0.0, 1.0],
-                                [qvals[i],qvals[i+1]],
-                                #[v0, v1],
+                                [qvals[i], qvals[i + 1]],
+                                # [v0, v1],
                                 self.direction,
                                 self.coord_sys)
             fem_model.add_load(load)
@@ -3659,6 +3710,7 @@ class FixedSupport(Support):
     '''
     In ROBOT this setting means that UX, UZ and RY check marks are present in the support dialog
     '''
+
     def __init__(self, coordinate, supp_id=1):
         # super().__init__(coordinate, [1, 1, 1], supp_id)
         super().__init__(coordinate, [0, 1, 2], supp_id)
@@ -3668,6 +3720,7 @@ class XHingedSupport(Support):
     '''
     In ROBOT this setting means that UX direction check marks is present in the support dialog, but UZ and RY are empty
     '''
+
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [0], supp_id)
 
@@ -3676,6 +3729,7 @@ class YHingedSupport(Support):
     '''
     In ROBOT this setting means that UZ direction check mark is present in the support dialog, but UX and RY are empty
     '''
+
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [1], supp_id)
 
@@ -3684,6 +3738,7 @@ class XYHingedSupport(Support):
     '''
     In ROBOT this setting means that UX and UZ direction check marks are present in the support dialog, but RY is empty
     '''
+
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [0, 1], supp_id)
 
@@ -3692,9 +3747,9 @@ class Hinge(Support):
     '''
     In ROBOT this setting means all of the check marks removed from the support dialog
     '''
+
     def __init__(self, coordinate, supp_id=1):
         super().__init__(coordinate, [], supp_id)
-
 
 
 def test():
@@ -3707,18 +3762,19 @@ def test():
     frame.generate()
     frame.calculate()
     frame.bmd(100)
-    
+
     return frame
+
 
 def test_portal():
     frame = Frame2D()
     H = 6000
     L = 8000
-    X = [[0,0],[0,H],[L,H],[L,0]]
-    
-    col1 = SteelColumn([X[0],X[1]], profile="HE 240 A")
-    col2 = SteelColumn([X[3],X[2]], profile="HE 240 A")
-    beam = SteelBeam([X[1],X[2]], profile="IPE 300")
+    X = [[0, 0], [0, H], [L, H], [L, 0]]
+
+    col1 = SteelColumn([X[0], X[1]], profile="HE 240 A")
+    col2 = SteelColumn([X[3], X[2]], profile="HE 240 A")
+    beam = SteelBeam([X[1], X[2]], profile="IPE 300")
     frame.add(FixedSupport(X[0]))
     frame.add(FixedSupport(X[3]))
     frame.add(LineLoad(beam, [-20, -20], 'y'))
@@ -3727,44 +3783,44 @@ def test_portal():
     frame.add(beam)
     frame.generate()
     frame.calculate()
-    #frame.bmd(10)
-    
+    # frame.bmd(10)
+
     return frame
 
 
 if __name__ == '__main__':
-    
     import cProfile
+
     fr = Frame2D()
-    x0 = [0,0]
-    x1 = [8000,0]
-    fr.add(FrameMember([x0,[0,6000]]))
-    fr.add(FrameMember([[0,6000],[8000,6000]],mtype='rigid_beam'))
-    #fr.members[1].add_hinge(0)
-    #fr.members[1].add_hinge(1)
-    fr.add(FrameMember([[8000,6000],x1]))
-                        
-    fr.add(LineLoad(fr.members[1],[-20,-20],'y',coord_sys='local',load_id=LoadIDs.ULS))
-    fr.add(LineLoad(fr.members[0],[8,8],'x',coord_sys='global',load_id=LoadIDs.SLS_Characteristic))
+    x0 = [0, 0]
+    x1 = [8000, 0]
+    fr.add(FrameMember([x0, [0, 6000]]))
+    fr.add(FrameMember([[0, 6000], [8000, 6000]], mtype='rigid_beam'))
+    # fr.members[1].add_hinge(0)
+    # fr.members[1].add_hinge(1)
+    fr.add(FrameMember([[8000, 6000], x1]))
+
+    fr.add(LineLoad(fr.members[1], [-20, -20], 'y', coord_sys='local', load_id=LoadIDs.ULS))
+    fr.add(LineLoad(fr.members[0], [8, 8], 'x', coord_sys='global', load_id=LoadIDs.SLS_Characteristic))
     fr.add(FixedSupport(x0))
     fr.add(FixedSupport(x1))
 
     # coord1 = [[0,0], [0, 5000]]
     # coord2 = [[0,5000], [10000, 7000]]
     # coord3 = [[10000, 0], [10000, 7000]]
-    #coord1 = [[0, 0], [10000, 0]]
-    #fr.add(FrameMember(coord1))
-#    fr.add(FrameMember(coord2))
-#    fr.add(FrameMember(coord3))
-    #fr.add(PointLoad([5000, 0], [0, -2000, 0],load_id=LoadIDs.ULS))
-    #fr.add(XYHingedSupport(coord1[0]))
-    #fr.add(XYHingedSupport(coord1[1]))
+    # coord1 = [[0, 0], [10000, 0]]
+    # fr.add(FrameMember(coord1))
+    #    fr.add(FrameMember(coord2))
+    #    fr.add(FrameMember(coord3))
+    # fr.add(PointLoad([5000, 0], [0, -2000, 0],load_id=LoadIDs.ULS))
+    # fr.add(XYHingedSupport(coord1[0]))
+    # fr.add(XYHingedSupport(coord1[1]))
     fr.generate()
     cProfile.run('fr.calculate(load_id="all",support_method="REM")')
     fr.optimize_members("CURRENT")
     fr.bmd(6)
 
-    #frame.plot_buckling(scale=1000,k=4)
+    # frame.plot_buckling(scale=1000,k=4)
 
     """
     for mem in frame.members.values():
