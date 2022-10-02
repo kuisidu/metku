@@ -11,8 +11,8 @@ Created on Wed Aug  7 09:15:25 2019
 """
 
 import math
-from materials.steel_data import Steel
-from eurocodes.en1993.constants import gammaM2
+from metku.materials.steel_data import Steel
+from metku.eurocodes.en1993.constants import gammaM2
 
 fasteners = {'SXC14-S19-5.5':{'d':5.5,'dS':5.1,'d1':4.59}}
 

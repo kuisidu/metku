@@ -12,14 +12,14 @@ Portal truss: two columns and a truss
 
 import matplotlib.pyplot as plt
 
-from raami.raami import Raami
-from raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember
-from raami.frame_node import FrameNode
-from raami.frame_loads import PointLoad, LineLoad, LoadIDs
-from raami.frame_supports import XYHingedSupport, FixedSupport
-from raami.raami_plane_truss import SlopedTruss
+from metku.raami.raami import Raami
+from metku.raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember
+from metku.raami.frame_node import FrameNode
+from metku.raami.frame_loads import PointLoad, LineLoad, LoadIDs
+from metku.raami.frame_supports import XYHingedSupport, FixedSupport
+from metku.raami.raami_plane_truss import SlopedTruss
 
-from sections.steel.ISection import HEA, HEB, IPE
+from metku.sections.steel.ISection import HEA, HEB, IPE
 
 class PortalTruss(Raami):
     """ Class for portal frame trusses """

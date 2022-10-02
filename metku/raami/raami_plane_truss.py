@@ -14,22 +14,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 from copy import copy
 
-from raami.raami import Raami
-from raami.raami_functions import divide_line_segment
-from raami.frame_node import FrameNode
-from raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
-from raami.frame_loads import PointLoad, LineLoad, LoadIDs
-from raami.frame_supports import XYHingedSupport, YHingedSupport
-from raami.exports import AbaqusOptions
+from metku.raami.raami import Raami
+from metku.raami.raami_functions import divide_line_segment
+from metku.raami.frame_node import FrameNode
+from metku.raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
+from metku.raami.frame_loads import PointLoad, LineLoad, LoadIDs
+from metku.raami.frame_supports import XYHingedSupport, YHingedSupport
+from metku.raami.exports import AbaqusOptions
 
-from framefem.elements.ebbeam import EBBeam, EBBeam3D
-from framefem.elements.rod import Rod
-from sections.steel.RHS import RHS, SHS
-from sections.steel.ISection import IPE
-from eurocodes.en1993.en1993_1_8.rhs_joints import Line, RHSKGapJoint, RHSYJoint, RHSKTGapJoint
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import full_strength_weld_tube
+from metku.framefem.elements.ebbeam import EBBeam, EBBeam3D
+from metku.framefem.elements.rod import Rod
+from metku.sections.steel.RHS import RHS, SHS
+from metku.sections.steel.ISection import IPE
+from metku.eurocodes.en1993.en1993_1_8.rhs_joints import Line, RHSKGapJoint, RHSYJoint, RHSKTGapJoint
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import full_strength_weld_tube
 
-from cost.workshop import Workshop
+from metku.cost.workshop import Workshop
 
 
 #from loadIDs import LoadIDs

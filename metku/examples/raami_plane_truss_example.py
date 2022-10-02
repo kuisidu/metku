@@ -10,12 +10,12 @@ Plane truss example using raami package
 @author: Kristo Mela
 """
 
-from raami.raami_plane_truss import Ktruss_example, Ntruss_example
-from raami.raami_plane_truss import SlopedTruss
-from raami.exports import AbaqusOptions
-from raami.raami_truss_opt import minimize_eccentricity
-from optimization.solvers.slsqp import SLSQP
-from optimization.solvers.trust_region import TrustRegionConstr
+from metku.raami.raami_plane_truss import Ktruss_example, Ntruss_example
+from metku.raami.raami_plane_truss import SlopedTruss
+from metku.raami.exports import AbaqusOptions
+from metku.raami.raami_truss_opt import minimize_eccentricity
+from metku.optimization.solvers.slsqp import SLSQP
+from metku.optimization.solvers.trust_region import TrustRegionConstr
 
 def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     # Create K truss for Lauri
@@ -50,7 +50,7 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
     t.generate_fem(model="ecc_elements")
     t.fem.draw()
     
-    t.print_member_utilization('Utilization.txt')
+    #t.print_member_utilization('Utilization.txt')
     
     #fig_save_opts = {'filename':'default.pdf','format':'pdf','orientation':'landscape','papertype':'a3'}    
     #t.plot(geometry=True,loads=False,save=True,saveopts=fig_save_opts)

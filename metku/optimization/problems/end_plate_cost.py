@@ -686,9 +686,9 @@ class EndPlateJointOpt(OptimizationProblem):
 
 
 if __name__ == "__main__":
-    from optimization.solvers import *
-    from optimization.solvers.bnb import BnB
-    from optimization.result_exporter import *
+    from metku.optimization.solvers import *
+    from metku.optimization.solvers.bnb import BnB
+    from metku.optimization.result_exporter import *
 
     problem = WIColumn(prob_type='discrete',
                        Lpi=8000,                       

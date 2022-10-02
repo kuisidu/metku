@@ -27,21 +27,14 @@ max_g = 90
 step_g = 1
 g_values = list(np.arange(min_g, max_g, step_g))
 
-try:
-    from metku.frame2d.frame2d import *
-    from metku.truss2d import Truss2D
-    from metku.optimization.solvers import *
-    from metku.optimization.solvers.bnb import BnB
-    from metku.optimization.problems.structural_problem import StructuralProblem
-    from metku.sections.steel.steel_section import SteelSection
-    from metku.materials.steel_data import Steel
-except:
-    from frame2d.frame2d import *
-    from truss2d import Truss2D
-    from optimization.solvers import *
-    from optimization.solvers.bnb import BnB
-    from optimization.problems.structural_problem import StructuralProblem
-    from materials.steel_data import Steel
+from metku.frame2d.frame2d import *
+from metku.truss2d import Truss2D
+from metku.optimization.solvers import *
+from metku.optimization.solvers.bnb import BnB
+from metku.optimization.problems.structural_problem import StructuralProblem
+from metku.sections.steel.steel_section import SteelSection
+from metku.materials.steel_data import Steel
+
 
 
 def create_structure(L, H0, H1, H2, dx, n):

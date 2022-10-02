@@ -7,12 +7,8 @@ import numpy as np
 from scipy.optimize import minimize, NonlinearConstraint, Bounds
 from scipy.optimize import LinearConstraint as LinCon
 
-try:
-    import metku.optimization.structopt as sopt
-    from metku.optimization.solvers.optsolver import OptSolver
-except:
-    import optimization.structopt as sopt
-    from optimization.solvers.optsolver import OptSolver
+import metku.optimization.structopt as sopt
+from metku.optimization.solvers.optsolver import OptSolver
 
 
 VAR_TOL = 1e-8

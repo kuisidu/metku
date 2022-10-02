@@ -20,14 +20,9 @@ from copy import deepcopy
 import numpy as np
 from treelib import Tree, Node
 
-try:
-    from metku.optimization.solvers.optsolver import OptSolver
-    from metku.optimization.solvers.lp import LP
-    import metku.optimization.structopt as sopt
-except:    
-    from optimization.solvers.optsolver import OptSolver
-    from optimization.solvers.lp import LP
-    import optimization.structopt as sopt
+from metku.optimization.solvers.optsolver import OptSolver
+from metku.optimization.solvers.lp import LP
+import metku.optimization.structopt as sopt
 
 
 CON_TOL = 1e-4

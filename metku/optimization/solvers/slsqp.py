@@ -7,10 +7,7 @@ import time
 import numpy as np
 from scipy.optimize import minimize
 
-try:
-    from metku.optimization.solvers.optsolver import OptSolver
-except:
-    from optimization.solvers.optsolver import OptSolver
+from metku.optimization.solvers.optsolver import OptSolver
 
 
 class SLSQP(OptSolver):

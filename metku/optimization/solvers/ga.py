@@ -7,14 +7,10 @@
 
 """
 
-try:
-    from metku.optimization.solvers import OptSolver
-    from metku.optimization.structopt import Variable, OptimizationProblem, \
-        IndexVariable, DiscreteVariable, IntegerVariable
-except:
-    from optimization.solvers import OptSolver
-    from optimization.structopt import Variable, OptimizationProblem, \
-        IndexVariable, DiscreteVariable, IntegerVariable
+
+from metku.optimization.solvers import OptSolver
+from metku.optimization.structopt import Variable, OptimizationProblem, \
+    IndexVariable, DiscreteVariable, IntegerVariable
 
 import random
 

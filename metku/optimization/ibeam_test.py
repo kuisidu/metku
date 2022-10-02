@@ -10,9 +10,9 @@ Created on Tue May 21 19:24:45 2019
 
 import math
 from functools import partial
-from sections.steel.wi import WISection
+from metku.sections.steel.wi import WISection
 #from structopt import Variable, LinearConstraint, Constraint, OptimizationProblem
-import structopt as sop
+import metku.structopt as sop
 import numpy as np
 import copy
 

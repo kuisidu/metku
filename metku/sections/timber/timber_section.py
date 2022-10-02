@@ -11,14 +11,11 @@ Timber section parameters, including timber fire design calculations (simple met
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy import integrate
-try:
-    from metku.eurocodes.en1995 import en1995_1_1, en1995_1_2
-    from metku.eurocodes.en1995.fire_protection import *
-    from metku.materials.timber_data import Timber, T
-except:
-    from eurocodes.en1995 import en1995_1_1, en1995_1_2
-    from eurocodes.en1995.fire_protection import *
-    from materials.timber_data import Timber, T
+
+from metku.eurocodes.en1995 import en1995_1_1, en1995_1_2
+from metku.eurocodes.en1995.fire_protection import *
+from metku.materials.timber_data import Timber, T
+
 import matplotlib.pyplot as plt
 import math
 
@@ -38,21 +35,21 @@ class TimberSection:
                  fire_protection_generic: FireProtection = None, fire_protection_sides: int = 3,
                  sides_on_fire: int = 3, lvldir: str = 'edge'):
         """
-        Tasakorkea ja -leveä suorakaiteinen sauva
-
-        @param B: leveys [mm]
-        @param H: korkeus [mm]
-        @param material: materiaali
-        @param fire_protection_right: palosuoja joka laitetaan oikealle, yliajaa fire_protection_genericin
-        @param fire_protection_left: palosuoja joka laitetaan vasemmalle, yliajaa fire_protection_genericin
-        @param fire_protection_top: palosuoja joka laitetaan ylös, yliajaa fire_protection_genericin
-        @param fire_protection_bottom: palosuoja joka laitetaan alas, yliajaa fire_protection_genericin
-        @param fire_protection_generic: geneerinen palosuoja joka annetaan monelle sivulle samaan aikaan
-        @param fire_protection_sides: jos antaa 3 niin fire_protection_top jää tyhjäksi.
-                                      jos antaa jonkun muun kuin 3 niin suojaa kaikki neljä sivua fire_protection_genericillä
-        @param sides_on_fire: jos antaa 4 niin poltetaan kaikilta neljältä sivulta,
-                              jos antaa jonkun muun kuin 4 niin poltetaan kolmelta sivulta. (ylhäältä ei polteta)
-        @param lvldir: lvl:n suuntaus. lappeellaan tai syrjällään. 'edge' tai 'flat'
+        Rectangular cross-section for a prismatic beam
+        
+        @param B: width [mm]
+        @param H: depth (height) [mm]
+        @param material: material
+        @param fire_protection_right: fire protection method for right-hand-side, overrides fire_protection_genericin
+        @param fire_protection_left: fire protection method for left-hand-side, overrides fire_protection_genericin
+        @param fire_protection_top: fire protection method for top edge, overrides fire_protection_genericin
+        @param fire_protection_bottom: fire protection method for bottom edge, overrides fire_protection_genericin
+        @param fire_protection_generic: generic fire protection that is given for several sides at once
+        @param fire_protection_sides: = 3 means that other sides except the top edge are protected 'fire_protection_top'.
+                                      != 3 means that all four sides are fire protected with 'fire_protection_generic'
+        @param sides_on_fire: = 4 means that fire attacks the section from four sides,
+                              != 4 means that fire attacks the section from all other sides, except top
+        @param lvldir: orientation of lvl. 'edge' (Finn. lappeellaan) or 'flat' ('Finn. syrjälllään')
         """
         self._H = H
         self._B = B
@@ -60,8 +57,9 @@ class TimberSection:
         self.timber_member = None
 
         self.beta_0 = None
-        self.beta_n = None
-        self.R = 0
+        self.beta_n = None # Charring speed
+        
+        self.R = 0 # Fire duration
 
         self.__fire_protection_generic = fire_protection_generic
         self.fire_protection_sides = fire_protection_sides

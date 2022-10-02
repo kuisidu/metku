@@ -7,14 +7,8 @@ import time
 import matplotlib.pyplot as plt
 from ortools.linear_solver import pywraplp
 
-
-try:
-    from metku.optimization.solvers import *
-    from metku.optimization.structopt import DiscreteVariable, IndexVariable, IntegerVariable
-except:
-    from optimization.solvers import *
-    from optimization.structopt import DiscreteVariable, IndexVariable, IntegerVariable
-
+from metku.optimization.solvers import *
+from metku.optimization.structopt import DiscreteVariable, IndexVariable, IntegerVariable
 
 
 class VNS(OptSolver):

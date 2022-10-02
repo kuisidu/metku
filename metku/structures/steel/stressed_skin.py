@@ -12,11 +12,11 @@ Stressed skin design
 
 import numpy as np
 
-from eurocodes.en1993.en1993_1_3.trapezoidal import TrapezoidalSheet
-from eurocodes.en1993.en1993_1_3 import en1993_1_3
+from metku.eurocodes.en1993.en1993_1_3.trapezoidal import TrapezoidalSheet
+from metku.eurocodes.en1993.en1993_1_3 import en1993_1_3
 
-from sections.steel.RHS import RHS, SHS
-from structures.steel.steel_member import SteelMember
+from metku.sections.steel.RHS import RHS, SHS
+from metku.structures.steel.steel_member import SteelMember
 
 K1 = {0: [[0.013, 0.03, 0.041, 0.041, 0.046, 0.05, 0.066, 0.103, 0.193],
           [0.042, 0.096, 0.131, 0.142, 0.142, 0.153, 0.199, 0.311, 0.602],

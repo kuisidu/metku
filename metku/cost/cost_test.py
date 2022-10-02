@@ -44,7 +44,7 @@ for paint, films in paints.items():
     paints[paint]["CP"] = CP
 """
 
-from workshop import AssemblingCostWeld
+from metku.workshop import AssemblingCostWeld
 
 ac = AssemblingCostWeld(length=15,width=5)
  

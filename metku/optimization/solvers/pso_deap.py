@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from deap import base, creator, tools
 
-from optimization.solvers.optsolver import OptSolver
+from metku.optimization.solvers.optsolver import OptSolver
 
 
 class PSO(OptSolver):

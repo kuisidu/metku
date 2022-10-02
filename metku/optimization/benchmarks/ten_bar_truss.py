@@ -3,13 +3,9 @@
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Author(s): Kristo Mela
 
-try:
-    from metku.optimization.structopt import *
-    from metku.frame2d.frame2d import *
-except:
-    from optimization.structopt import *
-    from frame2d.frame2d import *
-#    from optimization.solvers import DiscreteVNS
+from metku.optimization.structopt import *
+from metku.frame2d.frame2d import *
+
 
 import numpy as np
 

@@ -32,7 +32,7 @@ TODO:
 
 import copy
 from colorama import Fore
-from cost.cost_data import BASIC_STEEL_PRICE
+from metku.cost.cost_data import BASIC_STEEL_PRICE
 
 NOT_IMPLEMENTED = "NOT IMPLEMENTED YET! Add this feature: "
 

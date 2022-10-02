@@ -5,12 +5,10 @@
 
 from ortools.linear_solver import pywraplp
 
-try:
-    from metku.optimization.solvers.optsolver import OptSolver
-    from metku.optimization.structopt import *
-except:
-    from optimization.solvers.optsolver import OptSolver
-    from optimization.structopt import *
+
+from metku.optimization.solvers.optsolver import OptSolver
+from metku.optimization.structopt import *
+
 
 
 class MISLP(OptSolver):

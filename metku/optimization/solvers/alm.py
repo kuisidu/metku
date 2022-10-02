@@ -17,12 +17,9 @@ import numpy as np
 from scipy.optimize import minimize
 import  matplotlib.pyplot as plt
 
-try:
-    import metku.optimization.structopt as sopt
-    from metku.optimization.solvers.optsolver import OptSolver
-except:
-    import optimization.structopt as sopt
-    from optimization.solvers.optsolver import OptSolver
+
+import metku.optimization.structopt as sopt
+from metku.optimization.solvers.optsolver import OptSolver
 
 
 

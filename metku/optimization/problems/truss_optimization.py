@@ -13,21 +13,16 @@ Truss optimization
 import numpy as np
 import re
 
-try:
-    from metku.frame2d.frame2d import SteelBeam
-    from metku.frame2d.simple_truss import SimpleTruss, three_bar_truss, ten_bar_truss
-    from metku.sections.steel import SteelSection
-    import metku.optimization.structopt as sop
-    from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
-    from metku.sections.steel import ISection, WISection, RHS, SHS
-    from metku.optimization.solvers.lp import LP
-    from metku.optimization.solvers.milp import MILP
-except:
-    from frame2d.frame2d import SteelBeam
-    from sections.steel import SteelSection
-    import optimization.structopt as sop
-    from sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
-    from sections.steel import ISection, WISection, RHS
+
+from metku.frame2d.frame2d import SteelBeam
+from metku.frame2d.simple_truss import SimpleTruss, three_bar_truss, ten_bar_truss
+from metku.sections.steel import SteelSection
+import metku.optimization.structopt as sop
+from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
+from metku.sections.steel import ISection, WISection, RHS, SHS
+from metku.optimization.solvers.lp import LP
+from metku.optimization.solvers.milp import MILP
+
 
 
 class TrussOptimization(sop.OptimizationProblem):

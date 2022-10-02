@@ -800,7 +800,7 @@ chs_profiles = {'CHS 26.9X2.0': {'d': 26.9, 't': 2.0},
 
 def make_ipe(key):
     """ Makes an IPE section out of the 'key' used """
-    from sections.steel.ISection import IPE
+    from metku.sections.steel.ISection import IPE
     import re
     
     # Find height of the profile from 'key'
@@ -810,7 +810,7 @@ def make_ipe(key):
 
 def make_hea(key):
     """ Makes an HEA section out of the 'key' used """
-    from sections.steel.ISection import HEA
+    from metku.sections.steel.ISection import HEA
     import re
     
     # Find height of the profile from 'key'
@@ -820,7 +820,7 @@ def make_hea(key):
 
 def make_heb(key):
     """ Makes an HEB section out of the 'key' used """
-    from sections.steel.ISection import HEB
+    from metku.sections.steel.ISection import HEB
     import re
     
     # Find height of the profile from 'key'
@@ -831,7 +831,7 @@ def make_heb(key):
 
 def make_rhs(key):
     """ Makes an RHS section out of the 'key' used """
-    from sections.steel.RHS import RHS
+    from metku.sections.steel.RHS import RHS
     import re
     
     # Find height of the profile from 'key'

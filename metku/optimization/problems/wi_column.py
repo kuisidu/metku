@@ -25,19 +25,15 @@ THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 20, 22, 25, 30]
 MAX_THICK = max(THICKNESSES)
 MIN_THICK = min(THICKNESSES)
 
-try:
-    from metku.frame2d.frame2d import *
-    import metku.frame2d.frame2d as f2d
-    from metku.optimization.structopt import *
+
+from metku.frame2d.frame2d import *
+import metku.frame2d.frame2d as f2d
+from metku.optimization.structopt import *
     # import metku.optimization.structopt as sopt
-    from metku.optimization.solvers.trust_region import TrustRegionConstr
-    from metku.optimization.solvers.bnb import BnB
-    from metku.optimization.solvers.lp import LP
-except:
-    from frame2d.frame2d import *
-    import frame2d.frame2d as f2d
-    from optimization.structopt import *
-    from optimization.solvers.trust_region import TrustRegionConstr
+from metku.optimization.solvers.trust_region import TrustRegionConstr
+from metku.optimization.solvers.bnb import BnB
+from metku.optimization.solvers.lp import LP
+
     
     #from frame2d.frame2d import Frame2D, SteelColumn, XHingedSupport, FixedSupport, PointLoad, LineLoad
     #from optimization.structopt import OptimizationProblem, Variable, DiscreteVariable, LinearConstraint, NonLinearConstraint
