@@ -8,11 +8,9 @@ import math
 
 import numpy as np
 
-try:
-    from metku.eurocodes.en1993 import constants, en1993_1_1
-except:
-    from eurocodes.en1993 import constants, en1993_1_1
-    from sections.steel.wi import WISection
+    
+from metku.eurocodes.en1993 import constants, en1993_1_1
+from metku.sections.steel.wi import WISection
 
 
 class WebTaperedSteelMember:

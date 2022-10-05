@@ -293,7 +293,7 @@ class RHSKGapJoint(RHSJoint):
                 angles .. list of angles (degrees) between the braces and the chord
                 gap .. gap between the braces
         """
-        RHSJoint.__init__(self,chord, **kwargs)
+        RHSJoint.__init__(self,chord, **kwargs)        
         
         if not isinstance(braces[0],SteelMember):
             brace_members = [SteelMember(brace,length=1000) for brace in braces]

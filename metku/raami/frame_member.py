@@ -16,15 +16,15 @@ import matplotlib.patches as patches
 import matplotlib.lines as mlines
 import matplotlib.path as mpath
 
-from structures.steel.steel_member import SteelMember
+from metku.structures.steel.steel_member import SteelMember
 from .frame_node import FrameNode
 import framefem.framefem
-from framefem.elements.ebbeam import EBBeam, EBBeam3D
-from framefem.elements.rod import Rod
-from sections.steel.catalogue import make_section, ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles, hea_profiles, heb_profiles
-from sections.steel.CHS import CHS
-from sections.steel.RHS import RHS, SHS
-from sections.steel.ISection import IPE, HEA, HEB
+from metku.framefem.elements.ebbeam import EBBeam, EBBeam3D
+from metku.framefem.elements.rod import Rod
+from metku.sections.steel.catalogue import make_section, ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles, hea_profiles, heb_profiles
+from metku.sections.steel.CHS import CHS
+from metku.sections.steel.RHS import RHS, SHS
+from metku.sections.steel.ISection import IPE, HEA, HEB
 
 #from loadIDs import LoadIDs
 
@@ -1300,9 +1300,12 @@ class MemberGroup:
             before currrent profile.
         """
         
+        print(self.cross_section)
+        print(prof_type)
         #Get list of profiles profiles of chosen type        
         profiles = profile_list(self.cross_section,prof_type)
         
+        print(profiles)
 
         initial_profile = self.cross_section
 

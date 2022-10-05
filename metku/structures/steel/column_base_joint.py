@@ -17,29 +17,17 @@ import matplotlib.patches as patches
 import matplotlib.lines as lines
 
 
-try:
-    from metku.eurocodes.en1993 import constants
-    from metku.eurocodes.en1993 import en1993_1_1
-    from metku.sections.steel.ISection import HEA
-    from materials import steel_data
-    import eurocodes.en1992.en1992_1_1 as en1992
-    import eurocodes.en1992.constants as en1992_const
-    from sections.steel.ISection import HEA
-    from structures.steel.plates import RectPlate
-    from materials.steel_data import Steel
-    from eurocodes.en1993.en1993_1_8.en1993_1_8 import TStubEndPlate, BoltRow, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
-    from eurocodes.en1993.en1993_1_8.en1993_1_8 import ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, TENSION_ROW, COMPRESSION_ROW, OTHER_INNER_ROW
-except:
-    from eurocodes.en1993 import constants
-    from eurocodes.en1993 import en1993_1_1
-    from materials import steel_data
-    import eurocodes.en1992.en1992_1_1 as en1992
-    import eurocodes.en1992.constants as en1992_const
-    from sections.steel.ISection import HEA
-    from structures.steel.plates import RectPlate
-    from materials.steel_data import Steel
-    from eurocodes.en1993.en1993_1_8.en1993_1_8 import TStubEndPlate, BoltRow, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
-    from eurocodes.en1993.en1993_1_8.en1993_1_8 import ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, TENSION_ROW, COMPRESSION_ROW, OTHER_INNER_ROW
+    
+from metku.eurocodes.en1993 import constants
+from metku.eurocodes.en1993 import en1993_1_1
+from metku.materials import steel_data
+import metku.eurocodes.en1992.en1992_1_1 as en1992
+import metku.eurocodes.en1992.constants as en1992_const
+from metku.sections.steel.ISection import HEA
+from metku.structures.steel.plates import RectPlate
+from metku.materials.steel_data import Steel
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import TStubEndPlate, BoltRow, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, TENSION_ROW, COMPRESSION_ROW, OTHER_INNER_ROW
 
 # Anchor bolts
     

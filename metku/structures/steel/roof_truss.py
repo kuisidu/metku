@@ -13,10 +13,10 @@
 import numpy as np
 import math
 
-from structures.truss import Truss, TrussMember, TrussNode
+from metku.structures.truss import Truss, TrussMember, TrussNode
 #from truss import TrussMember
 #import truss as tr
-from sections.steel.RHS import SHS
+from metku.sections.steel.RHS import SHS
 
 top_node_label = "TOP"
 bottom_node_label = "BOTTOM"

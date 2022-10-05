@@ -10,24 +10,14 @@ Timber member
 from math import log, tan, pi, sqrt, isclose, sin, cos, radians
 import numpy as np
 
-try:
-    import frame2d
-    from materials.timber_data import Timber, T
-    from eurocodes.en1995.en1995_1_1 import kmod, kdef, k_to_d, get_gammaM
-    from eurocodes.en1995.constants import k_m
-    from sections.timber.timber_section import *
-    from framefem.framefem import FEMNode
-    from framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-    from sections.steel.ISection import HEA
-except:
-    import metku.frame2d as frame2d
-    from metku.materials.timber_data import Timber, T
-    from metku.eurocodes.en1995.en1995_1_1 import kmod, kdef, k_to_d, get_gammaM
-    from metku.eurocodes.en1995.constants import k_m
-    from metku.sections.timber.timber_section import *
-    from metku.framefem.framefem import FEMNode
-    from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-    from metku.sections.steel.ISection import HEA
+import metku.frame2d as frame2d
+from metku.materials.timber_data import Timber, T
+from metku.eurocodes.en1995.en1995_1_1 import kmod, kdef, k_to_d, get_gammaM
+from metku.eurocodes.en1995.constants import k_m
+from metku.sections.timber.timber_section import *
+from metku.framefem.framefem import FEMNode
+from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+from metku.sections.steel.ISection import HEA
 
 PREC = 5
 

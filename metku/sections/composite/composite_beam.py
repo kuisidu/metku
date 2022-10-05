@@ -16,12 +16,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-try:
-    from metku.eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
-    
-except:
-    from eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
-    from eurocodes.en1994 import en1994_1_1
+from metku.eurocodes.en1993 import en1993_1_1, en1993_1_5, constants
+from metku.eurocodes.en1994 import en1994_1_1
     
 
 class ConcreteSlab:

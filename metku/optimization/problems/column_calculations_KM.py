@@ -6,13 +6,13 @@
 @author: Victoria
 """
 
-from frame2d.frame2d import *
-from optimization.structopt import *
-from optimization.problems.wi_column import WIColumn
-from optimization.solvers import slsqp, slp, slqp
-from optimization.solvers.trust_region import TrustRegionConstr
+from metku.frame2d.frame2d import *
+from metku.optimization.structopt import *
+from metku.optimization.problems.wi_column import WIColumn
+from metku.optimization.solvers import slsqp, slp, slqp
+from metku.optimization.solvers.trust_region import TrustRegionConstr
 #from optimization.result_exporter import *
-from eurocodes.en1993 import en1993_1_1
+from metku.eurocodes.en1993 import en1993_1_1
 
 q_wind = 0.00065  # N/mm2    
 q_snow = 0.002  # N/mm2    

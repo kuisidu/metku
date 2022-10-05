@@ -12,17 +12,12 @@ Limitations:
 - Results are not perfect, for example pso.py gives better results than this algorithm.
 '''
 
-try:
-    from metku.optimization.solvers import OptSolver
-    from metku.frame2d import simple_truss
-    from metku.optimization.structopt import Variable, OptimizationProblem, \
-        IndexVariable, DiscreteVariable, IntegerVariable
-    from metku.optimization.solvers.optsolver import OptSolver, G_TOL
-except:
-    from optimization.solvers import OptSolver
-    from optimization.structopt import Variable, OptimizationProblem, \
-        IndexVariable, DiscreteVariable, IntegerVariable
-    from optimization.solvers.optsolver import OptSolver, G_TOL
+
+from metku.optimization.solvers import OptSolver
+from metku.frame2d import simple_truss
+from metku.optimization.structopt import Variable, OptimizationProblem, \
+    IndexVariable, DiscreteVariable, IntegerVariable
+from metku.optimization.solvers.optsolver import OptSolver, G_TOL
 
 import numpy as np
 import warnings

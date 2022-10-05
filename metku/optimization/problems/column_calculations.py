@@ -9,31 +9,19 @@ Pilarin laskentatehtävä.
 
 import time
 
-try:
-    from metku.frame2d.frame2d import *
-    from metku.optimization.solvers.optsolver import OptSolver
-    # from metku.optimization.structopt import *
-    import metku.optimization.structopt as sopt
-    from metku.optimization.problems.wi_column import WIColumn
-    from metku.optimization.solvers import slsqp, slp, slqp, mislp, two_phase
-    from metku.optimization.solvers.trust_region import TrustRegionConstr
-    from metku.optimization.solvers.bnb import BnB
-    from metku.optimization.solvers.lp import LP
-    from metku.optimization.result_exporter import *
-    from metku.eurocodes.en1993 import en1993_1_1
-except:
-    from frame2d.frame2d import *
-    from optimization.solvers.optsolver import OptSolver
-    from optimization.structopt import *
-    import optimization.structopt as sopt
-    from optimization.problems.wi_column import WIColumn
-    from optimization.solvers import slsqp, slp, slqp, mislp, two_phase
-    from optimization.solvers.trust_region import TrustRegionConstr
-    from optimization.solvers.bnb import BnB
-    from optimization.solvers.lp import LP
-    from optimization.result_exporter import *
-    from eurocodes.en1993 import en1993_1_1
-    from copy import deepcopy
+
+from metku.frame2d.frame2d import *
+from metku.optimization.solvers.optsolver import OptSolver
+# from metku.optimization.structopt import *
+import metku.optimization.structopt as sopt
+from metku.optimization.problems.wi_column import WIColumn
+from metku.optimization.solvers import slsqp, slp, slqp, mislp, two_phase
+from metku.optimization.solvers.trust_region import TrustRegionConstr
+from metku.optimization.solvers.bnb import BnB
+from metku.optimization.solvers.lp import LP
+from metku.optimization.result_exporter import *
+from metku.eurocodes.en1993 import en1993_1_1
+
 
 
 class ColumnCalculation(WIColumn):

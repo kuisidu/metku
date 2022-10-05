@@ -3,12 +3,8 @@
 # Copyright 2022 Kristo Mela
 # -*- coding: utf-8 -*-
 
-try:
-    from metku.optimization.structopt import *
-    from metku.frame2d.frame2d import *
-except:
-    from optimization.structopt import *
-    from frame2d.frame2d import *
+from metku.optimization.structopt import *
+from metku.frame2d.frame2d import *
 
 
 THREE_BAR_AREAS_mm2 = [71.613, 90.968, 112.258, 141.935, 174.193, 185.161,

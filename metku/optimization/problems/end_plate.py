@@ -16,18 +16,11 @@ from openpyxl import Workbook, load_workbook
 import matplotlib.pyplot as plt
 import sys
 
-try:
-    from metku.frame2d.frame2d import SteelBeam
-    from metku.sections.steel import SteelSection
-    from metku.optimization.structopt import *
-    from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
-    from metku.sections.steel import ISection, WISection, RHS
-except:
-    #from optimization.structopt import     
-    import optimization.structopt as sopt
-    from structures.steel.plates import THICKNESSES
-    from eurocodes.en1993.en1993_1_8.en1993_1_8 import SHEAR_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE
-    from eurocodes.en1993.en1993_1_8.en1993_1_8 import bolt_sizes
+   
+import metku.optimization.structopt as sopt
+from metku.structures.steel.plates import THICKNESSES
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import SHEAR_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import bolt_sizes
 
 class EndPlateOpt(sopt.OptimizationProblem):
     """

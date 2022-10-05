@@ -2,11 +2,11 @@
 # Copyright 2022 Kristo Mela
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Author(s): Kristo Mela
-from frame2d.frame2d import *
-from optimization.structopt import *
-from sections.steel.catalogue import rhs_profiles, ipe_profiles
-from truss2d import *
-from optimization.solvers import *
+from metku.frame2d.frame2d import *
+from metku.optimization.structopt import *
+from metku.sections.steel.catalogue import rhs_profiles, ipe_profiles
+from metku.truss2d import *
+from metku.optimization.solvers import *
 
 RHS_PROFILES = list(rhs_profiles.keys())
 

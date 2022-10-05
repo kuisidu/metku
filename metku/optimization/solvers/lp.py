@@ -17,15 +17,10 @@ import time
 
 # import gurobipy as grb
 
-try:
-    from metku.optimization.solvers.optsolver import OptSolver
-    import metku.optimization.structopt as sopt
-    from metku.optimization.benchmarks import *
-except:
-    from optimization.solvers.optsolver import OptSolver
-    import optimization.structopt as sopt
-    from optimization.benchmarks import *
-    
+from metku.optimization.solvers.optsolver import OptSolver
+import metku.optimization.structopt as sopt
+from metku.optimization.benchmarks import *
+
 
 #from ortools.linear_solver import pywraplp
 

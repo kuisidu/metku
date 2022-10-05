@@ -12,21 +12,12 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import MaxNLocator
 
-try:
-    from metku.frame2d.frame2d import *
-    from metku.framefem.framefem import *
-    from metku.sections.steel import *
+from metku.frame2d.frame2d import *
+from metku.framefem.framefem import *
+from metku.sections.steel import *
     
-    from metku.optimization.structopt import DiscreteVariable
-    from metku.optimization.solvers.trust_region import TrustRegionConstr
-except:
-    from frame2d.frame2d import *
-    from framefem.framefem import *
-    from sections.steel import *
-    
-    from optimization.structopt import DiscreteVariable
-    from optimization.solvers.trust_region import TrustRegionConstr
-
+from metku.optimization.structopt import DiscreteVariable
+from metku.optimization.solvers.trust_region import TrustRegionConstr
 
 class ResultExporter:
 

@@ -2,10 +2,10 @@
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Copyright 2022 Kristo Mela
 # -*- coding: utf-8 -*-
-from frame2d.frame2d import *
-from optimization.structopt import *
-from truss2d import Truss2D
-from optimization.solvers import DiscreteVNS
+from metku.frame2d.frame2d import *
+from metku.optimization.structopt import *
+from metku.truss2d import Truss2D
+from metku.optimization.solvers import DiscreteVNS
 
 
 RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',

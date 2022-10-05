@@ -11,10 +11,7 @@ import time
 
 from scipy.optimize import basinhopping
 
-try:
-    from metku.optimization.structopt import OptimizationProblem
-except:
-    from optimization.structopt import OptimizationProblem
+from metku.optimization.structopt import OptimizationProblem
 
 GRAD_TOL = 1e-8
 ABS_F_TOL = 1e-8

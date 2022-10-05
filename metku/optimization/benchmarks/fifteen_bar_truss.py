@@ -3,13 +3,8 @@
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Author(s): Kristo Mela
 
-try:
-    from metku.frame2d.frame2d import *
-    from metku.optimization.structopt import *
-except:
-    from frame2d.frame2d import *
-    from optimization.structopt import *
-#    from optimization.solvers import GA, DiscreteVNS
+from metku.frame2d.frame2d import *
+from metku.optimization.structopt import *
 
 FIFTEEN_BAR_AREAS_in2 = [0.111, 0.141, 0.174, 0.220, 0.270, 0.287, 0.347,
                          0.440, 0.539, 0.954, 1.081, 1.174, 1.333, 1.488,

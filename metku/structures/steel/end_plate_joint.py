@@ -16,21 +16,21 @@ import matplotlib.patches as patches
 import matplotlib.lines as lines
 import os
 
-from sections.steel.ISection import HEA, HEB, IPE
-from structures.steel.plates import RectPlate
-from eurocodes.en1993.constants import gammaM0
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt, BoltRow, BoltRowGroup, stiffness_ratio, full_strength_weld_throat
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW, INNER_ROW, OTHER_INNER_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, OTHER_END_ROW
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW_ADJACENT_TO_STIFFENER, ADJACENT_TO_STIFFENER_ROW
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import TENSION_ROW, SHEAR_ROW, COMBI_ROW
-from eurocodes.en1993.en1993_1_8.en1993_1_8 import nut_size, washer_size
-import eurocodes.en1993.en1993_1_8.component_method as cm
+from metku.sections.steel.ISection import HEA, HEB, IPE
+from metku.structures.steel.plates import RectPlate
+from metku.eurocodes.en1993.constants import gammaM0
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt, BoltRow, BoltRowGroup, stiffness_ratio, full_strength_weld_throat
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW, INNER_ROW, OTHER_INNER_ROW, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, OTHER_END_ROW
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import END_ROW_ADJACENT_TO_STIFFENER, ADJACENT_TO_STIFFENER_ROW
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import TENSION_ROW, SHEAR_ROW, COMBI_ROW
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import nut_size, washer_size
+import metku.eurocodes.en1993.en1993_1_8.component_method as cm
 
-from cost.workshop import Workshop
-from cost.cost_data import BASIC_STEEL_PRICE, steel_grade_add_on, thickness_add_on
-from cost.cost_data import bolt_unit_cost_full_thread as bolt_costs_ft
-from cost.cost_data import bolt_unit_cost_part_thread as bolt_costs_pt
-from cost.cost_data import nut_unit_cost, washer_unit_cost
+from metku.cost.workshop import Workshop
+from metku.cost.cost_data import BASIC_STEEL_PRICE, steel_grade_add_on, thickness_add_on
+from metku.cost.cost_data import bolt_unit_cost_full_thread as bolt_costs_ft
+from metku.cost.cost_data import bolt_unit_cost_part_thread as bolt_costs_pt
+from metku.cost.cost_data import nut_unit_cost, washer_unit_cost
 
 class EndPlateJoint:
     """ Class for end-plate connections """
@@ -1604,8 +1604,8 @@ def olivaers_ex(MjEd=0.0,VjEd = 0.0, rows = 4, extended=True):
 
 if __name__ == '__main__':
     
-    from sections.steel.ISection import HEA, HEB, IPE
-    from eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt
+    from metku.sections.steel.ISection import HEA, HEB, IPE
+    from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import Bolt
     
     conn = diax_ex_rows(rows=4)
     #conn = example_1()

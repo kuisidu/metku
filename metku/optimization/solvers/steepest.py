@@ -17,13 +17,8 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 import  matplotlib.pyplot as plt
 
-try:
-    import metku.optimization.structopt as sopt
-    from metku.optimization.solvers.optsolver import OptSolver
-except:
-    import optimization.structopt as sopt
-    from optimization.solvers.optsolver import OptSolver
-
+import metku.optimization.structopt as sopt
+from metku.optimization.solvers.optsolver import OptSolver
 
 GRAD_TOL = 1e-8
 ABS_F_TOL = 1e-8

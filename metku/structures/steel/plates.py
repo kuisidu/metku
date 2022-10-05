@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import math
 
-from cost.workshop import Workshop
-from cost.cost_data import BASIC_STEEL_PRICE, steel_grade_add_on, thickness_add_on
+from metku.cost.workshop import Workshop
+from metku.cost.cost_data import BASIC_STEEL_PRICE, steel_grade_add_on, thickness_add_on
 
-from materials.steel_data import Steel
+from metku.materials.steel_data import Steel
 
 """ Default thicknesses from SSAB """
 THICKNESSES = [4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 20, 22, 25, 30]

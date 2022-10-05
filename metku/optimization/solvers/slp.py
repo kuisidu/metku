@@ -7,15 +7,9 @@ from scipy.optimize import linprog
 import numpy as np
 import time
 
-try:
-    from metku.optimization.solvers.optsolver import OptSolver
-    from metku.optimization.structopt import *
-    from metku.optimization.benchmarks import *
-except:
-    from optimization.solvers.optsolver import OptSolver
-    from optimization.structopt import *
-    from optimization.benchmarks import *
-    
+from metku.optimization.solvers.optsolver import OptSolver
+from metku.optimization.structopt import *
+from metku.optimization.benchmarks import *
 
 from ortools.linear_solver import pywraplp
 

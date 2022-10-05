@@ -19,12 +19,12 @@ import matplotlib.path as mpath
 from datetime import datetime
 
 #import ..framefem.framefem as fem
-from framefem import framefem as fem
-from raami.frame_node import FrameNode
-from raami.frame_member import FrameMember, SteelFrameMember
-from raami.frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination
-from raami.frame_supports import Support, FixedSupport, XYHingedSupport, XHingedSupport, YHingedSupport
-from raami.exports import AbaqusOptions
+from metku.framefem import framefem as fem
+from metku.raami.frame_node import FrameNode
+from metku.raami.frame_member import FrameMember, SteelFrameMember
+from metku.raami.frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination
+from metku.raami.frame_supports import Support, FixedSupport, XYHingedSupport, XHingedSupport, YHingedSupport
+from metku.raami.exports import AbaqusOptions
 
 #from loadIDs import LoadIDs
 
@@ -1146,7 +1146,7 @@ class Raami:
             
 if __name__ == '__main__':
     
-    from sections.steel.RHS import RHS, SHS
+    from metku.sections.steel.RHS import RHS, SHS
     import cProfile
     
     f = Raami()

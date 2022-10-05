@@ -3,12 +3,9 @@
 # Copyright 2022 Kristo Mela
 # -*- coding: utf-8 -*-
 
-try:
-    from metku.frame2d.frame2d import *
-    from metku.optimization.structopt import *
-except:
-    from frame2d.frame2d import *
-    from optimization.structopt import *
+from metku.frame2d.frame2d import *
+from metku.optimization.structopt import *
+
 
 AISC_PROFILE_AREAS = [71.613, 90.968, 126.451, 161.29, 198.064, 252.258,
                       285.161, 363.225, 388.386, 494.193, 506.451, 641.289,

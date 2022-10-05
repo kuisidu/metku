@@ -4,13 +4,9 @@
 # Author(s): Kristo Mela
 import numpy as np
 
-try:
-    from metku.optimization.solvers import OptSolver
-    from metku.optimization.structopt import DiscreteVariable, Variable
-except:
-    from optimization.solvers import OptSolver
-    from optimization.structopt import DiscreteVariable
-    
+
+from metku.optimization.solvers import OptSolver
+from metku.optimization.structopt import DiscreteVariable, Variable
 
 """
 phase 1:
