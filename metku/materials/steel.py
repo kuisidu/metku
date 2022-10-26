@@ -6,6 +6,7 @@
 
 from dataclasses import dataclass, field
 
+
 @dataclass
 class SteelMaterial:
     """
@@ -20,11 +21,11 @@ class SteelMaterial:
         E: 210, [GPa]
         rho: 7850 [kg/m³]
     """
-    fy: float # MPa
-    fu: float # MPa
-    fy_40: float = None # Yield strength when thickness over 40 mm
+    fy: float  # MPa
+    fu: float  # MPa
+    fy_40: float = None  # Yield strength when thickness over 40 mm
     nu: float = 0.3
-    E: float = 210  # GPa
+    E: float = 210e3  # MPa
     rho: float = 7850  # kg / m³
 
     def __post_init__(self):
@@ -59,7 +60,6 @@ class StainlessSteel:
     EN14301_hotsrip = SteelMaterial(fy=210, fu=520, E=200)
     EN14301_hotplate = SteelMaterial(fy=210, fu=520, E=200)
     EN14301_sections = SteelMaterial(fy=190, fu=500, E=200)
-
 
 if __name__ == '__main__':
     s235 = Steel.S235

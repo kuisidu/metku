@@ -32,7 +32,8 @@ from itertools import product
 from functools import lru_cache
 import copy
 
-from metku.eurocodes.en1991.loadIDs import LoadIDs
+#from metku.eurocodes.en1991.loadIDs import LoadIDs
+from metku.frame2d import LoadIDs
 
 from metku.optimization.constants import XLB, XUB, CACHE_BOUND
 from metku.optimization.variables import Variable, DiscreteVariable, IntegerVariable

@@ -3,12 +3,8 @@
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Author(s): Kristo Mela
 
-from metku.optimization.structopt import *
 from metku.frame2d.frame2d import *
-
-
-import numpy as np
-
+from metku.optimization.structopt import *
 
 ten_bar_DLM = [41, 0, 38, 31, 0, 0, 27, 38, 37, 0]
 ten_bar_TwoPhase = [41, 0, 38, 32, 0, 0, 27, 37, 37, 0]
@@ -17,11 +13,10 @@ ten_bar_PSO = [40, 0, 38, 29, 0, 0, 27, 39, 37, 1]
 
 
 TEN_BAR_AREAS_in2 = [1.62, 1.80, 1.99, 2.13, 2.38, 2.62, 2.63, 2.88, 2.93,
-                    3.09, 3.13, 3.38, 3.47, 3.55, 3.63, 3.84, 3.87, 3.88,
-                    4.18, 4.22, 4.49, 4.59, 4.80, 4.97, 5.12, 5.74, 7.22,
-                    7.97, 11.50, 13.50, 13.90, 14.20, 15.50, 16.00, 16.90,
-                    18.80, 19.90, 22.00, 22.90, 26.50, 30.00, 33.50]
-
+                     3.09, 3.13, 3.38, 3.47, 3.55, 3.63, 3.84, 3.87, 3.88,
+                     4.18, 4.22, 4.49, 4.59, 4.80, 4.97, 5.12, 5.74, 7.22,
+                     7.97, 11.50, 13.50, 13.90, 14.20, 15.50, 16.00, 16.90,
+                     18.80, 19.90, 22.00, 22.90, 26.50, 30.00, 33.50]
 
 TEN_BAR_AREAS_mm2 = [1044.9, 1161.0, 1283.55, 1373.85, 1535.1, 1689.9,
                      1696.35, 1857.6, 1889.85, 1993.05, 2018.85, 2180.1,
@@ -31,12 +26,12 @@ TEN_BAR_AREAS_mm2 = [1044.9, 1161.0, 1283.55, 1373.85, 1535.1, 1689.9,
                      9159.0, 9997.5, 10320.0, 10900.5, 12126.0, 12835.5,
                      14190.0, 14770.5, 17092.5, 19350.0, 21607.5]
 
-class TenBarTruss(OptimizationProblem):
 
+class TenBarTruss(OptimizationProblem):
     # Problem parameters
-    L = 9144    # mm
-    F = 444890  # N
-    E = 68950   # MPa
+    L = 9144  # mm
+    F = 444_890  # N
+    E = 68950  # MPa
     rho = 2768e-9  # kg/mm3
 
     properties = {
@@ -48,8 +43,7 @@ class TenBarTruss(OptimizationProblem):
 
     # Constraint limits
     sigma_max = 172.37  # MPa
-    delta_max = 50.8    # mm
-
+    delta_max = 50.8  # mm
 
     def __init__(self, prob_type="discrete"):
 
@@ -59,7 +53,6 @@ class TenBarTruss(OptimizationProblem):
         self.create_variables(profiles=TEN_BAR_AREAS_mm2)
         self.create_constraints()
         self.create_objective()
-
 
     def create_variables(self, profiles=[0, 1e6]):
         """
@@ -72,9 +65,9 @@ class TenBarTruss(OptimizationProblem):
             name = 'A' + str(i + 1)
             if self.prob_type == "discrete":
                 var = DiscreteVariable(name,
-                                    values=profiles,
-                                    target={"property": "A",
-                                            "objects": [mem]})
+                                       values=profiles,
+                                       target={"property": "A",
+                                               "objects": [mem]})
 
             elif self.prob_type == "continuous":
                 var = Variable(name,
@@ -85,9 +78,12 @@ class TenBarTruss(OptimizationProblem):
 
             elif self.prob_type == 'index':
                 var = IndexVariable(name,
-                                   values=profiles,
-                                   target={"property": "A",
-                                           "objects": [mem]})
+                                    values=profiles,
+                                    target={"property": "A",
+                                            "objects": [mem]})
+
+
+
 
 
             else:
@@ -95,9 +91,7 @@ class TenBarTruss(OptimizationProblem):
                 raise TypeError("Problem type must be either 'discrete' "
                                 "or 'continuous")
 
-
             self.add(var)
-
 
     def _create_structure(self):
         """
@@ -139,8 +133,8 @@ class TenBarTruss(OptimizationProblem):
         frame.add(XYHingedSupport(n5))
         frame.add(XYHingedSupport(n6))
         # Point loads
-        frame.add(PointLoad(n4, [0, -self.F, 0]))
-        frame.add(PointLoad(n2, [0, -self.F, 0]))
+        frame.add(PointLoad(n4, [0, -self.F, 0], load_id=LoadIDs.ULS))
+        frame.add(PointLoad(n2, [0, -self.F, 0], load_id=LoadIDs.ULS))
         # Change material properties
         for mem in frame.members.values():
             mem.material.fy = self.sigma_max
@@ -149,27 +143,25 @@ class TenBarTruss(OptimizationProblem):
             mem.rho = self.rho
             mem.Sj1 = 0
             mem.Sj2 = 0
+
         frame.generate()
         frame.calculate()
 
         return frame
 
-
     def constraint_generator(self, mem):
 
         def compression_fun(x):
-            return -mem.ned / (mem.A * mem.fy) - 1
+            return -mem.NEd[LoadIDs.ULS] / (mem.A * mem.fy) - 1
 
         def tension_fun(x):
-
-            return mem.ned / (mem.A * mem.fy) - 1
+            return mem.NEd[LoadIDs.ULS] / (mem.A * mem.fy) - 1
 
         def disp_fun(x):
-            displacementsList = list(mem.nodal_displacements.values())
-            displacementsMultipleArrays = displacementsList[0].values()
-
-            max_vals = [max(array) for array in displacementsMultipleArrays]
-            min_vals = [min(array) for array in displacementsMultipleArrays]
+            displacements = mem.nodal_displacements[LoadIDs.ULS]
+            # disp = [dx, dy, rz]
+            max_vals = [disp[1] for disp in displacements.values()]
+            min_vals = [disp[1] for disp in displacements.values()]
 
             max_val = max(max_vals)
             min_val = min(min_vals)
@@ -190,24 +182,23 @@ class TenBarTruss(OptimizationProblem):
                     i += 1
                     compression_fun, tension_fun, disp_fun = self.constraint_generator(mem)
 
-
                     comp_con = NonLinearConstraint(con_fun=compression_fun,
-                                                 name="Compression " + str(i),
-                                                 )
+                                                   name="Compression " + str(i),
+                                                   )
                     comp_con.fea_required = True
 
                     tension_con = NonLinearConstraint(con_fun=tension_fun,
-                                                     name="Tension " + str(i))
+                                                      name="Tension " + str(i))
                     tension_con.fea_required = True
 
-
                     disp_con = NonLinearConstraint(con_fun=disp_fun,
-                                                 name='Displacement ' + str(i),
-                                                 )
+                                                   name='Displacement ' + str(i),
+                                                   )
                     disp_con.fea_required = True
+
                     self.add(comp_con)
                     self.add(tension_con)
-                    #self.add(disp_con)
+                    self.add(disp_con)
 
     def create_objective(self):
 
@@ -215,7 +206,7 @@ class TenBarTruss(OptimizationProblem):
             self.substitute_variables(X)
             weight = 0
             for mem in self.structure.members.values():
-                weight += mem.weight
+                weight += mem.length * mem.A * self.rho
             return weight
 
         obj = ObjectiveFunction(name="Weight",
@@ -225,19 +216,16 @@ class TenBarTruss(OptimizationProblem):
 
 
 if __name__ == '__main__':
+    from metku.optimization.solvers import SLP
 
-    from metku.optimization.solvers import *
 
-    problem = TenBarTruss('discrete')
-    solver = MISLP([0.05, 0.05], 1e-2)
+    problem = TenBarTruss('continuous')
+    solver = SLP([0.05, 0.05], 1e-2)
     x0 = [var.ub for var in problem.vars]
-    solver.solve
+
+
     problem(x0)
-    print("X0: ", x0)
-    #fopt, xopt = solver.solve(problem, x0=x0, maxiter=300, verb=True, plot=True)
-    #problem(xopt)
-    # problem([21607.5, 1044.9, 14770.5, 9997.5, 1044.9, 1044.9, 5140.65, 14190.0, 14190.0, 1044.9])
-    # problem(ten_bar_PSO)
-
-
+    fopt, xopt = solver.solve(problem, x0=x0, verb=True, maxiter=50, plot=False)
+    problem(xopt)
+    problem.structure.plot_deflection(20)
 
