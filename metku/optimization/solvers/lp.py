@@ -10,7 +10,6 @@ Solving linear programming problems.
 @author: kmela
 """
 
-
 from scipy.optimize import linprog
 import numpy as np
 import time
@@ -19,8 +18,6 @@ import time
 
 from metku.optimization.solvers.optsolver import OptSolver
 import metku.optimization.structopt as sopt
-from metku.optimization.benchmarks import *
-
 
 #from ortools.linear_solver import pywraplp
 

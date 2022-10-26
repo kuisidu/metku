@@ -228,10 +228,10 @@ if __name__ == '__main__':
 
     from metku.optimization.solvers import *
 
-    problem = TenBarTruss('continuous')
+    problem = TenBarTruss('discrete')
     solver = MISLP([0.05, 0.05], 1e-2)
     x0 = [var.ub for var in problem.vars]
-    
+    solver.solve
     problem(x0)
     print("X0: ", x0)
     #fopt, xopt = solver.solve(problem, x0=x0, maxiter=300, verb=True, plot=True)

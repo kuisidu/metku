@@ -15,7 +15,10 @@ import numpy as np
 
 from metku.eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint
 from metku.raami.raami_plane_truss import TubularKGapJoint
-import metku.optimization.structopt as sop
+from metku.optimization.structopt import OptimizationProblem
+from metku.optimization.variables import Variable
+from metku.optimization.constraints import NonLinearConstraint, LinearConstraint
+from metku.optimization.objective import ObjectiveFunction
 from metku.optimization.solvers.slsqp import SLSQP
 from metku.optimization.solvers.trust_region import TrustRegionConstr
 
@@ -78,7 +81,7 @@ def minimize_eccentricity(truss,min_gap=20):
     xlb = -200
     xub = 200
     # Create empty optimization problem
-    P = sop.OptimizationProblem(structure=truss)
+    P = OptimizationProblem(structure=truss)
     
     # Create joint variables and constraints
     for key, joint in truss.joints.items():
@@ -86,21 +89,21 @@ def minimize_eccentricity(truss,min_gap=20):
         # half of the joints.
         if joint.node.x <= 0.5*truss.span:            
             if joint == truss.ridge_joint:
-                new_var = sop.Variable(f'y_{key}',lb=-0.55*joint.h0,ub=0.25*joint.h0,value=0.1*joint.h0,
+                new_var = Variable(f'y_{key}',lb=-0.55*joint.h0,ub=0.25*joint.h0,value=0.1*joint.h0,
                                    target={'property':'yloc','objects':[joint]})
                 P.add(new_var)
                 
                 # Add constraints for the gap
                 gap_ub, gap_lb = gap_constraint(joint,min_gap)
-                gap_ub_con = sop.NonLinearConstraint(gap_ub,con_type="<",name=f'Gap upper bound, joint {key}',problem=P)
-                gap_lb_con = sop.NonLinearConstraint(gap_lb,con_type="<",name=f'Gap lower bound, joint {key}',problem=P)
+                gap_ub_con = NonLinearConstraint(gap_ub,con_type="<",name=f'Gap upper bound, joint {key}',problem=P)
+                gap_lb_con = NonLinearConstraint(gap_lb,con_type="<",name=f'Gap lower bound, joint {key}',problem=P)
                 P.add(gap_ub_con)
                 P.add(gap_lb_con)
             elif isinstance(joint,TubularKGapJoint):
                 
-                new_y_var = sop.Variable(f'y_{key}',lb=-0.55*joint.h0,ub=0.25*joint.h0,value=0.1*joint.h0,
+                new_y_var = Variable(f'y_{key}',lb=-0.55*joint.h0,ub=0.25*joint.h0,value=0.1*joint.h0,
                                          target={'property':'yloc','objects':[joint]})
-                new_x_var = sop.Variable(f'x_{key}',lb=xlb,ub=xub,value=0,
+                new_x_var = Variable(f'x_{key}',lb=xlb,ub=xub,value=0,
                                          target={'property':'xloc','objects':[joint]})
                 
                 P.add(new_y_var)                
@@ -108,8 +111,8 @@ def minimize_eccentricity(truss,min_gap=20):
                 
                 # Add constraints for the gap
                 gap_ub, gap_lb = gap_constraint(joint,min_gap)
-                gap_ub_con = sop.NonLinearConstraint(gap_ub,con_type="<",name=f'Gap upper bound, joint {key}',problem=P)
-                gap_lb_con = sop.NonLinearConstraint(gap_lb,con_type="<",name=f'Gap lower bound, joint {key}',problem=P)
+                gap_ub_con = NonLinearConstraint(gap_ub,con_type="<",name=f'Gap upper bound, joint {key}',problem=P)
+                gap_lb_con = NonLinearConstraint(gap_lb,con_type="<",name=f'Gap lower bound, joint {key}',problem=P)
                 P.add(gap_ub_con)
                 P.add(gap_lb_con)
     
@@ -144,13 +147,13 @@ def minimize_eccentricity(truss,min_gap=20):
                         a[i] = -var.target['objects'][0].chords[0].perpendicular[0]
             
             if any(a):            
-                P.add(sop.LinearConstraint(a,b=0,con_type="=",name=f"Vertical brace {key}"))
+                P.add(LinearConstraint(a,b=0,con_type="=",name=f"Vertical brace {key}"))
             
     #
     
     # Objective function
     obj_fun, obj_grad = total_eccentricity(P.vars)
-    P.add(sop.ObjectiveFunction("Eccentricity", obj_fun))
+    P.add(ObjectiveFunction("Eccentricity", obj_fun))
     P.grad = obj_grad
     
     return P, x0

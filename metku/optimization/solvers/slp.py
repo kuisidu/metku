@@ -3,15 +3,12 @@
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Author(s): Kristo Mela
 
-from scipy.optimize import linprog
-import numpy as np
-import time
 
-from metku.optimization.solvers.optsolver import OptSolver
-from metku.optimization.structopt import *
-from metku.optimization.benchmarks import *
+import numpy as np
 
 from ortools.linear_solver import pywraplp
+
+from metku.optimization.solvers.optsolver import OptSolver
 
 class SLP(OptSolver):
     """ Solver class for Sequential Linear Programming Method (SLP) """
@@ -134,11 +131,12 @@ class SLP(OptSolver):
         return self.X.copy(), 1, False, 'INFO'
 
 if __name__ == '__main__':
-
-    problem = FifteenBarTruss(prob_type='continuous')
+    from metku.optimization.benchmarks import *
+    problem = ThreeBarTruss("continuous")
+    #problem = FifteenBarTruss(prob_type='continuous')
     x0 = [var.ub for var in problem.vars]
-    solver = SLP(move_limits=[0.15, 0.15], gamma=1e-3)
-    fopt, xopt = solver.solve(problem, x0=x0, maxiter=100, log=True, verb=True, plot=True)
+    solver = SLP(move_limits=[0.25, 0.25], gamma=1e-3)
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=100, log=False, verb=True, plot=False)
     problem(xopt)
     # #
     # # import matplotlib.pyplot as plt

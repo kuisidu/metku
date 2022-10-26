@@ -5,7 +5,7 @@
 from metku.frame2d.frame2d import *
 from metku.optimization.structopt import *
 from metku.sections.steel.catalogue import rhs_profiles, ipe_profiles
-from metku.truss2d import *
+#from metku.truss2d import *
 from metku.optimization.solvers import *
 
 RHS_PROFILES = list(rhs_profiles.keys())
@@ -330,7 +330,7 @@ class ThreeBarTruss(OptimizationProblem):
         frame.add(PointLoad(n4, [-self.F, -self.F, 0]))
         # Change material properties
         for mem in frame.members.values():
-            mem.cross_section.fy = self.sigma_max
+            mem.fy = self.sigma_max
             mem.E = self.E  # MPa
             mem.A = THREE_BAR_AREAS_mm2[0]
             mem.Sj1 = 0
@@ -424,17 +424,17 @@ class ThreeBarTruss(OptimizationProblem):
 
                     stress_con = NonLinearConstraint(con_fun=stress_fun,
                                                  name="Stress " + str(i),
-                                                 parent=self)
+                                                 problem=self)
                     stress_con.fea_required = True
 
                     buckling_con = NonLinearConstraint(con_fun=buckling_fun,
                                                      name="Buckling " + str(i),
-                                                     parent=self)
+                                                     problem=self)
                     buckling_con.fea_required = True
 
                     disp_con = NonLinearConstraint(con_fun=disp_fun,
                                                  name='Displacement ' + str(i),
-                                                 parent=self)
+                                                 problem=self)
                     disp_con.fea_required = True
 
                     self.cons.append(stress_con)
@@ -992,10 +992,16 @@ def plot_convex_hull():
     plt.show()
 
 if __name__ == '__main__':
-    problem = TenBarTruss(prob_type='continuous')
-    solver = SLSQP()
-    solver.solve(problem, maxiter=100)
+    #problem = TenBarTruss(prob_type='continuous')
+    #solver = SLSQP()
+    #solver.solve(problem, maxiter=100)
 
+    problem = ThreeBarTruss("continuous")
+    #problem = FifteenBarTruss(prob_type='continuous')
+    x0 = [var.ub for var in problem.vars]
+    solver = SLP(move_limits=[0.25, 0.25], gamma=1e-3)
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=100, log=False, verb=True, plot=False)
+    problem(xopt)
 
     # solver = GA()
     # solver.solve(problem, maxiter=100 )

@@ -43,12 +43,12 @@ def LauriKTruss(span,h2,h1,dx,nel_chord=4,nel_brace=4,ndiv=4):
         
     solver = SLSQP()
     #solver = TrustRegionConstr()
-    min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
+    #min_ecc, xmin = solver.solve(P,x0=x0,verb=True)
     #t.plot(geometry=True,loads=False)
     
-    t.clear_fem()
-    t.generate_fem(model="ecc_elements")
-    t.fem.draw()
+    #t.clear_fem()
+    #t.generate_fem(model="ecc_elements")
+    #t.fem.draw()
     
     #t.print_member_utilization('Utilization.txt')
     

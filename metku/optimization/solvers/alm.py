@@ -7,21 +7,15 @@ Created on Tue Oct 6 12:17 2020
 
 Augmented Lagrangian method
 
-For unconstrained optimization
+For constrained optimization
 
 @author: kmela
 """
 
-import numpy as np
+#import numpy as np
 
 from scipy.optimize import minimize
-import  matplotlib.pyplot as plt
-
-
-import metku.optimization.structopt as sopt
 from metku.optimization.solvers.optsolver import OptSolver
-
-
 
 class ALM(OptSolver):
     """ Augmented Lagrangian method """

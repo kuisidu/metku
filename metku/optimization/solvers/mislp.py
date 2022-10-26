@@ -3,13 +3,12 @@
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Author(s): Kristo Mela
 
+import numpy as np
+
 from ortools.linear_solver import pywraplp
 
-
 from metku.optimization.solvers.optsolver import OptSolver
-from metku.optimization.structopt import *
-
-
+from metku.optimization.variables import DiscreteVariable
 
 class MISLP(OptSolver):
 
@@ -181,7 +180,7 @@ if __name__ == '__main__':
     problem = TenBarTruss(prob_type='discrete')
     solver = MISLP(move_limits=[0.3, 0.3], gamma=1e-2)
     x0 = [var.ub for var in problem.vars]
-    solver.solve(problem, x0=x0, maxiter=300, log=True, verb=True)
+    solver.solve(problem, x0=x0, maxiter=300, log=False, verb=True)
     problem(solver.X)
 
     # plt.plot(solver.fvals)

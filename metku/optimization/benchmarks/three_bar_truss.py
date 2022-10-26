@@ -84,7 +84,7 @@ class ThreeBarTruss(OptimizationProblem):
         frame.add(PointLoad(n4, [-self.F, -self.F, 0]))
         # Change material properties
         for mem in frame.members.values():
-            mem.cross_section.fy = self.sigma_max
+            mem.fy = self.sigma_max
             mem.E = self.E  # MPa
             mem.A = THREE_BAR_AREAS_mm2[0]
             mem.Sj1 = 0

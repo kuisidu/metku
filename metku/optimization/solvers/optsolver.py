@@ -6,34 +6,23 @@ import time
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import time
 
-from scipy.optimize import basinhopping
-
-from metku.optimization.structopt import OptimizationProblem
-
-GRAD_TOL = 1e-8
-ABS_F_TOL = 1e-8
-REL_F_TOL = 1e-4
-G_TOL = 1e-8
-X_TOL = 1e-8
-
+from metku.optimization.constants import GRAD_TOL, ABS_F_TOL, REL_F_TOL, G_TOL, X_TOL 
 
 class OptSolver:
     """
         Base class for optimization problem solvers
     """
 
-    def __init__(self):
+    def __init__(self):    
         self.constr_vals = np.array([-1])
-        self.X = np.array([])
-        self.problem = None
-        self.fvals = []
-        self.xvals = []
-        self.best_f = np.inf
-        self.best_x = None
-        self.feasible = False
+        self.X = np.array([]) # Current iterate
+        self.problem = None   # OptimizationProblem class object, problem to be solved
+        self.fvals = []       # List of objective function values at different iterations
+        self.xvals = []       # List of iterates
+        self.best_f = np.inf  # Best known objective function value
+        self.best_x = None    # Best found design
+        self.feasible = False # Flag to determine if a feasible solution has been found
         self.message = None
 
     def calc_constraints(self, x=[]):
@@ -137,11 +126,15 @@ class OptSolver:
         return res
 
     def take_action(self):
+        """ This method needs to be implemented for each solver separately """
         pass
 
     def update_plot(self, fig, ax):
         """
         Updates the plotted figure
+        
+        NOTE: This method seems dedundant, maybe remove it? (KMe, 6.10.2022)
+        
         :return:
         """
         ax.clear()
@@ -178,23 +171,19 @@ class OptSolver:
               min_diff=1e-5, verb=False, plot=False):
 
         """
-        Solves given problem
+        Main iteration loop. Solves given problem
 
         :param problem:
         :param maxiter:
         :param maxtime:
         :return:
         """
-        # If maxiter or maxtime aren't defined use 100 as maxiter
-        if maxiter <= 0 and maxtime <= 0:
+        if maxiter < 0:
             maxiter = 100
-        # If only maxtime is defined, use large maxiter val
-        elif maxiter == -1:
-            maxiter = 1000000000
-        # If only maxiter is defined, use large maxtime val
-        elif maxtime == -1:
-            maxtime = 1000000000
-
+        
+        if maxtime < 0:
+            maxtime = 1e9
+                
 
         # Assign problem
         self.problem = problem
@@ -206,6 +195,7 @@ class OptSolver:
             self.X = self.random_feasible_point()
             problem.substitute_variables(self.X)
 
+        # Store initial point
         self.xvals.append(np.array(x0))
         self.fvals.append(problem.obj(x0))
 
@@ -229,24 +219,34 @@ class OptSolver:
             start = time.time()
             t_0 = time.process_time()
             if t_total >= maxtime or done:
+                print(t_total,maxtime,done)
                 print("T_total - Stopping criterion fulfilled.")
                 break
             # Save previous state
             prev_state = self.X.copy()
-            # Define action to take
+            # Define action to take. For each method, this is the
+            # procedure for updating the design variables.
+            # The take_action method needs to be implemented separately for
+            # each method.
             action = self.take_action()
             # Take step
             state, reward, done, info = self.step(action)
-            # If new state is almost same as previous
-            if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff):
-                print("Sufficiently small change in variable values in consecutive iterations.")
-                print(state,prev_state)
+            # If new state is almost same as previous AND the design is feasible,
+            # the iteration can be stopped.
+            # TODO! Add Feasibility Check
+            if self.stopping_criterion('x',x=[self.xvals[-1],state],xtol=X_TOL):
+                print(self.message)
                 done = True
+            
+            #if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff):
+            #    print("Sufficiently small change in variable values in consecutive iterations.")
+            #    print(state,prev_state)
+            #    done = True
                 #break
             
-            if np.all(prev_state == state):
-                print("No change in variable values.")
-                done = True
+            #if np.all(prev_state == state):
+            #    print("No change in variable values.")
+            #    done = True
                 #break
             # Change current state
             self.X = state
@@ -263,25 +263,28 @@ class OptSolver:
             t_total += t_1-t_0
             if verb:
                 print(
-                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval} Feasible: {problem.feasible} '\
+                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {problem.feasible} '\
                     f'max g: {max(self.constr_vals):.4f}')
             if fval < self.best_f and problem.feasible:
                 self.best_f = fval
                 self.best_x = state.copy()
                 if verb:
-                    print(self.best_x)
-                    print(f"New best!: {fval:.2f} {[round(s, 2) for s in state]}")
+                    #print(self.best_x)
+                    print(f"New best!: {fval:.3f} {[round(s, 3) for s in state]}")
             # Log objective vals per iteration
             if log:
-                print("logging X = ",self.X)
+                #if verb:
+                #    print("logging X = ",self.X)
                 problem.num_iters += 1
                 problem.fvals.append(problem.obj(self.X))
                 problem.states.append(list(state))
                 problem.gvals.append(list(self.constr_vals).copy())
                 self.fvals.append(problem.obj(self.X))                
-                self.xvals.append(list(self.X))
+                self.xvals.append(self.X)
             end = time.time()
-            print(f"Iteration took: {end - start :.2f} s")
+            
+            if verb:
+                print(f"Iteration took: {end - start :.2f} s")
             
             if done:
                 break

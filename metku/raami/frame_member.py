@@ -17,8 +17,8 @@ import matplotlib.lines as mlines
 import matplotlib.path as mpath
 
 from metku.structures.steel.steel_member import SteelMember
-from .frame_node import FrameNode
-import framefem.framefem
+from metku.raami.frame_node import FrameNode
+import metku.framefem.framefem
 from metku.framefem.elements.ebbeam import EBBeam, EBBeam3D
 from metku.framefem.elements.rod import Rod
 from metku.sections.steel.catalogue import make_section, ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles, hea_profiles, heb_profiles
@@ -100,7 +100,8 @@ class FrameMember:
         
     """
 
-    def __init__(self,nodes,section,mem_type="beam",mem_id="",nel=2,hinges=[False,False],lcr=[1.0,1.0],sway=False):
+    def __init__(self,nodes,section,mem_type="beam",mem_id="",nel=2,\
+                 hinges=[False,False],lcr=[1.0,1.0],sway=False):
         """
         Constructor
 

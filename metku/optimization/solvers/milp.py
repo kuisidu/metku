@@ -10,6 +10,7 @@ Solving mixed-integer linear programming problems.
 @author: kmela
 """
 
+# TODO! Add a MILP solver from ortools
 
 from scipy.optimize import linprog
 import numpy as np
@@ -19,9 +20,6 @@ import time
 
 from metku.optimization.solvers.optsolver import OptSolver
 import metku.optimization.structopt as sopt
-from metku.optimization.benchmarks import *
-
-    
 
 #from ortools.linear_solver import pywraplp
 
@@ -108,86 +106,3 @@ class MILP(OptSolver):
 
         self.X = X
         #return X
-
-def Arora_Ex62():
-    x1 = sopt.Variable('x1',0,1e4)
-    x2 = sopt.Variable('x2',0,1e4)
-    p = sopt.OptimizationProblem(name="Arora, Example 6.2", variables=[x1,x2])
-    
-    c = [-400,-600]
-    
-    obj = sopt.LinearObjective("Objective",c,problem=p)
-    p.add(obj)
-    
-    cons = []
-    cons.append(sopt.LinearConstraint([1,1],16,name="Con1",problem=p))
-    cons.append(sopt.LinearConstraint([1/28,1/14],1,name="Con2",problem=p))
-    cons.append(sopt.LinearConstraint([1/14,1/24],1,name="Con3",problem=p))
-    
-    for con in cons:
-        p.add(con)
-    
-    solver = LP("gurobi")
-    solver.solve(p)
-    p(solver.X)
-    
-def Arora_Ex63():
-    x1 = sopt.Variable('x1',0,1e4)
-    x2 = sopt.Variable('x2',0,1e4)
-    p = sopt.OptimizationProblem(name="Arora, Example 6.3", variables=[x1,x2])
-    
-    c = [4,5]
-    
-    obj = sopt.LinearObjective("Objective",c,obj_type="MAX",problem=p)
-    p.add(obj)
-    
-    cons = []
-    cons.append(sopt.LinearConstraint([-1,1],4,name="Con1",problem=p))
-    cons.append(sopt.LinearConstraint([1,1],6,name="Con2",problem=p))
-
-    
-    for con in cons:
-        p.add(con)
-    
-    solver = LP("gurobi")
-    solver.solve(p)
-    p(solver.X)
-
-    return solver
-
-def Arora_Ex67():
-    x = []
-    for i in range(4):
-        x.append(sopt.Variable('x'+str(i+1),0,1e4))
-            
-    p = sopt.OptimizationProblem(name="Arora, Example 6.7", variables=x)
-    
-    c = [4,5,0,0]
-    
-    obj = sopt.LinearObjective("Objective",c,obj_type="MAX",problem=p)
-    p.add(obj)
-    
-    cons = []
-    cons.append(sopt.LinearConstraint([-1,1,1,0],4,name="Con1",con_type='=',problem=p))
-    cons.append(sopt.LinearConstraint([1,1,0,1],6,name="Con2",con_type='=',problem=p))
-
-    
-    for con in cons:
-        p.add(con)
-    
-    solver = LP("gurobi")
-    solver.solve(p)
-    p(solver.X)
-    
-    return solver, p
-
-if __name__ == '__main__':
-    
-    solver, p = Arora_Ex67()
-    
-
-    
-    
-    
-    
-

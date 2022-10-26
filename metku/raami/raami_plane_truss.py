@@ -2716,7 +2716,8 @@ class TubularKGapJoint(TubularJoint):
     @property
     def gap(self):
         """ Returns the gap """
-        return self.joint.gap
+        #return self.joint.gap
+        return self.calc_gap()
     
     @property
     def angles(self):

@@ -79,7 +79,8 @@ class SLSQP(OptSolver):
         :param x0: initial guess
 
         :return: fopt, xopt
-        """
+        """        
+        
         self.verb = verb
         self.problem = problem
         self.maxiter = maxiter
@@ -128,10 +129,10 @@ class SLSQP(OptSolver):
                        bounds=bounds,
                        constraints=constraints,
                        options=options,
-                       callback=self.feasibility_stop,
+                       callback=None,
                        )
 
-        print(out)
+        #print(out)
 
         #print(self.calc_constraints(out.x))
         if out.success == True:
