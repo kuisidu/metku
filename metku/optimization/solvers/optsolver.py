@@ -7,16 +7,16 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-from metku.optimization.constants import GRAD_TOL, ABS_F_TOL, REL_F_TOL, G_TOL, X_TOL 
+from metku.optimization.constants import GRAD_TOL, ABS_F_TOL, REL_F_TOL, G_TOL, X_TOL
 
 class OptSolver:
     """
         Base class for optimization problem solvers
     """
 
-    def __init__(self):    
+    def __init__(self):
         self.constr_vals = np.array([-1])
-        self.X = np.array([]) # Current iterate
+        self.X = np.array([], dtype=np.float) # Current iterate
         self.problem = None   # OptimizationProblem class object, problem to be solved
         self.fvals = []       # List of objective function values at different iterations
         self.xvals = []       # List of iterates
@@ -82,7 +82,7 @@ class OptSolver:
             bounds.append(bound)
 
         return bounds
-    
+
     def stopping_criterion(self,criterion='x',**kwargs):
         """ Check various stopping criteria.
             input:
@@ -91,9 +91,9 @@ class OptSolver:
                                 'x' .. compare two design variable vectors
                                 'f' .. compare two objective function values
         """
-        
+
         res = False
-        
+
         if criterion == 'x':
             xtol = X_TOL
             for key, value in kwargs.items():
@@ -101,28 +101,28 @@ class OptSolver:
                     x = value
                 elif key == 'xtol':
                     xtol = value
-    
+
             if np.linalg.norm(x[1]-x[0]) <  xtol*np.linalg.norm(x[0]):
                 res = True
                 self.message = "Stopping criterion fulfilled: relative change to x smaller than tolerance."
         elif criterion == 'f':
             abs_f_tol = ABS_F_TOL
             rel_f_tol = REL_F_TOL
-            
+
             for key, value in kwargs.items():
-                
+
                 if key == 'f':
                     f = value
                 elif key == 'abs_f_tol':
                     abs_f_tol = value
                 elif key == 'rel_f_tol':
                     rel_f_tol = value
-                
-            
+
+
             if abs(f[1]-f[0]) <= abs_f_tol + rel_f_tol*abs(f[1]):
                 res = True
                 self.message = "Stopping criterion fulfilled: relative change to x smaller than tolerance."
-        
+
         return res
 
     def take_action(self):
@@ -180,16 +180,16 @@ class OptSolver:
         """
         if maxiter < 0:
             maxiter = 100
-        
+
         if maxtime < 0:
             maxtime = 1e9
-                
+
 
         # Assign problem
         self.problem = problem
         # If initial starting point is/isn't defined        
         if x0 is not None:
-            self.X = x0
+            self.X = np.asarray(x0, dtype=np.float)
             problem.substitute_variables(x0)
         else:
             self.X = self.random_feasible_point()
@@ -210,7 +210,7 @@ class OptSolver:
         done = False
         # Start iteration
         t_total = 0
-        for i in range(maxiter):            
+        for i in range(maxiter):
             #if verb:
             #    print("*** Iteration {0:g} ***".format(i+1))
             if plot:
@@ -234,23 +234,23 @@ class OptSolver:
             # If new state is almost same as previous AND the design is feasible,
             # the iteration can be stopped.
             # TODO! Add Feasibility Check
-            if self.stopping_criterion('x',x=[self.xvals[-1],state],xtol=X_TOL):
+            if self.stopping_criterion('x', x=[prev_state, state], xtol=X_TOL):
                 print(self.message)
                 done = True
-            
-            #if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff):
+
+            # if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff):
             #    print("Sufficiently small change in variable values in consecutive iterations.")
             #    print(state,prev_state)
             #    done = True
-                #break
-            
+            #     #break
+
             #if np.all(prev_state == state):
             #    print("No change in variable values.")
             #    done = True
                 #break
             # Change current state
             self.X = state
-    
+
             # Substitute new variables
             problem.substitute_variables(state)
             # Calculate constraints
@@ -279,13 +279,13 @@ class OptSolver:
                 problem.fvals.append(problem.obj(self.X))
                 problem.states.append(list(state))
                 problem.gvals.append(list(self.constr_vals).copy())
-                self.fvals.append(problem.obj(self.X))                
+                self.fvals.append(problem.obj(self.X))
                 self.xvals.append(self.X)
             end = time.time()
-            
+
             if verb:
                 print(f"Iteration took: {end - start :.2f} s")
-            
+
             if done:
                 break
 

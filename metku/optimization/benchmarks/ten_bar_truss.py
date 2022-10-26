@@ -152,12 +152,18 @@ class TenBarTruss(OptimizationProblem):
     def constraint_generator(self, mem):
 
         def compression_fun(x):
+            # self.substitute_variables(x)
+            # self.structure.calculate()
             return -mem.NEd[LoadIDs.ULS] / (mem.A * mem.fy) - 1
 
         def tension_fun(x):
+            # self.substitute_variables(x)
+            # self.structure.calculate()
             return mem.NEd[LoadIDs.ULS] / (mem.A * mem.fy) - 1
 
         def disp_fun(x):
+            # self.substitute_variables(x)
+            # self.structure.calculate()
             displacements = mem.nodal_displacements[LoadIDs.ULS]
             # disp = [dx, dy, rz]
             max_vals = [disp[1] for disp in displacements.values()]
@@ -216,16 +222,19 @@ class TenBarTruss(OptimizationProblem):
 
 
 if __name__ == '__main__':
-    from metku.optimization.solvers import SLP
+    from metku.optimization.solvers import SLP, MMA, SLSQP
 
 
     problem = TenBarTruss('continuous')
-    solver = SLP([0.05, 0.05], 1e-2)
-    x0 = [var.ub for var in problem.vars]
+    # solver = SLP([0.05, 0.05], 1e-2)
+    x0 = [np.random.randint(var.lb, var.ub) for var in problem.vars]
+    # x0 = [var.ub for var in problem.vars]
+    solver = MMA()
 
 
-    problem(x0)
-    fopt, xopt = solver.solve(problem, x0=x0, verb=True, maxiter=50, plot=False)
+    #problem(x0)
+    fopt, xopt = solver.solve(problem, x0=x0, verb=True, maxiter=200)
+    print(f"{x0=}")
     problem(xopt)
-    problem.structure.plot_deflection(20)
+    #problem.structure.plot_deflection(20)
 
