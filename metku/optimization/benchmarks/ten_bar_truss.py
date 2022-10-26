@@ -152,18 +152,18 @@ class TenBarTruss(OptimizationProblem):
     def constraint_generator(self, mem):
 
         def compression_fun(x):
-            # self.substitute_variables(x)
-            # self.structure.calculate()
+            self.substitute_variables(x)
+            self.structure.calculate()
             return -mem.NEd[LoadIDs.ULS] / (mem.A * mem.fy) - 1
 
         def tension_fun(x):
-            # self.substitute_variables(x)
-            # self.structure.calculate()
+            self.substitute_variables(x)
+            self.structure.calculate()
             return mem.NEd[LoadIDs.ULS] / (mem.A * mem.fy) - 1
 
         def disp_fun(x):
-            # self.substitute_variables(x)
-            # self.structure.calculate()
+            self.substitute_variables(x)
+            self.structure.calculate()
             displacements = mem.nodal_displacements[LoadIDs.ULS]
             # disp = [dx, dy, rz]
             max_vals = [disp[1] for disp in displacements.values()]
