@@ -4,7 +4,6 @@
 # -*- coding: utf-8 -*-
 """ Genetic algorithm 
     Solver for optimization problems
-
 """
 
 
@@ -20,10 +19,10 @@ from deap import base, creator, tools
 
 import time
 
-
 class GA(OptSolver):
 
-    def __init__(self, pop_size: int = 10,
+    def __init__(self,
+                 pop_size: int = 10,
                  mutation_rate: float = 0.05,
                  crossover_rate: float = 0.8,
                  penalty: callable = None,
@@ -46,10 +45,10 @@ class GA(OptSolver):
             :param crossover_rate: crossover rate
             :param penalty: penalty function, arguments: constraint values
             :param mutation_fun: mutation function,
-             arguments: individual gene
+             arguments: individual chromosome
             :param mutation_kwargs: mutation function parameters
             :param crossover_fun: crossover function,
-             arguments: parent gene1, parent gene2
+             arguments: parent chromosome1, parent chromosome2
             :param crossover_kwargs: crossover function parameters
             :param select: selection function,
              arguments: population
@@ -69,6 +68,10 @@ class GA(OptSolver):
         if crossover_kwargs is None and crossover_fun is None:
             crossover_fun = tools.cxTwoPoint
             crossover_kwargs = {}
+        if penalty is None:
+            def penalty(constr_vals):
+                pos_vals = np.clip(constr_vals, 0, 100)
+                return 2e6 * sum(pos_vals ** 2)
 
         """ Toolbox contains basic evolutionary operators """
         self.toolbox = base.Toolbox()
@@ -86,15 +89,7 @@ class GA(OptSolver):
         self.prev_best = best_f
         self.first_improvement = first_improvement
         self.best_ind = None
-        if penalty is None:
-            def penalty(constr_vals):
-                pos_vals = np.clip(constr_vals, 0, 100)
-                return 2e6 * sum(pos_vals ** 2)
-
-            self.penalty = penalty
-        else:
-            self.penalty = penalty
-
+        self.penalty = penalty
         self.counter = 0
 
     def take_action(self):
