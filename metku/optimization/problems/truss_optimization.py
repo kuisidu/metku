@@ -17,7 +17,12 @@ import re
 from metku.frame2d.frame2d import SteelBeam
 from metku.frame2d.simple_truss import SimpleTruss, three_bar_truss, ten_bar_truss
 from metku.sections.steel import SteelSection
-import metku.optimization.structopt as sop
+
+from metku.optimization.structopt import OptimizationProblem
+from metku.optimization.variables import Variable, DiscreteVariable, IndexVariable, BinaryVariable
+from metku.optimization.constraints import NonLinearConstraint, LinearConstraint
+from metku.optimization.objective import ObjectiveFunction, LinearObjective
+
 from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
 from metku.sections.steel import ISection, WISection, RHS, SHS
 from metku.optimization.solvers.lp import LP
@@ -25,7 +30,7 @@ from metku.optimization.solvers.milp import MILP
 
 
 
-class TrussOptimization(sop.OptimizationProblem):
+class TrussOptimization(OptimizationProblem):
     """
     Class for general structural problem
     
@@ -187,6 +192,8 @@ class TrussOptimization(sop.OptimizationProblem):
 
         if var_type == "area":
             var_prop = 'A'
+            lb = 1e-3
+            ub = 1e5
             if var_cat == "continuous":
                 for key, value in kwargs.items():
                     if key == 'lb':
@@ -197,7 +204,7 @@ class TrussOptimization(sop.OptimizationProblem):
                 x0 = 0.5*(lb+ub)
 
         # If no grouping is given, create a group for each member
-        if self.var_groups is None:
+        if self.var_groups is None or len(self.var_groups) == 0:
             self.var_groups = []
             for mem in self.structure.members.values():
                 group = {
@@ -206,14 +213,18 @@ class TrussOptimization(sop.OptimizationProblem):
                     "value": x0,
                     "profiles": self.profiles,
                     "property": var_prop,
-                    "var_type": 'index',
+                    "var_type": var_cat,
+                    "lb": lb,
+                    "ub": ub
                 }
                 self.var_groups.append(group)
 
+        #print(self.var_groups)
         # Main loop
         for i, group in enumerate(self.var_groups):
+            print(group["var_type"])
             if group["var_type"] == 'discrete':
-                var = sop.DiscreteVariable(
+                var = DiscreteVariable(
                     name=group['name'],
                     values=group['values'],
                     value=group['value'],
@@ -234,7 +245,7 @@ class TrussOptimization(sop.OptimizationProblem):
                                                    group["properties"],
                                                    group["values"]):
                         lb, ub = bounds
-                        var = sop.Variable(
+                        var = Variable(
                             name=group['name'],
                             lb=lb,
                             ub=ub,
@@ -246,7 +257,7 @@ class TrussOptimization(sop.OptimizationProblem):
 
                 # Single property
                 else:
-                    var = sop.Variable(
+                    var = Variable(
                         name=group['name'],
                         lb=group['lb'],
                         ub=group['ub'],
@@ -257,7 +268,7 @@ class TrussOptimization(sop.OptimizationProblem):
                     self.add(var)
 
             elif group["var_type"] == 'index':
-                var = sop.IndexVariable(
+                var = IndexVariable(
                     name=group['name'],
                     value=group['value'],
                     values=group['values'],
@@ -282,7 +293,7 @@ class TrussOptimization(sop.OptimizationProblem):
             self.substitute_variables(x)
             return self.structure.weight/scaling
 
-        obj = sop.ObjectiveFunction(name="Weight",
+        obj = ObjectiveFunction(name="Weight",
                                 obj_fun=obj_fun,
                                 obj_type='MIN')
         self.add(obj)
@@ -320,7 +331,7 @@ class TrussOptimization(sop.OptimizationProblem):
             if stress:
                 stress_cons = self.stress_constraints(mem)
                 for key, val in stress_cons.items():                    
-                    con = sop.NonLinearConstraint(
+                    con = NonLinearConstraint(
                         name=f"{key}: {mem.mem_id}",
                         con_fun=val,
                         con_type='<',
@@ -332,7 +343,7 @@ class TrussOptimization(sop.OptimizationProblem):
             if strength:
                 new_cons = self.strength_constraints(mem)
                 for key, val in new_cons.items():                    
-                    con = sop.NonLinearConstraint(
+                    con = NonLinearConstraint(
                         name=f"{key}: {mem.mem_id}",
                         con_fun=val,
                         con_type='<',
@@ -343,7 +354,7 @@ class TrussOptimization(sop.OptimizationProblem):
             if buckling:
                 new_cons = self.buckling_constraints(mem,buckling)
                 for key, val in new_cons.items():
-                    con = sop.NonLinearConstraint(
+                    con = NonLinearConstraint(
                     name=f"{key}: {mem.mem_id}",
                     con_fun=val,
                     con_type='<',
@@ -365,7 +376,7 @@ class TrussOptimization(sop.OptimizationProblem):
         """
         
         if max_stress == None:
-            max_stress = mem.fy
+            max_stress = mem.material.fy
 
         def compression(x):
             return -mem.ned / (max_stress*mem.A) - 1
@@ -417,7 +428,7 @@ class TrussOptimization(sop.OptimizationProblem):
         def buckling(x):
             self.substitute_variables(x)
             if buckling_type == 'EN 1993':
-                NRd = mem.NbRd[0]
+                NRd = mem.member.NbRd[0]
             elif buckling_type == 'euler':
                 NRd = mem.member.ncrit()[0]
             
@@ -489,7 +500,7 @@ class TrussOptimization(sop.OptimizationProblem):
                         
         if ulb is not None:
             #cons['f"Displacement lower bound"'] = disp_lower_bound
-            con = sop.NonLinearConstraint(
+            con = NonLinearConstraint(
                         name=f"u_{dof}[{node.nid}][load_case] >= {ulb}",
                         con_fun=disp_lower_bound,
                         con_type='<',
@@ -499,7 +510,7 @@ class TrussOptimization(sop.OptimizationProblem):
         
         if uub is not None:
             #cons['f"Displacement upper bound"'] = disp_upper_bound
-            con = sop.NonLinearConstraint(
+            con = NonLinearConstraint(
                         name=f"u_{dof}[{node.nid}][load_case] <= {uub}",
                         con_fun=disp_upper_bound,
                         con_type='<',
@@ -651,7 +662,7 @@ def truss_lp(truss,Alb=0,Aub=1e9,slb=None,sub=None):
         Also the stress constraints must be changed to take into account groups.
     """
     for i, mem in truss.members.items():
-        dvars.append(sop.Variable(name="A{0:.0g}".format(i),lb=Alb[i],ub=Aub[i],
+        dvars.append(Variable(name="A{0:.0g}".format(i),lb=Alb[i],ub=Aub[i],
                                   target={"objects":[mem],"property":["A"]},
                                   value=mem.A))
         c.append(mem.length)
@@ -659,17 +670,17 @@ def truss_lp(truss,Alb=0,Aub=1e9,slb=None,sub=None):
     """ Design variables: member forces """
     for lc in truss.load_cases:
         for i, mem in truss.members.items():
-            dvars.append(sop.Variable(name="N{0:.0g}{1:.0g}".format(lc,i),lb=-1e9,ub=1e9,
+            dvars.append(Variable(name="N{0:.0g}{1:.0g}".format(lc,i),lb=-1e9,ub=1e9,
                                   target=None,
                                   value=1))
             c.append(0)
             
     
     """ Initialize optimization problem with the created variables """
-    lp = sop.OptimizationProblem(name="Truss LP",variables=dvars,structure=truss)
+    lp = OptimizationProblem(name="Truss LP",variables=dvars,structure=truss)
     
     """ Objective function: truss weight """
-    obj = sop.LinearObjective("Weight", c)
+    obj = LinearObjective("Weight", c)
     lp.add(obj)
     
     """ Constraints: equilibrium equations """
@@ -687,7 +698,7 @@ def truss_lp(truss,Alb=0,Aub=1e9,slb=None,sub=None):
                 vector. 
             """
             a[(j+1)*nmem:(j+2)*nmem] = b            
-            lp.add(sop.LinearConstraint(a,pi,con_type="=", name="EQ-{0:.0g}-LC{1:.0g}".format(i,lc)))
+            lp.add(LinearConstraint(a,pi,con_type="=", name="EQ-{0:.0g}-LC{1:.0g}".format(i,lc)))
     
     """ Constraints: stress constraints 
         These are expressed in terms of member forces, i.e.
@@ -698,11 +709,11 @@ def truss_lp(truss,Alb=0,Aub=1e9,slb=None,sub=None):
             a = np.zeros(lp.nvars())
             a[i] = -sub[i]
             a[(j+1)*nmem+i] = 1
-            lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-UB-{0:.0g}-LC{1:.0g}".format(i,lc)))
+            lp.add(LinearConstraint(a,0,con_type="<", name="STR-UB-{0:.0g}-LC{1:.0g}".format(i,lc)))
             
             a[i] = -slb[i]
             a[(j+1)*nmem+i] = -1
-            lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-LB-{0:.0g}-LC{1:.0g}".format(i,lc)))
+            lp.add(LinearConstraint(a,0,con_type="<", name="STR-LB-{0:.0g}-LC{1:.0g}".format(i,lc)))
     
     return lp
 
@@ -764,7 +775,7 @@ def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
         nlb = np.sum(np.maximum(B[:,i],0)*ulb) + np.sum(np.minimum(B[:,i],0)*uub)
         nub = np.sum(np.minimum(B[:,i],0)*ulb) + np.sum(np.maximum(B[:,i],0)*uub)
         for j, p in enumerate(profiles):                        
-            dvars.append(sop.BinaryVariable("y({0:.0f},{1:.0f})".format(i,j),
+            dvars.append(BinaryVariable("y({0:.0f},{1:.0f})".format(i,j),
                                             section=p,
                                             target={"objects":[mem],"property":"profile"}))
             """ Calculate buckling resistance of the member for profile 'p' """
@@ -782,7 +793,7 @@ def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
     for lc in truss.load_cases:
         for i, mem in truss.members.items():            
             for j in range(nprof):
-                dvars.append(sop.Variable(name="N({0:.0f},{1:.0f},{2:.0f})".format(i,j,lc),lb=Nlb[j,i],ub=Nub[j,i],
+                dvars.append(Variable(name="N({0:.0f},{1:.0f},{2:.0f})".format(i,j,lc),lb=Nlb[j,i],ub=Nub[j,i],
                                           target=None,value=1))
                 c.append(0)
     
@@ -791,15 +802,15 @@ def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
     """
     for k in range(nlc):
         for j in range(ndof):
-            dvars.append(sop.Variable(name="u({0:.0f},{1:.0f})".format(j,k),
+            dvars.append(Variable(name="u({0:.0f},{1:.0f})".format(j,k),
                                       lb=ulb,ub=uub,target=None,value=0.0))
             c.append(0)
             
     """ Initialize optimization problem with the created variables """
-    lp = sop.OptimizationProblem(name="Truss LP",variables=dvars,structure=truss)
+    lp = OptimizationProblem(name="Truss LP",variables=dvars,structure=truss)
     
     """ Objective function: truss weight """
-    obj = sop.LinearObjective("Weight", c)
+    obj = LinearObjective("Weight", c)
     lp.add(obj)
     
     """ Constraints: unique profile selection """
@@ -815,7 +826,7 @@ def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
             Aeq[int(m[0]),i] = 1
             
     for i, a in enumerate(Aeq):
-        lp.add(sop.LinearConstraint(a,1,con_type="=", name="Sum y({0:.0f},j)=1".format(i)))
+        lp.add(LinearConstraint(a,1,con_type="=", name="Sum y({0:.0f},j)=1".format(i)))
     
     """ Constraints: equilibrium equations """
     B0 = np.zeros([ndof,lp.nvars()])
@@ -834,7 +845,7 @@ def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
                 Insert the current row of the statics matrix as the coefficient
                 vector. 
             """
-            lp.add(sop.LinearConstraint(b,pi,con_type="=", name="EQ-{0:.0g}-LC{1:.0g}".format(i,lc)))
+            lp.add(LinearConstraint(b,pi,con_type="=", name="EQ-{0:.0g}-LC{1:.0g}".format(i,lc)))
     
     """ Constraints: compatibility conditions """
     nx = lp.nvars()
@@ -850,13 +861,13 @@ def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
                 ustart = nmem*nprof + nlc*nmem*nprof + k*ndof
                 uend = ustart +ndof
                 a[ustart:uend] = k0*p.A*B[:,i]*Ascale                  # u variable
-                lp.add(sop.LinearConstraint(a,Nub[j,i],con_type="<", name="COMP-UB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+                lp.add(LinearConstraint(a,Nub[j,i],con_type="<", name="COMP-UB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
     
                 """ Lower bound """
                 a[Nndx] = 1  # N variable
                 a[i*nprof+j] = -Nlb[j,i]             # y variable
                 a[ustart:uend] *= -1    # u variable
-                lp.add(sop.LinearConstraint(a,-Nlb[j,i],con_type="<", name="COMP-LB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+                lp.add(LinearConstraint(a,-Nlb[j,i],con_type="<", name="COMP-LB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
                 
                 Nndx +=1
     """ Constraints: stress constraints 
@@ -871,13 +882,13 @@ def truss_milp(truss,profiles,ulb=-1e3,uub=1e3):
                 # Tension resistance 
                 a[i*nprof+j] = -Nrd # -Nub[j,i] #               # y variable                
                 a[Nndx] = 1  # N variable
-                lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-UB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+                lp.add(LinearConstraint(a,0,con_type="<", name="STR-UB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
             
                 #a[i] = -slb[i]
                 # Compression resistance, including buckling 
                 a[Nndx] = -1
                 a[i*nprof+j] = -min(Nrd,NbRd[j,i])# Nlb[j,i] # 
-                lp.add(sop.LinearConstraint(a,0,con_type="<", name="STR-LB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
+                lp.add(LinearConstraint(a,0,con_type="<", name="STR-LB({0:.0f},{1:.0f},{2:.0f})".format(i,j,k)))
     
                 Nndx += 1
     

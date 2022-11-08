@@ -159,7 +159,7 @@ class Variable:
                             given in the 'section' attribute of the variable.
                         """
                         if new_value == 1:
-                            if prop == 'profile':
+                            if prop == 'profile' or prop == 'cross_section':
                                 obj.__setattr__(prop,self.section)
                         else:
                             """ If the target of a binary variable is a member,

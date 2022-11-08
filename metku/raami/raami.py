@@ -265,7 +265,7 @@ class Raami:
             mem.clear_fem()
             
     
-    def structural_analysis(self, load_id=None, support_method='ZERO'):
+    def structural_analysis(self, load_id=None, support_method='ZERO', design=True):
         """ Calculates forces and displacements
             
             Parameters
@@ -301,8 +301,24 @@ class Raami:
             # Assign forces to members
             #self.assign_forces(load_id)            
             # Do member design
-            self.design_members(load_id)            
+            if design:
+                self.design_members(load_id)            
             # self.alpha_cr, _ = self.f.linear_buckling(k=4)
+    
+    def calculate(self, load_id=None, support_method='ZERO', design=True):
+        """ This method is essentially the same as structural_analysis.
+            It is for the purposes of structural optimization, see
+            structopt.py -> OptimizationProblem.fea.
+            
+            OptimizationProblem was written for Frame2D object, which has
+            'calculate' as a method for structural optimization.
+            
+            If OptimizationProblem.fea is changed such that it calls
+            'structural_analysis' instead of 'calculate', then this
+            method can be deleted.
+        """
+        
+        self.structural_analysis(load_id,support_method,design)
     
     def design_members(self,load_id = LoadIDs['ULS']):
         """ Designs frame members (checks resistance)
@@ -387,6 +403,7 @@ class Raami:
         # Iterate through every frame's member's node and calculate 
         # displacements for that node
         for member in self.members.values():
+            # TODO! IMPLEMENT calc_nodal_displacements for FrameMember
             member.calc_nodal_displacements(self.fem,lcase)
             
     

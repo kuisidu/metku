@@ -3,7 +3,10 @@
 # Copyright 2022 Kristo Mela
 # -*- coding: utf-8 -*-
 
-from metku.optimization.structopt import *
+from metku.optimization.structopt import OptimizationProblem
+from metku.optimization.variables import Variable, DiscreteVariable, BinaryVariable
+from metku.optimization.constraints import NonLinearConstraint, LinearConstraint
+
 from metku.frame2d.frame2d import *
 
 
@@ -200,17 +203,17 @@ class ThreeBarTruss(OptimizationProblem):
 
                         comp_con = NonLinearConstraint(con_fun=compression_fun,
                                                        name="Compression " + str(i),
-                                                       parent=self)
+                                                       problem=self)
                         comp_con.fea_required = True
 
                         tension_con = NonLinearConstraint(con_fun=tension_fun,
                                                           name="Tension " + str(i),
-                                                          parent=self)
+                                                          problem=self)
                         tension_con.fea_required = True
 
                         buckl_con = NonLinearConstraint(con_fun=buckling_fun,
                                                        name='Buckling ' + str(i),
-                                                       parent=self)
+                                                       problem=self)
                         buckl_con.fea_required = True
 
                         self.cons.append(comp_con)
@@ -228,11 +231,11 @@ if __name__ == '__main__':
     #      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     #      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     # problem(X)
-    # problem.structure.plot()
+    problem.structure.plot()
 
 
 
-
+    """
     solver = SLP(move_limits=[0.95, 1.2])
     solver.problem = problem
     solver.random_feasible_point()
@@ -258,4 +261,4 @@ if __name__ == '__main__':
     plt.clabel(CS, inline=True)
 
     plt.show()
-
+    """

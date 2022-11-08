@@ -19,6 +19,8 @@ from metku.raami.frame_member import FrameMember, SteelFrameMember
 from metku.raami.frame_loads import PointLoad
 from metku.raami.frame_supports import XYHingedSupport
 
+from metku.sections.steel.RHS import RHS
+
 class SimpleTruss(Raami):
     """ Class for simple trusses. Essentially, the structure is a collection of
         pin-jointed members, loaded at the nodes. Consequently, the members
@@ -94,9 +96,21 @@ class SimpleTruss(Raami):
     #def generate(self):
     #    """ Generates the finite element model """ 
         
+
+class SimpleTrussMember(FrameMember):
+    """ Class for simple truss members. These are a subclass of FrameMember,
+        but with less functionalities, because only axial forces are carried.
+        
+        On the other hand, the profile can be generic, i.e. only 'A' and optionally 'I'
+        can be given.
+    """
+    
+    def __init__(self, nodes, section, mtype='bar', mem_id="", nel=1):
+
+        super().__init__(nodes, section, mtype, mem_id, nel)
     
     
-class SimpleTrussMember(SteelFrameMember):
+class SimpleTrussSteelMember(SteelFrameMember):
     """ Class for simple truss members. These are a subclass of FrameMember,
         but with less functionalities, because only axial forces are carried.
         
@@ -108,9 +122,10 @@ class SimpleTrussMember(SteelFrameMember):
 
         super().__init__(nodes, section, mtype, mem_id, nel)
 
-def three_bar_truss(L=1000,F1=100,F2=100,nlc=1):
+def three_bar_truss(L=1000,F1=100,F2=100,nlc=1,
+                    profiles=[RHS(50,50,3),RHS(50,50,3),RHS(50,50,3)]):
     """ three bar truss example """
-    from sections.steel.RHS import RHS
+    
     #from metku.sections.cross_sections import CrossSection
 
     # Nodal coordinates    
@@ -129,39 +144,39 @@ def three_bar_truss(L=1000,F1=100,F2=100,nlc=1):
         Later, the profile data can be changed manually, e.g. by modifying
         the cross-sectional area 'A' directly.
     """
-    profs = [RHS(50,50,3),RHS(50,50,3),RHS(50,50,3)]
+    #profs = [RHS(50,50,3),RHS(50,50,3),RHS(50,50,3)]
     #profs = [CrossSection(A=100),CrossSection(A=100),CrossSection(A=100)]
 
     # Generate truss
-    t = SimpleTruss(X,mems,profs)
+    t = SimpleTruss(X,mems,profiles)
     
     # Add hinged supports
-    t.add(XYHingedSupport(X[1]))
-    t.add(XYHingedSupport(X[2]))
-    t.add(XYHingedSupport(X[3]))
+    t.add(XYHingedSupport(t.nodes[1]))
+    t.add(XYHingedSupport(t.nodes[2]))
+    t.add(XYHingedSupport(t.nodes[3]))
     # Add point load
     # Voima F1 on pystysuuntainen ja F2 vaakasuuntainen
     if nlc == 1:
-        p = PointLoad(X[0],[F2,F1,0])
+        p = PointLoad(t.nodes[0],[F2,F1,0])
         t.add(p)
     else:
-        p1 = PointLoad(X[0],[F2,0,0],load_id=2)
+        p1 = PointLoad(t.nodes[0],[F2,0,0],load_id=2)
         t.add(p1)
-        p2 = PointLoad(X[0],[0,F1,0],load_id=3)
+        p2 = PointLoad(t.nodes[0],[0,F1,0],load_id=3)
         t.add(p2)
     
     #t.plot()
     
     # Generate calculation model
-    t.generate()
+    t.generate_fem()
     # Calculate the responses
-    t.calculate(support_method='REM')
+    t.calculate(support_method='REM',design=False)
     
     return t
         
 def ten_bar_truss(L,F):
     """ Classic 10-bar truss """
-    from sections.steel.RHS import RHS
+    from metku.sections.steel.RHS import RHS
     
     nodes = []
     nodes.append([2 * L, L])
@@ -185,8 +200,8 @@ def ten_bar_truss(L,F):
     t.add(XYHingedSupport(t.nodes[4]))
     t.add(XYHingedSupport(t.nodes[5]))
     
-    #t.generate()
-    #t.calculate()
+    t.generate_fem()
+    t.calculate(support_method='REM')
     
     #t.plot()
     return t
@@ -194,7 +209,7 @@ def ten_bar_truss(L,F):
 def fifteen_bar_truss(L=360,h=120,P=10000):
     """ by default, the units are imperial """
     
-    from RHS import RHS
+    from metku.sections.steel.RHS import RHS
     
     nodes = []
     nodes.append([0, h])
@@ -236,8 +251,8 @@ def fifteen_bar_truss(L=360,h=120,P=10000):
 if __name__ == '__main__':
     
     import cProfile    
-    #t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1)
-    t = ten_bar_truss(L=3000,F=200e3)
+    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1)
+    #t = ten_bar_truss(L=3000,F=200e3)
     t.plot()
     #t = fifteen_bar_truss()
     
