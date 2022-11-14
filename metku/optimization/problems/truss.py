@@ -16,22 +16,28 @@ class TrussProblem(OptimizationProblem):
                  variable_groups=None,
                  objective: callable or ObjectiveEnum = ObjectiveEnum.WEIGHT,
                  structure: f2d.Frame2D = None,
-                 include_joints: bool = False,
+                 include_joint_strength: bool = False,
+                 include_joint_geometry: bool = False,
                  include_section_strength: bool = True,
                  include_stability: bool = True,
                  include_section_class: bool = True,
                  include_displacement: bool = True,
+                 load_id_SLS=LoadIDs.SLS_Charasteristic,
+                 load_id_ULS=LoadIDs.ULS,
                  penalty_fun: callable = None):
 
         super().__init__(name, structure=structure)
         self.variable_groups = variable_groups
         self.objective = objective
-        self.include_joints = include_joints
+        self.include_joint_strength = include_joint_strength
+        self.include_joint_geometry = include_joint_geometry
         self.include_section_strength = include_section_strength
         self.include_stability = include_stability
         self.include_section_class = include_section_class
         self.include_displacement = include_displacement
         self.displacement_limit = displacement_limit
+        self.load_id_SLS = load_id_SLS
+        self.load_id_ULS = load_id_ULS
         # Penalty function
         if penalty_fun is None:
             penalty_fun = lambda *x: 0
@@ -276,15 +282,15 @@ class TrussProblem(OptimizationProblem):
 
             def chord_face_failure(x):
                 NRd1 = joint.rhs_joint.chord_face_failure()
-                return w1.ned / NRd1 - 1
+                return w1.NEd[self.load_id_ULS] / NRd1 - 1
 
             def chord_web_buckling(x):
                 NRd1 = joint.rhs_joint.chord_web_buckling()
-                return -w1.ned / NRd1 - 1
+                return -w1.NEd[self.load_id_ULS] / NRd1 - 1
 
             def brace_failure(x):
                 N1Rd = joint.rhs_joint.brace_failure()
-                return abs(w1.ned) / N1Rd - 1
+                return abs(w1.NEd[self.load_id_ULS]) / N1Rd - 1
 
             con_funs = {
                 f'Joint {joint.jid} chord face failure': chord_face_failure,
@@ -299,51 +305,51 @@ class TrussProblem(OptimizationProblem):
             def chord_face_failure_1(x):
 
                 NRd1, NRd2 = joint.rhs_joint.chord_face_failure()
-                return abs(w1.ned) / NRd1 - 1
+                return abs(w1.NEd[self.load_id_ULS]) / NRd1 - 1
                 # return abs(w1.ned) - NRd1
 
             def chord_face_failure_2(x):
                 NRd1, NRd2 = joint.rhs_joint.chord_face_failure()
-                return abs(w2.ned) / NRd2 - 1
+                return abs(w2.NEd[self.load_id_ULS]) / NRd2 - 1
                 # return abs(w2.ned) - NRd2
 
             def punching_shear_1(x):
                 NRd1 = joint.rhs_joint.punching_shear()[0]
-                return abs(w1.ned) / NRd1 - 1
+                return abs(w1.NEd[self.load_id_ULS]) / NRd1 - 1
                 # return abs(w1.ned) - NRd1
 
             def punching_shear_2(x):
                 NRd2 = joint.rhs_joint.punching_shear()[1]
-                return abs(w2.ned) / NRd2 - 1
+                return abs(w2.NEd[self.load_id_ULS]) / NRd2 - 1
                 # return abs(w2.ned) - NRd2
 
             def chord_shear_0(x):
-                joint.rhs_joint.V0 = joint.V0
+                joint.rhs_joint.V0 = joint.V0[self.load_id_ULS]
                 (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
 
-                return joint.N0 / N0Rd - 1
+                return joint.N0[self.load_id_ULS] / N0Rd - 1
                 # return joint.N0 - N0Rd
 
             def chord_shear_1(x):
-                joint.rhs_joint.V0 = joint.V0
+                joint.rhs_joint.V0 = joint.V0[self.load_id_ULS]
                 (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
 
-                return abs(w1.ned) / N1Rd - 1
+                return abs(w1.NEd[self.load_id_ULS]) / N1Rd - 1
 
             def chord_shear_2(x):
-                joint.rhs_joint.V0 = joint.V0
+                joint.rhs_joint.V0 = joint.V0[self.load_id_ULS]
                 (N1Rd, N2Rd), N0Rd = joint.rhs_joint.chord_shear()
 
-                return abs(w2.ned) / N2Rd - 1
+                return abs(w2.NEd[self.load_id_ULS]) / N2Rd - 1
 
             def brace_failure_1(x):
                 N1Rd = joint.rhs_joint.brace_failure()[0]
-                return abs(w1.ned) / N1Rd - 1
+                return abs(w1.NEd[self.load_id_ULS]) / N1Rd - 1
                 # return abs(w1.ned) - N1Rd
 
             def brace_failure_2(x):
                 N2Rd = joint.rhs_joint.brace_failure()[1]
-                return abs(w2.ned) / N2Rd - 1
+                return abs(w2.NEd[self.load_id_ULS]) / N2Rd - 1
                 # return abs(w2.ned) - N2Rd
 
             con_funs = {
@@ -497,18 +503,19 @@ class TrussProblem(OptimizationProblem):
             # 'My stability test': my_own_stability_con_fun
         }
 
-    def deflection_constraints(self, truss: t2d.Truss2D, load_id=LoadIDs.SLS_Charasteristic):
+    def deflection_constraints(self, truss: t2d.Truss2D):
         """
         Creates deflection constraint functions
         :param mem:
         :return:
         """
-        max_displacement = truss.get_deflection(load_id)
 
         def disp_fun(x):
-            truss.calculate(load_id=load_id)
-            max_displacement = truss.get_deflection(load_id)
-            return max_displacement / self.displacement_limit - 1
+            truss.calculate(load_id=self.load_id_SLS)
+            max_deflection = truss.get_deflection(LoadIDs.SLS_Charasteristic)
+            # To make sure correct values are used in stability design
+            truss.calculate(load_id=self.load_id_ULS)
+            return max_deflection - self.displacement_limit
 
         return disp_fun
 
@@ -567,27 +574,29 @@ class TrussProblem(OptimizationProblem):
                             self.non_linear_constraint(con_fun, name=f"{con_name}: {mem.mtype} {mem.mem_id}|{i + 1}")
         # DISPLACEMENT
         if self.include_displacement:
-            disp_fun = self.deflection_constraints(self.structure, load_id=LoadIDs.SLS_Charasteristic)
+            disp_fun = self.deflection_constraints(self.structure)
             disp_con = self.non_linear_constraint(
                 con_fun=disp_fun, name=" Truss Deflection")
             self.add(disp_con)
         # JOINT CONS
-        if self.include_joints:
+        if self.include_joint_geometry or self.include_joint_strength:
             for joint in self.structure.joints.values():
                 # Geometry Constraints
-                con_funs = self.joint_geometry_constraints(joint)
-                for name, con_fun in con_funs.items():
-                    self.non_linear_constraint(con_fun=con_fun,
-                                               name=name)
+                if self.include_joint_geometry:
+                    con_funs = self.joint_geometry_constraints(joint)
+                    for name, con_fun in con_funs.items():
+                        self.non_linear_constraint(con_fun=con_fun,
+                                                   name=name)
                 # Strength Constraints
-                strength_con_funs = self.joint_strength_constraints(joint)
-                for name, con_fun in strength_con_funs.items():
-                    self.non_linear_constraint(con_fun=con_fun,
-                                               name=name)
+                if self.include_joint_strength:
+                    strength_con_funs = self.joint_strength_constraints(joint)
+                    for name, con_fun in strength_con_funs.items():
+                        self.non_linear_constraint(con_fun=con_fun,
+                                                   name=name)
 
 
-def create_truss(H1: float,
-                 H2: float,
+def create_truss(h1: float,
+                 h2: float,
                  L: float,
                  n: int,
                  dx: float,
@@ -595,8 +604,8 @@ def create_truss(H1: float,
                  qk: float = 0) -> t2d.Truss2D:
     simple = dict(
         H0=0,
-        H1=H1,
-        H2=H2,
+        H1=h2,
+        H2=h1,
         L1=L / 2,
         n=n,
         dx=dx
@@ -621,11 +630,11 @@ if __name__ == '__main__':
     # THESE ARE NOT SORTED VALUES
     SHS_PROFILE_NAMES = list(shs_profiles.keys())
 
-    truss = create_truss(H1=1200, H2=2000, L=20_000, dx=1200, n=16, qd=-25, qk=-10)
+    truss = create_truss(h1=2000, h2=1200, L=20_000, dx=1200, n=16, qd=-25, qk=-10)
 
     top_chords = truss.top_chords
     bottom_chords = truss.bottom_chords
-    webs = truss.webs.values()
+    webs = list(truss.webs.values())
 
     tc_sections = [mem.cross_section for mem in top_chords]
     bc_sections = [mem.cross_section for mem in bottom_chords]
@@ -668,20 +677,34 @@ if __name__ == '__main__':
                             lower_bounds=[100, 3],
                             upper_bounds=[300, 15])
 
+    groups = [tc_HBT, bc_HBT]
+
+    # Number of webs
+    nw = int(len(webs) / 2)
+    for i in range(nw):
+        w1 = webs[2 * i]
+        w2 = webs[2 * i + 1]
+        WEB_group = VariableGroup(name="Webs",
+                                  var_type=VariableTypeEnum.CONTINUOUS,
+                                  attributes=[["H", "B"], "T"],
+                                  objects=[w1.cross_section, w2.cross_section],
+                                  lower_bounds=[100, 3],
+                                  upper_bounds=[300, 15])
+        groups.append(WEB_group)
+
     problem = TrussProblem(name="Truss Optimization",
                            structure=truss,
                            displacement_limit=50,  # mm
-                           include_joints=False,
+                           include_joint_strength=False,
+                           include_joint_geometry=False,
                            include_stability=True,
-                           include_displacement=False,
+                           include_displacement=True,
                            include_section_class=True,
                            include_section_strength=True,
-                           variable_groups=[tc_HBT, bc_HBT, web_HBT])
+                           variable_groups=groups)
 
     x0 = [var.ub for var in problem.vars]
 
     solver = SLP([0.05, 0.05])
-    fopt, xopt = solver.solve(problem, x0=x0, maxiter=1, verb=True)
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True)
     problem(xopt)
-    for mem in truss.members.values():
-        print(mem.profile)
