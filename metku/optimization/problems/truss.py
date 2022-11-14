@@ -1,339 +1,67 @@
-# Author(s): Kristo Mela
-# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
-# Copyright 2022 Kristo Mela
-# -*- coding: utf-8 -*-
-"""
-IDEAS:
--------
-
-General layout
---------------
-- problem = TrussProblem(name='16-Bar-24m-KTruss',
-                prob_type='design',
-                var_type='continuous',
-                variables=['B', 'T'],
-                profiles=RHS_PROFILES,
-                groups=[[mem1, mem2], [mem3, mem4, mem5]],
-                objective='weight',
-                structure=truss)
-
-    Parameters:
-    ------------
-        - name: name of the problem
-            default: "TrussProblem"
-
-        - prob_type: 'design', 'geometry', 'topology'
-            default: 'design'
-
-        - var_type: 'continuous', 'discrete', 'binary'
-            default: 'continuous'
-
-        - variables: list of design variables
-            default: ['A']
-
-        - profiles: list of available profiles
-            default: RHS_PROFILES
-
-        - groups: list of groups, one variable is assigned to each group
-            default: None
-
-        - objective: 'cost', 'weight' or user given function
-            default: 'weight'
-
-        - structure: Truss2D/ Fram2D object
-            default: None
-
-Constraints
------------
-- design standard
-- stability
-- deflection
-- stress
-
-Other
------
-- structure knows whether it's symmetrical or not
-    - it will automatically create grouping for symmetrical members
-
-
-# Groups could be list of dicts
-
-groups = [
-    {"objects": [mem1, mem2, mem3],
-    "lb": 0,
-    "ub": 100,
-    "property": "A",
-    "profiles": RHS_PROFILES[10:30],
-    },
-    {"objects": [mem4, mem5],
-    "lb": 10,
-    "ub": 300,
-    "property": "IZ",
-    "profiles": RHS_PROFILES[:10],
-    },
-    {"objects": [mem6, mem7, mem8],
-    "lb": 500,
-    "ub": 10000,
-    "property": "A",
-    "profiles": RHS_PROFILES[100:130],
-    }
-]
-"""
-
-try:
-    from metku.optimization.structopt import *
-    from metku.frame2d.frame2d import SteelBeam
-except:
-    from optimization.structopt import *
-
-
-# Sorted by area
-RHS_PROFILES = ['RHS 40X40X2.0', 'RHS 40X40X2.5', 'RHS 50X50X2.0',
-                'RHS 40X40X3.0', 'RHS 60X60X2.0', 'RHS 50X50X2.5',
-                'RHS 70X70X2.0', 'RHS 50X50X3.0', 'RHS 60X60X2.5',
-                'RHS 80X80X2.0', 'RHS 70X70X2.5', 'RHS 60X60X3.0',
-                'RHS 50X50X4.0', 'RHS 80X80X2.5', 'RHS 70X70X3.0',
-                'RHS 60X60X4.0', 'RHS 90X90X2.5', 'RHS 80X80X3.0',
-                'RHS 100X100X2.5', 'RHS 70X70X4.0', 'RHS 90X90X3.0',
-                'RHS 60X60X5.0', 'RHS 100X100X3.0', 'RHS 120X120X2.5',
-                'RHS 80X80X4.0', 'RHS 70X70X5.0', 'RHS 90X90X4.0',
-                'RHS 140X140X2.5', 'RHS 120X120X3.0', 'RHS 80X80X5.0',
-                'RHS 150X150X2.5', 'RHS 100X100X4.0', 'RHS 140X140X3.0',
-                'RHS 90X90X5.0', 'RHS 150X150X3.0', 'RHS 120X120X4.0',
-                'RHS 100X100X5.0', 'RHS 160X160X3.0', 'RHS 140X140X4.0',
-                'RHS 100X100X6.0', 'RHS 120X120X5.0', 'RHS 150X150X4.0',
-                'RHS 160X160X4.0', 'RHS 140X140X5.0', 'RHS 120X120X6.0',
-                'RHS 180X180X4.0', 'RHS 150X150X5.0', 'RHS 120X120X7.1',
-                'RHS 160X160X5.0', 'RHS 200X200X4.0', 'RHS 140X140X6.0',
-                'RHS 150X150X6.0', 'RHS 120X120X8.0', 'RHS 180X180X5.0',
-                'RHS 160X160X6.0', 'RHS 120X120X8.8', 'RHS 180X180X5.6',
-                'RHS 200X200X5.0', 'RHS 150X150X7.1', 'RHS 120X120X10.0',
-                'RHS 180X180X6.0', 'RHS 160X160X7.1', 'RHS 220X220X5.0',
-                'RHS 150X150X8.0', 'RHS 200X200X6.0', 'RHS 160X160X8.0',
-                'RHS 150X150X8.8', 'RHS 180X180X7.1', 'RHS 250X250X5.0',
-                'RHS 220X220X6.0', 'RHS 160X160X8.8', 'RHS 150X150X10.0',
-                'RHS 180X180X8.0', 'RHS 200X200X7.1', 'RHS 160X160X10.0',
-                'RHS 180X180X8.8', 'RHS 250X250X6.0', 'RHS 300X300X5.0',
-                'RHS 220X220X7.1', 'RHS 200X200X8.0', 'RHS 260X260X6.0',
-                'RHS 180X180X10.0', 'RHS 200X200X8.8', 'RHS 220X220X8.0',
-                'RHS 250X250X7.1', 'RHS 300X300X6.0', 'RHS 260X260X7.1',
-                'RHS 220X220X8.8', 'RHS 200X200X10.0', 'RHS 250X250X8.0',
-                'RHS 180X180X12.5', 'RHS 260X260X8.0', 'RHS 220X220X10.0',
-                'RHS 300X300X7.1', 'RHS 250X250X8.8', 'RHS 260X260X8.8',
-                'RHS 200X200X12.5', 'RHS 300X300X8.0', 'RHS 250X250X10.0',
-                'RHS 400X400X6.0', 'RHS 260X260X10.0', 'RHS 300X300X8.8',
-                'RHS 400X400X7.1', 'RHS 250X250X12.5', 'RHS 300X300X10.0',
-                'RHS 260X260X12.5', 'RHS 400X400X8.0', 'RHS 400X400X8.8',
-                'RHS 300X300X12.5', 'RHS 400X400X10.0', 'RHS 400X400X12.5']
-
-RHS_COMP = ['RHS 40X40X3.0', 'RHS 50X50X3.0', 'RHS 50X50X4.0', 'RHS 60X60X3.0',
-            'RHS 60X60X4.0', 'RHS 60X60X5.0', 'RHS 70X70X3.0', 'RHS 70X70X4.0',
-            'RHS 70X70X5.0', 'RHS 80X80X3.0', 'RHS 80X80X4.0', 'RHS 80X80X5.0',
-            'RHS 90X90X3.0', 'RHS 90X90X4.0', 'RHS 90X90X5.0',
-            'RHS 100X100X3.0', 'RHS 100X100X4.0', 'RHS 100X100X5.0',
-            'RHS 100X100X6.0', 'RHS 120X120X4.0', 'RHS 120X120X5.0',
-            'RHS 120X120X6.0', 'RHS 120X120X7.1', 'RHS 120X120X8.0',
-            'RHS 120X120X8.8', 'RHS 120X120X10.0', 'RHS 140X140X4.0',
-            'RHS 140X140X5.0', 'RHS 140X140X6.0', 'RHS 150X150X5.0',
-            'RHS 150X150X6.0', 'RHS 150X150X7.1', 'RHS 150X150X8.0',
-            'RHS 150X150X8.8', 'RHS 150X150X10.0', 'RHS 160X160X5.0',
-            'RHS 160X160X6.0', 'RHS 160X160X8.0', 'RHS 160X160X7.1',
-            'RHS 160X160X8.8', 'RHS 160X160X10.0', 'RHS 180X180X5.0',
-            'RHS 180X180X5.6', 'RHS 180X180X6.0', 'RHS 180X180X7.1',
-            'RHS 180X180X8.0', 'RHS 180X180X8.8', 'RHS 180X180X10.0',
-            'RHS 180X180X12.5', 'RHS 200X200X6.0', 'RHS 200X200X7.1',
-            'RHS 200X200X8.0', 'RHS 200X200X8.8', 'RHS 200X200X10.0',
-            'RHS 200X200X12.5', 'RHS 220X220X6.0', 'RHS 220X220X7.1',
-            'RHS 220X220X8.0', 'RHS 220X220X8.8', 'RHS 220X220X10.0',
-            'RHS 250X250X8.0', 'RHS 250X250X10.0', 'RHS 250X250X7.1',
-            'RHS 250X250X8.8', 'RHS 250X250X12.5', 'RHS 260X260X7.1',
-            'RHS 260X260X8.0', 'RHS 260X260X8.8', 'RHS 260X260X10.0',
-            'RHS 260X260X12.5', 'RHS 300X300X8.0', 'RHS 300X300X8.8',
-            'RHS 300X300X10.0', 'RHS 300X300X12.5', 'RHS 400X400X12.5']
-
-RHS_A = [293.6991118430775, 358.9048622548086, 373.6991118430775,
-         420.8230016469244, 453.6991118430775, 458.9048622548086,
-         533.6991118430775, 540.8230016469245, 558.9048622548087,
-         613.6991118430775, 658.9048622548087, 660.8230016469245,
-         694.79644737231, 758.9048622548087, 780.8230016469245,
-         854.79644737231, 858.9048622548087, 900.8230016469245,
-         958.9048622548087, 1014.79644737231, 1020.8230016469245,
-         1035.6194490192345, 1140.8230016469245, 1158.9048622548087,
-         1174.79644737231, 1235.6194490192345, 1334.79644737231,
-         1358.9048622548087, 1380.8230016469245, 1435.6194490192345,
-         1458.9048622548087, 1494.79644737231, 1620.8230016469245,
-         1635.6194490192345, 1740.8230016469245, 1814.79644737231,
-         1835.6194490192345, 1860.8230016469245, 2134.79644737231,
-         2163.292006587698, 2235.6194490192347, 2294.79644737231,
-         2454.79644737231, 2635.6194490192347, 2643.292006587698,
-         2774.79644737231, 2835.6194490192347, 3033.2707426698457,
-         3035.6194490192347, 3094.79644737231, 3123.292006587698,
-         3363.292006587698, 3364.247719318987, 3435.6194490192347,
-         3603.292006587698, 3648.3397403759745, 3825.8010368497276,
-         3835.6194490192347, 3885.2707426698457, 4056.6370614359175,
-         4083.292006587698, 4169.270742669845, 4235.619449019235,
-         4324.247719318987, 4563.292006587698, 4644.247719318987,
-         4704.3397403759745, 4737.270742669846, 4835.619449019235,
-         5043.292006587698, 5056.3397403759745, 5256.6370614359175,
-         5284.247719318987, 5305.270742669846, 5656.6370614359175,
-         5760.339740375975, 5763.292006587698, 5835.619449019235,
-         5873.270742669846, 5924.247719318987, 6003.292006587698,
-         6456.6370614359175, 6464.339740375975, 6564.247719318987,
-         6725.270742669845, 6963.292006587698, 7009.270742669845,
-         7168.339740375975, 7256.6370614359175, 7524.247719318987,
-         7704.369260617026, 7844.247719318987, 8056.6370614359175,
-         8145.270742669845, 8224.339740375975, 8576.339740375975,
-         8704.369260617026, 9124.247719318988, 9256.637061435917,
-         9363.292006587697, 9656.637061435917, 9984.339740375975,
-         10985.270742669845, 11204.369260617026, 11256.637061435917,
-         11704.369260617026, 12324.247719318988, 13504.339740375975,
-         13704.369260617026, 15256.637061435917, 18704.369260617026]
-
-RHS_IY = [69402.1348577099, 82151.28824369762, 141469.80388201258,
-          93235.56709132508, 251422.42849846912, 169438.8058049558,
-          407260.0087070795, 194671.3623630676, 303421.5664789544,
-          616982.5445078439, 494099.5702656935, 351348.30771715636,
-          237358.76890471048, 751472.8171651728, 575266.4031535913,
-          435510.7428089776, 1085541.3071773928, 878425.6486723726,
-          1506305.0403023532, 721202.5390818602, 1272826.0442734999,
-          504944.22072287824, 1770467.5899569737, 2647918.2358904947,
-          1110434.1577233584, 846291.9300855394, 1619205.598733472,
-          4256312.403929599, 3123474.1315709595, 1314420.611899162,
-          5260552.35261826, 2263516.8621122013, 5033445.27351433,
-          1929330.2661637464, 6227292.569609535, 4022758.855975506,
-          2711020.892879293, 7596381.015787086, 6516160.139313272,
-          3114741.7978090816, 4854745.06366327, 8078170.514535079,
-          9871720.712125503, 7905593.124251096, 5621572.923474502,
-          14217440.574412191, 9821188.61322145, 6235230.294796982,
-          12023565.074642764, 19681319.726173345, 9204262.450457461,
-          11459054.114443017, 6768760.707404428, 17368660.914838284,
-          14054810.378757961, 7198754.151445843, 19184945.76423401,
-          24100880.64483765, 12896997.263231725, 7768082.442480799,
-          20365216.708375998, 15874082.660310294, 32380224.26464086,
-          14118333.707433986, 28327481.43931158, 17412349.479375735,
-          15131229.417059045, 23133398.0658679, 48050096.98772789,
-          38133604.5715647, 18695912.47963438, 16525294.695811596,
-          25458618.181157082, 32322239.619959485, 20476695.81973211,
-          27417265.565841436, 56720023.77241476, 84168837.64189216,
-          43667807.32258503, 35662536.426802225, 64045426.04002355,
-          30167993.626788545, 38495934.600123696, 48280104.21631118,
-          65227020.405024536, 99636681.11375256, 73737921.17343803,
-          52213519.582481146, 42510618.84613217, 72292048.7953192,
-          34064339.66473276, 81780188.42692047, 57824571.47776296,
-          115161339.61842687, 78353864.45865832, 88691837.39142165,
-          48594155.981109016, 128006870.81298491, 87066739.32324764,
-          241042340.82113203, 98646458.97788613, 139105018.9926629,
-          280318593.3302435, 101613144.87508953, 155193656.12715802,
-          115478848.04297818, 312692443.7957626, 340887002.087082,
-          183481345.34484133, 382159878.71536344, 458765381.0116587]
-
-RHS_IZ = [69402.1348577099, 82151.28824369762, 141469.80388201258,
-          93235.56709132508, 251422.42849846912, 169438.8058049558,
-          407260.0087070795, 194671.3623630676, 303421.5664789544,
-          616982.5445078439, 494099.5702656935, 351348.30771715636,
-          237358.76890471048, 751472.8171651728, 575266.4031535913,
-          435510.7428089776, 1085541.3071773928, 878425.6486723726,
-          1506305.0403023532, 721202.5390818602, 1272826.0442734999,
-          504944.22072287824, 1770467.5899569737, 2647918.2358904947,
-          1110434.1577233584, 846291.9300855394, 1619205.598733472,
-          4256312.403929599, 3123474.1315709595, 1314420.611899162,
-          5260552.35261826, 2263516.8621122013, 5033445.27351433,
-          1929330.2661637464, 6227292.569609535, 4022758.855975506,
-          2711020.892879293, 7596381.015787086, 6516160.139313272,
-          3114741.7978090816, 4854745.06366327, 8078170.514535079,
-          9871720.712125503, 7905593.124251096, 5621572.923474502,
-          14217440.574412191, 9821188.61322145, 6235230.294796982,
-          12023565.074642764, 19681319.726173345, 9204262.450457461,
-          11459054.114443017, 6768760.707404428, 17368660.914838284,
-          14054810.378757961, 7198754.151445843, 19184945.76423401,
-          24100880.64483765, 12896997.263231725, 7768082.442480799,
-          20365216.708375998, 15874082.660310294, 32380224.26464086,
-          14118333.707433986, 28327481.43931158, 17412349.479375735,
-          15131229.417059045, 23133398.0658679, 48050096.98772789,
-          38133604.5715647, 18695912.47963438, 16525294.695811596,
-          25458618.181157082, 32322239.619959485, 20476695.81973211,
-          27417265.565841436, 56720023.77241476, 84168837.64189216,
-          43667807.32258503, 35662536.426802225, 64045426.04002355,
-          30167993.626788545, 38495934.600123696, 48280104.21631118,
-          65227020.405024536, 99636681.11375256, 73737921.17343803,
-          52213519.582481146, 42510618.84613217, 72292048.7953192,
-          34064339.66473276, 81780188.42692047, 57824571.47776296,
-          115161339.61842687, 78353864.45865832, 88691837.39142165,
-          48594155.981109016, 128006870.81298491, 87066739.32324764,
-          241042340.82113203, 98646458.97788613, 139105018.9926629,
-          280318593.3302435, 101613144.87508953, 155193656.12715802,
-          115478848.04297818, 312692443.7957626, 340887002.087082,
-          183481345.34484133, 382159878.71536344, 458765381.0116587]
+import metku.frame2d as f2d
+import metku.truss2d as t2d
+from metku.optimization.objective_enum import ObjectiveEnum
+from metku.optimization.structopt import *
+from metku.structures.steel.steel_member import SteelMember
 
 
 class TrussProblem(OptimizationProblem):
+    """
+    Class for truss optimization problem
+    """
 
     def __init__(self,
                  name='TrussProblem',
-                 prob_type='design',
-                 var_type='continuous',
-                 variables=['A'],
-                 profiles=RHS_PROFILES,
-                 groups=None,
-                 objective='weight',
-                 structure=None,
-                 lb=0,
-                 ub=1e5):
+                 displacement_limit: float = 30,
+                 variable_groups=None,
+                 objective: callable or ObjectiveEnum = ObjectiveEnum.WEIGHT,
+                 structure: f2d.Frame2D = None,
+                 include_joints: bool = False,
+                 include_section_strength: bool = True,
+                 include_stability: bool = True,
+                 include_section_class: bool = True,
+                 include_displacement: bool = True,
+                 penalty_fun: callable = None):
 
         super().__init__(name, structure=structure)
-
-        self.prob_type = prob_type
-        self.var_type = var_type
-        self.variables = variables
-        self.profiles = profiles
-        self.groups = groups
+        self.variable_groups = variable_groups
         self.objective = objective
-        self.lb = lb
-        self.ub = ub
-
-
-
+        self.include_joints = include_joints
+        self.include_section_strength = include_section_strength
+        self.include_stability = include_stability
+        self.include_section_class = include_section_class
+        self.include_displacement = include_displacement
+        self.displacement_limit = displacement_limit
+        # Penalty function
+        if penalty_fun is None:
+            penalty_fun = lambda *x: 0
+        self.penalty_fun = penalty_fun
         # Create variables
         self.create_variables()
-
         # Create constraints
         self.create_constraints()
 
         # Assign objective
-        if isinstance(self.objective, str):
-            if self.objective == 'weight':
+        match self.objective:
+            case ObjectiveEnum.WEIGHT:
                 self.obj = self.weight_fun
-            elif self.objective == 'cost':
-                pass
-                # TODO self.obj = self.cost_fun
-            else:
+            case ObjectiveEnum.COST:
+                raise NotImplementedError("Cost Objective onot implemented")
+            case callable(self.objective):
+                self.obj = self.objective
+            case _:
                 raise ValueError("Objective must be either "
-                                 "'weight' or 'cost' or a function")
-        elif callable(self.objective):
-            self.obj = self.objective
-        else:
-            raise ValueError("Objective must be either "
-                             "'weight' or 'cost' or a function")
-
+                                 "ObjectiveTypeEnum or callable")
 
     @property
     def weight_fun(self):
-
-        # self.penalty_cons = [con for con in self.cons]
-        # self.cons.clear()
-
+        """
+        Function for calculating structure's weight
+        :return: ObjectiveFunction
+        """
         if self.structure is not None:
             def obj_fun(x):
-                # pos_vals = np.clip([con(x) for con in self.penalty_cons], 0, 1000) ** 2
-
-                # weight = 0
-                # for mem in self.structure.members.values():
-                #     A = mem.cross_section.A
-                #     L = mem.length
-                #     rho = mem.material.density
-                #     weight += A * L * rho
-                # return weight
-                return self.structure.weight #+ 2e5 * sum(pos_vals)
+                return self.structure.weight + self.penalty_fun(x)
 
             obj = ObjectiveFunction(name="Objective ",
                                     obj_fun=obj_fun)
@@ -349,251 +77,9 @@ class TrussProblem(OptimizationProblem):
         Creates design variables
         """
         self.vars = []
-
-        if self.groups is None:
-            self.groups = []
-            for mem in self.structure.members.values():
-                group = {
-                    "name": "var name",
-                    "objects": [mem],
-                    "profiles": self.profiles,
-                    "property": "A",
-                    "properties": self.variables,
-                    "var_type": 'continuous',
-                    "lb": self.lb,
-                    "ub": self.ub,
-                }
-                self.groups.append(group)
-
-        for i, group in enumerate(self.groups):
-            if not "value" in group.keys():
-                group["value"] = 0
-            if group["var_type"] == 'discrete':
-                var = DiscreteVariable(
-                    name=group['name'],
-                    values=group['values'],
-                    value=group['value'],
-                    target={"property": group["property"],
-                            "objects": group["objects"]}
-                )
+        for vg in self.variable_groups:
+            for var in vg.variables:
                 self.add(var)
-
-            elif group["var_type"] == 'continuous':
-                # Multiple properties
-                if "properties" in group.keys():
-                    bounds = group["bounds"]
-                    if len(bounds) != len(group["properties"]):
-                        raise ValueError(
-                            "There must be same number of bounds as properties!"
-                            f"{group['bounds']} != {group['properties']}")
-                    for bounds, prop, value in zip(group["bounds"],
-                                                   group["properties"],
-                                                   group["values"]):
-                        lb, ub = bounds
-                        var = Variable(
-                            name=group['name'],
-                            lb=lb,
-                            ub=ub,
-                            value=value,
-                            target={"property": prop,
-                                    "objects": group["objects"]}
-                        )
-                        self.add(var)
-
-                # Single property
-                else:
-                    var = Variable(
-                        name=group['name'],
-                        lb=group['lb'],
-                        ub=group['ub'],
-                        value=group['value'],
-                        target={"property": group["property"],
-                                "objects": group["objects"]}
-                    )
-                    self.add(var)
-
-            elif group["var_type"] == 'index':
-                var = IndexVariable(
-                    name=group['name'],
-                    value=group['value'],
-                    values=group['profiles'],
-                    target={"property": group["property"],
-                            "objects": group["objects"]}
-                )
-                self.add(var)
-
-            elif group["var_type"] == 'binary':
-                pass
-            else:
-                raise ValueError("var_type must be either 'discrete',"
-                                 " 'continuous', 'index' or 'binary")
-
-
-    def index_to_binary(self, params=('H', 'B', 'T'), chord_profiles=RHS_COMP, web_profiles=RHS_COMP):
-        """
-        Creates binary variables and continuous variables
-        :return:
-        """
-        idx_vars = [var for var in self.vars if isinstance(var, IndexVariable)]
-        # Temp member instance to get needed values
-        mem = SteelBeam([[0, 0], [1000, 0]])
-
-        for var in idx_vars:
-            for param in params:
-                values = []
-                if var.target['objects'][0].mtype == 'web':
-                    profiles = web_profiles
-                else:
-                    profiles = chord_profiles
-                for profile in profiles:
-                    mem.profile = profile
-                    values.append(mem.cross_section.__getattribute__(param))
-                new_var = DiscreteVariable(
-                    name=f"{var.name} {param}",
-                    values=values,
-                    value=values[min(var.value, len(values) -1)],
-                    id=var.id,
-                    target={"property": param,
-                            "objects": [obj.cross_section for obj in  var.target["objects"]]}
-                )
-                # Add new variable
-                self.add(new_var)
-                # Remove index variable
-            self.all_vars.remove(var)
-
-
-
-
-
-        # vars = {}
-        #
-        # for i, idx_var in enumerate(idx_vars):
-        #     A_list = []
-        #     Iy_list = []
-        #     Iz_list = []
-        #     Wply_list = []
-        #     Wplz_list = []
-        #     bin_vars = []
-        #     for j, profile in enumerate(idx_var.values):
-        #         # Get attributes
-        #         mem.profile = profile
-        #         A = mem.cross_section.A
-        #         Iy, Iz = mem.cross_section.I
-        #         Wply, Wplz = mem.cross_section.Wpl
-        #
-        #         # Append attributes
-        #         A_list.append(A)
-        #         Iy_list.append(Iy)
-        #         Iz_list.append(Iz)
-        #         Wply_list.append(Wply)
-        #         Wplz_list.append(Wplz)
-        #
-        #         bin_var = BinaryVariable(name=f"BinVar{i}{j}")
-        #         bin_vars.append(bin_var)
-        #
-        #     # Create continuous variables
-        #     # A
-        #     A_var = Variable(name=f"Continuous A{i}",
-        #                      lb=min(A_list),
-        #                      ub=max(A_list),
-        #                      target={
-        #                          "objects": idx_var.target["objects"],
-        #                          "property": "A"
-        #                      })
-        #     # Iy
-        #     Iy_var = Variable(name=f"Continuous Iy{i}",
-        #                       lb=min(Iy_list),
-        #                       ub=max(Iy_list),
-        #                       target={
-        #                           "objects": idx_var.target["objects"],
-        #                           "property": "Iy"
-        #                       })
-        #     # Iz
-        #     Iz_var = Variable(name=f"Continuous Iz{i}",
-        #                       lb=min(Iz_list),
-        #                       ub=max(Iz_list),
-        #                       target={
-        #                           "objects": idx_var.target["objects"],
-        #                           "property": "Iz"
-        #                       })
-        #     # Wply
-        #     Wply_var = Variable(name=f"Continuous Wply{i}",
-        #                         lb=min(Wply_list),
-        #                         ub=max(Wply_list),
-        #                         target={
-        #                             "objects": idx_var.target["objects"],
-        #                             "property": "Wply"
-        #                         })
-        #     # Wplz
-        #     Wplz_var = Variable(name=f"Continuous Wplz{i}",
-        #                         lb=min(Wplz_list),
-        #                         ub=max(Wplz_list),
-        #                         target={
-        #                             "objects": idx_var.target["objects"],
-        #                             "property": "Wplz"
-        #                         })
-        #
-        #     cont_vars = [A_var, Iy_var, Iz_var, Wply_var, Wplz_var]
-        #     lists = [A_list, Iy_list, Iz_list, Wply_list, Wplz_list]
-        #
-        #     vars[i] = {'bin_vars': bin_vars, 'cont_vars': cont_vars,
-        #                'lists': lists}
-        #     self.vars.remove(idx_var)
-        #     self.vars.extend(bin_vars)
-        #     self.vars.extend(cont_vars)
-
-        # Create linear constraints
-        # for i, vars_dict in enumerate(vars.values()):
-        #     bin_vars = vars_dict['bin_vars']
-        #     cont_vars = vars_dict['cont_vars']
-        #     lists = vars_dict['lists']
-        #     A_var, Iy_var, Iz_var, Wply_var, Wplz_var = cont_vars
-        #     A_list, Iy_list, Iz_list, Wply_list, Wplz_list = lists
-        #     # Binary constraint sum(bin_vars) == 1
-        #     bin_idx = [self.vars.index(bvar) for bvar in bin_vars]
-        #     a = np.zeros(len(self.vars))
-        #     a[bin_idx] = 1
-        #     bin_con = LinearConstraint(a=a, b=1, con_type="=",
-        #                                name="Binary Constraint "
-        #                                     + str(i))
-        #     # A con; sum(Â*bin_vars) == A
-        #     a_A = np.zeros(len(self.vars))
-        #     a_A[bin_idx] = A_list
-        #     b = A_var
-        #     A_con = LinearConstraint(a=a_A,
-        #                              b=b,
-        #                              name=f"A Constraint {i}")
-        #     # Iy con; sum(Îy*bin_vars) == Iy
-        #     a_Iy = np.zeros(len(self.vars))
-        #     a_Iy[bin_idx] = Iy_list
-        #     b = Iy_var
-        #     Iy_con = LinearConstraint(a=a_Iy,
-        #                               b=b,
-        #                               name=f"Iy Constraint {i}")
-        #     # Iz con; sum(Îz*bin_vars) == Iz
-        #     a_Iz = np.zeros(len(self.vars))
-        #     a_Iz[bin_idx] = Iz_list
-        #     b = Iz_var
-        #     Iz_con = LinearConstraint(a=a_Iz,
-        #                               b=b,
-        #                               name=f"Iz Constraint {i}")
-        #     # Wply con; sum(Wply*bin_vars) == Wply
-        #     a_Wply = np.zeros(len(self.vars))
-        #     a_Wply[bin_idx] = Wply_list
-        #     b = Wply_var
-        #     Wply_con = LinearConstraint(a=a_Wply,
-        #                                 b=b,
-        #                                 name=f"Wply Constraint {i}")
-        #     # Wplz con; sum(Wplz*bin_vars) == Wplz
-        #     a_Wplz = np.zeros(len(self.vars))
-        #     a_Wplz[bin_idx] = Wplz_list
-        #     b = Wplz_var
-        #     Wplz_con = LinearConstraint(a=a_Wplz,
-        #                                 b=b,
-        #                                 name=f"Wplz Constraint {i}")
-        #
-        #     self.cons.extend([bin_con, A_con, Iy_con,
-        #                       Iz_con, Wply_con, Wplz_con])
 
     def joint_geometry_constraints(self, joint):
         """
@@ -878,8 +364,7 @@ class TrussProblem(OptimizationProblem):
 
         return con_funs
 
-
-    def cross_section_constraints(self, sect, elem):
+    def cross_section_constraints(self, mem, elem, load_id=LoadIDs.ULS):
         """
         Creates cross-section constraints
         :return:
@@ -894,65 +379,136 @@ class TrussProblem(OptimizationProblem):
             else:
                 return max_val
 
-
         def compression(x):
-            N = absmax(elem.axial_force)
-            return -N / sect.NRd - 1
+            NEd = elem.fint[load_id]['fx']
+            return -min(NEd) / mem.NRd - 1
 
         def tension(x):
-            N = absmax(elem.axial_force)
-            return N / sect.NRd - 1
+            NEd = elem.fint[load_id]['fx']
+            return max(NEd) / mem.NRd - 1
 
         def shear(x):
-            V = absmax(elem.shear_force)
-            return abs(V) / sect.VRd - 1
+            VEd = elem.fint[load_id]['fz']
+            V = absmax(VEd)
+            return abs(V) / mem.VRd - 1
 
         def bending_moment(x):
             # Moment about y
-
             # TODO: Moment about z
+            MEd = elem.fint[load_id]['my']
+            M = absmax(MEd)
+            return abs(M) / mem.cross_section.plastic_bending_resistance() - 1
 
-            M = absmax(elem.bending_moment)
-            return abs(M) / sect.cross_section.plastic_bending_resistance() - 1
+        def shear_moment(x):
 
-        return compression, tension, shear, bending_moment
+            gammaM0 = 1
+            VEd = abs(absmax(elem.fint[load_id]['fz']))
+            VRd = mem.cross_section.VRd
+            if VEd <= 0.5 * VRd:
+                rho = 0
+            else:
+                rho = (2 * VEd / VRd - 1) ** 2
+            MRd = mem.MRd
+            t = mem.cross_section.T
+            Wply = mem.cross_section.Wply
+            Av = mem.cross_section.Ashear[0]
+            MVRd = min((Wply - rho * Av ** 2 / (8 * t) / gammaM0) * mem.fy, MRd)
+            M = abs(absmax(elem.fint[load_id]['my']))
+            return abs(M) / MVRd - 1
 
-    def stability_constraints(self, mem, section_class=2):
+        def NVM(x):
+            """
+            Shear + Normal + Moment
+            """
+            gammaM0 = 1
+
+            NEd = abs(absmax(elem.fint[load_id]['fx']))
+            VEd = abs(absmax(elem.fint[load_id]['fz']))
+            MEd = abs(absmax(elem.fint[load_id]['my']))
+            VRd = mem.cross_section.VRd
+            MRd = mem.cross_section.MRd
+            A = mem.cross_section.A
+            t = mem.cross_section.T
+            b = mem.cross_section.B
+            if VEd <= 0.5 * VRd:
+                rho = 0
+            else:
+                rho = (2 * VEd / VRd - 1) ** 2
+            Wply = mem.cross_section.Wply
+            Av = mem.cross_section.Ashear[0]
+            Awred = (1 - rho) * (A - 2 * b * t)
+            Atotred = A - rho * (A - 2 * b * t)
+            NVRd = Atotred * mem.fy / gammaM0
+            MVRd = min((Wply - rho * Av ** 2 / (8 * t) / gammaM0) * mem.fy,
+                       MRd)
+            nV = NEd / NVRd
+            aV = min(Awred / Atotred, 0.5)
+
+            if NEd <= 0.25 * NVRd and NEd <= (0.5 * Awred * mem.fy / gammaM0):
+                MNVRd = MVRd
+            else:
+                MNVRd = MVRd * (1 - nV) / (1 - 0.5 * aV)
+
+            return abs(MEd) / MNVRd - 1
+
+        # Cross-Section constraints
+        return {
+            'Ncd': compression,
+            'Ntd': tension,
+            'VEd': shear,
+            'MEd Y': bending_moment,
+            'VEd + MEd': shear_moment,
+            'NEd + VEd + MEd': NVM
+        }
+
+    def stability_constraints(self, mem: f2d.FrameMember, smem: SteelMember,
+                              load_id=LoadIDs.ULS) -> dict[str: callable]:
         """
-        Creates stability constraint functions
 
+        :param mem: FrameMember -object
+        :param smem: SteelMember -object
+        :param section_class:
+        :param load_id:
         :return:
         """
         def buckling_y(x):
-            return - min(mem.ned) / mem.NbRd[0] - 1
+            return - mem.NEd[load_id] / mem.NbRd[0] - 1
 
         def buckling_z(x):
-            return -min(mem.ned) / mem.NbRd[1] - 1
+            return - mem.NEd[load_id] / mem.NbRd[1] - 1
 
         def com_compression_bending_y(x):
-            return mem.check_beamcolumn(section_class=section_class)[0] - 1
+            section_class = mem.cross_section.section_class()
+            return smem.check_beamcolumn(section_class=section_class)[0] - 1
 
         def com_compression_bending_z(x):
-            return mem.check_beamcolumn(section_class=section_class)[1] - 1
+            section_class = mem.cross_section.section_class()
+            return smem.check_beamcolumn(section_class=section_class)[1] - 1
 
-        return buckling_y, \
-               buckling_z, \
-               com_compression_bending_y, \
-               com_compression_bending_z
+        # ADD ANY MISSING CONSTRAINTS HERE
+        def my_own_stability_con_fun(x):
+            ...
 
-    def deflection_constraints(self, mem):
+        return {
+            'Buckling Y': buckling_y,
+            'Buckling Z': buckling_z,
+            'Stab. NEd + MEd Y': com_compression_bending_y,
+            'Stab. NEd + MEd Z': com_compression_bending_z,
+            # 'My stability test': my_own_stability_con_fun
+        }
+
+    def deflection_constraints(self, truss: t2d.Truss2D, load_id=LoadIDs.SLS_Charasteristic):
         """
         Creates deflection constraint functions
         :param mem:
         :return:
         """
-        self.delta_max = self.structure.L / 300
+        max_displacement = truss.get_deflection(load_id)
 
         def disp_fun(x):
-            displacements = mem.nodal_displacements.values()
-            vals = [abs(l[1]) for l in displacements]
-            abs_max = max(vals)
-            return abs_max / self.delta_max - 1
+            truss.calculate(load_id=load_id)
+            max_displacement = truss.get_deflection(load_id)
+            return max_displacement / self.displacement_limit - 1
 
         return disp_fun
 
@@ -962,11 +518,11 @@ class TrussProblem(OptimizationProblem):
         :param mem:
         :return:
         """
-        # TODO: Linear constraint
+        # SECTION IN PURE COMPRESSION
         def section_class(x):
-            b_ = mem.cross_section.H - 4*mem.cross_section.T
-
-            return b_ / mem.cross_section.T / (38 * mem.cross_section.epsilon) - 1
+            b_ = mem.cross_section.H - 2 * mem.cross_section.T - 2 * mem.cross_section.R
+            c_t = b_ / mem.cross_section.T
+            return c_t / (38 * mem.cross_section.epsilon) - 1
 
         return section_class
 
@@ -976,420 +532,156 @@ class TrussProblem(OptimizationProblem):
         """
         # Initialize cons as an empty list
         self.cons = []
+        # MEMBER AND CROSS-SECTION CONSTRAINTS
         for mem in self.structure.members.values():
-            for j, smem in enumerate(mem.members):
-                buckling_y, buckling_z, com_compression_bending_y, \
-                com_compression_bending_z = \
-                    self.stability_constraints(smem)
-
-                # buckling_y, buckling_z, = self.stability_constraints(mem)
-
-                # BUCKLING Y
-                buckling_y_con = self.non_linear_constraint(con_fun=buckling_y,
-                                                            name="Buckling_y " +
-                                                                 str(
-                                                                     mem.mem_id) +
-                                                                 str(j))
-                buckling_y_con.fea_required = True
-
-                # BUCKLING Z
-                buckling_z_con = self.non_linear_constraint(con_fun=buckling_z,
-                                                            name="Buckling_z " +
-                                                                 str(
-                                                                     mem.mem_id) + str(
-                                                                j),
-                                                            )
-                buckling_z_con.fea_required = True
-
-                # BENDING + COMPRESSION Y
-                if mem.mtype != "web":
-                    com_compression_bending_con_y = self.non_linear_constraint(
-                        com_compression_bending_y,
-                        name="Com_compression_bending_y " + str(mem.mem_id),
-                    )
-                    com_compression_bending_con_y.fea_required = True
-                # self.add(com_compression_bending_con_y)
-
-                # # BENDING + COMPRESSION Z
-                # com_compression_bending_con_z = self.non_linear_constraint(
-                #     com_compression_bending_z,
-                #     name="Com_compression_bending_z " + str(mem.mem_id),
-                # )
-                # com_compression_bending_con_z.fea_required = True
-                # # self.add(com_compression_bending_con_z)
-
-
-            disp_fun = self.deflection_constraints(mem)
-            disp_con = self.non_linear_constraint(disp_fun, name="Displacement " + str(mem.mem_id))
-            disp_con.fea_required = True
-
-            sect_fun = self.cross_section_class_constraints(mem)
-            sect_con = self.non_linear_constraint(sect_fun,
-                                                  name="Section Class " + str(
-                                                      mem.mem_id))
-
-
+            # STABILITY CONSTRAINTS
+            if self.include_stability:
+                for j, smem in enumerate(mem.members):
+                    stability_con_dict = self.stability_constraints(mem, smem)
+                    for stab_con_name, stab_con_fun in stability_con_dict.items():
+                        if "MEd" in stab_con_name and "chord" in mem.mtype:
+                            self.non_linear_constraint(name=f"{stab_con_name} {mem.mtype} {mem.mem_id}|{j}",
+                                                       con_fun=stab_con_fun,
+                                                       fea_required=True)
+                        elif "Buckling" in stab_con_name:
+                            self.non_linear_constraint(name=f"{stab_con_name} {mem.mtype} {mem.mem_id}|{j}",
+                                                       con_fun=stab_con_fun,
+                                                       fea_required=True)
+            # CROSS-SECTION CLASS CONSTRAINT
+            if self.include_section_class:
+                sect_fun = self.cross_section_class_constraints(mem)
+                sect_con = self.non_linear_constraint(sect_fun,
+                                                      name=f"Section Class {mem.mtype} {mem.mem_id} ")
             # CROSS-SECTION STRENGTH
-            for i, elem in enumerate(mem.elements.values()):
-                compression, tension, shear, bending_moment = \
-                    self.cross_section_constraints(mem, elem)
+            if self.include_section_strength:
+                for i, elem in enumerate(mem.elements.values()):
+                    con_fun_dict = self.cross_section_constraints(mem, elem)
 
-                compression_con = self.non_linear_constraint(
-                    con_fun=compression,
-                    name="Compression " +
-                         str(mem.mem_id) +
-                         str(i), )
-                compression_con.fea_required = True
+                    for con_name, con_fun in con_fun_dict.items():
+                        self.non_linear_constraint(con_fun, name=f"{con_name}: {mem.mtype} {mem.mem_id}|{i}", fea_required=True)
+                    # Last element's end node
+                    if i == len(mem.elements) - 1 and mem.mtype != 'web':
+                        con_fun_dict = self.cross_section_constraints(mem, elem)
 
-                tension_con = self.non_linear_constraint(con_fun=tension,
-                                                         name="Tension " +
-                                                              str(mem.mem_id) +
-                                                              str(i), )
-                tension_con.fea_required = True
-
-                shear_con = self.non_linear_constraint(con_fun=shear,
-                                                       name="Shear " + str(
-                                                           mem.mem_id)
-                                                            + str(i), )
-                shear_con.fea_required = True
-
-                bending_moment_con = self.non_linear_constraint(
-                    con_fun=bending_moment, name="Bending_moment " +
-                                                 str(mem.mem_id) +
-                                                 str(i), )
-                bending_moment_con.fea_required = True
-
-                # Last element's end node
-                if i == len(mem.elements) - 1 and mem.mtype != 'web':
-                    compression, tension, shear, bending_moment = \
-                        self.cross_section_constraints(mem, elem)
-
-                    compression_con = self.non_linear_constraint(
-                        con_fun=compression,
-                        name="Compression " +
-                             str(mem.mem_id)
-                             + str(i + 1),
-                    )
-                    compression_con.fea_required = True
-                    tension_con = self.non_linear_constraint(con_fun=tension,
-                                                             name="Tension " +
-                                                                  str(
-                                                                      mem.mem_id) +
-                                                                  str(i + 1),
-                                                             )
-                    tension_con.fea_required = True
-                    shear_con = self.non_linear_constraint(con_fun=shear,
-                                                           name="Shear " +
-                                                                str(
-                                                                    mem.mem_id) +
-                                                                str(i + 1),
-                                                           )
-                    shear_con.fea_required = True
-
-                    bending_moment_con = self.non_linear_constraint(
-                        con_fun=bending_moment, name="Bending_moment " +
-                                                     str(mem.mem_id) +
-                                                     str(i + 1), )
-                    bending_moment_con.fea_required = True
-
+                        for con_name, con_fun in con_fun_dict.items():
+                            self.non_linear_constraint(con_fun, name=f"{con_name}: {mem.mtype} {mem.mem_id}|{i + 1}")
+        # DISPLACEMENT
+        if self.include_displacement:
+            disp_fun = self.deflection_constraints(self.structure, load_id=LoadIDs.SLS_Charasteristic)
+            disp_con = self.non_linear_constraint(
+                con_fun=disp_fun, name=" Truss Deflection")
+            self.add(disp_con)
         # JOINT CONS
-        for joint in self.structure.joints.values():
-            # Geometry Constraints
-            con_funs = self.joint_geometry_constraints(joint)
-            for name, con_fun in con_funs.items():
-                self.non_linear_constraint(con_fun=con_fun,
-                                           name=name)
-            # Strength Constraints
-            strength_con_funs = self.joint_strength_constraints(joint)
-            for name, con_fun in strength_con_funs.items():
-                self.non_linear_constraint(con_fun=con_fun,
-                                           name=name)
+        if self.include_joints:
+            for joint in self.structure.joints.values():
+                # Geometry Constraints
+                con_funs = self.joint_geometry_constraints(joint)
+                for name, con_fun in con_funs.items():
+                    self.non_linear_constraint(con_fun=con_fun,
+                                               name=name)
+                # Strength Constraints
+                strength_con_funs = self.joint_strength_constraints(joint)
+                for name, con_fun in strength_con_funs.items():
+                    self.non_linear_constraint(con_fun=con_fun,
+                                               name=name)
 
 
-
-
-
-
+def create_truss(H1: float,
+                 H2: float,
+                 L: float,
+                 n: int,
+                 dx: float,
+                 qd: float = 0,
+                 qk: float = 0) -> t2d.Truss2D:
+    simple = dict(
+        H0=0,
+        H1=H1,
+        H2=H2,
+        L1=L / 2,
+        n=n,
+        dx=dx
+    )
+    truss = t2d.Truss2D(simple=simple)
+    for mem in truss.members.values():
+        if mem.mtype == 'top_chord':
+            truss.add(f2d.LineLoad(mem, [qd, qd], 'y', load_id=LoadIDs.ULS))
+            truss.add(f2d.LineLoad(mem, [qk, qk], 'y', load_id=LoadIDs.SLS_Charasteristic))
+    truss.add(f2d.XYHingedSupport([0, truss.H1]))
+    truss.add(f2d.YHingedSupport([truss.L, truss.H1]))
+    truss.generate()
+    truss.calculate('ALL')
+    return truss
 
 
 if __name__ == '__main__':
-    try: 
-        from metku.optimization.solvers import *
-        from metku.frame2d.frame2d import *
-        from metku.truss2d import *
-    except:
-        from optimization.solvers import *
-        from frame2d.frame2d import *
-        from truss2d import *
+    from metku.optimization.variable_group import VariableGroup, VariableTypeEnum
+    from metku.sections.steel.catalogue import shs_profiles
+    from metku.optimization.solvers import SLP
 
-    import matplotlib.pyplot as plt
+    # THESE ARE NOT SORTED VALUES
+    SHS_PROFILE_NAMES = list(shs_profiles.keys())
 
-    n = 20
+    truss = create_truss(H1=1200, H2=2000, L=20_000, dx=1200, n=16, qd=-25, qk=-10)
 
-    truss = Truss2D(simple=dict(
-        H0=0,
-        H1=1000,
-        H2=2000,
-        L1=12500,
-        dx=500,
-        n=n
-    ))
-    truss.add(XYHingedSupport([0, truss.H0 + truss.H1]))
-    truss.add(YHingedSupport([truss.L1 + truss.L2, truss.H0 + truss.H3]))
+    top_chords = truss.top_chords
+    bottom_chords = truss.bottom_chords
+    webs = truss.webs.values()
 
-    for mem in truss.members.values():
-        mem.profile = "RHS 300X300X5"
-        if mem.mtype == "top_chord":
-            truss.add(LineLoad(mem, [-30, -30], 'y'))
+    tc_sections = [mem.cross_section for mem in top_chords]
+    bc_sections = [mem.cross_section for mem in bottom_chords]
+    web_sections = [mem.cross_section for mem in webs]
 
-    truss.generate()
-    truss.calculate()
+    tc_group = VariableGroup(name="Top Chord",
+                             var_type=VariableTypeEnum.INDEX,
+                             attribute="profile",
+                             objects=top_chords,
+                             values=SHS_PROFILE_NAMES)
 
-    top_chords = []
-    bot_chords = []
-    webs_tension = []
-    webs_compression = []
-    webs = []
-    bot_nodes = []
-    for mem in truss.members.values():
-        mem.material = "S420"
-        if mem.mtype == "top_chord":
-            top_chords.append(mem)
-        elif mem.mtype == "bottom_chord":
-            bot_chords.append(mem)
-            for node in mem.nodes.values():
-                if node not in bot_nodes:
-                    bot_nodes.append(node)
-        else:
-            webs.append(mem)
-            if mem.ned > 0:
-                webs_tension.append(mem)
-            else:
-                webs_compression.append(mem)
+    bc_group = VariableGroup(name="Bottom Chord",
+                             var_type=VariableTypeEnum.INDEX,
+                             attribute="profile",
+                             objects=bottom_chords,
+                             values=SHS_PROFILE_NAMES)
 
-    TC_group = {
-        "objects": top_chords,
-        "name": "TC index",
-        # "values": [500, 500, 5],
-        # "bounds": [[50, 800], [50, 800], [1, 8]],
-        # "properties": ["H", "B", "T"],
-        # "var_type": 'continuous',
-        "var_type": 'index',
-        'property': 'profile',
-        "profiles": RHS_COMP,
-    }
+    web_group = VariableGroup(name="Webs",
+                              var_type=VariableTypeEnum.INDEX,
+                              attribute="profile",
+                              objects=webs,
+                              values=SHS_PROFILE_NAMES)
 
-    BC_group = {
-        "objects": bot_chords,
-        "name": "BC index",
-        # "values": [500, 500, 5],
-        # "bounds": [[50, 800], [50, 800], [1, 8]],
-        # "properties": ["H", "B", "T"],
-        # "var_type": 'continuous',
-        "var_type": 'index',
-        'property': 'profile',
-        "profiles": RHS_COMP,
-    }
+    tc_HBT = VariableGroup(name="Top Chords",
+                           var_type=VariableTypeEnum.CONTINUOUS,
+                           attributes=[["H", "B"], "T"],
+                           objects=tc_sections,
+                           lower_bounds=[100, 3],
+                           upper_bounds=[300, 15])
+    bc_HBT = VariableGroup(name="Bottom Chords",
+                           var_type=VariableTypeEnum.CONTINUOUS,
+                           attributes=[["H", "B"], "T"],
+                           objects=bc_sections,
+                           lower_bounds=[100, 3],
+                           upper_bounds=[300, 15])
+    web_HBT = VariableGroup(name="Webs",
+                            var_type=VariableTypeEnum.CONTINUOUS,
+                            attributes=[["H", "B"], "T"],
+                            objects=web_sections,
+                            lower_bounds=[100, 3],
+                            upper_bounds=[300, 15])
 
-    WT_group = {
-        "objects": webs_tension,
-        "name": "W Tension index",
-        # "values": [500, 500, 5],
-        # "bounds": [[50, 500], [50, 500], [1, 8]],
-        # "properties": ["H", "B", "T"],
-        "var_type": 'index',
-        # "var_type": 'continuous',
-        'property': 'profile',
-        "profiles": RHS_COMP,
-    }
+    problem = TrussProblem(name="Truss Optimization",
+                           structure=truss,
+                           displacement_limit=50,  # mm
+                           include_joints=False,
+                           include_stability=True,
+                           include_displacement=False,
+                           include_section_class=True,
+                           include_section_strength=True,
+                           variable_groups=[tc_HBT, bc_HBT, web_HBT])
 
-    WC_group = {
-        "objects": webs_compression,
-        "name": "W Compression index",
-        # "values": [500, 500, 5],
-        # "bounds": [[50, 500], [50, 500], [1, 8]],
-        # "properties": ["H", "B", "T"],
-        "var_type": 'index',
-        # "var_type": 'continuous',
-        'property': 'profile',
-        "profiles": RHS_COMP,
-    }
-
-    bnode_group = {
-        "name": "BC Y-loc",
-        "value": 0,
-        "objects": bot_nodes,
-        "lb": -500,
-        "ub": 500,
-        "var_type": 'continuous',
-        'property': 'y',
-    }
-
-    groups = [TC_group, BC_group]  # , WT_group, WC_group]
-
-    for i in range(int(len(webs) / 2)):
-        w = webs[i * 2: i * 2 + 2]
-        W_group = {
-            "objects": [web for web in w],
-            "name": "W " + str(i),
-            # "values": [500, 500, 5],
-            # "bounds": [[50, 500], [50, 500], [1, 8]],
-            # "properties": ["H", "B", "T"],
-            "var_type": 'index',
-            # "var_type": 'continuous',
-            'property': 'profile',
-            "profiles": RHS_COMP,
-        }
-        groups.append(W_group)
-
-    tc_joints = [j for j in truss.joints.values() if
-                 j.chord.mtype == "top_chord" and 0.1 < j.loc < 0.9]
-    bc_joints = [j for j in truss.joints.values() if
-                 j.chord.mtype == "bottom_chord"]
-
-    # Top Joints
-    m = int(len(tc_joints) / 2)
-    for i in range(m):
-        joint = tc_joints[2 * i]
-        sym_joint = tc_joints[2 * i + 1]
-        j_group = {
-            "value": joint.loc,
-            "name": f"TopJoint {i} loc",
-            "objects": [joint, sym_joint],
-            "lb": max(0, joint.loc - 2 / n),
-            "ub": min(1, joint.loc + 2 / n),
-            "var_type": 'continuous',
-            'property': 'loc'
-        }
-        groups.append(j_group)
-        je_group = {
-            "value": joint.e,
-            "name": f"TopJoint {i} e",
-            "objects": [joint, sym_joint],
-            "lb": -50,
-            "ub": 50,
-            "var_type": 'continuous',
-            'property': 'e'
-        }
-        groups.append(je_group)
-
-    # Bottom joints
-    n = int(len(bc_joints) / 2)
-    for i in range(m):
-        joint = bc_joints[2 * i]
-        sym_joint = bc_joints[2 * i + 1]
-        sym_joint.reverse = True
-
-        j_group = {
-            "value": joint.loc,
-            "name": f"BottomJoint {i} loc",
-            "objects": [joint, sym_joint],
-            "lb": max(0, joint.loc - 0.1 / n),
-            "ub": min(1, joint.loc + 0.1 / n),
-            "var_type": 'continuous',
-            'property': 'loc'
-        }
-        groups.append(j_group)
-        je_group = {
-            "value": joint.e,
-            "name": f"BottomJoint {i} e",
-            "objects": [joint, sym_joint],
-            "lb": -50,
-            "ub": 50,
-            "var_type": 'continuous',
-            'property': 'e'
-        }
-        groups.append(je_group)
-
-    problem = TrussProblem(
-        name="FrameTest",
-        structure=truss,
-        groups=groups
-    )
-
-    tjoint_vars = [var for var in problem.vars if "TopJoint" in var.name]
-    bjoint_vars = [var for var in problem.vars if "BottomJoint" in var.name]
-
-    # Joint loc constraints
-    for i, jvar in enumerate(tjoint_vars):
-        if i < len(tjoint_vars) - 1:
-            a = np.zeros_like(problem.vars)
-            idx = problem.vars.index(jvar)
-            a[idx] = 1
-            con = LinearConstraint(a=a, b=tjoint_vars[i + 1],
-                                   name="Joint constraint")
-            problem.add(con)
-
-    # Joint loc constraints
-    for i, jvar in enumerate(bjoint_vars):
-        if i < len(bjoint_vars) - 1:
-            a = np.zeros_like(problem.vars)
-            idx = problem.vars.index(jvar)
-            a[idx] = 1
-            con = LinearConstraint(a=a, b=bjoint_vars[i + 1],
-                                   name="Joint constraint")
-            problem.add(con)
-
-        else:
-            a = np.zeros_like(problem.vars)
-            idx = problem.vars.index(jvar)
-            a[idx] = 1
-            con = LinearConstraint(a=a, b=0.5,
-                                   name="Joint constraint")
-            problem.add(con)
-
-
-    def mutate(individual, prob=0.01, stepsize=1, multiplier=0.1):
-        """
-        Mutates individual
-        :param individual:
-        :param prob:
-        :return: mutated individual
-        """
-        for var in problem.vars:
-            i = problem.all_vars.index(var)
-
-            if isinstance(var, (IndexVariable, IntegerVariable)):
-                val = np.random.randint(0, stepsize)
-
-            else:
-                val = np.random.uniform(0, multiplier * (var.ub - var.lb))
-
-            if np.random.rand() < prob:
-                if np.random.rand() < 0.5:
-                    val *= -1
-                individual[i] += val
-
-        return individual
-
-
-    problem.index_to_binary()
-
-    for var in problem.vars:
-        print(var.name, var.id)
-
-    def cx_fun(A, B):
-
-        C = np.arange(len(A))
-        C = np.random.choice(C, 3, replace=False)
-        for val in C:
-            A[val], B[val] = B[val], A[val]
-        return A, B
-
-
-    solver = GA(pop_size=20,
-                mut_fun=mutate,
-                mutation_kwargs={'prob': 0.5, "stepsize": 5,
-                                 "multiplier": 0.25})
-
-    solver = MISLP()
     x0 = [var.ub for var in problem.vars]
-    truss.calculate()
-    for mem in truss.members.values():
-        for smem in mem.members:
-            print(smem.ned)
-    problem.substitute_variables(x0)
-    problem.fea()
-    problem(x0)
-    # fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True, plot=True)
 
+    solver = SLP([0.05, 0.05])
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=1, verb=True)
+    problem(xopt)
+    for mem in truss.members.values():
+        print(mem.profile)

@@ -12,7 +12,7 @@ from metku.frame2d.frame2d import Frame2D, FrameMember, LoadIDs
 from metku.framefem import FrameFEM, BeamSection
 from metku.framefem.elements import EBBeam, EBSemiRigidBeam
 from metku.sections.steel import HEA
-
+import matplotlib.pyplot as plt
 PREC = 3
 L_sys = 0.9
 

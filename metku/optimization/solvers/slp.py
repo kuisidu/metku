@@ -110,7 +110,7 @@ class SLP(OptSolver):
         X = []
         for i in range(len(x)):
             X.append(x[i].solution_value())
-        X = np.asarray(X)
+        X = np.asarray(X, dtype=np.float)
 
         return X - self.X
 
