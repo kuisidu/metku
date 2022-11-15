@@ -270,10 +270,11 @@ class SteelMember:
 
         return slend
 
-    def LT_slenderness(self, Mcr, verb=False):
+    def LT_slenderness(self, Mcr, verb=False, MRd=None):
         """ Non-dimensional slenderness for lateral-torsional buckling.
         """
-        MRd = self.profile.MRd
+        if MRd is None:
+            MRd = self.profile.MRd
         lambdaLT = np.sqrt(MRd / Mcr)
         if verb:
             # print("MRd: {}, Mcr: {}".format(MRd, Mcr))
@@ -332,12 +333,13 @@ class SteelMember:
 
         return NbRd
 
-    def LT_buckling_strength(self, Mcr, method='specific', verb=False):
+    def LT_buckling_strength(self, Mcr, method='specific', verb=False, MRd=None):
         """ Member lateral-torsional buckling strength """
 
-        MRd = self.profile.bending_resistance()[0]
+        if MRd is None:
+            MRd = self.profile.bending_resistance()[0]
 
-        lambdaLT = self.LT_slenderness(Mcr)
+        lambdaLT = self.LT_slenderness(Mcr, MRd=MRd)
 
         if method == 'general':
             alphaLT = self.profile.imp_factor_LT_gen
@@ -417,9 +419,11 @@ class SteelMember:
             zs = 0
             zg = za - zs
             part1 = C1 * (math.pi ** 2 * E * Iz) / (kz * L) ** 2
-            part2 = np.sqrt((kz / kw) ** 2 * Iw / Iz +
+            part2 = np.sqrt(
+                (kz / kw) ** 2 * Iw / Iz +
                             (kz * L) ** 2 * G * It / (math.pi ** 2 * E * Iz) +
-                            (C2 * zg) ** 2)
+                            (C2 * zg) ** 2
+            )
             part3 = C2 * zg
 
             # print("part 1 = {0:4.2f}".format(part1))
@@ -444,8 +448,8 @@ class SteelMember:
 
         if verb:
             print("Critical moment for LT buckling")
-            print("kz = {0:4.2f}; kw = {1:4.2f}".format(kz, kw))
-            print("C1 = {0:4.2f}; C2 = {1:4.2f}".format(C1, C2))
+            print("kz = {0:4.3f}; kw = {1:4.3f}".format(kz, kw))
+            print("C1 = {0:4.3f}; C2 = {1:4.3f}".format(C1, C2))
             print("Mcr = {0:6.4f} kNm".format(Mcr * 1e-6))
 
         # print("Iz = {0:4.2f}".format(Iz*1e-4))

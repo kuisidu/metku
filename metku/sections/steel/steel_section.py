@@ -18,13 +18,13 @@ Class for general steel cross sections
 @author: kmela
 """
 
-import numpy as np
 from abc import abstractclassmethod, ABCMeta
+
+import numpy as np
 
 from metku.eurocodes.en1993 import constants
 from metku.eurocodes.en1993 import en1993_1_1
 from metku.materials.steel_data import Steel
-
 
 INFEASIBLE = 999
 
@@ -37,7 +37,7 @@ class SteelSection(metaclass=ABCMeta):
     """
 
     # Constructor
-    def __init__(self,     
+    def __init__(self,
                  material,
                  A,
                  I,
@@ -88,13 +88,13 @@ class SteelSection(metaclass=ABCMeta):
         None.
 
         """
-        
-        #print(material)
-        #if isinstance(material,str):
+
+        # print(material)
+        # if isinstance(material,str):
         #    self.material = Steel(material)
-        #elif isinstance(material,(float,int)):
+        # elif isinstance(material,(float,int)):
         #    self.material = Steel("S" + str(int(material)))
-        
+
         self.material = material
 
         self.E = constants.E
@@ -103,52 +103,50 @@ class SteelSection(metaclass=ABCMeta):
         self.Au = Au
         self.Wpl = np.asarray(Wpl)
         self.Wel = np.asarray(Wel)
-    
-        if isinstance(Ashear, list):             
+
+        if isinstance(Ashear, list):
             self.Ashear = Ashear
         else:
             self.Ashear = [0.0, Ashear]
-                
-            
+
         self.Ned = Ned
-        if not isinstance(Med,list):
+        if not isinstance(Med, list):
             self.Med = [Med, 0.0]
         else:
             self.Med = Med
-        
-        if not isinstance(Ved,list):
+
+        if not isinstance(Ved, list):
             self.Ved = [0.0, Ved]
         else:
             self.Ved = Ved
-        
+
         self.Ted = Ted
-        
+
         self.imp_factor = None
         self.code = design_code
         self.density = constants.density
         self.rotate = False
-        
+
         # Cost of section, €/kg (or $/kg, or...)
         self.unit_cost = 1.0
-
 
     def __repr__(self):
         return type(self).__name__
 
     def cost(self):
         """ Material cost of section, units: €/m """
-        return self.weight()*self.unit_cost
-    
+        return self.weight() * self.unit_cost
+
     @property
     def material(self):
         return self.__material
-    
+
     @material.setter
-    def material(self,val):
+    def material(self, val):
         """ Sets the material of section """
-        if isinstance(val,str):
+        if isinstance(val, str):
             self.__material = Steel(val)
-        elif isinstance(val,(float,int)):
+        elif isinstance(val, (float, int)):
             self.__material = Steel("S" + str(int(val)))
 
     @property
@@ -159,13 +157,13 @@ class SteelSection(metaclass=ABCMeta):
     @property
     def fy(self):
         """ Yield strength """
-        
+
         return self.material.fy
 
     @property
     def fu(self):
         """ Ultimate strength """
-        
+
         return self.material.fu
 
     @property
@@ -239,37 +237,37 @@ class SteelSection(metaclass=ABCMeta):
         if self.rotate:
             self.Wel[0] = val
         self.Wel[1] = val
-    
+
     @property
     def section_factor(self):
         """ Section factor for unprotected profile,
             exposed to fire on all sides
         """
-        return self.Au/self.A*1e3
-    
+        return self.Au / self.A * 1e3
+
     @property
     def box_section_factor(self):
         """ Section factor when considering the
             profile as a box
         """
         return self.section_factor
-    
+
     def shadow_effect(self):
         """ Shadow effect for fire, EN 1993-1-2 """
-        
+
         return 1.0
 
     def iy(self):
-        """ Radius of gyration of the major axis """    
-        return np.sqrt(self.Iy/self.A)
+        """ Radius of gyration of the major axis """
+        return np.sqrt(self.Iy / self.A)
 
     def iz(self):
-        """ Radius of gyration of the minor axis """    
-        return np.sqrt(self.Iz/self.A)
+        """ Radius of gyration of the minor axis """
+        return np.sqrt(self.Iz / self.A)
 
     def i0(self):
         """ Polar radius """
-        return np.sqrt(self.iy()**2+self.iz()**2)
+        return np.sqrt(self.iy() ** 2 + self.iz() ** 2)
 
     @property
     def eps(self):
@@ -288,7 +286,7 @@ class SteelSection(metaclass=ABCMeta):
         if abs(self.Ashear[1]) < 1e-6 or self.fy < 1e-3:
             print("STEEL SECTION, ASHEAR: ", self.Ashear[1])
         return self.code.shear_resistance(self.Ashear[1], self.fy)
-    
+
     @property
     def VyRd(self):
         if abs(self.Ashear[0]) < 1e-6 or self.fy < 1e-3:
@@ -303,7 +301,7 @@ class SteelSection(metaclass=ABCMeta):
 
     @property
     def MRd(self):
-        M, C = self.bending_resistance(axis="y")        
+        M, C = self.bending_resistance(axis="y")
         return M
 
         """
@@ -318,9 +316,10 @@ class SteelSection(metaclass=ABCMeta):
 
             #raise NotImplemented("Calculation of cross-section class 4 is not implemented yet")
         """
+
     @property
     def MyRd(self):
-        M, C = self.bending_resistance(axis="y")        
+        M, C = self.bending_resistance(axis="y")
         return M
 
         """
@@ -333,9 +332,10 @@ class SteelSection(metaclass=ABCMeta):
             #  print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
             return self.code.bending_resistance(self.Wel[0], self.fy)
         """
+
     @property
     def MzRd(self):
-        M, C = self.bending_resistance(axis="z")        
+        M, C = self.bending_resistance(axis="z")
         return M
 
         """
@@ -348,6 +348,7 @@ class SteelSection(metaclass=ABCMeta):
             #  print("USING ELASTIC PROPERTIES FOR CROSS-SECTION CLASS 4")
             return self.code.bending_resistance(self.Wel[1], self.fy)
         """
+
     @property
     def C(self):
         C = self.section_class()
@@ -358,7 +359,6 @@ class SteelSection(metaclass=ABCMeta):
         e = self.code.epsilon(self.fy)
         return e
 
-
     @abstractclassmethod
     def flange_class(self):
         """ Determines flange's class in compression
@@ -368,7 +368,6 @@ class SteelSection(metaclass=ABCMeta):
             :return C: flange's cross-section class in compression
             :rtype C: int
         """
-
 
     @abstractclassmethod
     def web_class_comp(self):
@@ -410,7 +409,7 @@ class SteelSection(metaclass=ABCMeta):
     def robot(self):
         # returns the name of the section that Robot Structural Analysis can identify.
         pass
-    
+
     def abaqus(self):
         # writes cross-section data to a file that abaqus can read
         pass
@@ -419,10 +418,10 @@ class SteelSection(metaclass=ABCMeta):
         """ Weight per unit length kg/mm """
         w = self.A * constants.density
         return w
-    
+
     def self_weight(self):
         """ self-weight of the section (N/mm) """
-        return self.weight()*9.81
+        return self.weight() * 9.81
 
     def stress_ratio(self):
         """ computes the stress ratio Psi required
@@ -432,7 +431,6 @@ class SteelSection(metaclass=ABCMeta):
         NOTE: compression is positive, thus
         the '-' sign in front of Ned.
         """
-        
 
         stmax = -self.Ned / self.A - self.Med / self.Wel[0]
         stmin = -self.Ned / self.A + self.Med / self.Wel[1]
@@ -440,52 +438,52 @@ class SteelSection(metaclass=ABCMeta):
         p = stmin / stmax
 
         return p
-    
+
     def sigma_com(self):
         """ Elastic compressive stress 
             This works for double symmetric cross-sections
         """
-        sN = -self.Ned/self.A
-        sMy = self.Med[0]/self.Wel[0]
-        
+        sN = -self.Ned / self.A
+        sMy = self.Med[0] / self.Wel[0]
+
         return sN + sMy
 
     def sigmaN(self):
         """ Axial stress from normal force """
-        
-        return self.Ned/self.A
-    
+
+        return self.Ned / self.A
+
     def sigmaM(self):
         """ Axial stress from bending moment """
-        return self.Med[0]/self.Wel[0]
+        return self.Med[0] / self.Wel[0]
 
-    def section_class(self,verb=False):
+    def section_class(self, verb=False):
         """ Determines cross-section class """
 
         C = 1
         Med = self.Med[0]
         # Pure bending
-        
+
         if abs(self.Ned) < 1e-4 and abs(Med) > 1e-4:
             if verb:
                 print("Pure bending")
             Cflange = self.flange_class(verb)
-            Cweb = self.web_class_bend(verb)            
+            Cweb = self.web_class_bend(verb)
             C = max(Cweb, Cflange)
 
         # Compression
-        elif self.Ned < 0.0:
+        elif self.Ned < 0.0 or Med == 0:
             # Pure compression
             if abs(Med) < 1e-4:
                 Cflange = self.flange_class(verb)
-                Cweb = self.web_class_comp(verb)                
+                Cweb = self.web_class_comp(verb)
                 C = max(Cweb, Cflange)
             # Bending and compression
             else:
                 # Flange is in compression
                 Cflange = self.flange_class(verb)
                 # Classify web as a part in compression and bending
-                Cweb = self.web_class_comp_bend(self.Ned,verb)
+                Cweb = self.web_class_comp_bend(self.Ned, verb)
                 C = max(Cweb, Cflange)
 
         # Axial tension and bending
@@ -497,14 +495,14 @@ class SteelSection(metaclass=ABCMeta):
 
         return C
 
-    def axial_force_resistance(self,verb=False):
+    def axial_force_resistance(self, verb=False):
         if self.Ned >= 0:
             NRd = self.code.tension_resistance(self.A, self.fy)
         else:
             NRd = self.code.compression_resistance(self.A, self.fy)
 
         if verb:
-            print("NRd = {0:4.2f} kN".format(NRd*1e-3))
+            print("NRd = {0:4.2f} kN".format(NRd * 1e-3))
 
         return NRd
 
@@ -523,12 +521,13 @@ class SteelSection(metaclass=ABCMeta):
         elif C == 3:
             WRd = self.Wel[n]
         else:
-            WRd = self.Wel[n]
+            raise NotImplementedError(f"Cross-section class 4 not implemented in: {self}")
+            # WRd = self.Wel[n]
 
         MRd = self.code.bending_resistance(WRd, self.fy)
-        
+
         if verb:
-            print("MRd = {0:4.2f} kNm".format(MRd*1e-6))
+            print("MRd = {0:4.2f} kNm".format(MRd * 1e-6))
 
         return MRd, C
 
@@ -566,7 +565,7 @@ class SteelSection(metaclass=ABCMeta):
 
         if verb:
             print("Shear area = {0:4.2f} mm2".format(self.Ashear[n]))
-            print("VRd = {0:4.2f} kN".format(VRd*1e-3))
+            print("VRd = {0:4.2f} kN".format(VRd * 1e-3))
 
         return VRd
 
@@ -625,7 +624,6 @@ class SteelSection(metaclass=ABCMeta):
             Ved = self.Ved[0]
             MRd = self.MzRd
             VRd = self.VyRd
-                
 
         # Normal force
         UN = abs(self.Ned) / self.NRd
@@ -640,7 +638,7 @@ class SteelSection(metaclass=ABCMeta):
                 UMN = abs(Med) / MNRd
             else:
                 UMN = UN + UM
-                #UMN = INFEASIBLE
+                # UMN = INFEASIBLE
         else:
             UMN = UN + UM
 
@@ -648,12 +646,11 @@ class SteelSection(metaclass=ABCMeta):
             r = [UN, UV, UM, UMN]
         else:
             r = max([UN, UV, UM, UMN])
-            
-        
+
         if verb:
             print("Cross-section design: " + self.__repr__() + " S" + str(self.fy))
-            print("NEd = {0:4.2f} kN; NRd = {1:4.2f} kN => UN = {2:4.2f}".format(self.Ned*1e-3,self.NRd*1e-3,UN))
-            print("VEd = {0:4.2f} kN; VRd = {1:4.2f} kN => UV = {2:4.2f}".format(Ved*1e-3,VRd*1e-3,UV))
-            print("MEd = {0:4.2f} kNm; MRd = {1:4.2f} kNm => UM = {2:4.2f}".format(Med*1e-6,MRd*1e-6,UM))            
-            
+            print("NEd = {0:4.2f} kN; NRd = {1:4.2f} kN => UN = {2:4.2f}".format(self.Ned * 1e-3, self.NRd * 1e-3, UN))
+            print("VEd = {0:4.2f} kN; VRd = {1:4.2f} kN => UV = {2:4.2f}".format(Ved * 1e-3, VRd * 1e-3, UV))
+            print("MEd = {0:4.2f} kNm; MRd = {1:4.2f} kNm => UM = {2:4.2f}".format(Med * 1e-6, MRd * 1e-6, UM))
+
         return r
