@@ -55,7 +55,7 @@ class MyTestCase(unittest.TestCase):
         self.assertAlmostEqual(self.WI.eff_web['be'][1], 187.4, delta=0.1)
 
     def test_Ashear(self):
-        self.assertAlmostEqual(self.WI.Ashear, 6969.6, delta=0.1)
+        self.assertAlmostEqual(self.WI.Ashear[0], 6969.6, delta=0.1)
 
     def test_shear_buckling(self):
         self.assertAlmostEqual(self.WI.shear_buckling_resistance(stiffener_spacing=1000, end_post="rigid") / 1e3, 763.5,
@@ -64,6 +64,14 @@ class MyTestCase(unittest.TestCase):
     def test_Weffy(self):
         self.assertAlmostEqual(self.WI.W_eff_y / 1e3, 5173, delta=1)
 
+    def test_Iz(self):
+        self.assertAlmostEqual(self.WI.Iz / 1e4, 7202, delta=1)
+
+    def test_Iw(self):
+        self.assertAlmostEqual(self.WI.Iw / 1e9, 17433, delta=1)
+
+    def test_It(self):
+        self.assertAlmostEqual(self.WI.It / 1e3, 888.9, delta=1)
 
 if __name__ == '__main__':
     unittest.main()
