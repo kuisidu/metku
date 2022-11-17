@@ -1,3 +1,5 @@
+from matplotlib import pyplot as plt
+
 import metku.frame2d as f2d
 import metku.truss2d as t2d
 from metku.optimization.objective_enum import ObjectiveEnum
@@ -370,7 +372,7 @@ class TrussProblem(OptimizationProblem):
 
         return con_funs
 
-    def cross_section_constraints(self, mem, elem, load_id=LoadIDs.ULS):
+    def cross_section_constraints(self, mem, elem, load_id=LoadIDs.ULS, idx=0):
         """
         Creates cross-section constraints
         :return:
@@ -386,29 +388,27 @@ class TrussProblem(OptimizationProblem):
                 return max_val
 
         def compression(x):
-            NEd = elem.fint[load_id]['fx']
-            return -min(NEd) / mem.NRd - 1
+            NEd = elem.fint[load_id]['fx'][idx]
+            return -NEd / mem.NRd - 1
 
         def tension(x):
-            NEd = elem.fint[load_id]['fx']
-            return max(NEd) / mem.NRd - 1
+            NEd = elem.fint[load_id]['fx'][idx]
+            return NEd / mem.NRd - 1
 
         def shear(x):
-            VEd = elem.fint[load_id]['fz']
-            V = absmax(VEd)
-            return abs(V) / mem.VRd - 1
+            VEd = elem.fint[load_id]['fz'][idx]
+            return abs(VEd) / mem.VRd - 1
 
         def bending_moment(x):
             # Moment about y
             # TODO: Moment about z
-            MEd = elem.fint[load_id]['my']
-            M = absmax(MEd)
-            return abs(M) / mem.cross_section.plastic_bending_resistance() - 1
+            MEd = elem.fint[load_id]['my'][idx]
+            return abs(MEd) / mem.cross_section.plastic_bending_resistance() - 1
 
         def shear_moment(x):
 
             gammaM0 = 1
-            VEd = abs(absmax(elem.fint[load_id]['fz']))
+            VEd = abs(elem.fint[load_id]['fz'][idx])
             VRd = mem.cross_section.VRd
             if VEd <= 0.5 * VRd:
                 rho = 0
@@ -419,18 +419,33 @@ class TrussProblem(OptimizationProblem):
             Wply = mem.cross_section.Wply
             Av = mem.cross_section.Ashear[0]
             MVRd = min((Wply - rho * Av ** 2 / (8 * t) / gammaM0) * mem.fy, MRd)
-            M = abs(absmax(elem.fint[load_id]['my']))
-            return abs(M) / MVRd - 1
+            MEd = abs(elem.fint[load_id]['my'][idx])
+            return MEd / MVRd - 1
 
+        # VARMALLA PUOLELLA OLEVA OLETUS PL 3 & 4
+        # def NVM(x):
+        #     """
+        #     Shear + Normal + Moment
+        #     """
+        #     NEd = abs(elem.fint[load_id]['fx'][idx])
+        #     VEd = abs(elem.fint[load_id]['fz'][idx])
+        #     MEd = abs(elem.fint[load_id]['my'][idx])
+        #     NRd = mem.cross_section.NRd
+        #     VRd = mem.cross_section.VRd
+        #     MRd = mem.cross_section.MRd
+        #     rho = (2 * VEd / VRd - 1) ** 2
+        #
+        #     return NEd / NRd + MEd / MRd - (1 - rho)
+
+        # POIKKILEIKKAUSLUOKILLE 1 & 2
         def NVM(x):
             """
             Shear + Normal + Moment
             """
             gammaM0 = 1
-
-            NEd = abs(absmax(elem.fint[load_id]['fx']))
-            VEd = abs(absmax(elem.fint[load_id]['fz']))
-            MEd = abs(absmax(elem.fint[load_id]['my']))
+            NEd = abs(elem.fint[load_id]['fx'][idx])
+            VEd = abs(elem.fint[load_id]['fz'][idx])
+            MEd = abs(elem.fint[load_id]['my'][idx])
             VRd = mem.cross_section.VRd
             MRd = mem.cross_section.MRd
             A = mem.cross_section.A
@@ -455,7 +470,7 @@ class TrussProblem(OptimizationProblem):
             else:
                 MNVRd = MVRd * (1 - nV) / (1 - 0.5 * aV)
 
-            return abs(MEd) / MNVRd - 1
+            return MEd / MNVRd - 1
 
         # Cross-Section constraints
         return {
@@ -478,16 +493,22 @@ class TrussProblem(OptimizationProblem):
         :return:
         """
         def buckling_y(x):
-            return - mem.NEd[load_id] / mem.NbRd[0] - 1
+            mem.update_steel_members_forces(load_id)
+            smem.check_buckling()
+            return smem.check_buckling()[0] - 1
 
         def buckling_z(x):
-            return - mem.NEd[load_id] / mem.NbRd[1] - 1
+            mem.update_steel_members_forces(load_id)
+            smem.check_buckling()
+            return smem.check_buckling()[1] - 1
 
         def com_compression_bending_y(x):
+            mem.update_steel_members_forces(load_id)
             section_class = mem.cross_section.section_class()
             return smem.check_beamcolumn(section_class=section_class)[0] - 1
 
         def com_compression_bending_z(x):
+            mem.update_steel_members_forces(load_id)
             section_class = mem.cross_section.section_class()
             return smem.check_beamcolumn(section_class=section_class)[1] - 1
 
@@ -527,7 +548,7 @@ class TrussProblem(OptimizationProblem):
         """
         # SECTION IN PURE COMPRESSION
         def section_class(x):
-            b_ = mem.cross_section.H - 2 * mem.cross_section.T - 2 * mem.cross_section.R
+            b_ = mem.cross_section.H - 3 * mem.cross_section.T
             c_t = b_ / mem.cross_section.T
             return c_t / (38 * mem.cross_section.epsilon) - 1
 
@@ -561,17 +582,17 @@ class TrussProblem(OptimizationProblem):
                                                       name=f"Section Class {mem.mtype} {mem.mem_id} ")
             # CROSS-SECTION STRENGTH
             if self.include_section_strength:
-                for i, elem in enumerate(mem.elements.values()):
-                    con_fun_dict = self.cross_section_constraints(mem, elem)
+                for i, (key, elem) in enumerate(mem.elements.items()):
+                    con_fun_dict = self.cross_section_constraints(mem, elem, load_id=LoadIDs.ULS, idx=0)
 
                     for con_name, con_fun in con_fun_dict.items():
-                        self.non_linear_constraint(con_fun, name=f"{con_name}: {mem.mtype} {mem.mem_id}|{i}", fea_required=True)
+                        self.non_linear_constraint(con_fun, name=f"{con_name}: {mem.mtype} {mem.mem_id}|{key}", fea_required=True)
                     # Last element's end node
                     if i == len(mem.elements) - 1 and mem.mtype != 'web':
-                        con_fun_dict = self.cross_section_constraints(mem, elem)
+                        con_fun_dict = self.cross_section_constraints(mem, elem, load_id=LoadIDs.ULS, idx=1)
 
                         for con_name, con_fun in con_fun_dict.items():
-                            self.non_linear_constraint(con_fun, name=f"{con_name}: {mem.mtype} {mem.mem_id}|{i + 1}")
+                            self.non_linear_constraint(con_fun, name=f"{con_name}: {mem.mtype} {key}|{i + 1}")
         # DISPLACEMENT
         if self.include_displacement:
             disp_fun = self.deflection_constraints(self.structure)
@@ -630,7 +651,14 @@ if __name__ == '__main__':
     # THESE ARE NOT SORTED VALUES
     SHS_PROFILE_NAMES = list(shs_profiles.keys())
 
-    truss = create_truss(h1=2000, h2=1200, L=20_000, dx=1200, n=16, qd=-25, qk=-10)
+    L = 24000
+    truss = create_truss(h1=L / 10,
+                         h2=L / 10 - (1 / 20 * L / 2),
+                         L=L,
+                         dx=L/20,
+                         n=16,
+                         qd=-21.5,
+                         qk=-15)
 
     top_chords = truss.top_chords
     bottom_chords = truss.bottom_chords
@@ -663,22 +691,24 @@ if __name__ == '__main__':
                            attributes=[["H", "B"], "T"],
                            objects=tc_sections,
                            lower_bounds=[100, 3],
-                           upper_bounds=[300, 15])
+                           upper_bounds=[300, 15],
+                           value=[160, 8])
     bc_HBT = VariableGroup(name="Bottom Chords",
                            var_type=VariableTypeEnum.CONTINUOUS,
                            attributes=[["H", "B"], "T"],
                            objects=bc_sections,
                            lower_bounds=[100, 3],
-                           upper_bounds=[300, 15])
+                           upper_bounds=[300, 15],
+                           value=[160, 6])
     web_HBT = VariableGroup(name="Webs",
                             var_type=VariableTypeEnum.CONTINUOUS,
                             attributes=[["H", "B"], "T"],
                             objects=web_sections,
-                            lower_bounds=[100, 3],
-                            upper_bounds=[300, 15])
+                            lower_bounds=[50, 3],
+                            upper_bounds=[200, 15],
+                            value=[100, 5])
 
     groups = [tc_HBT, bc_HBT]
-
     # Number of webs
     nw = int(len(webs) / 2)
     for i in range(nw):
@@ -688,13 +718,14 @@ if __name__ == '__main__':
                                   var_type=VariableTypeEnum.CONTINUOUS,
                                   attributes=[["H", "B"], "T"],
                                   objects=[w1.cross_section, w2.cross_section],
-                                  lower_bounds=[100, 3],
-                                  upper_bounds=[300, 15])
+                                  lower_bounds=[40, 3],
+                                  upper_bounds=[200, 8],
+                                  value=[100, 5])
         groups.append(WEB_group)
 
     problem = TrussProblem(name="Truss Optimization",
                            structure=truss,
-                           displacement_limit=50,  # mm
+                           displacement_limit=L/250,  # mm
                            include_joint_strength=False,
                            include_joint_geometry=False,
                            include_stability=True,
@@ -703,8 +734,9 @@ if __name__ == '__main__':
                            include_section_strength=True,
                            variable_groups=groups)
 
-    x0 = [var.ub for var in problem.vars]
-
-    solver = SLP([0.05, 0.05])
-    fopt, xopt = solver.solve(problem, x0=x0, maxiter=50, verb=True)
+    x0 = [var.value for var in problem.vars]
+    problem(x0, ncons=20)
+    solver = SLP([0.05, 0.05], beta=100, update_beta=False)
+    fopt, xopt = solver.solve(problem, x0=x0, maxiter=250, verb=True)
     problem(xopt)
+    truss.plot_normal_force(load_id=LoadIDs.ULS)

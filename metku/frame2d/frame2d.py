@@ -1876,8 +1876,8 @@ class FrameMember:
         """
         Returns member's profile e.g. IPE 200, HE 120 A
         """
-        # if self.cross_section is not None:
-        #     return str(self.cross_section)
+        if self.cross_section is not None:
+            return str(self.cross_section)
         return self.__profile
 
     @profile.setter
@@ -1894,7 +1894,7 @@ class FrameMember:
 
         if isinstance(val, SteelSection):
             self.cross_section = val
-            self.__profile = str(val)
+
         elif isinstance(val, list) and len(val) == 5:
             h, b, tf, tw, r = val
             if isinstance(self.cross_section, CustomISection):
@@ -1908,8 +1908,8 @@ class FrameMember:
                 self.cross_section = CustomISection(h, b, tf, tw, r)
         else:
 
-            self.__profile = val.upper()
-            splitted_val = self.profile.split(" ")
+            val = val.upper()
+            splitted_val = val.split(" ")
             profile_type = splitted_val[0]
             if profile_type == 'IPE' or profile_type == 'HE':
                 try:
@@ -1962,7 +1962,7 @@ class FrameMember:
             elif profile_type == 'CHS':
                 self.cross_section = CHS(H, T, self.fy)
 
-            elif profile_type == 'RHS':
+            elif profile_type == 'RHS' or (profile_type == "SHS" and len(vals) == 3):
                 self.cross_section = RHS(H, B, T, self.fy)
 
             elif profile_type == 'SHS':
@@ -1970,6 +1970,9 @@ class FrameMember:
             else:
                 raise ValueError(
                     '{} is not valid profile type!'.format(profile_type))
+
+        # Change profile name
+        self.__profile = str(self.cross_section)
 
         # Change member's elements' properties
         if len(self.elements) > 0:

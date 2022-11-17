@@ -10,6 +10,7 @@ from matplotlib.patches import Arc
 from metku.eurocodes.en1993.en1993_1_8.rhs_joints import RHSKGapJoint, RHSYJoint
 from metku.frame2d.frame2d import Frame2D, FrameMember, LoadIDs
 from metku.framefem import FrameFEM, BeamSection
+from metku.structures.steel.steel_member import SteelMember
 from metku.framefem.elements import EBBeam, EBSemiRigidBeam
 from metku.sections.steel import HEA
 import matplotlib.pyplot as plt
@@ -104,6 +105,7 @@ class Truss2D(Frame2D):
             if q is not None:
                 for tc in self.top_chords:
                     self.add(LineLoad(tc, [q, q], 'y'))
+
 
     @property
     def H0(self):
@@ -389,6 +391,10 @@ class Truss2D(Frame2D):
 
     def calculate(self, load_id=2, **kwargs):
         super().calculate(load_id=load_id, **kwargs)
+        for mem in self.members.values():
+            if load_id == "ALL":
+                load_id = self.load_ids[0]
+            mem.update_steel_members_lengths(load_id=load_id)
         for joint in self.joints.values():
             joint.update_forces()
 
@@ -504,7 +510,7 @@ class TrussMember(FrameMember):
         # FrameMember -objects that chord is connected to
         self.columns = {}
         # List of chords' members between joints
-        self.steel_members = []
+        self.members = []
         super().__init__(coordinates,
                          mem_id,
                          profile,
@@ -545,6 +551,8 @@ class TrussMember(FrameMember):
     @profile.setter
     def profile(self, val):
         super(TrussMember, self.__class__).profile.fset(self, val)
+        for smem in self.members:
+            smem.profile = self.cross_section
         for joint in self.joints:
             joint.calc_nodal_coordinates()
 
@@ -608,50 +616,51 @@ class TrussMember(FrameMember):
             for loc, node in zip(self.locs, nodes):
                 node.coord = self.to_global(loc)
 
-    def check_cross_section(self):
 
-        for smem in self.steel_members:
+    def update_steel_members_forces(self, load_id:LoadIDs):
+
+        if len(self.members):
+            for i in range(len(self.joints) - 1):
+                j0 = self.joints[i]
+                j1 = self.joints[i + 1]
+                steel_mem = self.members[i]
+                steel_mem.clear_sections()
+                if "c0" in j0.nodes and load_id is not None:
+                    for id in range(j0.nodes['c0'].nid, j1.nodes['c0'].nid):
+                        N, V, M = self.nodal_forces[load_id][id]
+                        steel_mem.add_section(ned=N, myed=M, vyed=V, loc=id)
+
+
+    def update_steel_members_lengths(self, load_id:LoadIDs):
+        """
+        Updates SteelMembers' lengths
+        :return:
+        """
+        for smem in self.members:
             smem.profile = self.cross_section
 
         if self.mtype != 'web':  # If member is chord
             # Sort joints using joints' local coordinate
             self.joints.sort(key=lambda x: x.loc)
-            if not len(self.steel_members):
-                for i in range(len(self.joints) - 1):
-                    j0 = self.joints[i]
-                    j1 = self.joints[i + 1]
-                    x0, y0 = j0.coordinate
-                    x1, y1 = j1.coordinate
-                    L = np.sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
-                    steel_mem = SteelMember(self.cross_section, L,
-                                            [L_sys, L_sys])
-                    for id in range(j0.nodes['c0'].nid, j1.nodes['c0'].nid):
-                        N, V, M = self.nodal_forces[id]
-                        steel_mem.add_section(ned=N, myed=M, vyed=V)
-                    self.steel_members.append(steel_mem)
-            else:
-                for i in range(len(self.joints) - 1):
-                    j0 = self.joints[i]
-                    j1 = self.joints[i + 1]
-                    x0, y0 = j0.coordinate
-                    x1, y1 = j1.coordinate
-                    L = np.sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
-                    steel_mem = self.steel_members[i]
-                    steel_mem.length = L
-                    steel_mem.clear_sections()
-                    for id in range(j0.nodes['c0'].nid,
-                                    j1.nodes['c0'].nid):
-                        N, V, M = self.nodal_forces[id]
-                        steel_mem.add_section(ned=N, myed=M, vyed=V)
-                # r = []
-                # r_sect = steel_member.check_sections()
-                # r_buckling = steel_member.check_buckling()
-                # r_lt_buckling = steel_member.check_LT_buckling()
-                # r.extend(r_sect)
-                # r.extend(r_buckling)
-                # r.append(r_lt_buckling)
-        else:
-            super().check_cross_section()
+            self.members.clear()
+            for i in range(len(self.joints) - 1):
+                j0 = self.joints[i]
+                j1 = self.joints[i + 1]
+                x0, y0 = j0.coordinate
+                x1, y1 = j1.coordinate
+                L = np.sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
+                steel_mem = SteelMember(self.cross_section, L,
+                                        [L_sys, L_sys])
+
+                self.members.append(steel_mem)
+            if load_id is not None:
+                self.update_steel_members_forces(load_id)
+
+
+    def check_cross_section(self):
+
+        self.update_steel_members_lengths()
+        super().check_cross_section()
 
     def local(self, value):
         """
@@ -791,7 +800,7 @@ class TrussMember(FrameMember):
                      rotation=rot, horizontalalignment=horzalign,
                      verticalalignment=vertalign)
 
-    def bmd(self, scale):
+    def bmd(self, scale, load_id:LoadIDs = LoadIDs.ULS):
         """
         Plots bending moment diagram
         :param scale: float, scaling factor
@@ -800,7 +809,7 @@ class TrussMember(FrameMember):
         Y = []
         self.calc_nodal_forces()
 
-        moment_values = [x[2] for x in self.nodal_forces.values()]
+        moment_values = [x[2] for x in self.nodal_forces[load_id].values()]
         node_ids = list(self.nodes.keys())
         x = self.nodal_coordinates[0][0]
         y = self.nodal_coordinates[0][1]
@@ -811,7 +820,7 @@ class TrussMember(FrameMember):
             if self.mtype == "top_chord" or self.mtype == "bottom_chord":
                 x0 = self.nodal_coordinates[i][0]
                 y0 = self.nodal_coordinates[i][1]
-                bending_moment = self.nodal_forces[node][2]
+                bending_moment = self.nodal_forces[load_id][node][2]
                 y1 = bending_moment / (1000 / scale)
                 x = x0
                 y = y0 - y1
@@ -824,13 +833,13 @@ class TrussMember(FrameMember):
                         vert = 'top'
                     else:
                         vert = 'bottom'
-                    plt.text(x, y, f'{bending_moment:.2f} kNm',
+                    plt.text(x, y, f'{bending_moment / 1e6:.2f} kNm',
                              verticalalignment=vert)
 
             elif self.mtype == "web":
                 x0 = self.nodal_coordinates[i][0]
                 y0 = self.nodal_coordinates[i][1]
-                bending_moment = self.nodal_forces[node][2]
+                bending_moment = self.nodal_forces[load_id][node][2]
                 x1 = bending_moment / (1000 / scale)
                 x = x0 + x1
                 y = y0
@@ -843,7 +852,7 @@ class TrussMember(FrameMember):
                         horz = 'left'
                     else:
                         horz = 'right'
-                    plt.text(x, y, f'{bending_moment:.2f} kNm',
+                    plt.text(x, y, f'{bending_moment / 1e6:.2f} kNm',
                              horizontalalignment=horz)
         X.append(self.nodal_coordinates[i][0])
         Y.append(self.nodal_coordinates[i][1])
@@ -886,7 +895,8 @@ class TopChord(TrussMember):
                          **kwargs)
 
         self.mtype = 'top_chord'
-        # self.steel_members = []
+
+
 
 
 class BottomChord(TrussMember):
@@ -1518,6 +1528,8 @@ class TrussJoint:
             for c in coords:
                 self.chord.add_node_coord(c)
 
+        self.chord.update_steel_members_lengths(load_id=None)
+
     def round_coordinates(self, prec=PREC):
         for name, coord in self.nodal_coordinates.items():
             self.nodal_coordinates[name] = [round(c, prec) for c in coord]
@@ -2060,7 +2072,11 @@ if __name__ == '__main__':
         [truss.L1 + truss.L2, simple_truss['H0'] + simple_truss['H3']]))
     truss.generate()
     truss.calculate(load_id=LoadIDs.ULS)
-    truss.plot_normal_force(load_id=LoadIDs.ULS)
+    for tc in truss.top_chords:
+        tc.cross_section.H += 12
+        tc.cross_section.B -= 10
+        tc.cross_section.T = 6.9
+    # truss.plot_normal_force(load_id=LoadIDs.ULS)
     # truss.plot()
 
     # truss.H1 = 1000
