@@ -1876,8 +1876,8 @@ class FrameMember:
         """
         Returns member's profile e.g. IPE 200, HE 120 A
         """
-        if self.cross_section is not None:
-            return str(self.cross_section)
+        # if self.cross_section is not None:
+        #     return str(self.cross_section)
         return self.__profile
 
     @profile.setter
