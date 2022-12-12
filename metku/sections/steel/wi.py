@@ -340,6 +340,34 @@ class WISection(SteelSection):
         e = max(et, ec)
         return I_eff / e
 
+    @property
+    def Weff(self):
+        return [self.W_eff_y, NotImplemented]
+
+    def bending_resistance(self, C=0, axis="y", verb=False):
+        # Bending resistance, Nmm
+        if C == 0:
+            C = self.section_class()
+
+        if axis == "y":
+            n = 0
+        else:
+            n = 1
+
+        if C < 3:
+            WRd = self.Wpl[n]
+        elif C == 3:
+            WRd = self.Wel[n]
+        else:
+            WRd = self.Weff[n]
+
+        MRd = self.code.bending_resistance(WRd, self.fy)
+
+        if verb:
+            print("MRd = {0:4.2f} kNm".format(MRd * 1e-6))
+
+        return MRd, C
+
     def effective_second_moment_area_y(self, psi_init: float = -1) -> float:
         if psi_init < 0:
             self.effective_flange('top')

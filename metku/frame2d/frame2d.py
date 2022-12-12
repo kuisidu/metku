@@ -8,31 +8,24 @@
 
 import os
 import sys
-import time
-import numpy as np
-import math
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.lines as mlines
-import matplotlib.path as mpath
+from enum import Enum
 
 import metku.framefem.framefem as fem
-from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
-from metku.sections.steel import *
-from metku.sections.steel.catalogue import *
 from metku.frame2d.materials import MATERIALS
-from metku.structures.steel.steel_member import SteelMember
-from metku.sections.timber.timber_section import TimberSection, TaperedSection, SmallElementSection, PulpettiPalkki, \
-    HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
-from metku.structures.timber.timber_member import TimberMember
-from metku.materials.timber_data import T, Timber
-from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
+from metku.framefem.elements import EBBeam, EBSemiRigidBeam, Rod
+from metku.materials.timber_data import T
+from metku.sections.steel import *
 from metku.sections.steel.CHS import CHS
-from metku.sections.steel.RHS import RHS, SHS
 from metku.sections.steel.ISection import IPE, HEA, HEB
-# from metku.raami.frame_loads import LoadIDs
+from metku.sections.steel.RHS import RHS, SHS
+from metku.sections.steel.catalogue import ipe_profiles, h_profiles, rhs_profiles, shs_profiles, chs_profiles
+from metku.sections.timber.timber_section import TimberSection, TaperedSection, PulpettiPalkki, \
+    HarjaPalkki, KaarevaHarjaPalkki, KaarevaPalkki, MahaPalkki
+from metku.structures.steel.steel_member import SteelMember
+from metku.structures.timber.timber_member import TimberMember
 
-from enum import Enum
+
+# from metku.raami.frame_loads import LoadIDs
 
 
 class LoadIDs(Enum):
@@ -43,8 +36,6 @@ class LoadIDs(Enum):
     Accidental = 4
     Self_weight = 100
 
-
-from time import time
 
 # Rounding precision (number of decimals)
 PREC = 3
@@ -131,7 +122,7 @@ class Frame2D:
         else:
             self.f = fem.FrameFEM()
         self.alpha_cr = []
-        self.members = {}
+        self.members:dict[int: FrameMember] = {}
         self.support_nodes = []
         self.num_elements = num_elements
         self.load_ids = []  # List of load case ID numbers
@@ -533,6 +524,7 @@ class Frame2D:
                                support_method=support_method)
         else:
             # print('Calculate case:' + str(load_id))
+
             self.f.linear_statics(support_method=support_method,
                                   lcase=load_id)
             self.calc_nodal_forces(load_id)
@@ -1101,7 +1093,7 @@ class Frame2D:
 
         # Plot members
         for member in self.members.values():
-            member.plot(print_text, color, ax)
+            member.plot(print_text=print_text, color=color, axes=ax)
 
         # Plot joints
         for joint in self.joints.values():
@@ -1126,8 +1118,10 @@ class Frame2D:
         if loads:
             self.plot_loads()
         ax.axis('equal')
+
         if save:
             plt.savefig('default.svg', format='svg')
+
         if show:
             plt.axis('equal')
             plt.show()
@@ -1323,7 +1317,6 @@ class Frame2D:
                             x1 = node.v[0]
                             y1 = node.v[1]
 
-                        print(x1, y1)
                         x = x0 + x1 * (scale)
                         y = y0 + y1 * (scale)
                         X.append(x)
@@ -1354,7 +1347,7 @@ class Frame2D:
         if show:
             plt.show()
 
-    def plot_normal_force(self, show=True, save=False):
+    def plot_normal_force(self, load_id: LoadIDs = LoadIDs.ULS, show=True, save=False):
         """ Plots normal force and utilization ratio
 
             Parameters
@@ -1366,7 +1359,7 @@ class Frame2D:
 
         """
         for member in self.members.values():
-            member.plot_normal_force()
+            member.plot_normal_force(load_id=load_id)
         # if self.truss:
         #    for member in self.truss.members.values():
         #        member.plot_normal_force()
@@ -1883,8 +1876,8 @@ class FrameMember:
         """
         Returns member's profile e.g. IPE 200, HE 120 A
         """
-        # if self.cross_section is not None:
-        #     return str(self.cross_section)
+        if self.cross_section is not None:
+            return str(self.cross_section)
         return self.__profile
 
     @profile.setter
@@ -1901,7 +1894,7 @@ class FrameMember:
 
         if isinstance(val, SteelSection):
             self.cross_section = val
-            self.__profile = str(val)
+
         elif isinstance(val, list) and len(val) == 5:
             h, b, tf, tw, r = val
             if isinstance(self.cross_section, CustomISection):
@@ -1914,8 +1907,9 @@ class FrameMember:
             else:
                 self.cross_section = CustomISection(h, b, tf, tw, r)
         else:
-            self.__profile = val.upper()
-            splitted_val = self.profile.split(" ")
+
+            val = val.upper()
+            splitted_val = val.split(" ")
             profile_type = splitted_val[0]
             if profile_type == 'IPE' or profile_type == 'HE':
                 try:
@@ -1968,7 +1962,7 @@ class FrameMember:
             elif profile_type == 'CHS':
                 self.cross_section = CHS(H, T, self.fy)
 
-            elif profile_type == 'RHS':
+            elif profile_type == 'RHS' or (profile_type == "SHS" and len(vals) == 3):
                 self.cross_section = RHS(H, B, T, self.fy)
 
             elif profile_type == 'SHS':
@@ -1976,6 +1970,9 @@ class FrameMember:
             else:
                 raise ValueError(
                     '{} is not valid profile type!'.format(profile_type))
+
+        # Change profile name
+        self.__profile = str(self.cross_section)
 
         # Change member's elements' properties
         if len(self.elements) > 0:
@@ -2904,20 +2901,25 @@ class FrameMember:
         Y.append(self.nodal_coordinates[i][1])
         plt.plot(X, Y, color='gray')
 
-    def plot_normal_force(self):
+    def plot_normal_force(self, load_id=LoadIDs.ULS):
 
         # Scales N to kN
         unit_scaler = 1e-3
 
+        # Max normal force on member
+        NEd = self.NEd[load_id]
+
         X = self.coordinates
-        if self.ned < 0:
-            r = min(1, max(self.r[4:5]))
-            alpha = max(0.1, r)
-            color = (1, 0.5 - r / 2, 0, alpha)
+        if NEd < 0:
+            r = max(abs(NEd)/ self.NbRd)
+            min_r = min(1, r)
+            alpha = max(0.1, min_r)
+            color = (1, 0.5 - min_r / 2, 0, alpha)
         else:
-            r = min(1, self.r[0])
-            alpha = max(0.1, r)
-            color = (0, 0.5 - r / 2, 1, alpha)
+            r = NEd/self.NRd
+            min_r = min(1, r)
+            alpha = max(0.1, min_r)
+            color = (0, 0.5 - min_r / 2, 1, alpha)
         # Plot members
         plt.plot([X[0][0], X[1][0]], [X[0][1], X[1][1]], color=color,
                  linewidth=2)
@@ -2938,13 +2940,13 @@ class FrameMember:
         horzalign = 'center'
         vertalign = 'center'
 
-        if self.ned > 0:
-            NED = max([f[0] for f in self.nodal_forces.values()])
-        else:
-            NED = min([f[0] for f in self.nodal_forces.values()])
+        # if self.ned > 0:
+        #     NED = max([f[0] for f in self.nodal_forces.values()])
+        # else:
+        #     NED = min([f[0] for f in self.nodal_forces.values()])
 
         plt.text(x, y,
-                 f'{NED * unit_scaler:.2f}  kN,\nr: {r * 100:.2f} %',
+                 f'{self.profile}: {NEd * unit_scaler:.2f}  kN,\nr: {r * 100:.2f} %',
                  rotation=rot, horizontalalignment=horzalign,
                  verticalalignment=vertalign)
 

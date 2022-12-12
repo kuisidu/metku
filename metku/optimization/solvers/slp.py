@@ -13,7 +13,12 @@ from metku.optimization.solvers.optsolver import OptSolver
 class SLP(OptSolver):
     """ Solver class for Sequential Linear Programming Method (SLP) """
     
-    def __init__(self, move_limits=(0.05, 0.05), gamma=1e-2, C=2e5, beta=10, move_limit_type='range'):
+    def __init__(self, move_limits=(0.05, 0.05),
+                 gamma=1e-2,
+                 C=2e5,
+                 beta=10,
+                 update_beta=True,
+                 move_limit_type='range'):
         """ Constructor 
             :param move_limits: (tuple) relative lower and upper move limits
             :param gamma: parameter for reducing the relative move limits at each iteration
@@ -26,6 +31,7 @@ class SLP(OptSolver):
                             'relative' .. move limits are taken with respect to the current variable values.
         """
         super().__init__()
+        self.update_beta = update_beta
         self.move_limits = np.asarray(move_limits)
         self.move_limits_hist = [np.asarray(move_limits)]
         self.move_limit_type = move_limit_type
@@ -104,13 +110,13 @@ class SLP(OptSolver):
             # too similar results
             return np.zeros_like(self.X)
 
-        if self.include_beta and beta.solution_value() < 1:
+        if self.include_beta and beta.solution_value() < 1 and self.update_beta:
             self.beta = beta.solution_value()
 
         X = []
         for i in range(len(x)):
             X.append(x[i].solution_value())
-        X = np.asarray(X)
+        X = np.asarray(X, dtype=np.float)
 
         return X - self.X
 
