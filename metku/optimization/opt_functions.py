@@ -12,7 +12,9 @@ from copy import copy
 
 from metku.optimization.variables import Variable, DiscreteVariable, IndexVariable, BinaryVariable
 from metku.optimization.variables import CrossSectionVariable
-from metku.optimization.constraints import LinearConstraint
+#from metku.optimization.constraints import LinearConstraint
+
+import metku.optimization.constraints as constr
 
 def NumGrad(fun, x):
     """ Gradient by finite difference """
@@ -289,7 +291,7 @@ def index2binary(P,disc_vars,var_type='continuous'):
                 a[Pnew.vars.index(bin_var)] = -round(bin_var.section.__getattribute__(prop_var.target['property']),3)
             
             con_name = prop_var.name + " unique profile"
-            Pnew.add(LinearConstraint(a,0,'=',con_name,Pnew))
+            Pnew.add(constr.LinearConstraint(a,0,'=',con_name,Pnew))
         
         # Kullekin sauvalle/ryhmälle binäärimuuttujien summa on tasan 1
         a = np.zeros(nx)
@@ -297,6 +299,6 @@ def index2binary(P,disc_vars,var_type='continuous'):
             a[Pnew.vars.index(bin_var)] = 1
         
         con_name = "Unique profile"
-        Pnew.add(LinearConstraint(a,1,'=',con_name,Pnew))
+        Pnew.add(constr.LinearConstraint(a,1,'=',con_name,Pnew))
            
     return Pnew, var_pack

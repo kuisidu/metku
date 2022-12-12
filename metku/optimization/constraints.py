@@ -10,7 +10,7 @@ from collections.abc import Iterable
 
 from metku.optimization.constants import X_TOL
 from metku.optimization.variables import Variable, IndexVariable
-from metku.optimization.opt_functions import NumGrad
+import metku.optimization.opt_functions as opt_funs
 
 
 class Constraint:
@@ -174,7 +174,7 @@ class NonLinearConstraint(Constraint):
         
         if self.grad is None:
             # Evaluate gradient numerically
-            df = NumGrad(self.con,x)
+            df = opt_funs.NumGrad(self.con,x)
         else:
             df = self.grad(x)
         
