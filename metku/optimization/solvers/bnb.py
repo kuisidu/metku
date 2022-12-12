@@ -22,15 +22,17 @@ from treelib import Tree, Node
 
 from metku.optimization.solvers.optsolver import OptSolver
 from metku.optimization.solvers.lp import LP
-import metku.optimization.structopt as sopt
-
+from metku.optimization.structopt import OptimizationProblem
+from metku.optimization.objective import LinearObjective
+from metku.optimization.constraints import LinearConstraint, NonLinearConstraint
+from metku.optimization.variables import Variable, DiscreteVariable, BinaryVariable, IntegerVariable
 
 CON_TOL = 1e-4
 
 # A class that represents an individual node in a 
 # Binary Tree 
 class BnBNode: 
-    def __init__(self,flb=-np.inf,branched_var=None,lim=None,sense=None): 
+    def __init__(self,flb=-np.inf,branched_var=None,lim=None,sense=None,x0=None): 
         """ Constructor 
             input:
                 flb .. lower bound for the objective function
@@ -42,6 +44,7 @@ class BnBNode:
                 xR .. solution of the relaxation
                 lb .. f(xR)
         """
+        self.x0 = x0
         self.xR = []
         self.lb = flb
         self.var = branched_var
@@ -161,6 +164,7 @@ class BnB(OptSolver):
         try:
             self.nodes.remove(node_id)
         except ValueError:
+            print("Node removal did not succeed.")
             pass
         
     def set_original_bounds(self):
@@ -373,10 +377,14 @@ class BnB(OptSolver):
         for n in locked_nd:
             x0 = np.delete(x0,n)        
     
+        print('x0 = ',x0)
+    
         if x0 is not None:
-            flb, xlb = self.lb_solver.solve(self.problem,x0=x0)
+            flb, xlb = self.lb_solver.solve(self.problem,x0=x0,verb=True)
         else:
             flb, xlb = self.lb_solver.solve(self.problem)
+
+        print('xlb = ',xlb)
 
         xnew = np.zeros(nvars)
         
@@ -483,16 +491,22 @@ class BnB(OptSolver):
                         branching_var = var                    
                         xr = xR[i] 
         
+        var_ndx = self.problem.vars.index(branching_var)
+        
         """ Create branching values """
         low_branch_value = branching_var.smaller_discrete_value(xr)
         high_branch_value = branching_var.larger_discrete_value(xr)
         
         """ Create new nodes """
-        new_node1 = BnBNode(flb=deepcopy(node.data.lb),branched_var=branching_var,lim=low_branch_value,sense='<')
+        x01 = deepcopy(xR)
+        x01[var_ndx] = low_branch_value
+        new_node1 = BnBNode(flb=deepcopy(node.data.lb),branched_var=branching_var,lim=low_branch_value,sense='<',x0=x01)
         tag1 = branching_var.name + ' <= ' + str(low_branch_value)
         id1 = self.created_nodes + 1
         
-        new_node2 = BnBNode(flb=deepcopy(node.data.lb),branched_var=branching_var,lim=high_branch_value,sense='>')
+        x02 = deepcopy(xR)
+        x02[var_ndx] = high_branch_value
+        new_node2 = BnBNode(flb=deepcopy(node.data.lb),branched_var=branching_var,lim=high_branch_value,sense='>',x0=x02)
         tag2 = branching_var.name + ' >= ' + str(high_branch_value)
         #id2 = str(self.tree.size()+1)
         id2 = self.created_nodes + 2
@@ -512,7 +526,7 @@ class BnB(OptSolver):
         
         """ Do bounds tightening for linear constraints """
         for con in self.problem.cons:
-            if isinstance(con,sopt.LinearConstraint):
+            if isinstance(con,LinearConstraint):
                 ax_min = np.minimum(con.a*xub,con.a*xlb)
                 #axL = con.a*xlb
                 for i, var in enumerate(self.problem.vars):
@@ -522,16 +536,16 @@ class BnB(OptSolver):
                         """ x[i] <= 1/a[i]*(b[j] - sum min(a[i,j]xub[j],a[i,j]xlb[j])) """
                         var.ub = min(var.ub,bnd)
                         
-                        if isinstance(var,sopt.IntegerVariable):
+                        if isinstance(var,IntegerVariable):
                             var.ub = np.floor(var.ub)
-                        elif isinstance(var,sopt.DiscreteVariable):
+                        elif isinstance(var,DiscreteVariable):
                             var.ub = max(np.array(var.values)[np.array(var.values)<=var.ub])
                     elif con.a[i] < 0:
                         var.lb = max(var.lb,bnd)
                 
-                        if isinstance(var,sopt.IntegerVariable):
+                        if isinstance(var,IntegerVariable):
                             var.lb = np.ceil(var.lb)
-                        elif isinstance(var,sopt.DiscreteVariable):
+                        elif isinstance(var,DiscreteVariable):
                             var.lb = min(np.array(var.values)[np.array(var.values)>=var.lb])
         
         xlb, xub = self.problem.var_bounds()
@@ -548,16 +562,16 @@ class BnB(OptSolver):
             lobj = np.zeros(self.problem.nvars())
             """ Formulate linear problem """
             
-            LPprob = sopt.OptimizationProblem(name="LP_tight",constraints = [],variables=self.problem.vars)            
+            LPprob = OptimizationProblem(name="LP_tight",constraints = [],variables=self.problem.vars)            
             lobj[i] = 1
-            lObjective = sopt.LinearObjective("LP_tight_obj",c=lobj,obj_type="MIN",problem=LPprob)
+            lObjective = LinearObjective("LP_tight_obj",c=lobj,obj_type="MIN",problem=LPprob)
             
             
             LPprob.add(lObjective)
             
             
             for con in self.problem.cons:            
-                if isinstance(con,sopt.LinearConstraint):
+                if isinstance(con,LinearConstraint):
                     LPprob.add(con)
             
             
@@ -618,8 +632,9 @@ class BnB(OptSolver):
         iteration = 0
         
         # Initialize tree
-        root = BnBNode()
-        self.add_node(root,"Root","root")
+        if len(self.tree.nodes) == 0:
+            root = BnBNode(x0=x0)
+            self.add_node(root,"Root","root")
         
         while iteration <= self.max_iters and len(self.nodes)>0:
         #while iteration <= 0 and len(self.nodes) > 0:
@@ -646,7 +661,7 @@ class BnB(OptSolver):
             if feasible_pre_processing:     
                 if verb > 0:
                     print("Feasible pre-processing.")
-                # Find lower bound for the node
+                # Find lower bound for the node                
                 feasible_lower_bound = self.lower_bound(node,x0)
 
                 

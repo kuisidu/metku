@@ -15,7 +15,7 @@ import re
 
 
 from metku.frame2d.frame2d import SteelBeam
-from metku.frame2d.simple_truss import SimpleTruss, three_bar_truss, ten_bar_truss
+from metku.raami.raami_simple_truss import SimpleTruss, three_bar_truss, ten_bar_truss
 from metku.sections.steel import SteelSection
 
 from metku.optimization.structopt import OptimizationProblem
@@ -291,7 +291,7 @@ class TrussOptimization(OptimizationProblem):
         def obj_fun(x):
             """ Variable substitution is not shown """
             self.substitute_variables(x)
-            return self.structure.weight()/scaling
+            return self.structure.weight/scaling
 
         obj = ObjectiveFunction(name="Weight",
                                 obj_fun=obj_fun,
@@ -365,7 +365,7 @@ class TrussOptimization(OptimizationProblem):
             
 
     
-    def stress_constraints(self, mem, max_stress=None, load_case=None):
+    def stress_constraints(self, mem, max_stress=None):
         """
         Axial stress constraints
 
@@ -375,17 +375,14 @@ class TrussOptimization(OptimizationProblem):
         :return: dict of created functions
         """
         
-        if load_case is None:
-            load_case = self.structure.load_ids[0]
-        
         if max_stress == None:
             max_stress = mem.material.fy
 
         def compression(x):
-            return -mem.NEd[load_case] / (max_stress*mem.cross_section.A) - 1
+            return -mem.ned / (max_stress*mem.A) - 1
 
         def tension(x):            
-            return mem.NEd[load_case] / (max_stress*mem.cross_section.A) - 1
+            return mem.ned / (max_stress*mem.A) - 1
 
         cons = {
             'compression': compression,
@@ -394,7 +391,7 @@ class TrussOptimization(OptimizationProblem):
 
         return cons
     
-    def strength_constraints(self, mem, load_case=None):
+    def strength_constraints(self, mem):
         """
         Constraints for member strength against axial force
 
@@ -402,17 +399,14 @@ class TrussOptimization(OptimizationProblem):
 
         :return: dict of created functions
         """
-        
-        if load_case is None:
-            load_case = self.structure.load_ids[0]
                 
         def compression(x):
             self.substitute_variables(x)
-            return -mem.NEd[load_case] / mem.cross_section.NRd - 1
+            return -mem.ned / mem.NRd - 1
 
         def tension(x):            
             self.substitute_variables(x)
-            return mem.NEd[load_case] / mem.cross_section.NRd - 1
+            return mem.ned / mem.NRd - 1
 
         cons = {
             'compression': compression,
@@ -421,7 +415,7 @@ class TrussOptimization(OptimizationProblem):
 
         return cons
 
-    def buckling_constraints(self, mem, buckling_type="EN 1993", load_case = None):
+    def buckling_constraints(self, mem, buckling_type="EN 1993"):
         """
         Member buckling constraints
         
@@ -431,9 +425,6 @@ class TrussOptimization(OptimizationProblem):
         :return: dict of constraints
         """
         
-        if load_case is None:
-            load_case = self.structure.load_ids[0]
-        
         def buckling(x):
             self.substitute_variables(x)
             if buckling_type == 'EN 1993':
@@ -441,7 +432,7 @@ class TrussOptimization(OptimizationProblem):
             elif buckling_type == 'euler':
                 NRd = mem.member.ncrit()[0]
             
-            return -mem.NEd[load_case]/NRd - 1
+            return -mem.ned/NRd - 1
         
         cons = {f"buckling ({buckling_type})": buckling}
         

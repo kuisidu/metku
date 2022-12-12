@@ -36,7 +36,7 @@ class SimpleTruss(Raami):
         plot
     """
     
-    def __init__(self,nodes=None,members=None,profiles=None,name="Raami Truss"):
+    def __init__(self,nodes=None,members=None,profiles=None,name="Raami Truss",truss_type='general'):
         """ Constructor
         
 
@@ -70,7 +70,11 @@ class SimpleTruss(Raami):
         """ Create truss members """
         for mem, prof in zip(members,profiles):
             mem_nodes = [self.nodes[mem[0]],self.nodes[mem[1]]]
-            self.add(SimpleTrussMember(mem_nodes,prof))
+            if truss_type == 'general':
+                self.add(SimpleTrussMember(mem_nodes,prof))
+            elif truss_type == 'steel':
+                self.add(SimpleTrussSteelMember(mem_nodes,prof))
+                
     
     def add(self, this):
         """
@@ -122,9 +126,13 @@ class SimpleTrussSteelMember(SteelFrameMember):
 
         super().__init__(nodes, section, mtype, mem_id, nel)
 
-def three_bar_truss(L=1000,F1=100,F2=100,nlc=1,
-                    profiles=[RHS(50,50,3),RHS(50,50,3),RHS(50,50,3)]):
-    """ three bar truss example """
+def three_bar_truss(L=1000,F1=100e3,F2=100e3,nlc=1,
+                    profiles=[RHS(50,50,3),RHS(50,50,3),RHS(50,50,3)],
+                    truss_type='general'):
+    """ three bar truss example 
+        truss_type = 'general' means that SimpleTrussMember members are created.
+                   = 'steel' means that SimpleTrussSteelMember members are created.
+    """
     
     #from metku.sections.cross_sections import CrossSection
 
@@ -148,7 +156,8 @@ def three_bar_truss(L=1000,F1=100,F2=100,nlc=1,
     #profs = [CrossSection(A=100),CrossSection(A=100),CrossSection(A=100)]
 
     # Generate truss
-    t = SimpleTruss(X,mems,profiles)
+    
+    t = SimpleTruss(X,mems,profiles,name="3-bar truss",truss_type=truss_type)
     
     # Add hinged supports
     t.add(XYHingedSupport(t.nodes[1]))
@@ -174,10 +183,11 @@ def three_bar_truss(L=1000,F1=100,F2=100,nlc=1,
     
     return t
         
-def ten_bar_truss(L,F):
+def ten_bar_truss(L=3000,F=200e3,
+                  profiles=[RHS(50,50,3) for i in range(10)],
+                  truss_type='general'):
     """ Classic 10-bar truss """
-    from metku.sections.steel.RHS import RHS
-    
+        
     nodes = []
     nodes.append([2 * L, L])
     nodes.append([2 * L, 0])
@@ -188,11 +198,12 @@ def ten_bar_truss(L,F):
     
     mems = [[4,2],[2,0],[5,3],[3,1],[2,3],[0,1],[4,3],[5,2],[2,1],[3,0]]
     
-    profs = []
-    for i in range(10):
-        profs.append(RHS(50,50,3))
+    #profs = []
+    #for i in range(10):
+    #    profs.append(RHS(50,50,3))
     
-    t = SimpleTruss(nodes,mems,profs,"Ten Bar Truss")
+    #t = SimpleTruss(nodes,mems,profs,"Ten Bar Truss")
+    t = SimpleTruss(nodes,mems,profiles,name="10-bar truss",truss_type=truss_type)
     
     t.add(PointLoad(t.nodes[1],[0,-F,0]))
     t.add(PointLoad(t.nodes[3],[0,-F,0]))
@@ -251,14 +262,14 @@ def fifteen_bar_truss(L=360,h=120,P=10000):
 if __name__ == '__main__':
     
     import cProfile    
-    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1)
-    #t = ten_bar_truss(L=3000,F=200e3)
+    t = three_bar_truss(L=3000,F1=-200e3,F2=-250e3,nlc=1,truss_type='steel')
+    #t = ten_bar_truss(L=3000,F=200e3,truss_type='steel')
     t.plot()
     #t = fifteen_bar_truss()
     
     
-    t.generate_fem()
-    t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
+    #t.generate_fem()
+    #t.structural_analysis(load_id=t.load_ids[0],support_method="REM")
     #t.generate()
     #load_id = t.load_ids[0]
     #start = timer()    

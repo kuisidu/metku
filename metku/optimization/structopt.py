@@ -193,18 +193,21 @@ class OptimizationProblem:
                 vals.append(None)
         return vals
 
-    @property
-    def feasible(self):
+    #@property
+    def feasible(self,x=None):
         """
-        Returns problem's feasibility at X
+        Returns problem's feasibility at x
         :return: True/False
         """
         
         res = True
 
+        if x is None:
+            x = self.X
+
            
         for con in self.cons:
-            g = con(self.X)            
+            g = con(x)             
             if con.type == '<':
                 if g > self.con_tol:
                     res = False
@@ -220,6 +223,8 @@ class OptimizationProblem:
         
         return res
         #return np.all(self.eval_cons(self.X) <= self.con_tol)
+    
+    
 
     def type_of_vars(self):
         '''
@@ -245,6 +250,13 @@ class OptimizationProblem:
             Deletes all variables
         """
         self.__vars.clear()
+        
+    def del_var(self,var):
+        """
+            Deletes variable 'var'
+
+        """
+        self.__vars.remove(var)
         
     def var_values(self):
         """
@@ -312,7 +324,7 @@ class OptimizationProblem:
         self.cons.append(con)
         return con
 
-    @lru_cache(CACHE_BOUND)
+    #@lru_cache(CACHE_BOUND)
     def linearize(self, *x):
         """
         Linearizes problem around x
@@ -322,7 +334,7 @@ class OptimizationProblem:
         :param x:
         :return:
         """
-        start = time.time()
+        #start = time.time()
         x = np.asarray(x)
         self.substitute_variables(x)
 
@@ -370,8 +382,9 @@ class OptimizationProblem:
                 if np.linalg.norm(x-xh) == 0:
                     print("Linearize: error with variable substitution - too small step size.")
                 """ Evaluate objective function at x + hi*ei """
-                if self.grad is None:
+                if self.grad is None:                    
                     f_val = self.obj(xh)
+                    #print(f_val,fx)         
                     df[i] = (f_val - fx) / h
                     
                 """ Evaluate constraint functions at x + hi*ei """
@@ -395,7 +408,7 @@ class OptimizationProblem:
                 else:
                     B = np.hstack((B, con.b))
 
-        end = time.time()
+        #end = time.time()
         # print("Linearization took: ", end - start, " s")
 
         return A, B, df, fx
@@ -531,7 +544,7 @@ class OptimizationProblem:
         self.substitute_variables(x)
         fx = self.obj(x)
         print("** {0} **".format(self.name))
-        print(f'Solution is feasible: {self.feasible}')
+        print(f'Solution is feasible: {self.feasible()}')
 
         #vals = [var.value for var in self.vars]
         #print(f"Optimal values: {vals}")
@@ -581,7 +594,7 @@ class OptimizationProblem:
         return np.asarray(g)
 
     def eval_eq_con(self, x):
-        """ Evaluates equality constraionts """
+        """ Evaluates equality constraints """
 
         geq = []
 

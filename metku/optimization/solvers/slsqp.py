@@ -70,7 +70,7 @@ class SLSQP(OptSolver):
 
         return bounds
 
-    def solve(self, problem, maxiter=100, x0=None, verb=False):
+    def solve(self, problem, maxiter=200, x0=None, verb=False):
         """
         Solves given problem
 

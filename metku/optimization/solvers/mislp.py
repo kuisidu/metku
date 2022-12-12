@@ -8,7 +8,7 @@ import numpy as np
 from ortools.linear_solver import pywraplp
 
 from metku.optimization.solvers.optsolver import OptSolver
-from metku.optimization.variables import DiscreteVariable
+from metku.optimization.variables import DiscreteVariable, BinaryVariable
 
 class MISLP(OptSolver):
 
@@ -21,6 +21,9 @@ class MISLP(OptSolver):
         self.C = C
         self.beta = beta
         self.milp = None
+        self.binary_vars_exist = False
+        self.beta_vals = []
+        self.milps = []
         
     def take_action(self):
         """
@@ -76,55 +79,64 @@ class MISLP(OptSolver):
                     # Closest value is not the first or last in the list
                     lb = max(lb, var.value - var.values[idx - 1])
                     ub = max(ub, var.values[idx + 1] - var.value)
-            lb = max(var.value - lb, var.lb)
-            ub = min(var.value + ub, var.ub)
             
+            if isinstance(var,BinaryVariable):
+                x[i] = CBC_solver.BoolVar(var.name)
+                # If binary variables exist in the problem, assume
+                # they are related to linear constraints that
+                # control the cross-section of a member. In that case
+                # no additional binary variables are created in MISLP
+                self.binary_vars_exist = True
+            else:                
+                lb = max(var.value - lb, var.lb)
+                ub = min(var.value + ub, var.ub)
+                                
+                name = str(var.target['property']) + str(i)
+                x[i] = CBC_solver.NumVar(float(lb),float(ub),name)
             
-            name = str(var.target['property']) + str(i)
-            x[i] = CBC_solver.NumVar(float(lb),
-                                     float(ub),
-                                     name)
-            
-            
-
         
         beta = CBC_solver.NumVar(0, self.beta, 'Beta')
         # Linear Constraints
         # Ax <= B
         
         for i in range(n):
-            CBC_solver.Add(CBC_solver.Sum([A[i, j] * x[j]
-                                           for j in range(m)]) <= B[i] + beta)
+            if self.problem.cons[i].type == '<':                
+                CBC_solver.Add(CBC_solver.Sum([A[i, j] * x[j]
+                                               for j in range(m)]) <= B[i] + beta)
+            elif self.problem.cons[i].type == '=':
+                CBC_solver.Add(CBC_solver.Sum([A[i, j] * x[j]
+                                               for j in range(m)]) == B[i])
         
-        # Create binary variables
-        discrete_vars = [var for var in
-                         self.problem.vars if isinstance(var, DiscreteVariable)]
-        y = {}
-        for i, var in enumerate(discrete_vars):
-            for j in range(len(var.values)):
-                if (var.id, j) not in y.keys():
-                    y[var.id, j] = CBC_solver.BoolVar(f'y{var.id},{j}')
-        #print(y)
-        # Create binary constraints
-        for i, var in enumerate(discrete_vars):
-            # Binary constraint
-            # sum(bin_vars) == 1            
-            CBC_solver.Add(CBC_solver.Sum([y[var.id, j]
-                                           for j in range(len(var.values))]) == 1)            
-            # Binary property constraint
-            # Ai == sum(A[i][bin_idx])
-            idx = discrete_ids[i]            
-            CBC_solver.Add(CBC_solver.Sum([y[var.id, j] * var.values[j]
-                                           for j in range(len(var.values))]) == x[idx])
+        if not self.binary_vars_exist:
+            # Create binary variables
+            discrete_vars = [var for var in
+                             self.problem.vars if isinstance(var, DiscreteVariable)]
+            y = {}
+            for i, var in enumerate(discrete_vars):
+                for j in range(len(var.values)):
+                    if (var.id, j) not in y.keys():
+                        y[var.id, j] = CBC_solver.BoolVar(f'y{var.id},{j}')
+            #print(y)
+            # Create binary constraints
+            for i, var in enumerate(discrete_vars):
+                # Binary constraint
+                # sum(bin_vars) == 1            
+                CBC_solver.Add(CBC_solver.Sum([y[var.id, j]
+                                               for j in range(len(var.values))]) == 1)            
+                # Binary property constraint
+                # Ai == sum(A[i][bin_idx])
+                idx = discrete_ids[i]            
+                CBC_solver.Add(CBC_solver.Sum([y[var.id, j] * var.values[j]
+                                               for j in range(len(var.values))]) == x[idx])
 
         # Objective
         CBC_solver.Minimize(CBC_solver.Sum(df[i] * x[i] for i in range(m)) + self.C * beta)
 
         # Solve
         sol = CBC_solver.Solve()
-        self.beta = beta.solution_value()
+        self.beta_vals.append(beta.solution_value())
         self.milp = CBC_solver
-                
+        self.milps.append(CBC_solver)
         
         if sol == 2:
             print("SOLUTION INFEASIBLE")
@@ -170,6 +182,30 @@ class MISLP(OptSolver):
         self.problem.substitute_variables(self.X)
 
         return self.X.copy(), 1, False, 'INFO'
+
+
+def ortools_mip_feasibility(milp,x=None):
+    """ Checks feasibility of 'x' for ortools problem 'milp' """
+    G_TOL = 1e-5
+    
+    if x is None:
+        x = np.array([var.SolutionValue() for x in milp.variables()])
+    else:
+        x = np.array(x)
+    
+    res = True
+    
+    cons = milp.constraints()
+    variables = milp.variables()
+    for con in cons:
+        a = np.array([con.GetCoefficient(var) for var in variables])
+        if a.dot(x) > con.ub() + G_TOL or a.dot(x) < con.lb() -G_TOL:
+            print("Infeasible constraint")
+            print(con.name())
+            res = False
+            break
+
+    return res
 
 if __name__ == '__main__':
     from metku.optimization.benchmarks import *

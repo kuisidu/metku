@@ -8,7 +8,11 @@ Various functions to be used in optimization
 """
 
 import numpy as np
+from copy import copy
 
+from metku.optimization.variables import Variable, DiscreteVariable, IndexVariable, BinaryVariable
+from metku.optimization.variables import CrossSectionVariable
+from metku.optimization.constraints import LinearConstraint
 
 def NumGrad(fun, x):
     """ Gradient by finite difference """
@@ -197,3 +201,102 @@ def Linearize(fun, x, grad=None):
     c = a.dot(x)
 
     return a, b, c
+
+def index2binary(P,disc_vars,var_type='continuous'):
+    """ Changes problem formulation from index variables to binary variables
+        to be used in selecting the cross-section.
+        
+        disc_vars .. list with names of attributes to be added as discrete 
+                     variables. For example, disc_vars = ['A', 'Iy', 'h']
+    """
+    
+    Pnew = P
+    
+    var_pack = []
+    
+    
+    for i, var in enumerate(P.vars):
+        if isinstance(var,IndexVariable):
+            # Operaatiot
+            # 1. Luo muuttujat disc_varista. Niillä on sama target[object] kuin
+            # 'var'-muuttujalla, ja property otetaan disc_varista
+            # 2. Luo binäärimuuttujat. Binäärimuuttujia luodaan yhtä monta kuin on
+            # profiileja, eli 'values'-attribuutissa alkioita.
+            # 3. Luo lineaariset rajoitusehdot poikkileikkaus- ja binäärimuuttujien välille.
+            # Tässä haasteeksi tulee muuttujien indeksin kanssa pelaaminen.
+            ndx_set = {'props':[],'binary':[]}
+            
+            
+            for sec_prop in disc_vars:
+                # props sisältää poikkileikkaussuureen 'sec_prop' arvot
+                # jotka vastaavat indeksimuuttujan katalogia
+                # var.values = indeksimuuttujan profiililista
+                props = [round(s.__getattribute__(sec_prop),3) for s in var.values]
+                var_name = sec_prop + str(i)
+                # ONGELMA:
+                # Indeksimuuttujalla on target['objects'] lista sauvoja, joiden poikkileikkausta muutetaan
+                # 'property' on 'cross_section'. Nyt pitäisi saada target['objects'] edelleen lista sauvoja, mutta
+                # niiden tiettyä poikkileikkaussuuretta muutetaan.
+                for mem in var.target['objects']:                    
+                    mem.cross_section = copy(mem.cross_section)
+                    
+                #target = {'objects': [mem.cross_section for mem in var.target['objects']],
+                #          'property': sec_prop}
+                target = {'objects': [mem for mem in var.target['objects']],
+                          'property': sec_prop}
+                
+                #for mem in var.target['objects']:
+                #    mem.cross_section = target['objects'][0]
+                
+                if var_type == 'continuous':
+                    lb = min(props)
+                    ub = max(props)
+                
+                    new_var = CrossSectionVariable(var_name,lb,ub,target=target,value=props[var.value])                    
+                    
+                else:
+                    new_var = DiscreteVariable(var_name,props,target,value=props[var.value])
+                
+                Pnew.add(new_var)
+                ndx_set['props'].append(new_var)
+            
+            # Tehdään binäärimuuttujat:
+            # Jokaiselle valittavissa olevalle profiilille luodaan omansa
+            for j, sec in enumerate(var.values):
+                var_name = var.name + ' profile ' + str(j)
+                if var.value == j:
+                    val = 1
+                else:
+                    val = 0
+                #new_var = BinaryVariable(var_name,section=sec,target=var.target,value=val)
+                new_var = BinaryVariable(var_name,section=sec,target=None,value=val)
+                Pnew.add(new_var)
+                ndx_set['binary'].append(new_var)
+            
+            var_pack.append(ndx_set)
+            
+            Pnew.del_var(var)
+    
+    
+    # Luodaan rajoitusehdot
+    nx = Pnew.nvars()
+    for pack in var_pack:
+        # Jokainen poikkileikkausmuuttuja sidotaan ko. sauvan binäärimuuttujiin
+        for prop_var in pack['props']:               
+            a = np.zeros(nx)
+            a[Pnew.vars.index(prop_var)] = 1
+            for bin_var in pack['binary']:
+                a[Pnew.vars.index(bin_var)] = -round(bin_var.section.__getattribute__(prop_var.target['property']),3)
+            
+            con_name = prop_var.name + " unique profile"
+            Pnew.add(LinearConstraint(a,0,'=',con_name,Pnew))
+        
+        # Kullekin sauvalle/ryhmälle binäärimuuttujien summa on tasan 1
+        a = np.zeros(nx)
+        for bin_var in pack['binary']:
+            a[Pnew.vars.index(bin_var)] = 1
+        
+        con_name = "Unique profile"
+        Pnew.add(LinearConstraint(a,1,'=',con_name,Pnew))
+           
+    return Pnew, var_pack

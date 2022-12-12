@@ -35,13 +35,36 @@ class OptSolver:
 
         """
         constr_vals = []
-        if not len(x):
+        if len(x) == 0:
             x = self.X
         # Calculate constraints
         for i in range(len(self.problem.cons)):
             constr_vals.append(self.problem.cons[i](x))
         self.constr_vals = np.asarray(constr_vals)
         return np.asarray(constr_vals)
+    
+    def is_feasible(self, x=[]):
+        
+        if len(x) == 0:
+            constr_vals = self.constr_vals
+        else:
+            constr_vals = self.calc_constraints(x)
+        
+        res = True
+        for g, con in zip(constr_vals,self.problem.cons):
+            if con.type == '<':
+                if g > self.problem.con_tol:
+                    res = False
+                    break
+            elif con.type == '>':
+                if g < -self.problem.con_tol:
+                    res = False
+                    break
+            else:
+                if abs(g) > self.problem.con_tol:
+                    res = False
+                    break
+        return res
 
     def _create_eqcons(self):
         """ Creates a list of equality constraints
@@ -118,10 +141,11 @@ class OptSolver:
                 elif key == 'rel_f_tol':
                     rel_f_tol = value
 
-
-            if abs(f[1]-f[0]) <= abs_f_tol + rel_f_tol*abs(f[1]):
+            # f[1] .. objective function at x(k+1)
+            # f[0] .. objective function at x(k)
+            if abs(f[1]-f[0]) <= abs_f_tol + rel_f_tol*abs(f[0]):                
                 res = True
-                self.message = "Stopping criterion fulfilled: relative change to x smaller than tolerance."
+                self.message = "Stopping criterion fulfilled: relative change to f smaller than tolerance."
 
         return res
 
@@ -133,7 +157,7 @@ class OptSolver:
         """
         Updates the plotted figure
         
-        NOTE: This method seems dedundant, maybe remove it? (KMe, 6.10.2022)
+        NOTE: This method seems redundant, maybe remove it? (KMe, 6.10.2022)
         
         :return:
         """
@@ -145,7 +169,7 @@ class OptSolver:
         #self.problem.structure.plot_loads()
         #self.problem.structure.plot_deflection(10, show=False)
 
-        plt.title(f'Feasible: {self.problem.feasible}')
+        plt.title(f'Feasible: {self.problem.feasible()}')
         plt.axis('equal')
         fig.canvas.draw()
         plt.pause(0.0001)
@@ -231,13 +255,7 @@ class OptSolver:
             action = self.take_action()
             # Take step
             state, reward, done, info = self.step(action)
-            # If new state is almost same as previous AND the design is feasible,
-            # the iteration can be stopped.
-            # TODO! Add Feasibility Check
-            if self.stopping_criterion('x', x=[prev_state, state], xtol=X_TOL):
-                print(self.message)
-                done = True
-
+                    
             # if (np.linalg.norm(prev_state - state)/np.linalg.norm(prev_state) <= min_diff):
             #    print("Sufficiently small change in variable values in consecutive iterations.")
             #    print(state,prev_state)
@@ -254,6 +272,7 @@ class OptSolver:
             # Substitute new variables
             problem.substitute_variables(state)
             # Calculate constraints
+            #print(self.X)
             self.calc_constraints(self.X)
             #print(state)
             # Save best values
@@ -263,14 +282,17 @@ class OptSolver:
             t_total += t_1-t_0
             if verb:
                 print(
-                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {problem.feasible} '\
+                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {problem.feasible()} '\
                     f'max g: {max(self.constr_vals):.4f}')
-            if fval < self.best_f and problem.feasible:
+            if fval < self.best_f and problem.feasible():
                 self.best_f = fval
                 self.best_x = state.copy()
                 if verb:
                     #print(self.best_x)
-                    print(f"New best!: {fval:.3f} {[round(s, 3) for s in state]}")
+                    if len(state) <= 10:
+                        print(f"New best!: {fval:.3f} {[round(s, 3) for s in state]}")
+                    else:
+                        print(f"New best!: {fval:.3f}")
             # Log objective vals per iteration
             if log:
                 #if verb:
@@ -286,6 +308,20 @@ class OptSolver:
             if verb:
                 print(f"Iteration took: {end - start :.2f} s")
 
+            # CHECK STOPPING CRITERIA
+            # If new state is almost same as previous AND the design is feasible,
+            # the iteration can be stopped.
+            # TODO! Add Feasibility Check
+            if self.is_feasible():
+                if self.stopping_criterion('x', x=[prev_state, state], xtol=X_TOL):
+                    print(self.message)
+                    done = True
+    
+                if self.stopping_criterion('f', f=[problem.obj(prev_state),problem.obj(state)], 
+                                           abs_f_tol=ABS_F_TOL, rel_f_tol=REL_F_TOL):
+                    print(self.message)                
+                    done = True
+
             if done:
                 break
 
@@ -293,7 +329,7 @@ class OptSolver:
             self.best_x = self.X
             self.best_f = problem.obj(self.X)
 
-        return self.best_f, self.best_x
+        return self.best_f, self.best_x    
 
     def random_feasible_point(self):
         """
@@ -323,3 +359,27 @@ class OptSolver:
         print("Starting point created!")
 
         return np.asarray(X)
+
+    def plot_iters(self):
+        """
+        Plots iteration history
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        niter = len(self.fvals)
+        
+        if niter > 0:        
+            fig, ax = plt.subplots(1)
+            it = np.arange(niter)
+            ax.plot(it,self.fvals)
+            
+            ax.set_xlabel('Iteration')
+            ax.set_ylabel('Objective function')
+            
+            ax.grid(True,axis='both',linestyle='--')
+        
+        

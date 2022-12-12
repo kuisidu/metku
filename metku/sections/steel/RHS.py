@@ -66,9 +66,6 @@ class RHS(SteelSection):
         self.imp_factor_LT_gen = en1993_1_1.buckling_curve["c"]  # TODO
         self.imp_factor_LT = en1993_1_1.buckling_curve["c"]  # TODO
         
-        
-    
-
     @property
     def h(self):
         return self.H

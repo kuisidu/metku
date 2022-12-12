@@ -35,7 +35,7 @@ class ObjectiveFunction:
             self.problem.fea()
         
         X = [val for val in x]
-        X.reverse()
+        X.reverse()        
 
         """ Fixed values values is an array
             with the values
@@ -56,7 +56,9 @@ class ObjectiveFunction:
                     value from 'fixed_vals'
                 """
                 break
-
+        
+        self.problem.substitute_variables(fixed_vals)
+        
         if self.obj_type == "MIN":
             return self.obj_fun(fixed_vals)
         else:

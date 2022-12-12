@@ -169,6 +169,14 @@ class SteelMember:
         return max(abs(np.array(self.mzed)))
 
     @property
+    def VEdY(self):
+        return max(abs(np.array(self.vyed)))
+    
+    @property
+    def VEdZ(self):
+        return max(abs(np.array(self.vzed)))
+
+    @property
     def NEd(self):
         """ Maximum axial force (absolute value) """
         return max(abs(np.array(self.ned)))
@@ -410,8 +418,6 @@ class SteelMember:
         G = constants.G
         L = self.length
         C1, C2, C3 = C
-
-    
 
         if self.symmetry == 'dual':            
             zs = 0

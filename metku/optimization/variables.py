@@ -232,13 +232,13 @@ class BinaryVariable(IntegerVariable):
 
     """
 
-    def __init__(self, name="", section=None, target=None):
+    def __init__(self, name="", section=None, **kwargs):
         """ Constructor
 
             Arguments:
                 name .. string stating the name of the variable
         """
-        super(IntegerVariable, self).__init__(name, 0, 1,target=target)
+        super(IntegerVariable, self).__init__(name, 0, 1, **kwargs)
 
         self.section = section       
 
@@ -362,3 +362,48 @@ class DiscreteVariable(Variable):
         """ Returns discrete value smaller than 'x' and closest to it  """
 
         return min(list(filter(lambda val: (val-x>0),self.values)))
+
+
+
+class CrossSectionVariable(Variable):
+    """ Class for cross-sectional variables (continuous) """
+    
+    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None, target_fun=None):
+        
+        super().__init__(name, lb, ub, id, target, profiles, value, target_fun)
+    
+    def substitute(self, new_value):
+        """
+        Changes variable value and modifies target
+        :param new_value:
+        :return:
+        """
+        if not self.locked:
+            """ Substitute a new value for the variable """
+            self.value = new_value
+            
+            for obj in self.target['objects']:
+                prop = self.target['property']
+                """ If the variable affects several properties at a time
+                    'prop' is a list of property names
+                """
+                if isinstance(prop, list):
+                    for p in prop:
+                        """ If the varible has a 'target_fun',
+                            evaluate it for right properties
+                        """
+                        if self.target_fun is not None:
+                            """ If 'p' is not a property that has a functional dependency,
+                                then do regular substitution
+                            """
+                            try:
+                                new_val = self.target_fun[p](new_value*self.scaling)
+                            except KeyError:
+                                new_val = new_value*self.scaling
+                                    
+                            obj.__setattr__(p, new_val)
+                        else:
+                            obj.__setattr__(p, new_value)
+                else:
+                    obj.cross_section.__setattr__(prop, new_value*self.scaling)
+        
