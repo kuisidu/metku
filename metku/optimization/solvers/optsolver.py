@@ -24,6 +24,7 @@ class OptSolver:
         self.best_x = None    # Best found design
         self.feasible = False # Flag to determine if a feasible solution has been found
         self.message = None
+        self.constr_vals = None
 
     def calc_constraints(self, x=[]):
         """

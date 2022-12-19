@@ -232,15 +232,18 @@ class BinaryVariable(IntegerVariable):
 
     """
 
-    def __init__(self, name="", section=None, **kwargs):
+    def __init__(self, name="", section=None, objects=None, **kwargs):
         """ Constructor
 
             Arguments:
                 name .. string stating the name of the variable
         """
         super(IntegerVariable, self).__init__(name, 0, 1, **kwargs)
-
-        self.section = section       
+    
+        self.section = section
+        self.objects = objects
+        
+        
 
 class IndexVariable(IntegerVariable):
     """

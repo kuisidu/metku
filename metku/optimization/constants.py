@@ -24,3 +24,5 @@ ABS_F_TOL = 1e-8 # Tolerance for objective function difference, absolute
 REL_F_TOL = 1e-4 # Tolerance for objective function difference, relative
 G_TOL = 1e-8     # Tolerance for constraint feasibility
 X_TOL = 1e-8     # Tolerance for change in variable values
+
+POT_ACT_TOL = 0.25 # Tolerance for potentially active constraints

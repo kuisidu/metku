@@ -8,7 +8,7 @@ Created on Thu Oct  6 15:14:17 2022
 import numpy as np
 from collections.abc import Iterable
 
-from metku.optimization.constants import X_TOL
+from metku.optimization.constants import X_TOL, POT_ACT_TOL
 from metku.optimization.variables import Variable, IndexVariable
 import metku.optimization.opt_functions as opt_funs
 
@@ -43,6 +43,8 @@ class Constraint:
         self.mult = 1.0
         
         self.grad = grad
+        self.potential = True # Flag for stating whether the constraint is potentially active or not
+        self.pot_tol = POT_ACT_TOL
 
     def __call__(self, x):
         """ Evaluate the constraint using the syntax con(x)
@@ -121,7 +123,20 @@ class LinearConstraint(Constraint):
         else:
             b = self.b
 
-        return self.a.dot(np.array(X)) - b
+        gval = self.a.dot(np.array(X)) - b
+        
+        if self.type == '<':
+            if gval < -self.pot_tol:
+                self.potential = False
+            else:
+                self.potential = True
+        elif self.type == '>':
+            if gval > self.pot_tol:
+                self.potential = False
+            else:
+                self.potential = True
+
+        return gval
         
 
 
@@ -167,7 +182,20 @@ class NonLinearConstraint(Constraint):
             if not X:
                 break
 
-        return self.con(fixed_vals)
+        gval = self.con(fixed_vals)    
+
+        if self.type == '<':
+            if gval < -self.pot_tol:
+                self.potential = False
+            else:
+                self.potential = True
+        elif self.type == '>':
+            if gval > self.pot_tol:
+                self.potential = False
+            else:
+                self.potential = True
+
+        return gval
     
     def df(self,x):
         """ Evaluate gradient at x """

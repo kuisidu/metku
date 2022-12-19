@@ -12,7 +12,7 @@ from metku.optimization.variables import DiscreteVariable, BinaryVariable
 
 class MISLP(OptSolver):
 
-    def __init__(self, move_limits=(0.1, 0.1), gamma=1e-3, C=2e5, beta=100, move_limit_type='range'):
+    def __init__(self, move_limits=(0.1, 0.1), gamma=1e-3, C=2e5, beta=100, move_limit_type='range',only_potential=False):
         super().__init__()
         self.move_limits = np.asarray(move_limits)
         self.move_limits_hist = [np.asarray(move_limits)]
@@ -24,17 +24,21 @@ class MISLP(OptSolver):
         self.binary_vars_exist = False
         self.beta_vals = []
         self.milps = []
+        self.only_potential = only_potential
         
     def take_action(self):
         """
         Defines action to take
         :return: action
         """
-
+        
+        
         # Linearize problem
         #print("X= ",self.X)
         #A, B, df, fx = self.problem.linearize(*self.X.copy())
-        A, B, df, fx = self.problem.linearize(*self.X)
+        print("Linearize...")
+        A, B, df, fx = self.problem.linearize(self.X,self.only_potential)
+        print("Done")
         # Create CBC solver
         CBC_solver = pywraplp.Solver('MISLP',
                            pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
@@ -43,6 +47,11 @@ class MISLP(OptSolver):
         n = A.shape[0]
         # Number of variables
         m = A.shape[1]
+
+        if self.only_potential:
+            act_cons = [con for con in self.problem.cons if con.potential]            
+        else:
+            act_cons = self.problem.cons
 
         # Create continuous variables
         x = {}
@@ -93,17 +102,17 @@ class MISLP(OptSolver):
                                 
                 name = str(var.target['property']) + str(i)
                 x[i] = CBC_solver.NumVar(float(lb),float(ub),name)
-            
+                    
         
         beta = CBC_solver.NumVar(0, self.beta, 'Beta')
         # Linear Constraints
         # Ax <= B
         
         for i in range(n):
-            if self.problem.cons[i].type == '<':                
+            if act_cons[i].type == '<':                
                 CBC_solver.Add(CBC_solver.Sum([A[i, j] * x[j]
                                                for j in range(m)]) <= B[i] + beta)
-            elif self.problem.cons[i].type == '=':
+            elif act_cons[i].type == '=':
                 CBC_solver.Add(CBC_solver.Sum([A[i, j] * x[j]
                                                for j in range(m)]) == B[i])
         

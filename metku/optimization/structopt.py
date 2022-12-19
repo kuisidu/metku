@@ -325,26 +325,39 @@ class OptimizationProblem:
         return con
 
     #@lru_cache(CACHE_BOUND)
-    def linearize(self, *x):
+    def linearize(self, x, only_potential=False):
         """
         Linearizes problem around x
 
         Ax < B
 
         :param x:
+        :param only_potential: True, if only potentially active constraints are included
+        in the linearization
         :return:
         """
         #start = time.time()
         x = np.asarray(x)
+
         self.substitute_variables(x)
 
         """ Evaluate objective function at x """
         fx = self.obj(x)
         """ Evaluate nonlinear constraint functions at x """
-        b = self.eval_nonlin_cons(x)
-
+        #b = self.eval_nonlin_cons(x)
+        
+        con_vals = self.eval_cons(x)
+                
         """ Get number of nonlinear constraints """
-        m = self.nnonlincons()
+        if only_potential:
+            act_cons = [con for con in self.cons if con.potential]
+            b = np.array([val for val, con in zip(con_vals,self.cons) if con.potential])
+        else:
+            act_cons = self.cons
+            b = con_vals
+            
+        m = len(act_cons)
+        #m = self.nnonlincons()
         """ Number of variables """
         n = self.nvars()
         """ Jacobian
@@ -355,51 +368,61 @@ class OptimizationProblem:
         
         if self.grad is not None:
             df = self.grad(x)
-        
+                
         for i, var in enumerate(self.vars):
-            if not isinstance(var, BinaryVariable):
-                if isinstance(var, IndexVariable):
-                    h = 1
-                    prev_val = var.value
-                    if var.idx + h > var.ub:
-                        h = -1
-                    var.substitute(var.idx + h)
-                else:
-                    x[i] = var.value
-                    """ Get current value of variable """
-                    prev_val = var.value
-                    """ Step length """
+            if isinstance(var, BinaryVariable):
+                h = 1
+            elif isinstance(var, IndexVariable):
+                h = 1
+                prev_val = var.value
+                if var.idx + h > var.ub:
+                    h = -1
+                var.substitute(var.idx + h)
+            else:
+                x[i] = var.value
+                """ Get current value of variable """
+                prev_val = var.value
+                """ Step length """
                     
-                    h = max(1e-6 * abs(prev_val), 1e-8)
-                    var.substitute(prev_val + h)
+                h = max(1e-6 * abs(prev_val), 1e-8)
+                var.substitute(prev_val + h)
+                
+            """ Get variable values """
+            xh = [var.value for var in self.vars]
+            #print(x,xh)
+            if not isinstance(var,BinaryVariable) and np.linalg.norm(x-xh) == 0:
+                print("Linearize: error with variable substitution - too small step size.")
 
-                """ Make finite element analysis """
-                #if self.structure and not self.fea_done:
-                #    self.fea()
-                """ Get variable values """
-                xh = [var.value for var in self.vars]
-                #print(x,xh)
-                if np.linalg.norm(x-xh) == 0:
-                    print("Linearize: error with variable substitution - too small step size.")
-                """ Evaluate objective function at x + hi*ei """
-                if self.grad is None:                    
+            """ Evaluate objective function at x + hi*ei """
+            if self.grad is None:
+                if not isinstance(var, BinaryVariable):                 
                     f_val = self.obj(xh)
                     #print(f_val,fx)         
                     df[i] = (f_val - fx) / h
                     
-                """ Evaluate constraint functions at x + hi*ei """
-                a = self.eval_nonlin_cons(xh)
-                A[:, i] = (a - b) / h
+            """ Evaluate constraint functions at x + hi*ei """
+            #a = np.array([con(xh) for con in act_cons])
+            dg = np.zeros(m)
+            for j, con in enumerate(act_cons):
+                if isinstance(con,LinearConstraint):
+                    dg[j] = con.a[i]
+                else:
+                    if not isinstance(var,BinaryVariable):
+                        dg[j] = (con(xh)-b[j])/h
+                #a = self.eval_nonlin_cons(xh)
+                #A[:, i] = (a - b) / h
+            A[:, i] = dg
                 
-                """ Substitute the original value x[i] to current variable """
-                var.substitute(prev_val)
-
+            """ Substitute the original value x[i] to current variable """
+            var.substitute(prev_val)            
+            
 
         #B = A @ x.T - b
         B = A.dot(x) - b
         # B = -b
 
         # Add linear constraints' values
+        """
         for con in self.cons:
             if isinstance(con, LinearConstraint):
                 A = np.vstack((A, con.a))
@@ -407,7 +430,7 @@ class OptimizationProblem:
                     B = np.hstack((B, con.b.value))
                 else:
                     B = np.hstack((B, con.b))
-
+        """
         #end = time.time()
         # print("Linearization took: ", end - start, " s")
 

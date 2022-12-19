@@ -209,7 +209,7 @@ def index2binary(P,disc_vars,var_type='continuous'):
         to be used in selecting the cross-section.
         
         disc_vars .. list with names of attributes to be added as discrete 
-                     variables. For example, disc_vars = ['A', 'Iy', 'h']
+                     variables. For example, disc_vars = ['A', 'Iy', 'H', 'Wply']
     """
     
     Pnew = P
@@ -271,7 +271,7 @@ def index2binary(P,disc_vars,var_type='continuous'):
                 else:
                     val = 0
                 #new_var = BinaryVariable(var_name,section=sec,target=var.target,value=val)
-                new_var = BinaryVariable(var_name,section=sec,target=None,value=val)
+                new_var = BinaryVariable(var_name,section=sec,objects=var.target['objects'],target=None,value=val)
                 Pnew.add(new_var)
                 ndx_set['binary'].append(new_var)
             
@@ -302,3 +302,24 @@ def index2binary(P,disc_vars,var_type='continuous'):
         Pnew.add(constr.LinearConstraint(a,1,'=',con_name,Pnew))
            
     return Pnew, var_pack
+
+def potentially_active_constraints(prob,x):
+    
+    ACT_EPS = 0.25
+    
+    act_cons = []
+    
+    for con in prob.cons:
+        if con.type == '=':
+            act_cons.append(con)
+        elif con.type == '<':
+            print(con)
+            print(con(x))
+            if con(x) > -ACT_EPS:
+                act_cons.append(con)
+        else:
+            if con(x) < ACT_EPS:
+                act_cons.append(con)
+    
+    return act_cons
+    
