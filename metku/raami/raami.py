@@ -851,7 +851,7 @@ class Raami:
         try:
             os.mkdir(path)
         except OSError as error:
-            print(f"Kansio {path} on jo olemassa")
+            print(f"Folder {path} already exists.")
         
         inp_file = path + '/' + filename + '.inp'
         
@@ -942,6 +942,7 @@ class Raami:
                     nel = len(mem.fem_elements)
                     
                     if mem.hinges[0]:
+                        # This append does not make sense!
                         s1_rel.append
                     
                     if nel > 1:
@@ -961,7 +962,7 @@ class Raami:
                                 s1_rel.append(ndx)
                             elif 5 in ele.releases:
                                 s2_rel.append(ndx)
-                            
+                                                    
                         file.write('\n')
                     else:
                         file.write(f'*Elset, elset={mem_name}\n')
@@ -1003,11 +1004,21 @@ class Raami:
             
             # Release sets
             file.write('**\n*Elset, elset=S1Release\n')
-            file.write(', '.join(str(r) for r in s1_rel))
-            file.write('\n')
+            i = 0
+            while i < len(s1_rel):
+                file.write(', '.join(str(r) for r in s1_rel[i:i+16]))
+                file.write('\n')
+                i += 16
+            #file.write(', '.join(str(r) for r in s1_rel))
+            #file.write('\n')
             file.write('**\n*Elset, elset=S2Release\n')
-            file.write(', '.join(str(r) for r in s2_rel))
-            file.write('\n')
+            i = 0
+            while i < len(s2_rel):
+                file.write(', '.join(str(r) for r in s2_rel[i:i+16]))
+                file.write('\n')
+                i += 16
+            #file.write(', '.join(str(r) for r in s2_rel))
+            #file.write('\n')
             
             # Poikkileikkaustiedosto(t)
             file.write(f'*Include, Input={sections_file}\n')

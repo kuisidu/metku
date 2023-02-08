@@ -763,8 +763,8 @@ class SlopedTruss(PlaneTruss):
             
             
             #            
-            X0 = np.array([self.origin[0],self.origin[0]])
-            X2 = np.array([self.origin[0]+self.span,self.origin[0]])
+            X0 = np.array([self.origin[0],self.origin[1]])
+            X2 = np.array([self.origin[0]+self.span,self.origin[1]])
                                  
             X1 = self.xmid()
             X2 = self.xend()
@@ -918,8 +918,8 @@ class SlopedTruss(PlaneTruss):
             # Top chord nodes:
             # Local coordinates of the top chord
             #            
-            X0 = np.array([self.origin[0],self.origin[0]])
-            X2 = np.array([self.origin[0]+self.span,self.origin[0]])
+            X0 = np.array([self.origin[0],self.origin[1]])
+            X2 = np.array([self.origin[0]+self.span,self.origin[1]])
                                  
             X1 = self.xmid()
             X2 = self.xend()
@@ -1268,7 +1268,7 @@ class SlopedTruss(PlaneTruss):
                         
                     joint.fem_nodes['xc'] = xcNode
                     joint.fem_nodes['xp'] = xpNode
-                    joint.node.fem_node = newNode
+                    joint.node.fem_node = xcNode
                 elif isinstance(joint,TubularKTGapJoint):
                     # For KT gap joints, 
                     newNode = self.fem.add_node(joint.node.x,joint.node.y)                    
@@ -1388,11 +1388,11 @@ class SlopedTruss(PlaneTruss):
                     newNode = self.fem.add_node(joint.node.x,joint.node.y)                    
                     joint.fem_nodes['xc'] = newNode
                     joint.node.fem_node = newNode
-            
+                                    
             for mem in self.braces.values():
                 #Generate member elements                
                 mem.generate_elements(self.fem,model,self.braces_as_beams)
-            
+                                    
             for mem in self.top_chord:
                 mem.generate_elements(self.fem,model)
         
@@ -1715,7 +1715,9 @@ class TopChord(SteelFrameMember):
             elif isinstance(self.joints[0],TubularKGapJoint):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
-                N1 = self.joints[0].fem_nodes['xch'][self]                
+                N1 = self.joints[0].fem_nodes['xch'][self]
+            else:
+                N1 = self.joints[0].fem_nodes['xc']
             
             self.fem_nodes.append(N1)
             
@@ -1725,7 +1727,9 @@ class TopChord(SteelFrameMember):
                 # in case of K gap joint, the node is created at the
                 # intersection between brace center line and chord face            
                 N2 = self.joints[1].fem_nodes['xch'][self]                
-            
+            else:
+                N2 = self.joints[1].fem_nodes['xc']
+                
             # Generate internal nodes:
             # global_node_coord include also the end node coordinates,
             # so they are not used in the iteration

@@ -274,7 +274,9 @@ class OptSolver:
             problem.substitute_variables(state)
             # Calculate constraints
             #print(self.X)
-            self.calc_constraints(self.X)
+            #self.calc_constraints(self.X)
+            state_feasible = self.is_feasible(self.X)
+            print('Check state feasibility',state_feasible)
             #print(state)
             # Save best values
 
@@ -283,9 +285,9 @@ class OptSolver:
             t_total += t_1-t_0
             if verb:
                 print(
-                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {problem.feasible()} '\
+                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {state_feasible} '\
                     f'max g: {max(self.constr_vals):.4f}')
-            if fval < self.best_f and problem.feasible():
+            if fval < self.best_f and state_feasible:
                 self.best_f = fval
                 self.best_x = state.copy()
                 if verb:

@@ -12,6 +12,10 @@ EN 1992-1-1 General rules for concrete structures
 
 import math
 
+from metku.eurocodes.en1992.constants import gammaC, gammaS, alpha_cc, concrete
+from metku.materials.steel_data import Steel
+
+
 try:
     from metku.eurocodes.en1992.constants import gammaC, gammaS, alpha_cc, concrete
 except:

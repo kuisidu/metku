@@ -49,7 +49,7 @@ class SLP(OptSolver):
         Defines action to take
         :return:
         """
-        A, B, df, fx = self.problem.linearize(*self.X)
+        A, B, df, fx = self.problem.linearize(self.X)
         # bounds = [x*self.move_limits for x in self.X]
         #
         # res = linprog(df, A, B, bounds=bounds)

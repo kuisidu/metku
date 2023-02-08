@@ -313,8 +313,6 @@ def potentially_active_constraints(prob,x):
         if con.type == '=':
             act_cons.append(con)
         elif con.type == '<':
-            print(con)
-            print(con(x))
             if con(x) > -ACT_EPS:
                 act_cons.append(con)
         else:
@@ -322,4 +320,3 @@ def potentially_active_constraints(prob,x):
                 act_cons.append(con)
     
     return act_cons
-    

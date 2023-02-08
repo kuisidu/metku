@@ -478,9 +478,11 @@ class FrameMember:
         return n
     
     def generate_elements(self,fem):
-        """ Creates internal nodes and elements between nodes """
+        """ Creates internal nodes and elements between nodes 
+            Assumes that the member end nodes have already been created
+        """
     
-        # First end node
+        # First end node                    
         self.fem_nodes.append(self.nodes[0].fem_node)
         
         # Generate internal nodes:
@@ -492,7 +494,7 @@ class FrameMember:
             else:
                 newNode = fem.add_node(x[0],x[1],x[2])
                 
-            self.fem_nodes.append(newNode)
+            self.fem_nodes.append(newNode)            
         
         # Last end node
         self.fem_nodes.append(self.nodes[1].fem_node)
@@ -936,11 +938,14 @@ class MultiSpanMember:
     
         for mem in self.members:
             mem.generate_elements(fem)
-            
+            self.fem_elements += mem.fem_elements
             
         if self.hinges[0]:
             
             """ There is a hinge in the first end """
+            """ NOTE! This is wrong: the for loop above adds the fem elements and nodes
+                for the individual members and not to the MultiSpan member
+            """
             self.fem_elements[0].releases = [2]
         
         if self.hinges[1]:

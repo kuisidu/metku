@@ -169,8 +169,8 @@ if __name__ == "__main__":
     t.generate_joints()
     t.determine_symmetry_joints()
     t.generate_uniform_load(q=-25)
-    #t.generate_fem(model='en1993')
-    t.generate_fem(model='no_eccentricity')
+    t.generate_fem(model='en1993')
+    #t.generate_fem(model='no_eccentricity')
     
     t.optimize_members(verb=True)
     t.plot(geometry=True,loads=False)

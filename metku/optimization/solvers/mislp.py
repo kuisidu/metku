@@ -188,7 +188,7 @@ class MISLP(OptSolver):
         #     self.X[i] = np.clip(self.X[i], self.problem.vars[i].lb,
         #                         self.problem.vars[i].ub)
 
-        self.problem.substitute_variables(self.X)
+        #self.problem.substitute_variables(self.X)
 
         return self.X.copy(), 1, False, 'INFO'
 

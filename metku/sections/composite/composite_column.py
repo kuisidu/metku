@@ -639,9 +639,9 @@ class ConcreteFilledTube:
 
 if __name__ == '__main__':
     
-    from sections.steel.RHS import SHS
-    from eurocodes.en1992 import en1992_1_1, constants
-    """
+    from metku.sections.steel.RHS import SHS
+    from metku.eurocodes.en1992 import en1992_1_1, constants
+    
     steel = SHS(300,8)
     con = constants.Concrete("C40/50")
     rebar = en1992_1_1.Rebar(20,"B500B")
@@ -649,7 +649,6 @@ if __name__ == '__main__':
     nged = 1.7e6
     med = [0,0]
     
-    """
     p = ConcreteFilledTube(6500,steel,con,rebar)
     p.u = 30
     p.ned = 2.118e6
@@ -660,4 +659,4 @@ if __name__ == '__main__':
     #p.NplRk(True)
     p.steel_contribution_ratio(True)
     #p.draw()
-    """
+    
