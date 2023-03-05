@@ -45,11 +45,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from metku.raami.raami import Raami
-from metku.raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember
+from metku.raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
 from metku.raami.frame_node import FrameNode
 from metku.raami.frame_loads import PointLoad, LineLoad, LoadIDs
 from metku.raami.frame_supports import XYHingedSupport, FixedSupport
-from metku.raami.raami_plane_truss import SlopedTruss, TubularYJoint, TubularKGapJoint
+from metku.raami.raami_plane_truss import SlopedTruss, TubularYJoint, TubularKGapJoint, TrussBrace
 
 from metku.framefem.elements.ebbeam import EBBeam
 
@@ -128,6 +128,9 @@ class PortalTruss(Raami):
         
         return Wtop, Wbottom, Wbraces
     
+    def ridge_height(self):
+        """ Height at ridge level """
+        return self.height + self.truss.height_of_slope_left()
     
     def add(self, this):
         """
@@ -165,6 +168,9 @@ class PortalTruss(Raami):
             
                 self.add(SteelFrameMember([self.nodes[1],self.truss.top_nodes[-1]],profile,
                                                       mem_type='column',nel=4,hinges=hinges,lcr=[2.0,1.0],sway=True))
+        
+        col_group = MemberGroup(self.columns,'columns')
+        self.member_groups['columns'] = col_group
             
     
     def create_truss(self, topology='K', ndiv=4, truss_type='simple', **kwargs):
@@ -225,7 +231,15 @@ class PortalTruss(Raami):
         #for mem in self.truss.members.values():
         #self.add(mem)
         self.members.update(self.truss.members)
-    
+        
+        """
+        self.truss.top_chord[0].hinges[0] = True
+        self.truss.top_chord[-1].hinges[1] = True
+        
+        if self.bottom_chord_to_column:
+            self.truss.bottom_chord[0].hinges[0] = True
+            self.truss.bottom_chord[-1].hinges[1] = True
+        """
     def create_truss_to_column_joints(self,y_joint_node=False):
         """ Creates joints between columns and joints 
             input:
@@ -234,9 +248,17 @@ class PortalTruss(Raami):
         """
         
         for col, ndx, left in zip(self.columns,[0,-1],[True,False]):
+            # Top chord joints
             newJoint = Truss2ColumnJoint(col.nodes[2],self.truss.top_chord[ndx],col,left)
             self.column_joints.append(newJoint)
             
+            # Make hinge to the top chord member
+            # NOTE: the index '1' works for both ends of the bottom chord, because
+            # the element numbering of the left-hand-side top chord member starts from
+            # the first K-joint in the top chord and goes to the column.
+            # See: raami_plane_truss.py -> TopChord -> generate_elements
+            #self.truss.top_chord[ndx].hinges[1] = True
+                            
             if y_joint_node:
                 # Create new FrameNode which also replaces the node
                 # at the Y joint of the chord.
@@ -257,22 +279,36 @@ class PortalTruss(Raami):
                 newJoint = Truss2ColumnJoint(col.nodes[1],self.truss.bottom_chord[ndx],col,left)
                 self.column_joints.append(newJoint)
                 
+                #if left:
+                #    self.truss.bottom_chord[ndx].hinges[0] = True
+                #else:
+                #    self.truss.bottom_chord[ndx].hinges[1] = True
                 if y_joint_node:
                     # Create new FrameNode which also replaces the node
                     # at the Y joint of the chord.
                     for joint in newJoint.chord.joints:
                         if isinstance(joint,TubularYJoint):
-                            newCoord = copy(joint.node.coords)                                                 
+                            newCoord = copy(joint.node.coords)
+                            
+                            # Determine the index of the node among the
+                            # FrameNodes of the brace of the Y-joint
+                            y = newCoord[1]
+                            if joint.braces[0].nodes[0].y == y:
+                                brace_node_nd = 0
+                            else:
+                                brace_node_nd = 1
+                            
                             D = 0.5*newJoint.hc*abs(np.cos(newJoint.chord.angle)) + newJoint.gap
                             if left:
                                 newCoord += D*newJoint.chord.dir_vector
                             else:
                                 newCoord -= D*newJoint.chord.dir_vector
                             
-                            print(newCoord,joint.node.coords)
+                            #print(newCoord,joint.node.coords)
                             newNode = FrameNode(newCoord)       
                             self.add(newNode)
                             joint.node = newNode
+                            joint.braces[0].nodes[brace_node_nd] = newNode
             
             
     
@@ -289,6 +325,8 @@ class PortalTruss(Raami):
 
     def generate_fem(self,truss_eccentricity=False,column_eccentricity=False):
         """ Creates the finite element model """
+        if not self.fem_generated:
+            self.fem_generated = True
         
         if self.bottom_chord_to_column:
             # In this case, the bottom chord is connected to the column
@@ -325,34 +363,50 @@ class PortalTruss(Raami):
                     newElement = EBBeam(n1,n2,cs,cs.material)                    
                     
                     # Add hinge to the end of the member
-                    newElement.releases = [5]
+                    #newElement.releases = [5]
                     
                     self.fem.add_element(newElement)
                     joint.fem_elements = newElement
             
-            self.truss.generate_fem("ecc_elements")
+            # Then, generate truss, including loads on trusses
+            self.truss.generate_fem("ecc_elements",nodes_and_elements_only=False)
+            
+            self.truss.top_chord[0].fem_elements[-1].releases = [5]
+            self.truss.top_chord[-1].fem_elements[-1].releases = [5]
             
             if self.bottom_chord_to_column:
-                # Finally, connect the bottom chords to the eccentricity elements
+                # Finally, connect the bottom chords to the eccentricity elements                
                 n1 = self.column_joints[1].fem_nodes['xc']
-                n2 = self.column_joints[1].chord.joints[0].fem_nodes['xc']
+                n2 = self.column_joints[1].chord.joints[0].fem_nodes['xc']                
                 cs = self.column_joints[1].chord.cross_section
                 newElement = EBBeam(n1,n2,cs,cs.material)                
                 self.fem.add_element(newElement)
-                self.column_joints[1].chord.fem_elements.append(newElement)
+                self.column_joints[1].chord.fem_elements.insert(0,newElement)
                 
-                n1 = self.column_joints[3].fem_nodes['xc']
-                n2 = self.column_joints[3].chord.joints[1].fem_nodes['xc']
+                self.column_joints[1].chord.fem_elements[0].releases = [2]                
+                
+                n2 = self.column_joints[3].fem_nodes['xc']
+                n1 = self.column_joints[3].chord.joints[1].fem_nodes['xc']
                 cs = self.column_joints[3].chord.cross_section
                 newElement = EBBeam(n1,n2,cs,cs.material)                
                 self.fem.add_element(newElement)
                 self.column_joints[3].chord.fem_elements.append(newElement)
-                
+            
+                self.column_joints[3].chord.fem_elements[-1].releases = [5]
+            
             self.fem.draw()
         else:
             # In this case, the bottom chord is not connected to the column
             pass
             
+        
+        # Generate loads
+        for load in self.loads.values():
+            load.add_load(self.fem)
+            # Creates new loadcase if one with same load_id does not exist
+            lcase_ids = [lc.load for lc in self.fem.loadcases.values()]
+            if load.load_id not in lcase_ids:
+                self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
         
         # Generate supports
         for supp in self.supports.values():
@@ -391,36 +445,108 @@ class PortalTruss(Raami):
         # Set nodal degrees of freedom        
         self.fem.nodal_dofs()
         """
+    
+    def clear_fem(self):
         
+        super().clear_fem()
+        self.truss.clear_fem()
+        self.truss.fem = self.fem
+        
+    
+    def update_fem_joint_nodes(self):
+        """ Updates nodal positions at joints. It is assumed that cross-sections
+            have been changed along the way.
+        """
+        
+        # Update column joint FEM-nodes. This means
+        # 1) The node at the column face is moved according to the new column section
+        # 2) 
+        for joint in self.column_joints:
+            if joint.left:
+                dx = 0.5*joint.hc
+            else:
+                dx = -0.5*joint.hc
+            
+            dy = 0.5*joint.hc*abs(np.tan(joint.chord.angle))
+            joint.fem_nodes['xc'].x = joint.node.x+dx
+            joint.fem_nodes['xc'].y = joint.node.y+dy   
+
+    
+        # Update truss joints FEM nodes
+        self.truss.update_fem_joint_nodes()    
+    
     def generate_uniform_load(self,part='truss',q=-20,member="top",load_id=LoadIDs['ULS'],ltype='live'):
         
         if part == 'truss':
+            # Tässä generoidaan ristikolle kuormitustapaus, jonka load_id on "load_id"
+            # Jos ristikolla on jo ko. load_id, lisätään tämä kuormitus ko. load_caseen.
+            # Ristikolla on "load_cases" attribuutti, johon kuormitus lisätään.
+            #
+            # Nyt pitäisi sitten lisätä tämä ristikon kuormitus myös PortalTruss-oliolle.
+            #
+            # a) jos PortalTruss-luokalla on jo load_id:n omaava kuormitustapaus, lisätään
+            #    kuorma tälle.
+            #    - voidaan kopioida suoraan ristikolta load_id:n load_case myös kehälle.
+            #      tässä voi olla se riski, että jos ristikolle halutaan useita kuormia samalla id:llä,
+            #      voi tämä kopiointi epäonnistua. Ehkä dict:n update-metodi toimii tässä.
+            #    - update toiminee, jos kaikki ristikon kuormat annetaan ennen pilareiden kuormia.
+            #
+            self.truss.generate_uniform_load(q,member,load_id,ltype)
+            
             if not (load_id in self.load_ids):
                 self.load_ids.append(load_id)
+                self.add(self.truss.load_cases[load_id])
                 
-            self.truss.generate_uniform_load(q,member,load_id,ltype)
+            """
+            if not (this.load_id in self.load_ids):
+                
+                NewLoadCase = LoadCase(load_id=this.load_id,loads = [this])
+                
+                self.add(NewLoadCase)
+                self.load_ids.append(this.load_id)
+            else:
+                # If a load case with this.load_id exists, add the new
+                # load to that load case
+                self.load_cases[this.load_id].add(this)
+                
+            if this.name in self.loads.keys():
+                this.name += str(len(self.loads))
+            self.loads[this.name] = this
+            """
+            
         elif part == 'column':
             if not (load_id in self.load_ids):
                 self.load_ids.append(load_id)
             
+            load_name = 'COL'
             if member == 'left':
                 mem = self.columns[0]
+                load_name += '_left'
             else:
                 mem = self.columns[1]
-                
-            self.add(LineLoad(mem, q, 'x', load_id, 1.0, ltype, 'LineLoad', "global"))
+                load_name += '_right'
+            
+            vals = [q,q]
+            
+            self.add(LineLoad(mem, vals, 'x', load_id, 1.0, ltype, load_name, "global"))
+    
+    def generate_piecewise_uniform_load(self,q,xzones,load_id=LoadIDs['ULS'],ltype='live'):
+        """ Adds a piecewise uniform load. See the same method for SlopedTruss in 'raami_plane_truss.py' """
+        self.truss.generate_piecewise_uniform_load(q,xzones,load_id,ltype)
         
-        
+        if not (load_id in self.load_ids):
+            self.load_ids.append(load_id)
+            self.add(self.truss.load_cases[load_id])
     
     def plot(self,print_text=True, show=True,
-             loads=True, color=False, axes=None, save=False, mem_dim=False):
+             loads=True, color=False, axes=None, save=False, mem_dim=False, geometry=False):
         
         if axes is None:
             fig, ax = plt.subplots(1)
         else:
             ax = axes
         
-        self.truss.plot(print_text=print_text,show=show,
+        self.truss.plot(geometry=geometry,print_text=print_text,show=show,
                         loads=loads,color=color,axes=ax,save=False,mem_dim=mem_dim)
         
         for col in self.columns:
@@ -444,6 +570,109 @@ class PortalTruss(Raami):
         #    self.truss.plot(show=False, print_text=print_text, color=color)
         if loads:
             self.plot_loads()
+    
+    def optimize_members(self, prof_type="CURRENT",verb=False,**kwargs):    
+        """ Finds minimum weight profiles for members """
+               
+        top = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':10, 'bmax':1e5}
+        bottom = {'material': 'S355', 'class': 2, 'utility': 1.0,'bmin':10, 'bmax':1e5}
+        braces = {'material': 'S355', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0, 'bmin':10, 'bmax':1e5}
+        columns = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':150, 'bmax':1e5} 
+            
+        limit_width = False
+        
+        for key, value in kwargs.items():
+            if key == 'top':
+                top.update(value)
+            elif key == 'bottom':
+                bottom.update(value)
+            elif key == 'braces':
+                braces.update(value)
+            elif key == 'columns':
+                columns.update(value)
+            elif key == 'limit_width':
+                limit_width = value
+        
+        kmax = 10
+        k = 1
+                        
+        while k < kmax:
+            explored = []
+            MEM_PROFILES_CHANGED = []
+            self.structural_analysis('all','REM')
+            if verb:
+                print(f"Optimize profiles, iteration {k}")
+            
+            if limit_width:
+                b_chord_min = self.truss.max_brace_width()
+                #b_brace_max = min(self.top_chord_profile.b,self.bottom_chord_profile.b)
+                b_brace_max = 1e5
+            else:
+                b_chord_min = 10
+                b_brace_max = 1e5
+            
+            # Go through groups first
+            for name, group in self.member_groups.items():
+                if name == "top_chord":
+                    material = top['material']
+                    sec_class = top['class']
+                    max_utility = top['utility']
+                    b_min = max(top['bmin'],b_chord_min)
+                elif name == 'bottom_chord':
+                    material = bottom['material']
+                    sec_class = bottom['class']
+                    max_utility = bottom['utility']
+                    b_min = max(bottom['bmin'],b_chord_min)
+                elif name == 'columns':
+                    material = columns['material']
+                    sec_class = columns['class']
+                    max_utility = columns['utility']
+                    b_min = columns['bmin']
+                    
+                group.optimum_design(prof_type,verb,material,sec_class,max_utility,b_min)
+                
+                for mem in group.members:
+                    explored.append(mem)
+                
+            
+            for member in self.members.values():
+                #print(member)                
+                if not member in explored:
+                    if verb:
+                        print(member)
+                    explored.append(member)
+                    if isinstance(member,TrussBrace):
+                        material = braces['material']
+                        sec_class = braces['class']
+                        if list(member.NEd.values())[0] >= 0.0:
+                            max_utility = braces['utility_tens']
+                        else:
+                            max_utility = braces['utility_comp']
+                    else:
+                        material = 'S355'
+                        sec_class = 2
+                        max_utility = 1.0
+                        
+                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class,max_utility,bmax=b_brace_max))
+                                        
+                    if not member.symmetry_pair is None:
+                        explored.append(member.symmetry_pair)
+                    
+                    #print(member.cross_section)
+            
+            # If none of the members changed profile, exit the loop
+            if not any(MEM_PROFILES_CHANGED):
+                break
+            else:
+                # Update nodal positions of FEM nodes at joints
+                self.update_fem_joint_nodes()
+            k += 1
+        
+        # Update nodal positions of FEM nodes at joints
+        self.update_fem_joint_nodes()
+        
+        if verb:
+            print(f"Number of iterations: {k}.")
             
     
     def to_abaqus(self,target_dir='./',filename="Raami",partname='Truss',options=AbaqusOptions()):
@@ -466,6 +695,16 @@ class PortalTruss(Raami):
         
         options.elsets['Column_left'] = []
         options.elsets['Column_right'] = []
+        
+        
+        options.load_elsets['Top_chord_load'] = []
+        options.load_elsets['Column_left_load'] = []
+        options.load_elsets['Column_right_load'] = []
+        
+        options.load_elsets['Wind_GF'] = []
+        options.load_elsets['Wind_H'] = []
+        options.load_elsets['Wind_I'] = []
+        
         
         for mem_id, brace in self.truss.braces.items():
             options.included_members.append('B' + str(mem_id))
@@ -536,7 +775,32 @@ class PortalTruss(Raami):
                 options.elsets['Bottom_chord_left'].append(el)
             else:
                 options.elsets['Bottom_chord_right'].append(el)
+        
+        
             
+        options.load_elsets['Top_chord_load'] = options.elsets['Top_chord_left'] + \
+            options.elsets['Top_chord_right'] 
+        options.load_elsets['Column_left_load'] = options.elsets['Column_left']
+        options.load_elsets['Column_right_load'] = options.elsets['Column_right']
+        
+        # Determine elsets for wind zones F/G, H, and I
+        e = 2*self.ridge_height()
+        
+        xI = 0.5*e
+        xG = 0.1*e
+        
+        for el in options.load_elsets['Top_chord_load']:            
+            x = [node.x for node in el.nodes]
+            x.sort()
+            
+            if x[0] >= xI:
+                options.load_elsets['Wind_I'].append(el)
+            elif x[0] < xG:
+                options.load_elsets['Wind_GF'].append(el)
+            else:
+                options.load_elsets['Wind_H'].append(el)
+        
+        
         # Add MPCs for eccentricities of truss-to-column connections        
         for joint in self.column_joints:
             # By default, there is a single element in a truss-to-column joint
@@ -546,7 +810,15 @@ class PortalTruss(Raami):
                 # connection is always on the column center line
                 options.mpc.append([el.nodes[1].nid+1,el.nodes[0].nid+1])
                 options.ecc_elements.append(el)
-                        
+        
+        
+        
+        # Loads
+        # Implementation: each load case is 
+        # Vaihtoehdot:
+        #for load_id, loads in self.load_cases.items():
+            
+        
         super().to_abaqus(target_dir,filename,partname,options)
             
 class Truss2ColumnJoint:
@@ -595,13 +867,23 @@ if __name__ == "__main__":
     #    p.truss.bottom_chord[0].add_hinge(0)
     #    p.truss.bottom_chord[-1].add_hinge(1)
         
-    p.generate_uniform_load('truss',q=-25)
+    p.generate_uniform_load('truss',q=-25,ltype='snow')
     
     #p.truss.generate_supports()
     p.create_columns(profile=SHS(250,8),hinges=[False,False])
     p.create_truss_to_column_joints(y_joint_node=True)
     p.generate_supports()
     p.symmetry()
+    
+    
+    p.generate_uniform_load('column',q=9,member='left',load_id=LoadIDs['ULS'],ltype='wind')
+    p.generate_uniform_load('column',q=5,member='right',load_id=LoadIDs['ULS'],ltype='wind')
+    
+        
+    p.generate_uniform_load('truss',q=-18,ltype='snow',load_id=10)
+    p.generate_uniform_load('column',q=9,member='left',load_id=10,ltype='wind')
+    p.generate_uniform_load('column',q=5,member='right',load_id=10,ltype='wind')
+    
     
     #p.generate_uniform_load('column',q=5,member='left')    
     
@@ -615,6 +897,10 @@ if __name__ == "__main__":
         
     #print(p.weight())
     #p.structural_analysis(load_id=p.load_ids[0],support_method="REM")
+    
+    p.structural_analysis(load_id='all',support_method="REM")
+    
+    
     #p.optimize_members(verb=True)
     #p.bmd(scale=20,load_id=p.load_ids[0],loads=False)
     #p.fem.draw()

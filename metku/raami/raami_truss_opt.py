@@ -57,7 +57,7 @@ def minimize_eccentricity(truss,min_gap=20):
     
     def total_eccentricity(opt_vars):
         # Objective function is the sum of eccentricities at K joints.
-        
+        C = 100
         yvars = []
         n = len(opt_vars)
         for i, var in enumerate(opt_vars):
@@ -66,12 +66,12 @@ def minimize_eccentricity(truss,min_gap=20):
         
         def obj_value(x):
             #return 0
-            return sum(np.array(x)[yvars]**2)
+            return 1/C*sum(np.array(x)[yvars]**2)
         
         def obj_grad(x):
             """ Gradient of the objective function """
             df = np.zeros(n)
-            df[yvars] = 2*np.array(x)[yvars]
+            df[yvars] = 2/C*np.array(x)[yvars]
             
             return df
         

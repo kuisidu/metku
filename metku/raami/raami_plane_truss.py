@@ -18,7 +18,7 @@ from metku.raami.raami import Raami
 from metku.raami.raami_functions import divide_line_segment
 from metku.raami.frame_node import FrameNode
 from metku.raami.frame_member import FrameMember, SteelFrameMember, MultiSpanSteelMember, MemberGroup
-from metku.raami.frame_loads import PointLoad, LineLoad, LoadIDs
+from metku.raami.frame_loads import PointLoad, LineLoad, PWLineLoad, LoadIDs
 from metku.raami.frame_supports import XYHingedSupport, YHingedSupport
 from metku.raami.exports import AbaqusOptions
 
@@ -1083,11 +1083,54 @@ class SlopedTruss(PlaneTruss):
         vals = [q,q]
 
         if chord == "top":
+            load_name = 'TC_' + ltype + '_line'
             for mem in self.top_chord:
-                self.add(LineLoad(mem, vals, 'y', load_id, 1.0, ltype, 'LineLoad', "global"))
-        elif chord == "bottom":            
+                self.add(LineLoad(mem, vals, 'y', load_id, 1.0, ltype, load_name, "global"))
+        elif chord == "bottom":          
+            load_name = 'BC_' + ltype + '_line'
             for mem in self.bottom_chord:
-                self.add(LineLoad(mem, vals, 'y', load_id, 1.0, ltype, 'LineLoad', "global"))
+                self.add(LineLoad(mem, vals, 'y', load_id, 1.0, ltype, load_name, "global"))
+    
+    def generate_piecewise_uniform_load(self,q,xzones,load_id=LoadIDs['ULS'],ltype='live'):
+        """ Creates piecewise uniform line load which affects the top chord 
+            :param q: list of load values
+            :param xzones: list of x-coordinates of the wind zones
+        """
+        load_name0 = 'TC_' + ltype
+        
+        for mem in self.top_chord:
+            if mem.nodes[1].x <= xzones[0]:
+                # Member is in the first zone
+                vals = [q[0],q[0]]
+                load_name = load_name0 + '_line'
+                self.add(LineLoad(mem, vals, 'y', load_id, 1.0, ltype, load_name, "global"))
+            elif mem.nodes[0].x > xzones[-1]:
+                # Member is in the last zone
+                vals = [q[-1],q[-1]]
+                load_name = load_name0 + '_line'
+                self.add(LineLoad(mem, vals, 'y', load_id, 1.0, ltype, load_name, "global"))
+            else:
+                
+                for i, (x1, x2) in enumerate(zip(xzones[:-1],xzones[1:])):
+                    if mem.nodes[0].x < x1 and mem.nodes[1].x > x1:
+                        # member is partially outside
+                        vals = [q[i],q[i+1]]
+                        xdiv = (x1-mem.nodes[0].x)/(mem.nodes[1].x-mem.nodes[0].x)
+                        #xdiv = x1
+                        load_name = load_name0 + '_pw_line'
+                        self.add(PWLineLoad(mem, vals, xdiv, 'y', load_id, 1.0, ltype, load_name,"global"))
+                    elif mem.nodes[0].x >= x1 and mem.nodes[1].x > x2:
+                        # member is partially outside
+                        vals = [q[i+1],q[i+2]]
+                        xdiv = (x2-mem.nodes[0].x)/(mem.nodes[1].x-mem.nodes[0].x)
+                        #xdiv = x2
+                        load_name = load_name0 + '_pw_line'
+                        self.add(PWLineLoad(mem, vals, xdiv, 'y', load_id, 1.0, ltype, load_name,"global"))
+                    elif mem.nodes[0].x >= x1 and mem.nodes[1].x <= x2:
+                        # member is totally inside
+                        vals = [q[i+1],q[i+1]]
+                        load_name = load_name0 + '_line'
+                        self.add(LineLoad(mem, vals, 'y', load_id, 1.0, ltype, load_name,"global"))
     
     def generate_joints(self):
         """ Creates joints for the truss. These are welded tubular joints by default. """
@@ -1202,7 +1245,7 @@ class SlopedTruss(PlaneTruss):
         for joint in self.joints.values():
             joint.clear_fem()
         
-    def generate_fem(self,model="no_eccentricity"):
+    def generate_fem(self,model="no_eccentricity",nodes_and_elements_only=False):
         """
         Creates FEM model
 
@@ -1298,20 +1341,21 @@ class SlopedTruss(PlaneTruss):
                     self.fem.add_element(newElement)
                     joint.fem_elements['ecc'] = newElement
             
-            # Generate supports
-            for supp in self.supports.values():
-                supp.add_support(self.fem)
-                            
-            # Generate loads
-            for load in self.loads.values():
-                load.add_load(self.fem)
-                # Creates new loadcase if one with same load_id does not exist
-                lcase_ids = [lc.load for lc in self.fem.loadcases.values()]
-                if load.load_id not in lcase_ids:
-                    self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
-            
-            # Set nodal degrees of freedom
-            self.fem.nodal_dofs()
+            if not nodes_and_elements_only:
+                # Generate supports
+                for supp in self.supports.values():
+                    supp.add_support(self.fem)
+                                
+                # Generate loads
+                for load in self.loads.values():
+                    load.add_load(self.fem)
+                    # Creates new loadcase if one with same load_id does not exist
+                    lcase_ids = [lc.load for lc in self.fem.loadcases.values()]
+                    if load.load_id not in lcase_ids:
+                        self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
+                
+                # Set nodal degrees of freedom
+                self.fem.nodal_dofs()
         elif model == "ecc_elements":
             # Eccentricity elements are added for K joints
             # from the intersection of brace centerline and chord
@@ -1437,23 +1481,61 @@ class SlopedTruss(PlaneTruss):
                         self.fem.add_element(newElement)
                         joint.fem_elements['gap'] = newElement
             
-            # Generate supports
-            for supp in self.supports.values():
-                supp.add_support(self.fem)
-                            
-            # Generate loads
-            for load in self.loads.values():
-                load.add_load(self.fem)
-                # Creates new loadcase if one with same load_id does not exist
-                lcase_ids = [lc.load for lc in self.fem.loadcases.values()]
-                if load.load_id not in lcase_ids:
-                    self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
-            
-            # Set nodal degrees of freedom
-            self.fem.nodal_dofs()
-            
+            if not nodes_and_elements_only:
+                # Generate supports
+                for supp in self.supports.values():
+                    supp.add_support(self.fem)
+                                
+                # Generate loads
+                for load in self.loads.values():
+                    # add_load addes the loads on the target member
+                    load.add_load(self.fem)
+                    # Creates new loadcase if one with same load_id does not exist
+                    lcase_ids = [lc.load for lc in self.fem.loadcases.values()]
+                    if load.load_id not in lcase_ids:
+                        self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
+                
+                """
+                for joint in self.joints.values():
+                    if isinstance(joint,TubularKGapJoint):
+                        # Add load to gap element
+                        for load in joint.chords[0].loads:
+                        v0, v1 = self.values
+                        #qvals = self.f*np.linspace(v0,v1,self.member.num_elements+1)        
+                        qvals = self.f*np.linspace(v0,v1,len(self.member.fem_elements)+1)        
+                        for i, elem_id in enumerate(self.member.fem_elements):
+                            #v1 = (i * k) + v0
+                            load = fem.LineLoad(self.load_id,
+                                                elem_id,
+                                                [0.0, 1.0],
+                                                [qvals[i],qvals[i+1]],                                
+                                                self.direction,
+                                                self.coord_sys)
+                            fem_model.add_load(load)
+               """ 
+                # Set nodal degrees of freedom
+                self.fem.nodal_dofs()
+                
         else:
             print("Weird FEM model.")
+    
+    def update_fem_joint_nodes(self):
+        """ Updates nodal positions at joints. It is assumed that cross-sections
+            have been changed along the way.
+        """
+        
+        for joint in self.joints.values():
+            if isinstance(joint,TubularKGapJoint):
+                # Calculate brace-to-chord face intersection points and the
+                # corresponding projections to the centerline of the chord
+                xface, xcenter = joint.brace_chord_face_x()
+                for brace, xf in xface.items():                    
+                    joint.fem_nodes['xcf'][brace].x = xf[0]
+                    joint.fem_nodes['xcf'][brace].y = xf[1]
+                
+                for brace, xc in xcenter.items():                    
+                    joint.fem_nodes['xch'][brace].x = xc[0]
+                    joint.fem_nodes['xch'][brace].y = xc[1]
     
     def plot(self, geometry=False, print_text=True, show=True,
              loads=True, color=False, axes=None, save=False, mem_dim=False,
@@ -1490,7 +1572,7 @@ class SlopedTruss(PlaneTruss):
     
             # Plot members
             plt.rcParams['text.color'] = "red"
-            plt.rcParams['font.size'] = 2.5
+            plt.rcParams['font.size'] = 12.5
             for mem in self.top_chord:
                 mem.plot(print_text, color, ax, mem_dim=True)
             
@@ -1679,6 +1761,14 @@ class TopChord(SteelFrameMember):
         
         if model == "no_eccentricity":
             super().generate_elements(fem)
+            
+            if self.hinges[0]:
+                """ There is a hinge in the first end """
+                self.fem_elements[0].releases = [2]
+            
+            if self.hinges[1]:
+                """ There is a hinge in the last end """
+                self.fem_elements[-1].releases = [5]
         elif model == "en1993":
             # First end node
             self.fem_nodes.append(self.joints[0].fem_nodes['xc'])
@@ -1709,6 +1799,13 @@ class TopChord(SteelFrameMember):
                 fem.add_element(newElement)
                 self.fem_elements.append(newElement)
         
+            if self.hinges[0]:
+                """ There is a hinge in the first end """
+                self.fem_elements[0].releases = [2]
+            
+            if self.hinges[1]:
+                """ There is a hinge in the last end """
+                self.fem_elements[-1].releases = [5]
         elif model == "ecc_elements":
             if isinstance(self.joints[0],TubularYJoint):
                 N1 = self.joints[0].fem_nodes['xc']                              
@@ -1772,13 +1869,14 @@ class TopChord(SteelFrameMember):
                 fem.add_element(newElement)
                 self.fem_elements.append(newElement)
         
-        if self.hinges[0]:
-            """ There is a hinge in the first end """
-            self.fem_elements[0].releases = [2]
-        
-        if self.hinges[1]:
-            """ There is a hinge in the last end """
-            self.fem_elements[-1].releases = [5]
+            if self.hinges[0]:
+                """ There is a hinge in the first end """
+                self.fem_elements[0].releases = [2]
+            
+            if self.hinges[1]:
+                """ There is a hinge in the last end """
+                self.fem_elements[-1].releases = [5]
+       
     
     
         

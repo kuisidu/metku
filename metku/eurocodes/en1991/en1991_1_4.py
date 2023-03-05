@@ -320,6 +320,51 @@ def monopitch_roof_pressure(length,width,h,qp,wind_angle=180,alpha=5):
         
     return zones
 
+def flat_roof_pressure(d,b,h,qp,hp=0):
+    """ Calculates external wind pressures in various zones
+        for a flat roof.
+        
+        EN 1991-1-4, Figure 7.6
+    
+        :param d: length of the building in wind direction
+        :param b: length of the building in direction perpendicular to wind
+        :param h: height of the building (to eaves)
+        :param qp: peak velocity pressure
+        :param hp: length of parapets (hp = 0 means no parapets)
+    """
+    
+    e = min(b,2*h)
+    
+    """ Define a dict for the wind pressures in the various
+        zones of the wall
+    """
+    zones = {"F":{"length":0.25*e,'width':0.1*e,'cpe':0.0,'we':0.0},
+             "G":{"length":b-0.5*e,'width':0.1*e,'cpe':0.0,'we':0.0},
+             "H":{"length":b,'width':0.4*e,'cpe':0.0,'we':0.0},
+             "I":{"length":b,'width':d-0.5*e,'cpe':0.0,'we':0.0}
+             }
+    
+    hd_ratio = h/d
+    
+    print("*** Wind load ***")
+    print("Wind to flat roof")
+    print("qp = {0:4.2f} ".format(qp))
+    print("b = {0:4.2f} m".format(b))
+    print("d = {0:4.2f} m".format(d))
+    print("h = {0:4.2f} m".format(h))
+    print("e = {0:4.2f} m".format(e))
+    print("h/d = {0:4.2f} m".format(hd_ratio))
+    
+    if hp == 0:
+        for key, zone in zones.items():
+            zones[key]['cpe'] = ext_pressure_roof_sharp_eaves[key]["cpe10"]
+            if isinstance(zone['cpe'],list):
+                zones[key]['we'] = [qp*cpe for cpe in zone['cpe']]
+            else:
+                zones[key]['we'] = qp*zone['cpe']
+        
+    return zones
+
 #if __name__ == "__main__":
 
     #wind = rect_building_wall_pressure(length=72,width=24,h=8,qp=qp,wind_dir="long")

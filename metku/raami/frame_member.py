@@ -451,11 +451,11 @@ class FrameMember:
         if file is None:
             print(f' Member {self.mem_id:3.0f}:')
             for load_id, U in self.utilization.items():
-                print(f'  Load case {load_id}: {U:4.2f}\n')    
+                print(f'  Load case {load_id}: {U:4.3f}\n')    
         else:
             file.write(f' Member {self.mem_id:3.0f}:')
             for load_id, U in self.utilization.items():
-                file.write(f'  Load case {load_id}: {U:4.2f}\n')
+                file.write(f'  Load case {load_id}: {U:4.3f}\n')
                        
     def optimum_design(self,prof_type,verb):
         """ Searches for the minimum weight profile of 'prof_type' 
@@ -952,6 +952,11 @@ class MultiSpanMember:
             """ There is a hinge in the last end """
             self.fem_elements[-1].releases = [5]    
     
+    def clear_fem(self):
+        
+        for mem in self.members:
+            mem.clear_fem()
+    
     def update_element_sections(self):
         """ Updates the cross sections of the finite elements of the member """
         for mem in self.members:
@@ -1035,6 +1040,7 @@ class SteelFrameMember(FrameMember):
         """
         
         return (self.cross_section.A-profile.A)**2 + (self.cross_section.Iy-profile.Iy)**2 < 1e-6
+        
     
     def design(self,load_id = LoadIDs['ULS']):
         """ Designs the member (check resistance) """
@@ -1047,7 +1053,7 @@ class SteelFrameMember(FrameMember):
         N = self.nodal_forces[load_id]['N']
         Vz = self.nodal_forces[load_id]['Vz']
         My = self.nodal_forces[load_id]['My']
-
+        
         for loc, n, vz, my in zip(self.local_node_coords, N, Vz, My):
             self.member.sections[loc]['N'] = n
             self.member.sections[loc]['Vz'] = vz
@@ -1153,6 +1159,17 @@ class MultiSpanSteelMember(MultiSpanMember):
         
         return (self.cross_section.A-profile.A)**2 + (self.cross_section.Iy-profile.Iy)**2 < 1e-6
     
+    def print_utilization(self,file=None):
+        """ Prints utilization ratios for different load cases """
+        if file is None:
+            print(f' Member {self.mem_id:3.0f}:')
+            for load_id, U in self.utilization.items():
+                print(f'  Load case {load_id}: {U:4.3f}\n')    
+        else:
+            file.write(f' Member {self.mem_id:3.0f}:')
+            for load_id, U in self.utilization.items():
+                file.write(f'  Load case {load_id}: {U:4.3f}\n')
+    
     def design(self,load_id = LoadIDs['ULS']):
         """ Designs the member (check resistance) """
         
@@ -1230,7 +1247,7 @@ class MemberGroup:
             self.cross_section = None
             self.frame = None
         else:
-            self.cross_section = section        
+            self.cross_section = members[0].cross_section        
             self.frame = members[0].frame
         self.utilization = {}
         self.resistance_check = True

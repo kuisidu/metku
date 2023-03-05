@@ -22,9 +22,9 @@ from datetime import datetime
 from metku.framefem import framefem as fem
 from metku.raami.frame_node import FrameNode
 from metku.raami.frame_member import FrameMember, SteelFrameMember
-from metku.raami.frame_loads import PointLoad, LineLoad, LoadIDs, LoadCase, LoadCombination
+from metku.raami.frame_loads import PointLoad, LineLoad, PWLineLoad, LoadIDs, LoadCase, LoadCombination
 from metku.raami.frame_supports import Support, FixedSupport, XYHingedSupport, XHingedSupport, YHingedSupport
-from metku.raami.exports import AbaqusOptions
+from metku.raami.exports import AbaqusOptions, write_elset
 
 #from loadIDs import LoadIDs
 
@@ -160,7 +160,7 @@ class Raami:
                     member.add_node_coord(this.coordinate)
             """
         # LINELOADS
-        elif isinstance(this, LineLoad):
+        elif isinstance(this, LineLoad) or isinstance(this, PWLineLoad):
 
             if not (this.load_id in self.load_ids):
                 
@@ -858,17 +858,8 @@ class Raami:
         secfiles = []
         matfiles = []
         
+        # File for linear elastic material models
         elastic_mat_file = path + '/' + filename + '_Materials_Elastic.txt'
-        
-        # File for all section properties
-        sections_file = path + '/' + filename + '_Sections.txt'
-        
-        with open(sections_file,'w') as file:
-            now = datetime.now()            
-            date_str = now.strftime(" Date: %d/%m/%Y    %H:%M ")
-            file.write(f'** Cross-sectional data for {filename}\n')
-            file.write(f'** Created on {date_str}\n**\n')
-            
         
         # Create material data for elastic material model
         with open(elastic_mat_file,'w') as file:
@@ -883,6 +874,16 @@ class Raami:
                 file.write(f'*Material, name={set_name}_Mat\n')
                 file.write('*Density\n7850.,\n*Elastic\n2.10000e+11, 0.3\n**\n')
         
+        # File for all section properties
+        sections_file = path + '/' + filename + '_Sections.txt'
+        
+        # Write header for the file that contains cross-section data
+        with open(sections_file,'w') as file:
+            now = datetime.now()            
+            date_str = now.strftime(" Date: %d/%m/%Y    %H:%M ")
+            file.write(f'** Cross-sectional data for {filename}\n')
+            file.write(f'** Created on {date_str}\n**\n')
+            
         for mem_name, mem in self.members.items():
             # Create cross-section a file for each member
             if len(options.included_members) > 0 and mem_name in options.included_members:
@@ -927,7 +928,9 @@ class Raami:
             for node in self.fem.nodes:
                 file.write(f'{node.nid+1:>7g}, {node.x*1e-3:>14.10f},  0.0000000000, {node.y*1e-3:>14.10f}\n')
                     
-            # Write elements
+            # Write elements.
+            # Eccentricity elements are handled by multi-point constraints (MPC),
+            # so they are excluded here.
             file.write('*Element, type=B31\n')
             for eid, el in enumerate(self.fem.elements):
                 if not el in options.ecc_elements:
@@ -978,57 +981,35 @@ class Raami:
                 top_ndx.append(self.fem.elements.index(el)+1)
             
             if len(top_ndx) > 1:
-                top_gap = 'TopChordGaps'
-                file.write(f'*Elset, elset={top_gap}\n')
-                file.write(', '.join(str(r) for r in top_ndx))
-                file.write('\n')            
+                write_elset(file, 'TopChordGaps', top_ndx)
+                
             bottom_ndx = []
             for el in options.bottom_gap_elements:
                 bottom_ndx.append(self.fem.elements.index(el)+1)
             
             if len(bottom_ndx) > 1:
-                bottom_gap = 'BottomChordGaps'
-                file.write(f'*Elset, elset={bottom_gap}\n')
-                file.write(', '.join(str(r) for r in bottom_ndx))
-                file.write('\n')
-            
+                write_elset(file, 'BottomChordGaps', bottom_ndx)
+                
             # If there are any other element sets, they are printed here
             for set_name, els in options.elsets.items():
-                file.write(f'*Elset, elset={set_name}\n')
-                i = 0
-                el_ndx = [self.fem.elements.index(el)+1 for el in els]
-                while i < len(el_ndx):
-                    file.write(', '.join(str(r) for r in el_ndx[i:i+16]))
-                    file.write('\n')
-                    i += 16
-            
+                el_ndx = [self.fem.elements.index(el)+1 for el in els]                
+                write_elset(file, set_name, el_ndx)
+                
             # Release sets
-            file.write('**\n*Elset, elset=S1Release\n')
-            i = 0
-            while i < len(s1_rel):
-                file.write(', '.join(str(r) for r in s1_rel[i:i+16]))
-                file.write('\n')
-                i += 16
-            #file.write(', '.join(str(r) for r in s1_rel))
-            #file.write('\n')
-            file.write('**\n*Elset, elset=S2Release\n')
-            i = 0
-            while i < len(s2_rel):
-                file.write(', '.join(str(r) for r in s2_rel[i:i+16]))
-                file.write('\n')
-                i += 16
-            #file.write(', '.join(str(r) for r in s2_rel))
-            #file.write('\n')
+            file.write('**\n')
             
-            # Poikkileikkaustiedosto(t)
+            write_elset(file,"S1Release",s1_rel)
+            file.write('**\n')
+            write_elset(file,"S2Release",s2_rel)
+           
+            # Include cross-sectional data from file 'sections_file'
             file.write(f'*Include, Input={sections_file}\n')
             #*Include, Input=S023C005M002_RedMat.txt            
             #for secfile in secfiles:
             #    file.write(f'*Include, Input={secfile}\n')
             
-            
-            
-            # Element releases            
+    
+            # State element releases            
             file.write('**\n*RELEASE\n')
             file.write('S1Release, S1, M1\n')
             file.write('S2Release, S2, M1\n')
@@ -1049,6 +1030,12 @@ class Raami:
             insname = filename
             file.write(f'*Instance, name={insname}, part={partname}\n')
             file.write('*End Instance\n**\n')
+
+            # Write element sets for loads
+            for set_name, els in options.load_elsets.items():
+                if len(els) > 0:
+                    el_ndx = [self.fem.elements.index(el)+1 for el in els]                
+                    write_elset(file, set_name, el_ndx, insname)
 
             # Node sets for the following groups
             # 1) Symmetry conditions to prevent displacement in y direction

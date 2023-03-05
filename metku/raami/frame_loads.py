@@ -241,7 +241,7 @@ class LineLoad(Load):
         """ Class for line loads. Line load can be uniform or trapezoidal
         
             input:
-                coordinates .. FrameMember type object that is the subject of the load
+                member .. FrameMember type object that is the subject of the load
                 values .. list type object. values[0] and values[1] are the magnitudes
                           of the load at the ends of the member
                 direction .. 'x' or 'y'
@@ -284,7 +284,8 @@ class LineLoad(Load):
         """ Add the load to the FEM model """
         #k = self.calc_k()
         v0, v1 = self.values
-        qvals = self.f*np.linspace(v0,v1,self.member.num_elements+1)        
+        #qvals = self.f*np.linspace(v0,v1,self.member.num_elements+1)        
+        qvals = self.f*np.linspace(v0,v1,len(self.member.fem_elements)+1)        
         for i, elem_id in enumerate(self.member.fem_elements):
             #v1 = (i * k) + v0
             load = fem.LineLoad(self.load_id,
@@ -296,3 +297,75 @@ class LineLoad(Load):
             fem_model.add_load(load)
             #v0 = v1
 
+class PWLineLoad(Load):
+    """ Class for piecewise constant line loads. There can be two distint zones """
+    def __init__(self, member, values, xdiv, direction, load_id=LoadIDs['ULS'], f=1.0,
+                 ltype='live', name='LineLoad',coord_sys="global"):
+        """ Class for line loads. Line load can be uniform or trapezoidal
+        
+            input:
+                member .. FrameMember type object that is the subject of the load
+                values .. list type object. values[0] and values[1] are the magnitudes
+                          of the load at the intervals
+                xdiv .. point of step. This is given as a local coordinate of the member
+                direction .. 'x' or 'y'
+                load_id .. integer type load identifier
+                f .. scaling factor
+                ltype .. type of load
+                name .. name of load
+                coord_sys .. "global" or 'local'. If 'local' the load is given in the
+                             local coordinate system of the member.
+        """
+        super().__init__(load_id, ltype, name, f)
+        
+        self.member = member
+        self.member.loads.append(self)
+        
+        #self.member.has_load = True
+        #self.member.q0 = values[0]
+        #self.member.q1 = values[1]            
+        
+        
+        self.values = np.asarray(values)
+        self.xdiv = xdiv
+        self.direction = direction
+        self.f = f
+        self.element_ids = None
+        self.coord_sys = coord_sys
+
+    @property
+    def coordinates(self):
+        return self.member.coords()
+
+    def calc_k(self):
+        """ Evaluate the change in the value of a line load
+            per element on a member
+        """
+        v0, v1 = self.values
+        k = (v1 - v0) / self.member.num_elements
+        return k
+
+    def add_load(self, fem_model):
+        """ Add the load to the FEM model """
+        #k = self.calc_k()
+        qval = self.f*self.values
+        xdiv = self.member.local_to_global(self.xdiv)[0]
+        
+        for elem in self.member.fem_elements:
+            X = [elem.nodes[0].x,elem.nodes[1].x]
+            X.sort()
+            if X[1] <= xdiv:
+                q = qval[0]
+            elif X[0] >= xdiv:
+                q = qval[1]
+            elif X[0] < xdiv and X[1] >= xdiv:
+                nd = np.argmax(abs(qval))
+                q = qval[nd]
+                
+            load = fem.LineLoad(self.load_id,elem,
+                                [0.0, 1.0],
+                                [q,q],                                
+                                self.direction,
+                                self.coord_sys)
+            fem_model.add_load(load)
+            #v0 = v1

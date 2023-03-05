@@ -10,6 +10,21 @@ Raami functions for exporting to various programs
 @author: kmela
 """
 
+def write_elset(file,elset_name,els,instance=None):
+    
+    header = '*Elset, elset=' + elset_name
+    
+    if instance is None:
+        header += '\n'
+    else:
+        header += ', instance=' + instance + '\n'
+    
+    file.write(header)
+    i = 0
+    while i < len(els):
+        file.write(', '.join(str(r) for r in els[i:i+16]))
+        file.write('\n')
+        i += 16
 
 class AbaqusOptions:
     """ Storage for ABAQUS export options """
@@ -31,12 +46,14 @@ class AbaqusOptions:
         
         self.x_monitor = 0
         self.n_monitored = 1
-        self.mpc = []
-        self.ecc_elements = []
-        self.top_gap_elements = []
-        self.bottom_gap_elements = []
+        self.mpc = []   # multi-point constraints 
+        self.ecc_elements = [] # list of eccentricity elements
+        self.top_gap_elements = [] # gap elements of the top chord
+        self.bottom_gap_elements = [] # gap elements of bottom chord
         
-        self.elsets = {}
+        self.elsets = {} # *Elset groups
+        
+        self.load_elsets = {}
         
         # Individual members to be included as element sets
         self.included_members = []

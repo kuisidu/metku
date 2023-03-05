@@ -534,6 +534,10 @@ class SteelMember:
         Mcr = self.mcrit([C1, C2, 0], [2, 1], za, verb)
 
         if verb:
+            print(f'hS = {hS:4.2f} mm')
+            print(f'Iz = {self.profile.Iz*1e-4:4.2f} cm4')
+            print(f'It = {self.profile.It*1e-4:4.2f} cm4')
+            print(f'Iw = {self.profile.Iw*1e-12:5.3f} dm6')
             print(f'K = {K:4.3f}')
 
         return Mcr
