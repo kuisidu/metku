@@ -22,6 +22,7 @@ from metku.raami.frame_loads import PointLoad, LineLoad, PWLineLoad, LoadIDs
 from metku.raami.frame_supports import XYHingedSupport, YHingedSupport
 from metku.raami.exports import AbaqusOptions
 
+from metku.framefem import LineLoad as FEMLineLoad
 from metku.framefem.elements.ebbeam import EBBeam, EBBeam3D
 from metku.framefem.elements.rod import Rod
 from metku.sections.steel.RHS import RHS, SHS
@@ -1495,24 +1496,48 @@ class SlopedTruss(PlaneTruss):
                     if load.load_id not in lcase_ids:
                         self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
                 
-                """
+                # Add loads to gap elements
                 for joint in self.joints.values():
                     if isinstance(joint,TubularKGapJoint):
                         # Add load to gap element
-                        for load in joint.chords[0].loads:
-                        v0, v1 = self.values
-                        #qvals = self.f*np.linspace(v0,v1,self.member.num_elements+1)        
-                        qvals = self.f*np.linspace(v0,v1,len(self.member.fem_elements)+1)        
-                        for i, elem_id in enumerate(self.member.fem_elements):
-                            #v1 = (i * k) + v0
-                            load = fem.LineLoad(self.load_id,
-                                                elem_id,
-                                                [0.0, 1.0],
-                                                [qvals[i],qvals[i+1]],                                
-                                                self.direction,
-                                                self.coord_sys)
-                            fem_model.add_load(load)
-               """ 
+                        for load1 in joint.chords[0].loads:
+                            for load2 in joint.chords[1].loads:
+                                if load1.load_id == load2.load_id:
+                                    if joint == self.ridge_joint:
+                                        q = load1.f*load1.values[1]
+                                        load = FEMLineLoad(load1.load_id,
+                                                           joint.fem_elements['gap'][0],
+                                                           [0.0,1.0],
+                                                           [q,q],
+                                                           load1.direction,
+                                                           load1.coord_sys)
+                                        self.fem.add_load(load)
+                                        q = load1.f*load2.values[0]
+                                        load = FEMLineLoad(load1.load_id,
+                                                           joint.fem_elements['gap'][1],
+                                                           [0.0,1.0],
+                                                           [q,q],
+                                                           load1.direction,
+                                                           load1.coord_sys)
+                                        self.fem.add_load(load)
+                                    else:
+                                        if isinstance(load1,LineLoad) or isinstance(load1,PWLineLoad):
+                                            if abs(load1.values[1]) >= abs(load2.values[0]):
+                                                q = load1.f*load1.values[1]
+                                                
+                                            else:
+                                                q = load2.f*load2.values[0]
+                                                                                    
+                                            load = FEMLineLoad(load1.load_id,
+                                                               joint.fem_elements['gap'],
+                                                               [0.0,1.0],
+                                                               [q,q],
+                                                               load1.direction,
+                                                               load1.coord_sys)                                            
+                                            self.fem.add_load(load)
+                                    break
+                                    
+                
                 # Set nodal degrees of freedom
                 self.fem.nodal_dofs()
                 

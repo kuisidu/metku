@@ -261,7 +261,7 @@ class EBBeam(Element):
         
         #print(isinstance(load,LineLoad))
         
-        if isinstance(load,LineLoad):
+        if isinstance(load,LineLoad):            
             q1 = load.qval[0]
             q2 = load.qval[1]
             #print(q1,q2)

@@ -449,11 +449,11 @@ class FrameMember:
     def print_utilization(self,file=None):
         """ Prints utilization ratios for different load cases """
         if file is None:
-            print(f' Member {self.mem_id:3.0f}:')
+            print(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
             for load_id, U in self.utilization.items():
                 print(f'  Load case {load_id}: {U:4.3f}\n')    
         else:
-            file.write(f' Member {self.mem_id:3.0f}:')
+            file.write(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
             for load_id, U in self.utilization.items():
                 file.write(f'  Load case {load_id}: {U:4.3f}\n')
                        
@@ -1162,11 +1162,11 @@ class MultiSpanSteelMember(MultiSpanMember):
     def print_utilization(self,file=None):
         """ Prints utilization ratios for different load cases """
         if file is None:
-            print(f' Member {self.mem_id:3.0f}:')
+            print(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
             for load_id, U in self.utilization.items():
                 print(f'  Load case {load_id}: {U:4.3f}\n')    
         else:
-            file.write(f' Member {self.mem_id:3.0f}:')
+            file.write(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
             for load_id, U in self.utilization.items():
                 file.write(f'  Load case {load_id}: {U:4.3f}\n')
     

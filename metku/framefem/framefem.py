@@ -425,7 +425,7 @@ class FrameFEM:
 
         return K
 
-    def global_geometric_stiffness_matrix(self):
+    def global_geometric_stiffness_matrix(self,lcase=0):
         """ Constructs the global geometric stiffness matrix
 
         Returns:
@@ -442,7 +442,7 @@ class FrameFEM:
         KG = np.zeros((dofs, dofs))
 
         for elem in self.elements:
-            kg = elem.geometric_stiffness_matrix()
+            kg = elem.geometric_stiffness_matrix(lcase)
             # get element degrees of freedom
             # change the list to numpy array
             ve = np.array(elem.global_dofs())
@@ -664,7 +664,7 @@ class FrameFEM:
             and return stiffness matrix
         """
         u, K = self.linear_statics(lcase,support_method="REM")
-        KG = self.global_geometric_stiffness_matrix()
+        KG = self.global_geometric_stiffness_matrix(lcase)
         
         """
         for supp in self.supports:
@@ -733,7 +733,7 @@ class FrameFEM:
             for vi, d in zip(v,glob_dofs):                
                 for node in self.nodes:
                     try:
-                        node.v[i][node.dofs.index(d)] = vi
+                        node.v[i][list(node.dofs).index(d)] = vi
                     except ValueError:
                         pass
         
@@ -791,6 +791,7 @@ class FrameFEM:
         
         if 'buckling_mode' in kwargs:
             buckling_mode = True
+            buck_mode = kwargs['buckling_mode']
         else:
             buckling_mode = False
         
@@ -841,9 +842,11 @@ class FrameFEM:
         if buckling_mode:
             lstyle = '-k'
             for el in self.elements:
+                #print(el.nodes)
                 X = np.zeros((2,2))
                 for i, n in enumerate(el.nodes):
-                    X[i,:] = (n.coord + scale * np.array(n.v[buckling_mode][:2]))
+                    #print(i, buckling_mode, n.v[buck_mode][:2])
+                    X[i,:] = (n.coord + scale * n.v[buck_mode][:2])
                     
                 if self.dim == 2:
                     ax.plot(X[:, 0], X[:, 1], lstyle)                  
@@ -1206,9 +1209,10 @@ class LineLoad(Load):
         else:
             q = np.array([0, self.qval[0], 0])
 
-        # Get equivalent nodal loads        
+        # Get equivalent nodal loads   
+        if isinstance(self.elem,list):
+            print(self.elem)
         F = self.elem.equivalent_nodal_loads(self)
-        
         
         # Number of degrees of freedom
         dofs = np.array(self.elem.global_dofs())
