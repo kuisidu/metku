@@ -956,6 +956,8 @@ class MultiSpanMember:
         
         for mem in self.members:
             mem.clear_fem()
+        
+        self.fem_elements.clear()
     
     def update_element_sections(self):
         """ Updates the cross sections of the finite elements of the member """

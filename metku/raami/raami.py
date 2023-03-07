@@ -991,7 +991,7 @@ class Raami:
                 write_elset(file, 'BottomChordGaps', bottom_ndx)
                 
             # If there are any other element sets, they are printed here
-            for set_name, els in options.elsets.items():
+            for set_name, els in options.elsets.items():                
                 el_ndx = [self.fem.elements.index(el)+1 for el in els]                
                 write_elset(file, set_name, el_ndx)
                 
