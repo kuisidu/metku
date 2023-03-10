@@ -151,7 +151,7 @@ class PortalTruss(Raami):
         else:
             super().add(this)
     
-    def create_columns(self,profile=HEA(260),hinges=[False,False]):
+    def create_columns(self,profile=HEA(260),hinges=[False,False], nel=[4,2]):
         """ creates columns """
         if not self.truss is None:
             # Truss has already been created
@@ -159,15 +159,15 @@ class PortalTruss(Raami):
             if self.bottom_chord_to_column:
                 # Bottom chord is connected to the column
                 self.add(MultiSpanSteelMember([self.nodes[0],self.truss.bottom_nodes[0],self.truss.top_nodes[0]],
-                                             profile,mem_type='column',nel=4,hinges=hinges,sway=True))                    
+                                             profile,mem_type='column',nel=nel,hinges=hinges,sway=True))                    
                 self.add(MultiSpanSteelMember([self.nodes[1],self.truss.bottom_nodes[-1],self.truss.top_nodes[-1]],profile,
-                                                          mem_type='column',nel=4,hinges=hinges,sway=True))
+                                                          mem_type='column',nel=nel,hinges=hinges,sway=True))
             else:
                 self.add(SteelFrameMember([self.nodes[0],self.truss.top_nodes[0]],profile,
-                                                      mem_type='column',nel=4,hinges=hinges,lcr=[2.0,1.0],sway=True))
+                                                      mem_type='column',nel=nel,hinges=hinges,lcr=[2.0,1.0],sway=True))
             
                 self.add(SteelFrameMember([self.nodes[1],self.truss.top_nodes[-1]],profile,
-                                                      mem_type='column',nel=4,hinges=hinges,lcr=[2.0,1.0],sway=True))
+                                                      mem_type='column',nel=nel,hinges=hinges,lcr=[2.0,1.0],sway=True))
         
         col_group = MemberGroup(self.columns,'columns')
         self.member_groups['columns'] = col_group
@@ -705,6 +705,8 @@ class PortalTruss(Raami):
         options.load_elsets['Wind_H'] = []
         options.load_elsets['Wind_I'] = []
         
+        options.load_nsets['Column_left_top_node'] = []
+        options.load_nsets['Column_right_top_node'] = []
         
         for mem_id, brace in self.truss.braces.items():
             options.included_members.append('B' + str(mem_id))
@@ -782,6 +784,10 @@ class PortalTruss(Raami):
             options.elsets['Top_chord_right'] 
         options.load_elsets['Column_left_load'] = options.elsets['Column_left']
         options.load_elsets['Column_right_load'] = options.elsets['Column_right']
+        
+        # Define node sets for point loads at column ends
+        options.load_nsets['Column_left_top_node'].append(self.columns[0].members[1].fem_nodes[-1])
+        options.load_nsets['Column_right_top_node'].append(self.columns[1].members[1].fem_nodes[-1])
         
         # Determine elsets for wind zones F/G, H, and I
         e = 2*self.ridge_height()

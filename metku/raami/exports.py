@@ -26,6 +26,22 @@ def write_elset(file,elset_name,els,instance=None):
         file.write('\n')
         i += 16
 
+def write_nset(file,nset_name,nodes,instance=None):
+    
+    header = '*Nset, nset=' + nset_name
+    
+    if instance is None:
+        header += '\n'
+    else:
+        header += ', instance=' + instance + '\n'
+    
+    file.write(header)
+    i = 0
+    while i < len(nodes):
+        file.write(', '.join(str(r) for r in nodes[i:i+16]))
+        file.write('\n')
+        i += 16
+
 class AbaqusOptions:
     """ Storage for ABAQUS export options """
     
@@ -54,6 +70,7 @@ class AbaqusOptions:
         self.elsets = {} # *Elset groups
         
         self.load_elsets = {}
+        self.load_nsets = {}
         
         # Individual members to be included as element sets
         self.included_members = []

@@ -783,7 +783,15 @@ class MultiSpanMember:
         self.mtype = mem_type
         self.mem_id = mem_id
         self.frame = None
-        self.num_elements = nel
+        
+        # num_elements is the number of elements per member segment.
+        # If 'nel' is given as a scalar value, then a list is made
+        # with each element having the value 'nel'.
+        if isinstance(nel,list):
+            self.num_elements = nel
+        else:
+            self.num_elements = [nel for i in range(len(nodes)-1)]
+            
         self.local_node_coords = [] # Local coordinates of member nodes in FEM model
         self.global_node_coords = [] # Local coordinates of member nodes in FEM model
         
@@ -1148,7 +1156,7 @@ class MultiSpanSteelMember(MultiSpanMember):
         self.members = []
                         
         n = len(self.members)
-        for n1, n2 in zip(nodes[:-1],nodes[1:]):
+        for nel, n1, n2 in zip(self.num_elements,nodes[:-1],nodes[1:]):
             new_mem_id = mem_id + str(n)
             n += 1
             self.members.append(SteelFrameMember([n1,n2],section,mem_type,new_mem_id,nel))

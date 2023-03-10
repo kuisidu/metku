@@ -24,7 +24,7 @@ from metku.raami.frame_node import FrameNode
 from metku.raami.frame_member import FrameMember, SteelFrameMember
 from metku.raami.frame_loads import PointLoad, LineLoad, PWLineLoad, LoadIDs, LoadCase, LoadCombination
 from metku.raami.frame_supports import Support, FixedSupport, XYHingedSupport, XHingedSupport, YHingedSupport
-from metku.raami.exports import AbaqusOptions, write_elset
+from metku.raami.exports import AbaqusOptions, write_elset, write_nset
 
 #from loadIDs import LoadIDs
 
@@ -1036,6 +1036,11 @@ class Raami:
                 if len(els) > 0:
                     el_ndx = [self.fem.elements.index(el)+1 for el in els]                
                     write_elset(file, set_name, el_ndx, insname)
+                    
+            for set_name, nodes in options.load_nsets.items():
+                if len(nodes) > 0:
+                    node_ndx = [self.fem.nodes.index(node)+1 for node in nodes]
+                    write_nset(file, set_name, node_ndx, insname)
 
             # Node sets for the following groups
             # 1) Symmetry conditions to prevent displacement in y direction
