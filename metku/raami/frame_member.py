@@ -131,6 +131,7 @@ class FrameMember:
         self.fem_elements = []
         
         # Buckling length factor
+        self.__lcr = None
         self.lcr = lcr
         
         self.member = None
@@ -196,7 +197,7 @@ class FrameMember:
             if not self.symmetry_pair.member is None:
                 self.symmetry_pair.member.profile = val
                 self.symmetry_pair.update_element_sections()
-    
+            
     @property
     def material(self):
         """ Material of the member """
@@ -206,6 +207,17 @@ class FrameMember:
     def material(self,val):
         """ Set member material """
         self.cross_section.material = val
+    
+    @property
+    def lcr(self):
+        return self.__lcr
+    
+    @lcr.setter
+    def lcr(self,val):
+        self.__lcr = val
+        
+        if not self.member is None:
+            self.member.lcr = val
     
     def coords(self):
         """ Return nodal coordinates """
@@ -830,6 +842,18 @@ class MultiSpanMember:
             self.update_element_sections()
     
     @property
+    def lcr(self):
+        return self.__lcr
+    
+    @lcr.setter
+    def lcr(self,val):
+        self.__lcr = val
+        
+        if not self.members is None:
+            for mem in self.members:
+                mem.lcr = val
+        
+    @property
     def material(self):
         """ Material of the member """
         return self.cross_section.material
@@ -1159,7 +1183,7 @@ class MultiSpanSteelMember(MultiSpanMember):
         for nel, n1, n2 in zip(self.num_elements,nodes[:-1],nodes[1:]):
             new_mem_id = mem_id + str(n)
             n += 1
-            self.members.append(SteelFrameMember([n1,n2],section,mem_type,new_mem_id,nel))
+            self.members.append(SteelFrameMember([n1,n2],section,mem_type,new_mem_id,nel,lcr=lcr,sway=sway))
             self.members[-1].frame = self.frame
     
     def is_section(self,profile):

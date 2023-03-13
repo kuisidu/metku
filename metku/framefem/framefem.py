@@ -78,6 +78,10 @@ class FrameFEM:
         self.load_factors = []
         self.buckling_modes = []
         
+        
+        self.u = []
+        self.u2 = []
+        
     def __repr__(self):
         
         s = f"Frame {self.dim}D model: {self.nels()} elements, {self.nnodes()} nodes"
@@ -299,6 +303,7 @@ class FrameFEM:
         ncases = self.nloadcases()
         for node in self.nodes:
             node.u[load_id] = np.zeros(len(node.dofs))
+            node.u2[load_id] = np.zeros(len(node.dofs))
             """
             if ncases == 1:
                 print(node.u[0])
@@ -457,7 +462,40 @@ class FrameFEM:
 
         return KG
 
-    def global_load_vector(self, sid):
+    def global_second_order_stiffness_matrix(self,lcase=0):
+        """ Global stiffness matrix for second order analysis
+        
+        Returns:
+        --------
+        :return: global second order stiffness matrix
+        :rtype: np.array
+        """
+        dofs = self.dofs
+
+        """ initialize zero stiffness matrix 
+            NOTE: for larger structures, KG should probably be
+            a sparse matrix
+        """
+        K = np.zeros((dofs, dofs))
+
+        for elem in self.elements:
+            k = elem.second_order_stiffness_matrix(lcase)
+            # get element degrees of freedom
+            # change the list to numpy array
+            ve = np.array(elem.global_dofs())
+            # find non-zero dofs
+            nz = ve >= 0
+            q = ve[nz]
+
+            """ extract the submatrix of the element
+                and add it to the global stiffness matrix
+            """
+            K[np.ix_(q, q)] += k[np.ix_(nz, nz)]
+
+        return K
+        
+
+    def global_load_vector(self, sid, order=1):
         """ Constructs global load vector
 
         Parameters:
@@ -480,7 +518,7 @@ class FrameFEM:
             """
             if load.sid == sid:                
                 #print('Calculate nodal forces')
-                v, vdofs = load.load_and_dofs()
+                v, vdofs = load.load_and_dofs(order)
                 #print(v,vdofs)
                 global_load[vdofs.astype(int)] += v
 
@@ -542,7 +580,7 @@ class FrameFEM:
         
         rem_dofs = []
         """ Vector of global unsupported dofs """
-        glob_dofs = np.arange(self.dofs)
+        self.glob_dofs = np.arange(self.dofs)
         
         
         for supp in self.supports:
@@ -571,8 +609,8 @@ class FrameFEM:
             K = np.delete(K,rem_dofs,0)
             K = np.delete(K,rem_dofs,1)
             p = np.delete(p,rem_dofs)
-            glob_dofs = np.delete(glob_dofs,rem_dofs)
-                        
+            self.glob_dofs = np.delete(self.glob_dofs,rem_dofs)
+            
             #print(rem_dofs)
             #print(K)
             #print(p)
@@ -612,23 +650,90 @@ class FrameFEM:
             node.u[free_dofs] = u[dofs[free_dofs]]
             """
         elif support_method == 'REM':
-            for ui, d in zip(u,glob_dofs):                
+            for ui, d in zip(u,self.glob_dofs):                
                 for node in self.nodes:
                     try:
                         #node.u[lcase][node.dofs.index(d)] = np.array(ui)
                         node.u[lcase][np.where(node.dofs==d)] = np.array(ui)
                     except ValueError:
                         pass
-                    
-                    
-
-
+                                    
         """ Calculate element internal forces """
         for i, el in enumerate(self.elements):            
             el.internal_forces(lcase=lcase)
         #end = time.time()
         # print("FRAMEFEM TIME: ", end - start)
         return u, K
+    
+    def second_order_analysis(self, lcase=0, support_method="ZERO"):
+        """ Performs second order elastic analysis """
+        
+        # Linear statics is first carried out to calculate the axial force
+        # which is needed in second order analysis
+        u, K = self.linear_statics(lcase,support_method)
+        
+        # Evaluate second order stiffness matrix
+        KII = self.global_second_order_stiffness_matrix(lcase)
+        
+        # Evaluate second order load vector
+        pII = self.global_load_vector(lcase,order=2)
+                
+        supp_id = self.loadcases[lcase].support
+        
+        # Supports        
+        if support_method == 'ZERO':
+            for i in self.supp_dofs:
+                KII[i,:] = 0
+                KII[i,:] = 0
+                KII[:,i] = 0
+                KII[i,i] = 1
+                pII[i] = 0
+        else:        
+            KII = np.delete(KII,self.supp_dofs,0)
+            KII = np.delete(KII,self.supp_dofs,1)
+            pII = np.delete(pII,self.supp_dofs)
+            
+        self.KII = KII
+        self.pII = pII
+        
+        print(pII)
+            
+        u2 = np.linalg.solve(KII, pII)
+        
+        #print(self.u)
+        #print(u2)
+        self.u2 = u2
+        
+        """ Substitute obtained displacements to nodes """
+        if support_method == 'ZERO':
+            """ Distribute displacements to nodes """
+            for node in self.nodes:
+                # Get nodal dofs
+                dofs = np.array(node.dofs)
+    
+                # Find free dofs
+                free_dofs = dofs >= 0
+                # Substitute free dofs from global displacement vector                        
+                for i, free_dof in enumerate(free_dofs):
+                    if free_dof:
+                        node.u2[lcase][i] = u2[dofs[i]]
+
+            """
+            This substition did not work !!!
+            node.u[free_dofs] = u[dofs[free_dofs]]
+            """
+        elif support_method == 'REM':
+            for ui, d in zip(u2,self.glob_dofs):                
+                for node in self.nodes:
+                    try:
+                        #node.u[lcase][node.dofs.index(d)] = np.array(ui)
+                        node.u2[lcase][np.where(node.dofs==d)] = np.array(ui)
+                    except ValueError:
+                        pass
+
+        """ Calculate element internal forces """
+        for i, el in enumerate(self.elements):            
+            el.second_order_internal_forces(lcase=lcase)
 
     def linear_buckling(self, lcase=0, k=4):
         """ Perform linear buckling analysis for a given load case
@@ -1121,7 +1226,7 @@ class PointLoad(Load):
         self.f = f
         """ scaling factor"""
 
-    def load_and_dofs(self):
+    def load_and_dofs(self, order=1):
         """ Returns the loads to be inserted to the global load vector
             and the corresponding global degrees of freedom
 
@@ -1190,7 +1295,7 @@ class LineLoad(Load):
         self.coords = coords
         """ Coordinates used, 0: local, 1: global (Default=1)"""
 
-    def load_and_dofs(self):
+    def load_and_dofs(self, order=1):
         """ Returns the loads to be inserted to the global load vector
             and the corresponding global degrees of freedom
 
@@ -1212,7 +1317,7 @@ class LineLoad(Load):
         # Get equivalent nodal loads   
         if isinstance(self.elem,list):
             print(self.elem)
-        F = self.elem.equivalent_nodal_loads(self)
+        F = self.elem.equivalent_nodal_loads(self, order)
         
         # Number of degrees of freedom
         dofs = np.array(self.elem.global_dofs())
@@ -1298,6 +1403,7 @@ class FEMNode:
         # NOTE: for multiple load cases, the dimension of u must be increased for each load case
         #self.u = np.array([])
         self.u = {}
+        self.u2 = {}
         
         """ Nodal coordinates"""
         if z is not None:
@@ -1404,6 +1510,7 @@ class Element(metaclass=ABCMeta):
         self.material = material        
         self.section = section
         self.fint = {}
+        self.fint2 = {}
         #self.axial_force = [0.0, 0.0]
         #self.shear_force = [0.0, 0.0]
         #self.bending_moment = [0.0, 0.0]
@@ -1526,7 +1633,7 @@ class Element(metaclass=ABCMeta):
         """
         pass
 
-    def nodal_displacements(self,lcase=0):
+    def nodal_displacements(self,lcase=0,order=1):
         """ Get nodal displacements of an element in global coordinates
             Requires previously performed structural analysis such
             that nodal displacements are available.
@@ -1536,10 +1643,18 @@ class Element(metaclass=ABCMeta):
             :return: Element's nodal displacements
             :rtype: np.array
         """
-        return np.concatenate((self.nodes[0].u[lcase],
-                               self.nodes[1].u[lcase]))
+        
+        if order == 1:
+            q = np.concatenate((self.nodes[0].u[lcase],
+                                   self.nodes[1].u[lcase]))
+        else:
+            q = np.concatenate((self.nodes[0].u2[lcase],
+                                   self.nodes[1].u2[lcase]))
 
-    def local_displacements(self, lcase=0):
+        
+        return q
+    
+    def local_displacements(self, lcase=0, order=1):
         """ Nodal displacements in local coordinates
 
             Returns:
@@ -1549,7 +1664,7 @@ class Element(metaclass=ABCMeta):
 
         """
         T = self.transformation_matrix()
-        q = self.nodal_displacements(lcase)
+        q = self.nodal_displacements(lcase,order)
 
         return T.dot(q)
 
@@ -1569,6 +1684,9 @@ class Element(metaclass=ABCMeta):
         self.fint[lcase] = {'fx': [0,0], 'fy': [0,0], 'fz': [0,0],\
                             'mx': [0,0], 'my': [0,0], 'mz': [0,0]}
         
+        self.fint2[lcase] = {'fx': [0,0], 'fy': [0,0], 'fz': [0,0],\
+                            'mx': [0,0], 'my': [0,0], 'mz': [0,0]}
+            
     @abstractclassmethod
     def transformation_matrix(self):
         """ Calculates transformation matrix from local to global coordinates

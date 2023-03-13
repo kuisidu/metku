@@ -151,23 +151,24 @@ class PortalTruss(Raami):
         else:
             super().add(this)
     
-    def create_columns(self,profile=HEA(260),hinges=[False,False], nel=[4,2]):
-        """ creates columns """
+    def create_columns(self,profile=HEA(260),hinges=[False,False], lcr=[1.0,1.0], nel=[4,2]):
+        """ creates columns """        
+        
         if not self.truss is None:
             # Truss has already been created
             
             if self.bottom_chord_to_column:
                 # Bottom chord is connected to the column
                 self.add(MultiSpanSteelMember([self.nodes[0],self.truss.bottom_nodes[0],self.truss.top_nodes[0]],
-                                             profile,mem_type='column',nel=nel,hinges=hinges,sway=True))                    
+                                             profile,mem_type='column',nel=nel,hinges=hinges,lcr=lcr,sway=True))                    
                 self.add(MultiSpanSteelMember([self.nodes[1],self.truss.bottom_nodes[-1],self.truss.top_nodes[-1]],profile,
-                                                          mem_type='column',nel=nel,hinges=hinges,sway=True))
+                                                          mem_type='column',nel=nel,hinges=hinges,lcr=lcr,sway=True))
             else:
                 self.add(SteelFrameMember([self.nodes[0],self.truss.top_nodes[0]],profile,
-                                                      mem_type='column',nel=nel,hinges=hinges,lcr=[2.0,1.0],sway=True))
+                                                      mem_type='column',nel=nel,hinges=hinges,lcr=lcr,sway=True))
             
                 self.add(SteelFrameMember([self.nodes[1],self.truss.top_nodes[-1]],profile,
-                                                      mem_type='column',nel=nel,hinges=hinges,lcr=[2.0,1.0],sway=True))
+                                                      mem_type='column',nel=nel,hinges=hinges,lcr=lcr,sway=True))
         
         col_group = MemberGroup(self.columns,'columns')
         self.member_groups['columns'] = col_group
@@ -885,7 +886,7 @@ if __name__ == "__main__":
     p.generate_uniform_load('column',q=9,member='left',load_id=LoadIDs['ULS'],ltype='wind')
     p.generate_uniform_load('column',q=5,member='right',load_id=LoadIDs['ULS'],ltype='wind')
     
-        
+
     p.generate_uniform_load('truss',q=-18,ltype='snow',load_id=10)
     p.generate_uniform_load('column',q=9,member='left',load_id=10,ltype='wind')
     p.generate_uniform_load('column',q=5,member='right',load_id=10,ltype='wind')

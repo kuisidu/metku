@@ -242,8 +242,122 @@ class EBBeam(Element):
         kG = L.transpose().dot(kG0.dot(L))
 
         return kG
+    
+    def local_second_order_stiffness_matrix(self,lcase=0):
+        """ Stiffness matrix for second order analysis
+            From: Salmi & Kuula (2012), Rakenteiden mekaniikka, Section 8.3
+        """
+        E = self.material.young
+        A = self.section.A
+        I1 = self.section.I[0]
+        Le = self.length()
+        
+        P = self.fint[lcase]['fx'][1]
+        
+        if P < 0:
+            # For compression members, use second order theory
+            P = abs(P)
+        
+            rodc = E * A / Le
+            a = 4*E*I1/Le
+            b = 2*E*I1/Le
+            c = 6*E*I1/Le**2
+            d = 12*E*I1/Le**3
+                    
+            k = np.sqrt(P/E/I1)
+            lam = k*Le
+            
+            slam = np.sin(lam)
+            clam = np.cos(lam)
+            
+            D = 2-2*clam-lam*slam
+            K = lam**3/12*slam/D
+            H = lam**2/6*(1-clam)/D
+            PSI = lam/4*(slam-lam*clam)/D
+            PHI = 0.5*lam*(lam-slam)/D
+            
+            k0 = np.zeros((6, 6))
+            #
+            k0[[0, 3], [0, 3]] = rodc
+            k0[[0, 3], [3, 0]] = -rodc
+            #
+            #bend1 = 12 * E*I1 / Le ** 3
+            k0[[1, 4], [1, 4]] = d*K
+            k0[[1, 4], [4, 1]] = -k0[1, 1]
+            #
+            #bend2 = 6 * E*I1 / Le ** 2
+            k0[[1, 2, 1, 5], [2, 1, 5, 1]] = c*H
+            #
+            k0[[2, 4, 4, 5], [4, 2, 5, 4]] = -c*H
+            #
+            k0[[2, 5], [5, 2]] = b*PHI
+            #
+            k0[[2, 5], [2, 5]] = a*PSI
+        else:
+            # For members in tension, use first order stiffness matrix
+            k0 = self.local_stiffness_matrix(E, A, I1, Le)
+        
+        if len(self.releases) > 0:
+            """ There are releases in the element, so the stiffness matrix
+                is modified.
+            """
+            rel = self.releases
+            # nrel is the list of non-released forces
+            nrel = np.setdiff1d(np.arange(6),rel)
+            
+            K22 = k0[np.ix_(rel,rel)]
+            K11 = k0[np.ix_(nrel,nrel)]
+            K12 = k0[np.ix_(nrel,rel)]
+            K21 = k0[np.ix_(rel,nrel)]
+            
+            self.Krel['K11'] = K11
+            self.Krel['K12'] = K12
+            self.Krel['K21'] = K21
+            self.Krel['K22'] = K22
+            
+            """
+            print(rel,nrel)
+            print('k0')
+            print(k0)
+            print('K22')
+            print(K22)
+            print('K11')
+            print(K11)
+            print('K12')
+            print(K12)
+            print('K21')
+            print(K21)
+            """
+            
+            #K221K21inv = np.linalg.inv(K22).dot(K21)
+            
+            kc = K11 - K12.dot(np.linalg.inv(K22).dot(K21))
+            
+            """
+            print('kc = ')
+            print(kc)
+            print(kc.shape)
+            """
+            k0[np.ix_(nrel,nrel)] = kc
+            k0[rel,:] = 0
+            k0[:,rel] = 0
+            #print(k0)
+            
 
-    def equivalent_nodal_loads(self, load):
+        return k0
+    
+    def second_order_stiffness_matrix(self,lcase=0):
+        # local-global transformation matrix
+        L = self.transformation_matrix()
+
+        k0 = self.local_second_order_stiffness_matrix(lcase)
+
+        k = L.transpose().dot(k0.dot(L))
+
+        return k
+
+
+    def equivalent_nodal_loads(self, load, order=1):
         """ Equivalent nodal loads for a load 
         
             'load' is a Load type object. By default, it is assumed that
@@ -272,10 +386,31 @@ class EBBeam(Element):
                     """ Load is in the axial direction """
                 elif load.dir == 'y':
                     """ Load is perpendicular to the member """
-                    floc[1] = 7/20*q1*L + 3/20*q2*L
-                    floc[4] = 3/20*q1*L + 7/20*q2*L                    
-                    floc[2] = L**2*(1/20*q1+1/30*q2)
-                    floc[5] = -L**2*(1/30*q1+1/20*q2)
+                    if order == 1:
+                        floc[1] = 7/20*q1*L + 3/20*q2*L
+                        floc[4] = 3/20*q1*L + 7/20*q2*L                    
+                        floc[2] = L**2*(1/20*q1+1/30*q2)
+                        floc[5] = -L**2*(1/30*q1+1/20*q2)
+                    else:
+                        # For second order analysis, assume uniform
+                        # load on element
+                        P = self.fint[load.sid]['fx'][0]
+                        if P >= 0:                        
+                            floc[1] = 7/20*q1*L + 3/20*q2*L
+                            floc[4] = 3/20*q1*L + 7/20*q2*L                    
+                            floc[2] = L**2*(1/20*q1+1/30*q2)
+                            floc[5] = -L**2*(1/30*q1+1/20*q2)
+                        else:
+                            k = np.sqrt(abs(P)/self.section.E/self.section.Iy)
+                            a = 0.5*L
+                            lam = k*a
+                            s = np.sin(k*L)
+                            c = np.cos(k*L)
+                            
+                            floc[1] = 0.5*q1*L
+                            floc[4] = 0.5*q1*L                    
+                            floc[2] = q1*a**2*(lam*c-s)/lam**2/s
+                            floc[5] = -q1*a**2*(lam*c-s)/lam**2/s
                 #print(floc)
             else:
                 """ Load is given in global coordinates: it has to be transformed
@@ -289,21 +424,65 @@ class EBBeam(Element):
                     q = np.array([0, 1, 0])
                 # Load vector transformed into element local coordinate system
                 qloc = T[:3, :3].dot(q)
+                                
+                if order == 1:
+                    """ Loads perpendicular to the axis of the element """
+                    qy1 = q1*qloc[1]
+                    qy2 = q2*qloc[1]
+                    floc[1] = 7/20*qy1*L + 3/20*qy2*L
+                    floc[4] = 3/20*qy1*L + 7/20*qy2*L
+                    floc[2] = L**2*(1/20*qy1+1/30*qy2)
+                    floc[5] = -L**2*(1/30*qy1+1/20*qy2)
                 
-                """ Loads perpendicular to the axis of the element """
-                qy1 = q1*qloc[1]
-                qy2 = q2*qloc[1]
-                floc[1] = 7/20*qy1*L + 3/20*qy2*L
-                floc[4] = 3/20*qy1*L + 7/20*qy2*L
-                floc[2] = L**2*(1/20*qy1+1/30*qy2)
-                floc[5] = -L**2*(1/30*qy1+1/20*qy2)
-                
-                """ Loads parallel to the axis of the element """
-                qx1 = q1*qloc[0]
-                qx2 = q2*qloc[0]
-                floc[0] = 0.5*L*(0.5*(qx1+qx2)-1/6*(qx2-qx1))
-                floc[3] = 0.5*L*(0.5*(qx1+qx2)+1/6*(qx2-qx1))
-                
+                    """ Loads parallel to the axis of the element """
+                    qx1 = q1*qloc[0]
+                    qx2 = q2*qloc[0]
+                    floc[0] = 0.5*L*(0.5*(qx1+qx2)-1/6*(qx2-qx1))
+                    floc[3] = 0.5*L*(0.5*(qx1+qx2)+1/6*(qx2-qx1))
+                else:
+                    # For second order analysis, assume uniform
+                    # load on element
+                    P = self.fint[load.sid]['fx'][0]
+                    if P >= 0:                        
+                        """ Loads perpendicular to the axis of the element """
+                        qy1 = q1*qloc[1]
+                        qy2 = q2*qloc[1]
+                        floc[1] = 7/20*qy1*L + 3/20*qy2*L
+                        floc[4] = 3/20*qy1*L + 7/20*qy2*L
+                        floc[2] = L**2*(1/20*qy1+1/30*qy2)
+                        floc[5] = -L**2*(1/30*qy1+1/20*qy2)
+                    
+                        """ Loads parallel to the axis of the element """
+                        qx1 = q1*qloc[0]
+                        qx2 = q2*qloc[0]
+                        floc[0] = 0.5*L*(0.5*(qx1+qx2)-1/6*(qx2-qx1))
+                        floc[3] = 0.5*L*(0.5*(qx1+qx2)+1/6*(qx2-qx1))
+                    else:
+                        k = np.sqrt(abs(P)/self.section.E/self.section.Iy)
+                        a = 0.5*L
+                        lam = k*a
+                        s = np.sin(lam)
+                        c = np.cos(lam)
+                        
+                        qy1 = q1*qloc[1]
+                        qy2 = q2*qloc[1]
+                        print(f'lambda = {lam:4.3f}')
+                        print(f's = {s:4.3f}')
+                        print(f'c = {c:4.3f}')
+                        #print(k,lam,s,c,(lam*c-s)/lam**2/s)
+                        #print()
+                        floc[1] = 0.5*qy1*L
+                        floc[4] = 0.5*qy1*L                    
+                        floc[2] = -qy1*a**2*(lam*c-s)/lam**2/s
+                        floc[5] = qy1*a**2*(lam*c-s)/lam**2/s
+                        
+                        
+                        
+                        """ Loads parallel to the axis of the element """
+                        qx1 = q1*qloc[0]
+                        qx2 = q2*qloc[0]
+                        floc[0] = 0.5*L*(0.5*(qx1+qx2)-1/6*(qx2-qx1))
+                        floc[3] = 0.5*L*(0.5*(qx1+qx2)+1/6*(qx2-qx1))
                 # Construct nodal load in local coordinates
                 # qloc[0,1,2] = axial, shear, moment of node 1
                 # qloc[3,4,5] = axial, shear, moment ofnode 2
@@ -403,6 +582,47 @@ class EBBeam(Element):
         self.fint[lcase]['fx'] = [-R[0], R[3]]
         self.fint[lcase]['my'] = [-R[2], R[5]]
         self.fint[lcase]['fz'] = [R[1], -R[4]]
+        
+    def second_order_internal_forces(self,lcase=0):
+        """ Calculate internal forces in second order analysis
+            NOTE: these internal forces do not take
+            loads along the element into account!
+
+            Works only for a single load case!
+        """
+
+        """ Get nodal displacements in local coordinates
+            and multiply them with local element stiffness matrix
+            to get internal forces in member's local coordinate system.
+        """
+        q = self.local_displacements(lcase,order=2)
+        ke = self.local_second_order_stiffness_matrix(lcase)
+        
+        try:            
+            R = ke.dot(q) - self.floc[lcase]
+        except:
+            R = ke.dot(q)
+
+        """ Any load on the element not acting on a node must be
+            taken into account here. This requires the following steps:
+            1. Identify loads acting on element
+            2. Compute their equivalent nodal loads
+            3. Modify internal forces
+
+            Probably an easy solution is to include an
+            Attribute floc for equivalent nodal loads. The nodal loads are
+            saved there, when they are first calculated for analysis
+        """
+
+        """
+        self.axial_force[:2] = [-R[0], R[3]]
+        self.bending_moment[:2] = [-R[2], R[5]]
+        self.shear_force[:2] = [R[1], -R[4]]
+        """
+        
+        self.fint2[lcase]['fx'] = [-R[0], R[3]]
+        self.fint2[lcase]['my'] = [-R[2], R[5]]
+        self.fint2[lcase]['fz'] = [R[1], -R[4]]
         
 class EBBeam3D(Element):
     """ Euler-Bernoulli beam element in 3D
