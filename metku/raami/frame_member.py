@@ -130,11 +130,12 @@ class FrameMember:
         self.fem_nodes = []
         self.fem_elements = []
         
+        self.member = None
+        
         # Buckling length factor
         self.__lcr = None
         self.lcr = lcr
-        
-        self.member = None
+                
         self.nodes = nodes
         
         for node in nodes:
@@ -786,10 +787,12 @@ class MultiSpanMember:
         
         self.symmetry_pair = None # Potential symmetry member pair
         
+        self.members = None
+        
         # Buckling length factor
         self.lcr = lcr
         
-        self.members = None
+        
         self.nodes = nodes        
         self.cross_section = section
         self.mtype = mem_type

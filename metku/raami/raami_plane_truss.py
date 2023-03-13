@@ -1749,7 +1749,7 @@ class TopChord(SteelFrameMember):
         if hinges == None:
             hinges = [False,False]
                 
-        SteelFrameMember.__init__(self,nodes,section,mem_type,mem_id,nel,hinges=hinges,lcr=lcr)
+        super().__init__(nodes,section,mem_type,mem_id,nel,hinges=hinges,lcr=lcr)
 
         self.mtype = 'top_chord'
         self.steel_members = []
