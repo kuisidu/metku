@@ -459,14 +459,22 @@ class FrameMember:
             
         self.utilization[load_id] = rmax
     
-    def print_utilization(self,file=None):
+    def print_utilization(self,file=None,details=False):
         """ Prints utilization ratios for different load cases """
         if file is None:
             print(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
+            if details:
+                print(f'  Length = {self.length():6.0f} mm')
+                print(f'  Buckling Length Factor, y-axis= {self.lcr[0]:4.2f} ')
+                print(f'  Buckling Length Factor, z-axis= {self.lcr[1]:4.2f} ')
             for load_id, U in self.utilization.items():
-                print(f'  Load case {load_id}: {U:4.3f}\n')    
+                print(f'  Load case {load_id}: {U:4.3f}')    
         else:
-            file.write(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
+            file.write(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}\n')
+            if details:
+                file.write(f'  Length = {self.length():6.0f} mm\n')
+                file.write(f'  Buckling Length Factor, y-axis= {self.lcr[0]:4.2f}\n')
+                file.write(f'  Buckling Length Factor, z-axis= {self.lcr[1]:4.2f}\n')
             for load_id, U in self.utilization.items():
                 file.write(f'  Load case {load_id}: {U:4.3f}\n')
                        
@@ -1196,14 +1204,22 @@ class MultiSpanSteelMember(MultiSpanMember):
         
         return (self.cross_section.A-profile.A)**2 + (self.cross_section.Iy-profile.Iy)**2 < 1e-6
     
-    def print_utilization(self,file=None):
+    def print_utilization(self,file=None, details=False):
         """ Prints utilization ratios for different load cases """
         if file is None:
             print(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
+            if details:
+                print(f'  Length = {self.length():6.0f} mm')
+                print(f'  Buckling Length Factor, y-axis= {self.lcr[0]:4.2f} ')
+                print(f'  Buckling Length Factor, z-axis= {self.lcr[1]:4.2f} ')
             for load_id, U in self.utilization.items():
-                print(f'  Load case {load_id}: {U:4.3f}\n')    
+                print(f'  Load case {load_id}: {U:4.3f}')    
         else:
-            file.write(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}')
+            file.write(f' Member {self.mem_id:3.0f}: {self.cross_section.__repr__():s}\n')
+            if details:
+                file.write(f'  Length = {self.length():6.0f} mm\n')
+                file.write(f'  Buckling Length Factor, y-axis= {self.lcr[0]:4.2f}\n')
+                file.write(f'  Buckling Length Factor, z-axis= {self.lcr[1]:4.2f}\n')
             for load_id, U in self.utilization.items():
                 file.write(f'  Load case {load_id}: {U:4.3f}\n')
     

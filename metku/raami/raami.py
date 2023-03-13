@@ -327,19 +327,19 @@ class Raami:
         for member in self.members.values():            
             member.design(load_id)
     
-    def print_member_utilization(self,filename=None):
+    def print_member_utilization(self,filename=None,details=False):
         """ Prints utilization ratios for all members """
         
         if filename is None:        
             print(f"** Member utilization ratios for {self.__name__} **\n")
         
             for member in self.members.values():
-                member.print_utilization()
+                member.print_utilization(details=details)
         else:
             with open(filename, 'w') as file:
                 file.write(f"** Member utilization ratios for {self.__name__} **\n")
                 for member in self.members.values():
-                    member.print_utilization(file)    
+                    member.print_utilization(file,details=details)    
                 
     
     def optimize_members(self, prof_type="CURRENT", verb=False):
