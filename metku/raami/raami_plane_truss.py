@@ -1781,6 +1781,15 @@ class TopChord(SteelFrameMember):
         
         return Ctot
 
+    def print_utilization(self,file=None,details=False):
+        
+        if file is None:
+            print(' Top Chord ')            
+        else:
+            file.write(' Top Chord')
+        
+        super().print_utilization(file,details)
+
     def generate_elements(self,fem,model="no_eccentricity"):
         """ Generate finite elements """
         
@@ -1958,10 +1967,15 @@ class BottomChord(SteelFrameMember):
         self.costs = Ctot
         
         return Ctot
-
-    #@property
-    #def perpendicular(self):
-    #    return -1 * super().perpendicular
+    
+    def print_utilization(self,file=None,details=False):
+        
+        if file is None:
+            print(' Bottom Chord ')            
+        else:
+            file.write(' Bottom Chord')
+        
+        super().print_utilization(file,details)
 
     def generate_elements(self,fem,model="no_eccentricity"):
         """ Generate finite elements """
@@ -2144,6 +2158,14 @@ class TrussBrace(SteelFrameMember):
         
         return self.frame.workshop.cost_centres['sawing'].cost(L,bevels, steel_grade, [h,h], T, AH, AT)
     
+    def print_utilization(self,file=None,details=False):
+        
+        if file is None:
+            print(' Brace ')            
+        else:
+            file.write(' Brace')
+        
+        super().print_utilization(file,details)
     
     def robot_releases(self):
         """ Returns a string indicating releases that Robot Structural Analysis
