@@ -16,7 +16,7 @@ class OptSolver:
 
     def __init__(self):
         self.constr_vals = np.array([-1])
-        self.X = np.array([], dtype=np.float) # Current iterate
+        self.X = np.array([], dtype=float) # Current iterate
         self.problem = None   # OptimizationProblem class object, problem to be solved
         self.fvals = []       # List of objective function values at different iterations
         self.xvals = []       # List of iterates
@@ -214,7 +214,7 @@ class OptSolver:
         self.problem = problem
         # If initial starting point is/isn't defined        
         if x0 is not None:
-            self.X = np.asarray(x0, dtype=np.float)
+            self.X = np.asarray(x0, dtype=float)
             problem.substitute_variables(x0)
         else:
             self.X = self.random_feasible_point()

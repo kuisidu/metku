@@ -604,7 +604,7 @@ class FrameMember:
                 horzalign = 'center'
                 vertalign = 'center'
     
-            x, y = self.local_to_global(0.5) - self.perpendicular * dy
+            x, y = self.local_to_global(0.5) - 0.5*self.perpendicular * dy
             rot = np.degrees(self.angle)
     
             if rot > 90:
@@ -612,7 +612,8 @@ class FrameMember:
     
             if print_text:                
                 ax.text(x, y, str(self.mem_id) + ": " + str(self.cross_section),
-                         rotation=rot, horizontalalignment=horzalign,
+                         rotation=rot, rotation_mode='anchor',
+                         horizontalalignment=horzalign,
                          verticalalignment=vertalign)
             #else:
             #    ax.text(x, y, str(self.mem_id),
@@ -789,6 +790,7 @@ class MultiSpanMember:
         
         self.active = True
         self.resistance_check = True
+        self.allowable_utilization = 1.0
         
         self.fem_nodes = []
         self.fem_elements = []
@@ -1115,7 +1117,7 @@ class SteelFrameMember(FrameMember):
     
     def optimum_design(self, prof_type='CURRENT',verb=False,material="S355",
                        sec_class = 3, max_utility=1.0,
-                       bmin=10, bmax=1e5):
+                       bmin=10, bmax=1e5, max_slenderness=5.0):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
@@ -1139,6 +1141,9 @@ class SteelFrameMember(FrameMember):
                 continue
             
             if self.cross_section.section_class() > sec_class:
+                continue
+            
+            if any(self.member.slenderness() > max_slenderness):
                 continue
             
             for load_id in self.frame.load_ids:
@@ -1239,7 +1244,8 @@ class MultiSpanSteelMember(MultiSpanMember):
             
         self.utilization[load_id] = rmax
     
-    def optimum_design(self,prof_type="CURRENT",verb=False):
+    def optimum_design(self,prof_type="CURRENT",verb=False,material="S355",
+                       sec_class=3,max_utility=1.0):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
@@ -1247,15 +1253,22 @@ class MultiSpanSteelMember(MultiSpanMember):
         """
         
         #Get list of profiles profiles of chosen type
-        profiles = profile_list(self.cross_section,prof_type)
-
-        initial_profile = self.cross_section
+        profiles = profile_list(self.cross_section,prof_type)        
+        initial_profile = self.cross_section        
 
         for profile in profiles:
             # profile is a string containing the name of the profile
             # It is converted to a SteelSection object using the make_section
             # function of the 'catalogue.py' file.
-            self.cross_section = make_section(profile)
+            self.cross_section = make_section(profile,material)
+            
+            #print(self.cross_section,self.cross_section.material)
+            
+            sec = self.cross_section
+            sec.Ned = -1
+            
+            if sec.section_class() > sec_class:
+                continue
             
             for load_id in self.frame.load_ids:   
                 self.design(load_id)
@@ -1369,19 +1382,19 @@ class MemberGroup:
     
     def optimum_design(self,prof_type="CURRENT",verb=False,material="S355",
                        sec_class=3,max_utility=1.0,
-                       bmin=10, bmax=1e5):
+                       bmin=10, bmax=1e5, max_slenderness=5.0):
         """ Goes through all profiles in list and stops iterating when 
             cross-section can bear it's loads.
             If member is previously designed, iterating starts from 3 profiles
             before currrent profile.
         """
         
-        print(self.cross_section)
-        print(prof_type)
+        #print(self.cross_section)
+        #print(prof_type)
         #Get list of profiles profiles of chosen type        
         profiles = profile_list(self.cross_section,prof_type)
         
-        print(profiles)
+        #print(profiles)
 
         initial_profile = self.cross_section
 
@@ -1394,11 +1407,25 @@ class MemberGroup:
             sec = self.cross_section
             sec.Ned = -1            
             
+            #print(sec)
+            
             if self.cross_section.b < bmin or self.cross_section.b > bmax:
                 continue
             
             if sec.section_class() > sec_class:
                 continue
+            
+            for member in self.members:
+                # For multispan members, the member of a group contains
+                # several members.
+                if isinstance(member,MultiSpanMember):
+                    for mem in member.members:
+                        if any(mem.member.slenderness() > max_slenderness):
+                            continue
+                else:
+                    if any(member.member.slenderness() > max_slenderness):
+                        continue
+            
             
             for load_id in self.frame.load_ids:   
                 self.design(load_id)

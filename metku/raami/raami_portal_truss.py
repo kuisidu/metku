@@ -395,7 +395,7 @@ class PortalTruss(Raami):
             
                 self.column_joints[3].chord.fem_elements[-1].releases = [5]
             
-            self.fem.draw()
+            #self.fem.draw()
         else:
             # In this case, the bottom chord is not connected to the column
             pass
@@ -540,13 +540,19 @@ class PortalTruss(Raami):
             self.add(self.truss.load_cases[load_id])
     
     def plot(self,print_text=True, show=True,
-             loads=True, color=False, axes=None, save=False, mem_dim=False, geometry=False):
+             loads=True, color=False, axes=None, save=False, mem_dim=False, geometry=False,
+             saveopts={'filename':'PortalTruss','format':'svg','orientation':'landscape', 'papertype':'a3'}):
+        
+        
+        print(save)
         
         if axes is None:
             fig, ax = plt.subplots(1)
         else:
             ax = axes
         
+        plt.rcParams['text.color'] = "red"
+        plt.rcParams['font.size'] = 6.0
         self.truss.plot(geometry=geometry,print_text=print_text,show=show,
                         loads=loads,color=color,axes=ax,save=False,mem_dim=mem_dim)
         
@@ -571,16 +577,26 @@ class PortalTruss(Raami):
         #    self.truss.plot(show=False, print_text=print_text, color=color)
         if loads:
             self.plot_loads()
+            
+        ax.axis('equal')
+        if save:
+            #plt.savefig('default.svg', format='svg')
+            print("Saving figure.")
+            plt.savefig(saveopts['filename'],format=saveopts['format'],\
+                        orientation=saveopts['orientation'],papertype=saveopts['papertype'])
+        if show:
+            plt.axis('equal')
+            plt.show()
     
-    def optimize_members(self, prof_type="CURRENT",verb=False,**kwargs):    
+    def optimize_members(self, prof_type="CURRENT",verb=False,limit_width=False,**kwargs):    
         """ Finds minimum weight profiles for members """
                
         top = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':10, 'bmax':1e5}
         bottom = {'material': 'S355', 'class': 2, 'utility': 1.0,'bmin':10, 'bmax':1e5}
         braces = {'material': 'S355', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0, 'bmin':10, 'bmax':1e5}
         columns = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':150, 'bmax':1e5} 
-            
-        limit_width = False
+        
+        max_slenderness = 5.0
         
         for key, value in kwargs.items():
             if key == 'top':
@@ -591,8 +607,10 @@ class PortalTruss(Raami):
                 braces.update(value)
             elif key == 'columns':
                 columns.update(value)
-            elif key == 'limit_width':
-                limit_width = value
+            elif key == 'min_width':
+                min_width = value
+            elif key == 'max_slenderness':
+                max_slenderness = value
         
         kmax = 10
         k = 1
@@ -630,7 +648,8 @@ class PortalTruss(Raami):
                     max_utility = columns['utility']
                     b_min = columns['bmin']
                     
-                group.optimum_design(prof_type,verb,material,sec_class,max_utility,b_min)
+                group.optimum_design(prof_type,verb,material,sec_class,max_utility,b_min,
+                                     max_slenderness=max_slenderness)
                 
                 for mem in group.members:
                     explored.append(mem)
@@ -654,7 +673,8 @@ class PortalTruss(Raami):
                         sec_class = 2
                         max_utility = 1.0
                         
-                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class,max_utility,bmax=b_brace_max))
+                    MEM_PROFILES_CHANGED.append(member.optimum_design(prof_type,verb,material,sec_class,max_utility,
+                                                                      bmax=b_brace_max,max_slenderness=max_slenderness))
                                         
                     if not member.symmetry_pair is None:
                         explored.append(member.symmetry_pair)
@@ -667,6 +687,7 @@ class PortalTruss(Raami):
             else:
                 # Update nodal positions of FEM nodes at joints
                 self.update_fem_joint_nodes()
+                self.fem.draw()
             k += 1
         
         # Update nodal positions of FEM nodes at joints

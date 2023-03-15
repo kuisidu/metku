@@ -551,9 +551,9 @@ class SlopedTruss(PlaneTruss):
             
         
     def generate_topology(self,topology='K',ndiv=4, 
-                          top_chord_profile = SHS(160,5),
-                          bottom_chord_profile = SHS(140,5),
-                          brace_profile = SHS(90,5),
+                          top_chord_profile = RHS(160,160,5),
+                          bottom_chord_profile = RHS(140,140,5),
+                          brace_profile = RHS(90,90,5),
                           first_diagonal_up=False,
                           edge_verticals=True,
                           nel_chord=4,
@@ -1597,7 +1597,7 @@ class SlopedTruss(PlaneTruss):
     
             # Plot members
             plt.rcParams['text.color'] = "red"
-            plt.rcParams['font.size'] = 12.5
+            plt.rcParams['font.size'] = 2.5
             for mem in self.top_chord:
                 mem.plot(print_text, color, ax, mem_dim=True)
             
