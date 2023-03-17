@@ -622,10 +622,7 @@ class PortalTruss(Raami):
     def plot(self,print_text=True, show=True,
              loads=True, color=False, axes=None, save=False, mem_dim=False, geometry=False,
              saveopts={'filename':'PortalTruss','format':'svg','orientation':'landscape', 'papertype':'a3'}):
-        
-        
-        print(save)
-        
+                
         if axes is None:
             fig, ax = plt.subplots(1)
         else:
