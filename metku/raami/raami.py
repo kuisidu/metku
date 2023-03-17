@@ -290,8 +290,19 @@ class Raami:
         if str(load_id).upper() == 'ALL':
             #print("Calculate all cases")
             #lcase_ids = self.load_cases.keys()
-            for lid in self.load_cases.keys():                
-                self.structural_analysis(load_id=lid, support_method=support_method)
+            load_ids = []
+            for lid in self.load_cases.keys():         
+                load_ids.append(lid)
+            
+            #self.structural_analysis(load_id=load_ids, support_method=support_method)
+            self.fem.linear_statics(lcase=load_ids, support_method=support_method)
+            
+            for lid in load_ids:
+                self.calc_nodal_forces(lid)
+                
+                # Do member design
+                if design:
+                    self.design_members(lid) 
         else:
             #print('Calculate case:' + str(load_id))            
             self.fem.linear_statics(support_method=support_method,lcase=load_id)

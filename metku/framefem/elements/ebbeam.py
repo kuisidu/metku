@@ -55,7 +55,7 @@ class EBBeam(Element):
         self.Krel = {'K11':None, 'K12':None, 'K21':None, 'K22':None}
 
 
-    def transformation_matrix(self):
+    def transformation_matrix(self,initial=True):
         """ Calculates transformation matrix from local to global coordinates
             Chandrupatla 3rd. Edition, p. 249
             Returns:
@@ -64,7 +64,7 @@ class EBBeam(Element):
             :rtype: np.array
 
          """
-        c = self.direction_cosines()
+        c = self.direction_cosines(initial)
         L = np.zeros((6, 6))
         L[0, 0:2] = c[0:2]
         L[1, 0] = -L[0, 1]
@@ -173,7 +173,7 @@ class EBBeam(Element):
 
         return k0
 
-    def stiffness_matrix(self):
+    def stiffness_matrix(self,initial=True):
         """ Computes element's global stiffness matrix
 
             Returns:
@@ -185,20 +185,20 @@ class EBBeam(Element):
         E = self.material.young
         A = self.section.A
         I1 = self.section.I[0]
-        Le = self.length()
+        Le = self.length(initial)
         k0 = self.local_stiffness_matrix(E, A, I1, Le)
 
         # k0 = CheckReleases[fem.elem[N],k0];
 
         # local-global matrix
-        L = self.transformation_matrix()
+        L = self.transformation_matrix(initial)
 
         # globaali elementin matriisi
         ke = L.transpose().dot(k0.dot(L))
 
         return ke
 
-    def local_geometric_stiffness_matrix(self,lcase=0):
+    def local_geometric_stiffness_matrix(self,lcase=0,initial=True):
         """ Geometric stiffness matrix in local coordinates
             source: Cook et. al 1989, Section 14.2
 
@@ -210,7 +210,7 @@ class EBBeam(Element):
         """
         #P = self.axial_force[1]
         P = self.fint[lcase]['fx'][1]
-        Le = self.length()
+        Le = self.length(initial)
 
         g0 = P / 30 / Le
         keg0 = g0 * np.array([[36, 3 * Le, -36, 3 * Le],
@@ -223,7 +223,7 @@ class EBBeam(Element):
 
         return kg0
 
-    def geometric_stiffness_matrix(self,lcase=0):
+    def geometric_stiffness_matrix(self,lcase=0,initial=True):
         """ Geometric stiffness matrix in global coordinates \n
             From: Cook et. al (1989), Section 14.2
 
@@ -235,9 +235,9 @@ class EBBeam(Element):
         """
 
         # local-global transformation matrix
-        L = self.transformation_matrix()
+        L = self.transformation_matrix(initial)
 
-        kG0 = self.local_geometric_stiffness_matrix(lcase)
+        kG0 = self.local_geometric_stiffness_matrix(lcase,initial)
 
         kG = L.transpose().dot(kG0.dot(L))
 
@@ -357,7 +357,7 @@ class EBBeam(Element):
         return k
 
 
-    def equivalent_nodal_loads(self, load, order=1):
+    def equivalent_nodal_loads(self, load, order=1, initial=True):
         """ Equivalent nodal loads for a load 
         
             'load' is a Load type object. By default, it is assumed that
@@ -370,14 +370,14 @@ class EBBeam(Element):
         """
         floc = np.zeros(6)
 
-        T = self.transformation_matrix()
-        L = self.length()
+        T = self.transformation_matrix(initial)
+        L = self.length(initial)
         
         #print(isinstance(load,LineLoad))
         
         if isinstance(load,LineLoad):            
-            q1 = load.qval[0]
-            q2 = load.qval[1]
+            q1 = load.f*load.qval[0]
+            q2 = load.f*load.qval[1]
             #print(q1,q2)
             if load.coords == 'local':
                 #print('local coordinates')
@@ -423,7 +423,7 @@ class EBBeam(Element):
                     #q = np.array([0, q1, 0])
                     q = np.array([0, 1, 0])
                 # Load vector transformed into element local coordinate system
-                qloc = T[:3, :3].dot(q)
+                qloc = load.f*T[:3, :3].dot(q)
                                 
                 if order == 1:
                     """ Loads perpendicular to the axis of the element """
@@ -537,7 +537,7 @@ class EBBeam(Element):
 
         return N
 
-    def internal_forces(self,lcase=0):
+    def internal_forces(self,lcase=0,initial=True):
         """ Calculate internal forces
             NOTE: these internal forces do not take
             loads along the element into account!
@@ -554,7 +554,7 @@ class EBBeam(Element):
         E = self.material.young
         A = self.section.A
         I1 = self.section.I[0]
-        Le = self.length()
+        Le = self.length(initial)
         ke = self.local_stiffness_matrix(E, A, I1, Le)
 
         try:            

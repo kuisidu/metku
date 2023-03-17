@@ -29,7 +29,7 @@ class Rod(Element):
         self.dim = len(n1.coord)
         self.L = self.transformation_matrix()
 
-    def transformation_matrix(self):
+    def transformation_matrix(self,initial=True):
         """ From local to global coordinates """
         c = self.direction_cosines()
         #c = self.dcos
@@ -141,7 +141,7 @@ class Rod(Element):
         return fglob
 
 
-    def internal_forces(self, lcase=0):
+    def internal_forces(self, lcase=0, initial=True):
         """ Calculates internal forces (axial force)
         """
         q = self.local_displacements(lcase)
@@ -153,7 +153,7 @@ class Rod(Element):
         self.fint[lcase]['fx'][1] = self.fint[lcase]['fx'][0]
 
 
-    def nodal_displacements(self,lcase=0):
+    def nodal_displacements(self,lcase=0, order=1):
         """ Get nodal displacements of an element
             Requires previously performed structural analysis such
             that nodal displacements are available.

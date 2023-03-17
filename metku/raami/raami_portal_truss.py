@@ -164,6 +164,8 @@ class PortalTruss(Raami):
                 self.add(MultiSpanSteelMember([self.nodes[1],self.truss.bottom_nodes[-1],self.truss.top_nodes[-1]],profile,
                                                           mem_type='column',nel=nel,hinges=hinges,lcr=lcr,sway=True))
             else:
+                if isinstance(nel,list):
+                    nel = sum(nel)
                 self.add(SteelFrameMember([self.nodes[0],self.truss.top_nodes[0]],profile,
                                                       mem_type='column',nel=nel,hinges=hinges,lcr=lcr,sway=True))
             
@@ -185,7 +187,7 @@ class PortalTruss(Raami):
                 dx2 = kwargs['dx']
             except:
                 dx1 = 1500
-                dx2 = 1500
+                dx2 = 1500            
         else:
             # Non-simple truss means that the bottom chord is connected to the column
             dx1 = 0
@@ -208,6 +210,7 @@ class PortalTruss(Raami):
         
         if dx1 == 0:
             self.bottom_chord_to_column = True
+                
         
         self.truss = SlopedTruss(L1=0.5*self.L,L2=0.5*self.L,dx1=dx1,dx2=dx2,**kwargs)
         
@@ -249,8 +252,8 @@ class PortalTruss(Raami):
         """
         
         for col, ndx, left in zip(self.columns,[0,-1],[True,False]):
-            # Top chord joints
-            newJoint = Truss2ColumnJoint(col.nodes[2],self.truss.top_chord[ndx],col,left)
+            # Top chord joints            
+            newJoint = Truss2ColumnJoint(col.nodes[-1],self.truss.top_chord[ndx],col,left)
             self.column_joints.append(newJoint)
             
             # Make hinge to the top chord member
@@ -265,17 +268,17 @@ class PortalTruss(Raami):
                 # at the Y joint of the chord.
                 for joint in newJoint.chord.joints:
                     if isinstance(joint,TubularYJoint):
-                        newCoord = copy(joint.node.coords)
+                        newCoord = np.array(copy(joint.node.coords))
                         D = 0.5*newJoint.hc*abs(np.cos(newJoint.chord.angle)) + newJoint.gap
-                        if left:
-                            newCoord += D*newJoint.chord.dir_vector
+                        if left:                            
+                            newCoord = newCoord + D*newJoint.chord.dir_vector
                         else:
-                            newCoord -= D*newJoint.chord.dir_vector
+                            newCoord = newCoord - D*newJoint.chord.dir_vector
                                                 
                         newNode = FrameNode(newCoord)                    
                         self.add(newNode)
                         joint.node = newNode
-            
+                                    
             if self.bottom_chord_to_column:
                 newJoint = Truss2ColumnJoint(col.nodes[1],self.truss.bottom_chord[ndx],col,left)
                 self.column_joints.append(newJoint)
@@ -317,6 +320,7 @@ class PortalTruss(Raami):
         """ Creates supports to the truss """
         
         if col_base == 'fixed':
+            print(self.nodes[0],self.nodes[1])
             self.add(FixedSupport(self.nodes[0]))
             self.add(FixedSupport(self.nodes[1]))
 
@@ -397,9 +401,71 @@ class PortalTruss(Raami):
             
             #self.fem.draw()
         else:
-            # In this case, the bottom chord is not connected to the column
-            pass
+            # In this case, the bottom chord is not connected to the column            
+            # First, generate columns                       
+            for col in self.columns:
+                for node in col.nodes:
+                    if self.dim == 2:
+                        newNode = self.fem.add_node(node.x,node.y)
+                    else:
+                        newNode = self.fem.add_node(node.x,node.y,node.z)
+                    
+                    node.fem_node = newNode
             
+            for member in self.columns:            
+                member.generate_elements(self.fem)
+            
+            # Generate eccentricity elements, if any
+            if column_eccentricity:
+                for joint in self.column_joints:
+                    if joint.left:
+                        dx = 0.5*joint.hc
+                    else:
+                        dx = -0.5*joint.hc
+                    
+                    dy = 0.5*joint.hc*abs(np.tan(joint.chord.angle))
+                    newNode = self.fem.add_node(joint.node.x+dx,joint.node.y+dy)
+                                        
+                    joint.fem_nodes['xc'] = newNode
+                    
+                    n1 = joint.node.fem_node
+                    n2 = joint.fem_nodes['xc']
+                    cs = IPE(500)
+                                 
+                    newElement = EBBeam(n1,n2,cs,cs.material)                    
+                    
+                    # Add hinge to the end of the member
+                    #newElement.releases = [5]
+                    
+                    self.fem.add_element(newElement)
+                    joint.fem_elements = newElement
+            
+            # Then, generate truss, including loads on trusses
+            self.truss.generate_fem("ecc_elements",nodes_and_elements_only=False)
+            
+            #self.truss.top_chord[0].fem_elements[-1].releases = [5]
+            #self.truss.top_chord[-1].fem_elements[-1].releases = [5]
+            
+            # Finally, connect the top chords to the eccentricity elements                
+            n1 = self.column_joints[0].fem_nodes['xc']
+            n2 = self.column_joints[0].chord.joints[0].fem_nodes['xc']                
+            cs = self.column_joints[0].chord.cross_section
+            newElement = EBBeam(n2,n1,cs,cs.material)                
+            self.fem.add_element(newElement)
+            self.column_joints[0].chord.fem_elements.insert(0,newElement)
+            
+            self.column_joints[0].chord.fem_elements[0].releases = [2]                
+            
+            n2 = self.column_joints[1].fem_nodes['xc']
+            n1 = self.column_joints[1].chord.joints[1].fem_nodes['xc']
+            cs = self.column_joints[1].chord.cross_section
+            newElement = EBBeam(n2,n1,cs,cs.material)                
+            self.fem.add_element(newElement)
+            self.column_joints[1].chord.fem_elements.append(newElement)
+        
+            self.column_joints[1].chord.fem_elements[-1].releases = [5]
+        
+        #self.fem.draw()
         
         # Generate loads
         for load in self.loads.values():
@@ -465,12 +531,26 @@ class PortalTruss(Raami):
         for joint in self.column_joints:
             if joint.left:
                 dx = 0.5*joint.hc
+                dg = joint.gap
             else:
                 dx = -0.5*joint.hc
+                dg = -joint.gap
+                
             
+            dgy = joint.gap*abs(np.tan(joint.chord.angle))
             dy = 0.5*joint.hc*abs(np.tan(joint.chord.angle))
             joint.fem_nodes['xc'].x = joint.node.x+dx
-            joint.fem_nodes['xc'].y = joint.node.y+dy   
+            joint.fem_nodes['xc'].y = joint.node.y+dy
+            
+            for mem in joint.node.members:
+                # Update the location of the brace node close to the column
+                if isinstance(mem,TrussBrace):
+                    if isinstance(mem.top_joint,TubularYJoint):                        
+                        mem.top_joint.node.x = joint.node.x+dx+dg
+                        mem.top_joint.node.y = joint.node.y+dy+dgy
+                    elif isinstance(mem.bottom_joint,TubularYJoint):
+                        mem.bottom_joint.node.x = joint.node.x+dx+dg
+                        mem.bottom_joint.node.y = joint.node.y+dy+dgy
 
     
         # Update truss joints FEM nodes
@@ -594,7 +674,7 @@ class PortalTruss(Raami):
         top = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':10, 'bmax':1e5}
         bottom = {'material': 'S355', 'class': 2, 'utility': 1.0,'bmin':10, 'bmax':1e5}
         braces = {'material': 'S355', 'class': 2, 'utility_tens': 1.0, 'utility_comp':1.0, 'bmin':10, 'bmax':1e5}
-        columns = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':150, 'bmax':1e5} 
+        columns = {'material': 'S355', 'class': 2, 'utility': 1.0, 'bmin':10, 'bmax':1e5} 
         
         max_slenderness = 5.0
         
@@ -647,7 +727,10 @@ class PortalTruss(Raami):
                     sec_class = columns['class']
                     max_utility = columns['utility']
                     b_min = columns['bmin']
-                    
+                    print(f"Column minimum width: {b_min:4.2f} mm")
+                
+                print('Optimize ' + name)
+                
                 group.optimum_design(prof_type,verb,material,sec_class,max_utility,b_min,
                                      max_slenderness=max_slenderness)
                 
@@ -687,7 +770,7 @@ class PortalTruss(Raami):
             else:
                 # Update nodal positions of FEM nodes at joints
                 self.update_fem_joint_nodes()
-                self.fem.draw()
+                #self.fem.draw()
             k += 1
         
         # Update nodal positions of FEM nodes at joints

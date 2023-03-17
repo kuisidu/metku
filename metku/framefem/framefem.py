@@ -560,10 +560,24 @@ class FrameFEM:
         #start = time.time()
         K = self.global_stiffness_matrix()
         
+        if not isinstance(lcase,list):
+            lcase = [lcase]
+        
         #print(lcase)
         #print(self.loadcases)
-        load_id = self.loadcases[lcase].load        
-        p = self.global_load_vector(load_id)
+        
+        #load_id = self.loadcases[lcase].load        
+        
+        
+        load_ids = []
+        # Loads is a matrix whose columns are load vectors in
+        # the different load cases to be analysed
+        loads = []
+        for lc in lcase:
+            load_ids.append(self.loadcases[lc].load)
+            loads.append(self.global_load_vector(load_ids[-1]))
+        
+        #p = self.global_load_vector(load_id)
         
        
         #print(p)
@@ -576,7 +590,10 @@ class FrameFEM:
             elements of the load vector corresponding to the supported
             DOFs are zeroed.
         """
-        supp_id = self.loadcases[lcase].support
+        
+        # If there are several load cases, it is assumed that all of them
+        # have the same support conditions.
+        supp_id = self.loadcases[lcase[0]].support
         
         rem_dofs = []
         """ Vector of global unsupported dofs """
@@ -596,7 +613,8 @@ class FrameFEM:
                             K[i,:] = 0
                             K[:,i] = 0
                             K[i,i] = 1
-                            p[i] = 0
+                            for p in loads:
+                                p[i] = 0
                         elif support_method == 'REM':
                             rem_dofs.append(i)
         
@@ -608,16 +626,18 @@ class FrameFEM:
             
             K = np.delete(K,rem_dofs,0)
             K = np.delete(K,rem_dofs,1)
-            p = np.delete(p,rem_dofs)
+            LOADS = [np.delete(p,rem_dofs) for p in loads]
+            #for p in loads:
+            #    p = np.delete(p,rem_dofs)            
+            
             self.glob_dofs = np.delete(self.glob_dofs,rem_dofs)
             
             #print(rem_dofs)
             #print(K)
             #print(p)
             self.K = K
-            self.p = p
+            self.p = np.column_stack(LOADS)
             #print(glob_dofs)
-            
                         
         """ Solve global displacement vector """
 
@@ -627,7 +647,7 @@ class FrameFEM:
         # print(f'K shape {K.shape}')
         # print(f'K {K}')
         # print(f'p {p}')
-        u = np.linalg.solve(K, p)
+        u = np.linalg.solve(K, self.p)
         self.u = u
         #print(u)
 
@@ -650,17 +670,19 @@ class FrameFEM:
             node.u[free_dofs] = u[dofs[free_dofs]]
             """
         elif support_method == 'REM':
-            for ui, d in zip(u,self.glob_dofs):                
-                for node in self.nodes:
-                    try:
-                        #node.u[lcase][node.dofs.index(d)] = np.array(ui)
-                        node.u[lcase][np.where(node.dofs==d)] = np.array(ui)
-                    except ValueError:
-                        pass
+            for i, lc in enumerate(lcase):                
+                for ui, d in zip(u[:,i],self.glob_dofs):                
+                    for node in self.nodes:
+                        try:
+                            #node.u[lcase][node.dofs.index(d)] = np.array(ui)
+                            node.u[lc][np.where(node.dofs==d)] = np.array(ui)
+                        except ValueError:
+                            pass
                                     
         """ Calculate element internal forces """
-        for i, el in enumerate(self.elements):            
-            el.internal_forces(lcase=lcase)
+        for i, el in enumerate(self.elements):     
+            for lc in lcase:
+                el.internal_forces(lcase=lc)
         #end = time.time()
         # print("FRAMEFEM TIME: ", end - start)
         return u, K
@@ -734,6 +756,43 @@ class FrameFEM:
         """ Calculate element internal forces """
         for i, el in enumerate(self.elements):            
             el.second_order_internal_forces(lcase=lcase)
+
+    def second_order_elastic(self,lcase=0,ninc=10):
+        """ Second order iterative elastic analysis """
+                
+        def tangent_stiffness(fem,lcase):
+            """ Evaluate tangent stiffness matrix """
+            u, Ke = fem.linear_statics(lcase,support_method="REM")
+            Kg = fem.global_geometric_stiffness_matrix(lcase)
+            Kg = np.delete(Kg,fem.supp_dofs,0)
+            Kg = np.delete(Kg,fem.supp_dofs,1)
+            
+            return Ke+Kg
+        
+        def set_load_increment(fem,lcase,f):
+            for load in fem.loads:
+                if load.sid == lcase:
+                    load.f = f
+                    
+        def update_nodal_coordinates(fem,lcase):
+            for node in fem.nodes:
+                node.X[:2] += node.u[lcase][:2]
+        
+        p = self.global_load_vector(lcase)
+        p = np.delete(p,self.supp_dofs)
+        d = 1/ninc
+        dp = d*p
+        du = np.zeros((ninc,self.nfree_dofs))
+        print(du.shape)
+        for i in range(ninc):            
+            set_load_increment(self,lcase,i*d)
+            Kt = tangent_stiffness(self,lcase)            
+            du[i,:] = np.linalg.solve(Kt, dp)
+            update_nodal_coordinates(self,lcase)
+        
+        print(du)
+        
+            
 
     def linear_buckling(self, lcase=0, k=4):
         """ Perform linear buckling analysis for a given load case
@@ -1170,8 +1229,10 @@ class Load:
     """
 
     def __init__(self, sid):
-        self.sid = sid
-        """ load id """
+        self.sid = sid # Load id
+        
+        self.f = 1.0 # scaling factor
+        
 
     @abstractclassmethod
     def load_and_dofs(self):
@@ -1310,9 +1371,9 @@ class LineLoad(Load):
 
         # Get load vector
         if self.dir == "x":
-            q = np.array([self.qval[0], 0, 0])
+            q = np.array([self.f*self.qval[0], 0, 0])
         else:
-            q = np.array([0, self.qval[0], 0])
+            q = np.array([0, self.f*self.qval[0], 0])
 
         # Get equivalent nodal loads   
         if isinstance(self.elem,list):
@@ -1408,6 +1469,7 @@ class FEMNode:
         """ Nodal coordinates"""
         if z is not None:
             self.coord = np.array([x, y, z])
+            self.X = np.array([x, y, z])
             # Degrees of freedom (integer values)
             #self.dofs = [0, 0, 0, 0, 0, 0]
             self.dofs = -np.ones(6)
@@ -1416,11 +1478,12 @@ class FEMNode:
             self.v = np.array([0, 0, 0, 0, 0, 0])
         else:
             self.coord = np.array([x, y])
+            self.X = np.array([x, y])
             self.dofs = np.array([-1, -1, -1])
             # [Ux, Uy, Uz]
             self.v = np.array([0,0,0])
         
-            
+        
         """ Nodal displacement vector (linear buckling)"""
         # List of FrameMember-type objects that are connected to this node
         self.parents = []
@@ -1528,8 +1591,11 @@ class Element(metaclass=ABCMeta):
         #self.len = self.length()
         #self.dcos = self.direction_cosines()
 
-    def coord(self):
+    def coord(self,initial=True):
         """ Nodal coordinates of the element
+            
+            input: initial .. True, if initial coordinates are given
+                                False, is current coordinates are given.
 
             Returns:
             --------
@@ -1537,10 +1603,13 @@ class Element(metaclass=ABCMeta):
             :rtype: np.array
 
         """
-        X = np.array([self.nodes[0].coord, self.nodes[1].coord])
+        if initial:
+            X = np.array([self.nodes[0].coord, self.nodes[1].coord])
+        else:
+            X = np.array([self.nodes[0].X, self.nodes[1].X])
         return X
     
-    def direction_cosines(self):
+    def direction_cosines(self,initial=True):
         """ Calculates element's direction cosines
 
             Returns:
@@ -1551,9 +1620,9 @@ class Element(metaclass=ABCMeta):
         """
         
         
-        X = self.coord()
+        X = self.coord(initial)
         dX = X[1, :] - X[0, :]
-        L = self.length()
+        L = self.length(initial)
         c = dX / L
         return c
         
@@ -1566,7 +1635,7 @@ class Element(metaclass=ABCMeta):
         """
         pass
 
-    def length(self):
+    def length(self,initial=True):
         """ Member length
 
             Returns:
@@ -1577,7 +1646,7 @@ class Element(metaclass=ABCMeta):
         """
         
         #X = self.__x
-        X = self.coord()
+        X = self.coord(initial)
         L = np.linalg.norm(X[1] - X[0])        
         return round(L, 3)
         #return round(np.linalg.norm(self.x[1]-self.x[0]),3)
@@ -1654,7 +1723,7 @@ class Element(metaclass=ABCMeta):
         
         return q
     
-    def local_displacements(self, lcase=0, order=1):
+    def local_displacements(self, lcase=0, order=1, initial=True):
         """ Nodal displacements in local coordinates
 
             Returns:
@@ -1663,7 +1732,7 @@ class Element(metaclass=ABCMeta):
             :rtype: np.array
 
         """
-        T = self.transformation_matrix()
+        T = self.transformation_matrix(initial)
         q = self.nodal_displacements(lcase,order)
 
         return T.dot(q)
