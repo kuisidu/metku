@@ -888,8 +888,12 @@ class PortalTruss(Raami):
         options.load_elsets['Column_right_load'] = options.elsets['Column_right']
         
         # Define node sets for point loads at column ends
-        options.load_nsets['Column_left_top_node'].append(self.columns[0].members[1].fem_nodes[-1])
-        options.load_nsets['Column_right_top_node'].append(self.columns[1].members[1].fem_nodes[-1])
+        if self.bottom_chord_to_column:
+            options.load_nsets['Column_left_top_node'].append(self.columns[0].members[1].fem_nodes[-1])
+            options.load_nsets['Column_right_top_node'].append(self.columns[1].members[1].fem_nodes[-1])
+        else:
+            options.load_nsets['Column_left_top_node'].append(self.columns[0].fem_nodes[-1])
+            options.load_nsets['Column_right_top_node'].append(self.columns[1].fem_nodes[-1])
         
         # Determine elsets for wind zones F/G, H, and I
         e = 2*self.ridge_height()

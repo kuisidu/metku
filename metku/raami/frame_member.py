@@ -1154,14 +1154,13 @@ class SteelFrameMember(FrameMember):
                     self.symmetry_pair.design(load_id)
                 
                             
-            if all(r<=max_utility for r in self.utilization.values()):# <= 1.0:
-                break
-            
-            # Check also symmetry pair, if it exists
-            if not self.symmetry_pair is None:
-                if all(r<=max_utility for r in self.symmetry_pair.utilization.values()):# <= 1.0:
-                    break    
-            
+            if all(r<=max_utility for r in self.utilization.values()):# <= 1.0:                            
+                # Check also symmetry pair, if it exists
+                if not self.symmetry_pair is None:
+                    if all(r<=max_utility for r in self.symmetry_pair.utilization.values()):# <= 1.0:                        
+                        break
+                else:
+                    break
         
         """ If the profile changed during iteration, return 'True'. """
         if not self.is_section(initial_profile):

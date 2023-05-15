@@ -301,7 +301,7 @@ class SteelSection(metaclass=ABCMeta):
 
     @property
     def MRd(self):
-        M, C = self.bending_resistance(axis="y")
+        M, C = self.bending_resistance()
         return M
 
         """

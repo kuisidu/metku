@@ -61,10 +61,95 @@ ext_pressure_roof_sharp_eaves = {"F": {"cpe10":-1.8, "cpe1":-2.5},
 
 """ EN 1991-1-4, Table 7.3a """
 # TODO!
-ext_pressure_monopitch_roof = {"F": {"cpe10":-1.8, "cpe1":-2.5},
-                            "G": {"cpe10":-1.2, "cpe1":-2.0},
-                            "H": {"cpe10":-0.7, "cpe1":-1.2},
-                            "I": {"cpe10":[0.2,-0.2], "cpe1":[0.2,-0.2]}}                      
+ext_pressure_monopitch_roof = {0: {5: {"F": {"cpe10":-1.8, "cpe1":-2.5},
+                                       "G": {"cpe10":-1.2, "cpe1":-2.0},
+                                       "H": {"cpe10":-0.7, "cpe1":-1.2},
+                                       "I": {"cpe10":[0.2,-0.2], "cpe1":[0.2,-0.2]}} }}
+
+
+class ExternalPressureMonoRoof:
+    
+    def __init__(self,wind_direction=0,angle=5.0):
+        
+        if angle >= 75:
+            if wind_direction == 0:
+                self.F = {'cpe10': 0.8, 'cpe1':0.8} 
+                self.G = {'cpe10': 0.8, 'cpe1':0.8} 
+                self.H = {'cpe10': 0.8, 'cpe1':0.8} 
+            elif wind_direction == 180:
+                self.F = {'cpe10': -0.5, 'cpe1':-1.0} 
+                self.G = {'cpe10': -0.5, 'cpe1':-0.5}
+                self.H = {'cpe10': -0.5, 'cpe1':-0.5}
+        elif angle >= 60:
+            if wind_direction == 0:
+                c = interpolate([60,75],[0.7,0.8],angle)
+                self.F = {'cpe10': c, 'cpe1':c} 
+                self.G = {'cpe10': c, 'cpe1':c} 
+                self.H = {'cpe10': c, 'cpe1':c} 
+            elif wind_direction == 180:
+                self.F = {'cpe10': -0.5, 'cpe1':-1.0} 
+                self.G = {'cpe10': -0.5, 'cpe1':-0.5}
+                self.H = {'cpe10': -0.5, 'cpe1':-0.5}
+        elif angle >= 45:
+            if wind_direction == 0:
+                c = interpolate([45,60],[0.6,0.7],angle)
+                self.F = {'cpe10': [0,0.7], 'cpe1':[0,0.7]} 
+                self.G = {'cpe10': [0,0.7], 'cpe1':[0,0.7]} 
+                self.H = {'cpe10': [0,c], 'cpe1':[0,c]} 
+            elif wind_direction == 180:
+                self.F = {'cpe10': interpolate([45,60],[-0.6,-0.5],angle), 'cpe1':interpolate([45,60],[-1.3,-1.0],angle)} 
+                self.G = {'cpe10': -0.5, 'cpe1':-0.5}
+                c = interpolate([45,60],[-0.7,-0.5],angle)
+                self.H = {'cpe10': c, 'cpe1':c}
+        elif angle >= 30:
+            if wind_direction == 0:
+                cneg10 = interpolate([30,45],[-0.5,0.0],angle)
+                cneg1 = interpolate([30,45],[-1.5,0.0],angle)
+                self.F = {'cpe10': [cneg10,0.7], 'cpe1':[cneg1,0.7]} 
+                self.G = {'cpe10': [cneg10,0.7], 'cpe1':[cneg1,0.7]} 
+                cpos = interpolate([30,45],[0.4,0.6],angle)
+                cneg = interpolate([30,45],[-0.2,0.0],angle)
+                self.H = {'cpe10': [cneg,cpos], 'cpe1':[cneg,cpos]} 
+            elif wind_direction == 180:
+                self.F = {'cpe10': interpolate([30,45],[-1.1,-0.6],angle), 'cpe1':interpolate([30,45],[-2.3,-1.3],angle)} 
+                self.G = {'cpe10': interpolate([30,45],[-0.8,-0.5],angle), 'cpe1':interpolate([30,45],[-1.5,-0.5],angle)}
+                c = interpolate([30,45],[-0.8,-0.7],angle)
+                self.H = {'cpe10': c, 'cpe1':c}
+        elif angle >= 15:
+            if wind_direction == 0:
+                cneg10 = interpolate([15,30],[-0.9,-0.5],angle)
+                cneg1 = interpolate([15,30],[-2.0,-1.5],angle)
+                cpos = interpolate([15,30],[0.2,0.7],angle)
+                self.F = {'cpe10': [cneg10,cpos], 'cpe1':[cneg1,cpos]} 
+                cneg10 = interpolate([15,30],[-0.8,-0.5],angle)
+                self.G = {'cpe10': [cneg10,cpos], 'cpe1':[-1.5,cpos]} 
+                cpos = interpolate([15,30],[0.2,0.4],angle)
+                cneg = interpolate([15,30],[-0.3,-0.2],angle)
+                self.H = {'cpe10': [cneg,cpos], 'cpe1':[cneg,cpos]} 
+            elif wind_direction == 180:
+                self.F = {'cpe10': interpolate([15,30],[-2.5,-1.1],angle), 'cpe1':interpolate([15,30],[-2.8,-2.3],angle)} 
+                self.G = {'cpe10': interpolate([15,30],[-1.3,-0.8],angle), 'cpe1':interpolate([15,30],[-2.0,-1.5],angle)}
+                self.H = {'cpe10': interpolate([15,30],[-0.9,-0.8],angle), 'cpe1':interpolate([15,30],[-1.2,-0.8],angle)}
+        elif angle >= 5:
+            if wind_direction == 0:
+                cneg10 = interpolate([15,30],[-0.9,-0.5],angle)
+                cneg1 = interpolate([15,30],[-2.0,-1.5],angle)
+                cpos = interpolate([15,30],[0.2,0.7],angle)
+                self.F = {'cpe10': [cneg10,cpos], 'cpe1':[cneg1,cpos]} 
+                cneg10 = interpolate([15,30],[-0.8,-0.5],angle)
+                self.G = {'cpe10': [cneg10,cpos], 'cpe1':[-1.5,cpos]} 
+                cpos = interpolate([15,30],[0.2,0.4],angle)
+                cneg = interpolate([15,30],[-0.3,-0.2],angle)
+                self.H = {'cpe10': [cneg,cpos], 'cpe1':[cneg,cpos]} 
+            elif wind_direction == 180:
+                self.F = {'cpe10': interpolate([5,15],[-2.3,-2.5],angle), 'cpe1':interpolate([5,15],[-2.5,-2.8],angle)} 
+                self.G = {'cpe10': -1.3, 'cpe1':-2.0}
+                self.H = {'cpe10': interpolate([5,15],[-0.8,-0.9],angle), 'cpe1':-1.2}
+                
+                
+            self.Fup = 0.0
+            self.Flow = 0.0
+            self.I = 0.0
 
 
 def basic_wind_velocity(vb0=21.0,cdir=1.0,cseason=1.0):
@@ -254,6 +339,13 @@ def monopitch_roof_pressure(length,width,h,qp,wind_angle=180,alpha=5):
         b = width
         d = length
     
+    if wind_angle == 0:
+        wind_dir = 'low eave'
+    elif wind_angle == 180:
+        wind_dir = 'high eave'
+    else:
+        wind_dir = 'short'
+    
     e = min(b,2*h)
     
     """ Define a dict for the wind pressures in the various
@@ -283,37 +375,11 @@ def monopitch_roof_pressure(length,width,h,qp,wind_angle=180,alpha=5):
     print("d = {0:4.2f} m".format(d))
     print("h = {0:4.2f} m".format(h))
     print("e = {0:4.2f} m".format(e))
-    print("h/d = {0:4.2f} m".format(hd_ratio))
     
-    if A > 10:
-        zones["A"]['cpe'] = ext_pressure_walls["A"][5]["cpe10"]
-        zones["B"]['cpe'] = ext_pressure_walls["B"][5]["cpe10"]
-        zones["C"]['cpe'] = ext_pressure_walls["C"][5]["cpe10"]
-
-        if hd_ratio >= 5:
-            zones["D"]['cpe'] = ext_pressure_walls["D"][5]["cpe10"]
-            zones["E"]['cpe'] = ext_pressure_walls["E"][5]["cpe10"]
-        elif hd_ratio >= 1:
-            """ Linear interpolation for E """
-            zones["D"]['cpe'] = ext_pressure_walls["D"][1]["cpe10"]
-            Y = [ext_pressure_walls["E"][1]["cpe10"],
-                 ext_pressure_walls["E"][5]["cpe10"]]
-            X = [1,5]            
-            zones["E"]['cpe'] = interpolate(X,Y,hd_ratio)
-        elif hd_ratio >= 0.25:
-            """ Linear interpolation for D and E """            
-            X = [0.25,1]                        
-            YD = [ext_pressure_walls["D"][0.25]["cpe10"],
-                 ext_pressure_walls["D"][1]["cpe10"]]            
-            YE = [ext_pressure_walls["E"][0.25]["cpe10"],
-                 ext_pressure_walls["E"][1]["cpe10"]]            
-            zones["D"]['cpe'] = interpolate(X,YD,hd_ratio)
-            zones["E"]['cpe'] = interpolate(X,YE,hd_ratio)
-            
-            #zones["E"]['cpe'] = ext_pressure_walls["E"][1]["cpe10"]
-        else:
-            zones["D"]['cpe'] = ext_pressure_walls["D"][0.25]["cpe10"]
-            zones["E"]['cpe'] = ext_pressure_walls["E"][0.25]["cpe10"]
+    
+    ep = ExternalPressureMonoRoof(wind_angle,alpha)
+    
+   
 
     for key, value in zones.items():
         value['we'] = qp*value['cpe']

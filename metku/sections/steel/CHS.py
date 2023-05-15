@@ -76,24 +76,44 @@ class CHS(SteelSection):
         Iv = Iv2-Iv1
         return Iv
 
-    def web_class_bend(self):
+    def web_class_bend(self, verb=False):
         r = self.D/self.T
         cWeb = en1993_1_1.CHS_class(r,self.eps)
         return cWeb
 
-    def web_class_comp(self):
+    def web_class_comp(self, verb=False):
         r = self.D/self.T
         cWeb = en1993_1_1.CHS_class(r,self.eps)
         return cWeb
         
-    def web_class_comp_bend(self):
+    def web_class_comp_bend(self, verb=False):
         r = self.D/self.T
         cWeb = en1993_1_1.CHS_class(r,self.eps)
         return cWeb
 
-    def flange_class(self):
+    def flange_class(self, verb=False):
         return 1
-        
+    
+    def bending_resistance(self, C=0, verb=False):
+        # Bending resistance, Nmm
+        if C == 0:
+            C = self.section_class()
+
+        if C < 3:
+            WRd = self.Wpl
+        elif C == 3:
+            WRd = self.Wel
+        else:
+            raise NotImplementedError(f"Cross-section class 4 not implemented in: {self}")
+            # WRd = self.Wel[n]
+
+        MRd = self.code.bending_resistance(WRd, self.fy)
+
+        if verb:
+            print("MRd = {0:4.2f} kNm".format(MRd * 1e-6))
+
+        return MRd, C
+    
     def MomentAxialForceInteract(self):
         """ This interaction formula is only for plastic design """
         MRd = self.BendingResistance(1);

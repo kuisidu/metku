@@ -26,8 +26,12 @@ import metku.eurocodes.en1992.constants as en1992_const
 from metku.sections.steel.ISection import HEA
 from metku.structures.steel.plates import RectPlate
 from metku.materials.steel_data import Steel
-from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import TStubEndPlate, BoltRow, ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
-from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import ROW_OUTSIDE_BEAM_TENSION_FLANGE, FIRST_ROW_BELOW_BEAM_TENSION_FLANGE, TENSION_ROW, COMPRESSION_ROW, OTHER_INNER_ROW
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import TENSION_ROW, COMPRESSION_ROW, SHEAR_ROW, COMBI_ROW
+from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import TStubEndPlate, BoltRow
+
+ROW_OUTSIDE_COLUMN_FLANGE = "Row outside column flange"
+ROW_INSIDE_COLUMN_FLANGE = "Row inside column flange"
+
 
 # Anchor bolts
     
@@ -64,11 +68,621 @@ class AnchorBolt:
         self.dh = bolt_type["dh"]
         self.k = bolt_type["k"]
         self.material = Steel(bolt_type["material"])
+        
+class AnchorBoltRow:
+    """ Class for anchor bolt rows 
+        
+        Methods and functionality:
+            - compute tension resistance of each component
+            - compute stiffness of each component
+        
+        The components are:
+            - end plate in bending
+            - column flange in bending
+            - column web in tension
+            - beam web in tension
+    
+    """
+    
+    def __init__(self,bolt,p,z,loc=ROW_OUTSIDE_COLUMN_FLANGE,joint=None, row_type=TENSION_ROW):
+        """ Constructor
+            input:
+                bolt .. Bolt class object defining the bolt
+                p .. array of distances between adjacent bolt centroids
+                z .. horizontal position of bolt row (origin is at the centroid of the column section)
+                loc .. position of the row with respect to column flange                
+                joint .. the joint object to which the bolt row belongs
+                row_type .. TENSION_ROW (default)
+        """
+        
+        self.type = row_type
+        self.bolt = bolt
+        #self.p = p
+        self.z = z
+        self.loc = loc        
+        
+        """ Location of bolt row in a group. This varies,
+            if the row belongs to several groups        
+        """
+        self.group_loc_flange = None
+        self.group_loc_plate = None
+        
+        self.joint = joint
+        
+        # Edge distance
+        self._e1 = 0.5*self.joint.column.h+self.joint.etop - z
+        #self.y = y
+        """ p can be a single number, in which case there are two bolts
+            in the row
+            
+            if p is an array, the number of bolts is length of p + 1
+        """
+        if isinstance(p,float) or isinstance(p,int):
+            self.bolts = 2
+        else:
+            self.bolts = len(p)+1
+        
+        """ Initialize effective lengths corresponding to
+            column flange in bending (leff_flange) and
+            end plate in bending (leff_plate), when
+            the row is treated as an individual row
+            
+            first element is for Mode 1 and second for Mode 2
+        """
+        #self.Tstub_col_flange = TStubColumnFlange([bolt,bolt],flange_loc,self.joint.col.material,tf=10,e=20,emin=20,m=10)
+        self.Tstub_col_flange = TStubColumnFlange(self,self.joint.col.material,tf=10,e=20,emin=20,m=10)
+        self.Tstub_end_plate = TStubEndPlate(self,self.joint.end_plate.material,tf=10,emin=20,m=10,e=20,w=20,bp=self.joint.bp)
+        #self.leff_flange = [0.0,0.0]
+        #self.leff_plate = [0.0,0.0]
+        
+        
+        
+        self.FtRd = -1.0
+    
+        # Dictionary of stiffness factors
+        self.stiffness_factors = {"col_web": np.inf,
+                                  "col_flange": np.inf,
+                                  "plate":np.inf,
+                                  "bolt":1.6*self.bolt.As/self.Lb}
+        
+        # List of row groups that contain this row
+        # this list appended when bolt row groups are created.
+        self.groups = []
+    
+        # INITIALIZATION: CALCULATE VARIOUS GEOMETRIC QUANTITIES
+        
+        """ Effective length of column flange """
+        #self._leff_nc_flange = self.Tstub_col_flange.leff_nc()
+        #self._leff_cp_flange = self.Tstub_col_flange.leff_cp()
+        
+        """ Effective length of end plate """
+        #self._leff_nc_flange = self.Tstub_end_plate.leff_nc()
+        #self._leff_cp_flange = self.Tstub_end_plate.leff_cp()
+    
+    def __repr__(self):
+        
+        return "Bolt row"
+    
+    
+    def info(self):
+        """ Prints info """
+        
+        print("Bolt row:")
+        print("Location (flange): {0:s}".format(self.loc_col_flange))
+        print("Location (end plate): {0:s}".format(self.loc_end_plate))
+        
+    @property
+    def bolt_size(self):
+        return self.bolt.d
+    
+    @bolt_size.setter
+    def bolt_size(self,val):
+        self.bolt.size = val
+        
+    @property
+    def z_top(self):
+        """ Distance of the bolt row from the top of the end plate """
+        return self._z_top
+    
+    @z_top.setter
+    def z_top(self,val):
+        """ Distance of the bolt row from the top of the end plate """
+        self._z_top = val
+        self.z = 0.5*self.joint.beam.h+self.joint.etop - val
+        
+    @property
+    def Lb(self):
+        """ Ruuvirivin venymäpituus """
+        return self.joint.tp + self.joint.col.tf + 2*self.bolt.washer_t + 0.5*(self.bolt.head_t + self.bolt.nut_t)
+    
+    @property
+    def h(self):
+       """ Distance from the center of compression of the joint """
+       return self.z-self.joint.zc 
+    
+    @property
+    def emin_flange(self):
+        """ Distance 'emin' used for T-stubs for the component
+            'column flange in bending'
+        """
+        """ If the plate is narrower than column flange,
+            take 'emin' to be the distance to plate edge.
+                
+            Otherwise, use the distance to column flange edge.
+        """
+        if self.joint.bp < self.joint.col.b:
+            emin = self.joint.ebolts
+        else:
+            emin = self.joint.ebolts - 0.5*(self.joint.bp-self.joint.col.b)
+        
+        return emin
+    
+    @property
+    def emin_plate(self):
+        """ Distance 'emin' used for T-stubs for the component
+            'end plate in bending'
+        """
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            """ For the row in the plate extension, use the
+                distance to plate end, ex.
+            """
+            emin = self.ex
+        else:
+            """ If the plate is narrower than column flange,
+                take 'emin' to be the distance to plate edge.
+                
+                Otheriwse, use the distance to column flange edge.
+            """
+            if self.joint.bp < self.joint.col.b:
+                emin = self.joint.ebolts
+            else:
+                emin = self.joint.ebolts - 0.5*(self.joint.bp-self.joint.col.b)
+        
+        return emin
+    
+    @property
+    def ex(self):
+        """ Distance from bolt row center to top edge of the end plate
+        """
+        
+        return 0.5*self.joint.beam.h + self.joint.etop - self.z
+    
+    @property
+    def mx(self):
+        """ Distance from bolt row center to top of the top flange
+            of the beam. This is used for bolt rows outside the
+            beam tension flange.
+        """
+        
+        return self.z - 0.5*self.joint.beam.h - 0.8*math.sqrt(2)*self.joint.weld_f
+    
+    @property
+    def w(self):
+        """ Horizontal distance between bolt holes """
+        return self.joint.p        
+        
+    @property
+    def col_flange_m(self):
+        """ Distance from column web to bolt hole center """
+        
+        return 0.5*(self.w-self.joint.col.tw)-0.8*self.joint.col.r
+    
+    @property
+    def col_flange_e(self):
+        """ Distance of column flange edge from the bolt hole center """
+        if self.joint.bp < self.joint.col.b:
+            e = self.joint.ebolts + 0.5*(self.joint.col.b-self.joint.bp)
+        else:
+            e = self.joint.ebolts - 0.5*(self.joint.bp-self.joint.col.b)
+        
+        return e
+    
+    @property
+    def end_plate_m(self):
+        """ Distance from beam web to bolt hole center """
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            m = self.mx
+        else:
+            m = 0.5*(self.w-self.joint.beam.tw)-0.8*math.sqrt(2)*self.joint.weld_w 
+        return m
+    
+    @property
+    def end_plate_m2(self):
+        """ Distance from beam flange to bolt hole center """
+        
+        return 0.5*self.joint.beam.h-self.joint.beam.tf-0.8*math.sqrt(2)*self.joint.weld_f-self.z
+    
+    @property
+    def end_plate_e(self):
+        """ Distance of end plate edge from the bolt hole center """
+        
+        return self.joint.ebolts
+    
+    @property
+    def top_flange_stiffener_m2(self):
+        """ Distance of bolt row from top flange stiffener """
+        zbeam = 0.5*self.joint.beam.h
+        if self.z > zbeam:
+            """ Row is above the stiffener """
+            zweld = zbeam - 0.5 * self.joint.beam.tf + \
+                    + 0.5 * self.joint.stiffeners['col_top_flange'].khp + \
+                    + 0.8 * math.sqrt(2) * self.joint.stiffeners['col_top_flange'].weld_size
+            return self.z-zweld
+        else:
+            """ Row is below the stiffener """
+            zweld = zbeam - 0.5 * self.joint.beam.tf + \
+                    - 0.5 * self.joint.stiffeners['col_top_flange'].khp + \
+                    - 0.8 * math.sqrt(2) * self.joint.stiffeners['col_top_flange'].weld_size
+            
+            return zweld-self.z
+    
+    def leff_flange(self):
+        """ Effective length of column flange in bending component """
+        return self.Tstub_col_flange.leff()
+    
+    def leff_plate(self):
+        """ Effective length of end plate in bending component """
+        return self.Tstub_end_plate.leff()
+    
+    def leff_flange_group(self):
+        """ Effective length of column flange in bending for the row
+            when considered to be in a group
+            
+            IDEA:
+                for all groups that have the row:
+                    1) get row location in that group
+                    2) calculate effective width for the row
+                        considered as in a group and with the
+                        obtained location.
+                    3) add the calculated effective width to the
+                        list of effective widths
+                    4) return minimum
+    
+            QUESTION: how to know, which groups have the row
+                in them.
+        """
+        leff = 1e5
+        """ The for loop is over all the groups that involve this bolt row
+            (the groups are stored in 'groups' attribute)
+        """
+        for group in self.groups:
+            """ The '_leff_rows' attribute of the column flange T-stub
+                for the group is a dict with BoltRow objects as keys. Using
+                'self' will get the effective lengths of this bolt row
+                appearing in the given group. Then, take the minimum of those values.
+            """
+            #leff_g = min(group.Tstub_col_flange._leff_rows[self].values())
+            leff_g = min(group.Tstub_col_flange.leff_cp_row(self),group.Tstub_col_flange.leff_nc_row(self))
+            if leff_g > 0.0:
+                """ If the group does not have column flange in bending
+                    component, then leff_g = 0 and that group can be skipped.
+                    Otherwise, update the effective length.
+                """
+                leff = min(leff,leff_g)        
+            
+        return leff
+        
+    
+    def leff_plate_group(self):
+        """ Effective length of end plate in bending component
+            for the row when considered to be in a group
+        """
+        leff = 1e5
+        for group in self.groups:
+            #leff_g = min(group.Tstub_end_plate._leff_rows[self].values())
+            
+            # If the group does not have the end plate in bending component,
+            # return a large value.
+            
+            if not group.Tstub_end_plate is None:
+                leff_g = min(group.Tstub_end_plate.leff_cp_row(self),group.Tstub_end_plate.leff_nc_row(self))                
+            else:
+                leff_g = leff
+            if leff_g > 0.0:
+                leff = min(leff,leff_g)
+            
+        return leff
+    
+    def k3(self,verb=False):
+        """ Stiffness factor for column web in tension component """
+        
+        #beff_row = self.leff_flange()
+        # NOTE! Here, the _leff attribute of the T-stub corresponds to the 
+        # effective lengths calculated during bending resistance evaluation.
+        # This can be a problem if the bending resistance has not been
+        # calculated before rotational stiffness, or when calculating derivatives
+        # in optimization using finite differences.
+        #
+        # beff_row = min(self.Tstub_col_flange._leff)
+        
+        #self.Tstub_col_flange.tf = self.joint.col.tf
+        #self.Tstub_col_flange.emin = self.emin_flange
+        #self.Tstub_col_flange.m = self.col_flange_m
+        #self.Tstub_col_flange.e = self.col_flange_e
+        
+        beff_row = min(self.Tstub_col_flange.leff_cp,self.Tstub_col_flange.leff_nc)
+        
+        #beff_group = 1e5
+        beff_group = self.leff_flange_group()
+        
+        beff = min(beff_row,beff_group)
+        
+        if verb:
+            print(f'beff_row = {beff_row:4.2f} mm')
+            print(f'beff_group = {beff_group:4.2f} mm')
+        
+        return cm.column_web_tension_k(self.joint.col,beff,verb)
+    
+    
+    def k4(self,verb=False):
+        """ Stiffness factor for column flange in bending component """
+        
+        """ This way picks that effective length that corresponds to the
+            governing failure mode.
+        beff_row = self.leff_flange()
+        """
+        
+        """ This way takes the smallest effective length for the row """
+        #beff_row = min(self.Tstub_col_flange._leff)
+        #self.Tstub_col_flange.tf = self.joint.col.tf
+        #self.Tstub_col_flange.emin = self.emin_flange
+        #self.Tstub_col_flange.m = self.col_flange_m
+        #self.Tstub_col_flange.e = self.col_flange_e
+        
+        beff_row = min(self.Tstub_col_flange.leff_cp,self.Tstub_col_flange.leff_nc)
+        #beff_group = 1e5
+        beff_group = self.leff_flange_group()
+        leff = min(beff_row,beff_group)        
+        
+        
+        m = self.Tstub_col_flange.m
+        return cm.column_flange_bending_k(self.joint.col,leff,m,verb)
+        
+    def k5(self,verb=False):
+        """ Stiffness factor for end plate in bending component """
+        
+        #beff_row = self.leff_plate()
+        #beff_row = min(self.Tstub_end_plate._leff)
+        #self.Tstub_end_plate.m2 = self.end_plate_m2
+        
+        #self.Tstub_end_plate.bp = self.joint.bp
+        #self.Tstub_end_plate.tf = self.joint.tp
+        #self.Tstub_end_plate.w = self.p
+        
+        #if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+        #    self.Tstub_end_plate.emin = self.ex
+        #    self.Tstub_end_plate.e = self.end_plate_e
+        #    self.Tstub_end_plate.m = self.mx
+        #else:
+        #    self.Tstub_end_plate.emin = self.emin_plate
+        #    self.Tstub_end_plate.e = self.end_plate_e
+        #    self.Tstub_end_plate.m = self.end_plate_m
+        #    self.Tstub_end_plate.m2 = self.end_plate_m2
+        
+        beff_row = min(self.Tstub_end_plate.leff_cp,self.Tstub_end_plate.leff_nc)
+        
+        
+        #beff_group = 1e5
+        beff_group = self.leff_plate_group()
+        
+        #print(f'beff (row) = {beff_row:4.2f}')
+        #print(f'beff (group) = {beff_group:4.2f}')
+        
+        leff = min(beff_row,beff_group)                
+        
+        m = self.Tstub_end_plate.m
+        
+        #print(beff_row,beff_group,m)
+        return cm.end_plate_bending_k(self.joint.tp,leff,m,verb)
+    
+    def k10(self,verb=False):
+        """ Stiffness factor for bolts in tension """
+        
+        k10 = 1.6*self.bolt.As/self.Lb
+        
+        return k10
+        
+    
+    def column_web_in_tension(self,verb=False):
+        """ Resistance of component """
+        #self.Tstub_col_flange.tf = self.joint.col.tf
+        #self.Tstub_col_flange.emin = self.emin_flange
+        #self.Tstub_col_flange.m = self.col_flange_m
+        #self.Tstub_col_flange.e = self.col_flange_e
+        
+        """ The effective length of the component
+            corresponds to the effective length of the column flange.
+            This is obtained only after the resistance of the column
+            flange has been determined, because the governing failure
+            mode also defines the effective width
+        """
+        #l_eff = self.Tstub_col_flange.leff(self.loc_col_flange)
+        
+        #l_eff = [0,0]
+        #l_eff[0] = self.Tstub_col_flange.leff_1()
+        #l_eff[1] = self.Tstub_col_flange.leff_2()
+        
+        l_eff = self.Tstub_col_flange.leff()
+        #print(self.Tstub_col_flange.leff)
+        
+        F_t_wc_Rd = cm.column_web_tension(self.joint.col, l_eff, self.joint.beta,verb)
+        
+        if verb:
+            print("COlUMN WEB IN TENSION:")
+            print("l_eff  = {0:4.2f} mm".format(l_eff))
+            #print("l_eff (Mode 2) = {0:4.2f} mm".format(self.Tstub_col_flange._leff[1]))
+            print("Ft_wc_Rd = {0:4.2f} kN".format(F_t_wc_Rd*1e-3))
+        
+        return F_t_wc_Rd
+    
+    def column_flange_in_bending(self,verb=False):
+        """ Resistance of component """
+        
+        """ Set properties for the T-stub
+            This is basically for optimization purposes,
+            because the dimensions will change
+        """
+        #self.Tstub_col_flange.tf = self.joint.col.tf
+        #self.Tstub_col_flange.emin = self.emin_flange
+        #self.Tstub_col_flange.m = self.col_flange_m
+        #self.Tstub_col_flange.e = self.col_flange_e
+        if self.joint.stiffeners['col_top_flange'] is not None:
+            self.Tstub_col_flange.m2 = self.top_flange_stiffener_m2
+        """ Determine effective length 
+            The 'leff_1' and 'leff_2' methods store the
+            effective length of each failure mode to the T-stub,
+            so it can be
+        """
+        
+        """ Calculate the effective length of the T-stub
+            The effective length will be stored in the T-stub object.
+        """
+        l_eff = [0.0,0.0]
+        l_eff[0] = self.Tstub_col_flange.leff_1
+        l_eff[1] = self.Tstub_col_flange.leff_2
+        
+        if verb:
+            print("COLUMN FLANGE IN BENDING:")
+            print("l_eff (Mode 1) = {0:4.2f} mm".format(l_eff[0]))
+            print("l_eff (Mode 2) = {0:4.2f} mm".format(l_eff[1]))
+        
+        """ The resistance is based on the T-stub """
+        F_t_cf_Rd = cm.column_flange_bending(self.Tstub_col_flange,verb)
+        
+        if verb:            
+            print("Ft_cf_Rd = {0:4.2f} kN".format(F_t_cf_Rd*1e-3))
+        
+        return F_t_cf_Rd
+    
+    def end_plate_in_bending(self,verb=False):
+        """ Resistance of component """
+        
+        """
+        self.Tstub_end_plate.bp = self.joint.bp
+        self.Tstub_end_plate.tf = self.joint.tp
+        self.Tstub_end_plate.w = self.p
+        
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            self.Tstub_end_plate.emin = self.ex
+            self.Tstub_end_plate.e = self.end_plate_e
+            self.Tstub_end_plate.m = self.mx
+        else:
+            self.Tstub_end_plate.emin = self.emin_plate
+            self.Tstub_end_plate.e = self.end_plate_e
+            self.Tstub_end_plate.m = self.end_plate_m
+            self.Tstub_end_plate.m2 = self.end_plate_m2
+        """
+        
+        l_eff = [0.0,0.0]
+        l_eff[0] = self.Tstub_end_plate.leff_1
+        l_eff[1] = self.Tstub_end_plate.leff_2
+        
+        if verb:
+            print("END PLATE IN BENDING:")
+            self.Tstub_end_plate.info()
+            print("l_eff (Mode 1) = {0:4.2f} mm".format(l_eff[0]))
+            print("l_eff (Mode 2) = {0:4.2f} mm".format(l_eff[1]))
+        
+        F_t_ep_Rd = cm.end_plate_bending(self.Tstub_end_plate,verb)
+        
+        return F_t_ep_Rd
+    
+    def beam_web_in_tension(self,verb=False):
+        """ Resistance of component """
+        """
+        self.Tstub_end_plate.tf = self.joint.tp
+        self.Tstub_end_plate.w = self.p
+        
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            self.Tstub_end_plate.emin = self.ex
+            self.Tstub_end_plate.e = self.ex
+            self.Tstub_end_plate.m = self.mx
+        else:
+            self.Tstub_end_plate.emin = self.emin_plate
+            self.Tstub_end_plate.e = self.end_plate_e
+            self.Tstub_end_plate.m = self.end_plate_m
+            self.Tstub_end_plate.m2 = self.end_plate_m2
+        """
+        
+        if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+            F_t_bw_Rd = 1e8
+        else:        
+            l_eff = self.Tstub_end_plate.leff()
+            #l_eff[0] = self.Tstub_end_plate.leff_1(self.loc_end_plate)
+            #l_eff[1] = self.Tstub_end_plate.leff_2(self.loc_end_plate)
+        
+            F_t_bw_Rd = cm.beam_web_tension(self.joint.beam, l_eff)
+        
+        if verb:
+            print("BEAM WEB IN TENSION:")
+            if self.loc_end_plate == ROW_OUTSIDE_BEAM_TENSION_FLANGE:
+                print("Row outside beam tension flange: no beam web in tension.")
+            else:
+                print("l_eff = {0:4.2f} mm".format(l_eff))
+                print("Ft_bf_Rd = {0:4.2f} kN".format(F_t_bw_Rd*1e-3))
+        
+        return F_t_bw_Rd
+    
+    def tension_resistance(self,verb=False):
+        """ Tension resistance of individual row, not considered
+            as a group.
+            
+            Evaluate first the components
+            'column flange in bending' and
+            'end plate in bending', because
+            they define the effective lengths also used in
+            'column web in tension' and
+            'beam web in tension' components
+        """
+        
+        Ft_i_Rd = np.array([0.0,0.0,0.0,0.0])
+        components = ['Column flange in bending',
+                      'End plate in bending',
+                      'Column web in tension',
+                      'Beam web in tension'
+                      ]
+        
+        Ft_i_Rd[0] = self.column_flange_in_bending(verb)
+        Ft_i_Rd[1] = self.end_plate_in_bending(verb)
+        Ft_i_Rd[2] = self.column_web_in_tension(verb)
+        Ft_i_Rd[3] = self.beam_web_in_tension(verb)
+            
+        min_comp = np.argmin(Ft_i_Rd)
+        
+        self.FtRd = Ft_i_Rd[min_comp]
+        
+        if verb:
+            print("Ft_Rd = {0:4.2f} kN ({1:s})".format(self.FtRd*1e-3,components[min_comp]))
+        
+        return self.FtRd
+    
+    def keff(self):
+        """ Effective stiffness of bolt row 
+            EN 1993-1-8, Eq. (6.30)
+            
+            Requires that the stiffness factors have been evaluated
+            and stored in 'stffiness_factors' dict.
+        """
+        
+        # Inverse of keff
+        keff_inv = 0.0
+        
+        self.stiffness_factors['col_web'] = self.k3()
+        self.stiffness_factors['col_flange'] = self.k4()
+        self.stiffness_factors['plate'] = self.k5()
+        self.stiffness_factors['bolt'] = self.k10()
+        
+        #print(self.stiffness_factors)
+        
+        for k in self.stiffness_factors.values():
+            keff_inv += 1/k
+        
+        return 1/keff_inv
 
 class ColumnBase:
     
     
-    def __init__(self,column_profile, plate_edges, plate_thickness, anchor_bolts, bolt_x=None, bolt_p=100, concrete="C25/30"):
+    def __init__(self,column_profile, plate_edges, plate_thickness, anchor_bolts, bolt_z=None, bolt_w=100, concrete="C25/30"):
         """ Constructor
             Input:
                 column_profile .. SteelSection class object
@@ -82,31 +696,30 @@ class ColumnBase:
                         
         """
 
-        self.column = column_profile
-        self.beam = column_profile
+        self.column = column_profile        
         self._c = plate_edges
         h = column_profile.h
         b = column_profile.b
-        hp = h + c[0] + c[1]
-        bp = b + c[2] + c[3]
+        hp = h + self._c[0] + self._c[1]
+        bp = b + self._c[2] + self._c[3]
         base_plate = RectPlate(bp,hp,plate_thickness,material="S355")
         self.plate = base_plate
         self.anchor_bolt = anchor_bolts
-        self.p = bolt_p
-        if bolt_x is None:
-            bolt_x = [0,0]
-            bolt_x[0] = -0.5*h-0.5*c[0]
-            bolt_x[1] = 0.5*h+0.5*c[1]
-            
-        self.xb = bolt_x
+        self.w = bolt_w
+        
+        # By default, place anchor bolt rows halfway at outstand part of the base plate
+        if bolt_z is None:
+            bolt_z = [-0.5*h-0.5*self._c[0], 0.5*h+0.5*self._c[1]]
+        
+        self.zb = bolt_z
         self.concrete = en1992_const.Concrete(concrete)        
         self.Ac0 = 1.0
         self.Ac1 = 1.0
         self.flange_weld = 5.0
         self.web_weld = 5.0
         self.bolt_rows = []
-        self.add_bolt_row(anchor_bolts, bolt_x[0], self.p)
-        self.add_bolt_row(anchor_bolts, bolt_x[1], self.p)
+        self.add_bolt_row(anchor_bolts, bolt_z[0], self.w)
+        self.add_bolt_row(anchor_bolts, bolt_z[1], self.w)
         self.beta_j = 2.0/3.0
         
     
@@ -121,16 +734,16 @@ class ColumnBase:
         #(self,bolt,p,z,flange_loc=INNER_ROW, plate_loc=OTHER_INNER_ROW,joint=None, row_type=TENSION_ROW)
         
         if z < -0.5*self.column.h:
-            ploc = ROW_OUTSIDE_BEAM_TENSION_FLANGE
+            loc = ROW_OUTSIDE_COLUMN_FLANGE
             row_type = TENSION_ROW
         elif z < 0:
-            ploc = FIRST_ROW_BELOW_BEAM_TENSION_FLANGE
+            loc = ROW_INSIDE_COLUMN_FLANGE
             row_type = TENSION_ROW
         else:
-            ploc = OTHER_INNER_ROW
+            loc = ROW_OUTSIDE_COLUMN_FLANGE
             row_type = COMPRESSION_ROW
         
-        new_row = BoltRow(bolt,p,z,plate_loc=ploc,joint=self,row_type=row_type)
+        new_row = AnchorBoltRow(bolt,p,z,loc=loc,joint=self,row_type=row_type)
         
         self.bolt_rows.add(new_row)
     

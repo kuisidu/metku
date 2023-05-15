@@ -14,11 +14,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as mlines
-from materials.steel_data import Steel
-from eurocodes.en1993.en1993_1_3.open_prof import OpenProf
-from eurocodes.en1993.en1993_1_3 import en1993_1_3
-from eurocodes.en1993 import en1993_1_5
-from eurocodes.en1993.constants import gammaM0, gammaM1
+from metku.materials.steel_data import Steel
+from metku.eurocodes.en1993.en1993_1_3.open_prof import OpenProf
+from metku.eurocodes.en1993.en1993_1_3 import en1993_1_3
+from metku.eurocodes.en1993 import en1993_1_5
+from metku.eurocodes.en1993.constants import gammaM0, gammaM1
 
 
 class TrapezoidalSheet:
