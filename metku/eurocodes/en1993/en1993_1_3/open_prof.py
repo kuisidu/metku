@@ -341,7 +341,7 @@ class OpenProf:
     
     def export_cufsm(self):
         """ Write data to be exported to cufsm in Matlab """
-        
+                
         """ Write nodes """
         print("Nodes:")
         for i, node in enumerate(self.nodes):        

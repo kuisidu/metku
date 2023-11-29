@@ -65,12 +65,15 @@ class EndPlateJoint:
         """ States, whether or not the column continues above the connection """
         self.continuous_column = True
         
+        self.col = column
+        self.beam = beam
+        
         self.MjEd = 0.0
         self.VjEd = 0.0
         self._MjRd = 0.0
         self._VjRd = 0.0
-        self.col = column
-        self.beam = beam
+                
+        self._beta = 1.0
         
         # calculate plate height
         hp = etop + ebottom + beam.h        
@@ -143,6 +146,22 @@ class EndPlateJoint:
                      'welding':0.0,
                      'holes':0.0,
                      'bolts':0.0}
+    
+    @property
+    def MjEd(self):        
+        return self.beam.Med[0]
+    
+    @property
+    def VjEd(self):
+        return self.beam.Ved[1]
+    
+    @MjEd.setter
+    def MjEd(self,val):        
+        self.beam.Med[0] = val
+    
+    @VjEd.setter
+    def VjEd(self,val):
+        self.beam.Ved[1] = val
     
     @property
     def MjRd(self):
@@ -288,7 +307,11 @@ class EndPlateJoint:
         """ Effect of shear in the column web to moment resistance of the joint 
             So far, only one value is given (approximation for one-sided joint)
         """
-        return 1.0
+        return self._beta
+    
+    @beta.setter
+    def beta(self,val):
+        self._beta = val
     
     def Mpl_fc_Rd(self):
         """ Plastic moment resistance of column flange 
@@ -466,9 +489,12 @@ class EndPlateJoint:
         
         if verb:
             print("Compression side:")
-            print("Column web in shear: V_wp_Rd/beta = {0:4.2f} kN".format(V_wp_Rd*1e-3))
+            print("Column web in shear: V_wp_Rd = {0:4.2f} kN".format(V_wp_Rd*1e-3))
+            print("Transformation parameter: beta = {0:4.3f} kN".format(self.beta))
+            print("Column web in shear: V_wp_Rd/beta = {0:4.2f} kN".format(V_wp_Rd*1e-3/self.beta))
             print("Column web in compression: Fc_wc_Rd = {0:4.2f} kN".format(Fc_wc_Rd*1e-3))
             print("Beam web in compression: Fc_fb_Rd = {0:4.2f} kN".format(Fc_fb_Rd*1e-3))
+            print("Compression resistance: Fcom_Rd = {0:4.2f} kN".format(Fcom_Rd*1e-3))
         # Sum of tension forces in the bolt rows
         Ft_total = 0.0
         
@@ -494,7 +520,7 @@ class EndPlateJoint:
             for i, row in enumerate(self.bolt_rows):            
                 if row.type != SHEAR_ROW:
                     print("ROW {0:1.0f}: FtRd = {1:4.2f} kN".format(i+1, row.FtRd*1e-3))
-            
+            print("-----------------------------------")
         # Calculate resistances of bolt row groups 
         if verb:
             print("*** BOLT ROW GROUPS ***")

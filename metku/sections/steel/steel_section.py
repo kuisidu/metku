@@ -461,9 +461,8 @@ class SteelSection(metaclass=ABCMeta):
         """ Determines cross-section class """
 
         C = 1
-        Med = self.Med[0]
-        # Pure bending
-
+        Med = self.Med[0]        
+        # Pure bending        
         if abs(self.Ned) < 1e-4 and abs(Med) > 1e-4:
             if verb:
                 print("Pure bending")
@@ -475,11 +474,14 @@ class SteelSection(metaclass=ABCMeta):
         elif self.Ned < 0.0 or Med == 0:
             # Pure compression
             if abs(Med) < 1e-4:
+                print("Pure compression")
                 Cflange = self.flange_class(verb)
                 Cweb = self.web_class_comp(verb)
                 C = max(Cweb, Cflange)
             # Bending and compression
             else:
+                if verb:
+                    print("Bending and compression")
                 # Flange is in compression
                 Cflange = self.flange_class(verb)
                 # Classify web as a part in compression and bending

@@ -124,7 +124,7 @@ def beam_web_compression(beam):
         
         input:
             beam .. Beam profile as a SteelSection object
-    """
+    """    
     McRd = beam.MRd
     return McRd/(beam.h-beam.tf)
 

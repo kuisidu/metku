@@ -168,8 +168,8 @@ def effective_width_outstand(b, psi, rho):
     return beff
 
 
-def transverse_force_resistance(fyw, hw, tw, fyf, bf, tf, ss, a=0, type="a",
-                                c=0):
+def transverse_force_resistance(fyw, hw, tw, fyf, bf, tf, ss, a=0, ltype="a",
+                                c=0, verb = False):
     """ Clause 6 
         input:
             fyw .. yield strength of the web [MPa]
@@ -180,7 +180,7 @@ def transverse_force_resistance(fyw, hw, tw, fyf, bf, tf, ss, a=0, type="a",
             tf .. thicknes of flange
             a .. distance between transverse stiffeners (a=0 for no stiffeners)
             ss .. length of stiff bearing
-            type .. type of load application
+            ltype .. type of load application
                     "a" .. through one flange at the middle of the member
                     "b" .. through two flanges at the middle of the member
                     "c" .. through one side of the flange at the end of the member
@@ -192,11 +192,11 @@ def transverse_force_resistance(fyw, hw, tw, fyf, bf, tf, ss, a=0, type="a",
 
     ss = min(ss, hw)
 
-    if type == "a":
+    if ltype == "a":
         kF = 6 + 2 * (hw / a) ** 2
-    elif type == "b":
+    elif ltype == "b":
         kF = 3.5 + 2 * (hw / a) ** 2
-    elif type == "c":
+    elif ltype == "c":
         kF = min(2 + 6 * (ss + c) / hw, 6.0)
 
     # Next, the reduction factor for effective length (Clause 6.4) and
@@ -206,28 +206,49 @@ def transverse_force_resistance(fyw, hw, tw, fyf, bf, tf, ss, a=0, type="a",
 
     Fcr = 0.9 * kF * E * tw ** 3 / hw
 
-    if type == "a" or type == "b":
+    if ltype == "a" or ltype == "b":
         ly = min(ss + 2 * tf * (1 + math.sqrt(m1 + m2)), a)
-    elif type == "c":
+    elif ltype == "c":
         le = min(0.5 * kF * E * tw ** 2 / fyw / hw, ss + c)
         ly = min(le + tf * math.sqrt(0.5 * m1 + (le / tf) ** 2 + m2),
                  le + tf * math.sqrt(m1 + m2))
 
     lambdaF = math.sqrt(ly * tw * fyw / Fcr)
+
+    if verb:
+        print('** Resistance to transverse force **')
+        print('   Type (' + ltype + ')')
+        print(f'   Length of stiff bearing: ss = {ss:4.2f} mm')
+        print(f'   Buckling factor: kF = {kF:4.2f}')
+        print(f'   Critical force: Fcr = {Fcr*1e-3:4.2f} kN')
+        if ltype == 'c':
+            print(f'   Effective load width le = {le:4.2f} mm')
+        
+        print(f'   m1 = {m1:4.2f}')
+        print(f'   m2 = {m2:4.2f}')
+        print(f'   ly = {ly:4.2f}')
+        print(f'   lambdaF = {lambdaF:4.3f}')
+        
 
     if lambdaF > 0.5:
         # in this case, the initial assumption of m2=0 was wrong, and
         # ly needs to be corrected:
         m2 = 0.02 * (hw / tf) ** 2
-
-    if type == "a" or type == "b":
-        ly = min(ss + 2 * tf * (1 + math.sqrt(m1 + m2)), a)
-    elif type == "c":
-        le = min(0.5 * kF * E * tw ** 2 / fyw / hw, ss + c)
-        ly = min(le + tf * math.sqrt(0.5 * m1 + (le / tf) ** 2 + m2),
-                 le + tf * math.sqrt(m1 + m2))
-
-    lambdaF = math.sqrt(ly * tw * fyw / Fcr)
+        
+        if ltype == "a" or ltype == "b":
+            ly = min(ss + 2 * tf * (1 + math.sqrt(m1 + m2)), a)
+        elif ltype == "c":
+            le = min(0.5 * kF * E * tw ** 2 / fyw / hw, ss + c)
+            ly = min(le + tf * math.sqrt(0.5 * m1 + (le / tf) ** 2 + m2),
+                     le + tf * math.sqrt(m1 + m2))
+    
+        lambdaF = math.sqrt(ly * tw * fyw / Fcr)
+        
+        if verb:
+            print('Corrected m2 and ly')
+            print(f'   m2 = {m2:4.2f}')
+            print(f'   ly = {ly:4.2f} mm')
+            print(f'   lambdaF = {lambdaF:4.3f}')
 
     # Reduction factor (Eq. (6.3))
     chiF = min(0.5 / lambdaF, 1.0)
@@ -235,6 +256,11 @@ def transverse_force_resistance(fyw, hw, tw, fyf, bf, tf, ss, a=0, type="a",
     Leff = chiF * ly
 
     FRd = fyw * Leff * tw / gammaM1
+
+    if verb:
+        print(f' Reduction factor chiF = {chiF:4.2f}')
+        print(f' Effective length Leff = {Leff:4.2f} mm')
+        print(f' Resistance FRd = {FRd*1e-3:4.2f} kN')
 
     return FRd
 

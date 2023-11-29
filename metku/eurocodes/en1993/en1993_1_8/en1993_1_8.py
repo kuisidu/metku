@@ -310,7 +310,7 @@ class Bolt:
             ad = p1/3/self.d0 - 0.25    
     
         if pos_perp == "edge":
-            k1 = min(2.8*e2/self.d0-1.7,2.5)
+            k1 = min(2.8*e2/self.d0-1.7,1.4*p2/self.d0-1.7,2.5)
         else:
             k1 = min(1.4*p2/self.d0-1.7,2.5)
             

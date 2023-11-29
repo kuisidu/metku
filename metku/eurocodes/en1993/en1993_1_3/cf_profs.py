@@ -15,11 +15,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as mlines
-from materials.steel_data import Steel
-from eurocodes.en1993.en1993_1_3.open_prof import OpenProf
-from eurocodes.en1993.en1993_1_3 import en1993_1_3
-from eurocodes.en1993 import en1993_1_5
-from eurocodes.en1993.constants import gammaM0, gammaM1
+from metku.materials.steel_data import Steel
+from metku.eurocodes.en1993.en1993_1_3.open_prof import OpenProf
+from metku.eurocodes.en1993.en1993_1_3 import en1993_1_3
+from metku.eurocodes.en1993 import en1993_1_5
+from metku.eurocodes.en1993.constants import gammaM0, gammaM1
 
 weckman_c_z = {100:{'a':42,'b':48,'c':18,'r':4,'t':[1,1.2,1.5,2],'width':[216,216,212,210]},
              120:{'a':42,'b':48,'c':18,'r':4,'t':[1,1.2,1.5,2],'width':[238,236,234,230]},
@@ -1146,6 +1146,8 @@ class ZSection:
             kf = 0.0
         elif self.Med < 0.0 and flange == 'bottom':
             kf = 0.0
+        else:
+            kf = 0.0
         
         b1 = abs(self.edge_stiff[f1].centroid()[0])
         #print('b1 = {0:4.3f}'.format(b1))
@@ -1153,6 +1155,14 @@ class ZSection:
             b2 = abs(self.edge_stiff[f2].centroid()[0])
         else:
             b2 = 0.0
+        
+        print(f'kf = {kf:4.3f}')
+        print(f'b1 = {b1:8.7f}')
+        print(f'b2 = {b2:8.7f}')
+        print(f'hw = {hw:6.5f}')
+        print(f'C = {C:6.5f}')
+        print(f'den = {b1**2*hw + b1**3 + 0.5*b1*b2*hw*kf:6.5f}')
+        print(f'K = {C/(b1**2*hw + b1**3 + 0.5*b1*b2*hw*kf):6.5f}')
         
         return C/(b1**2*hw + b1**3 + 0.5*b1*b2*hw*kf)
     
@@ -1254,6 +1264,16 @@ class ZSection:
             print("NRd = {0:4.2f} kN".format(NRd*1e-3))
 
         return NRd
+
+    def export_cufsm(self,n=4):
+        """ Exports the cross-section to be analyzed with CUFSM5 software
+            run in Matlab            
+        """
+        print("Material:")
+        print(f"100 {self.material.E:7.2f} {self.material.E:7.2f} {self.material.nu:3.1f} {self.material.nu:3.1f} {self.material.G:7.2f}")
+        
+        
+        
 
     def draw(self):
         """ Draw the profile 
@@ -1418,6 +1438,7 @@ class CSection(ZSection):
         if bp_bottom_lip > 0.0:
             bottom_lip_nodes = [[bp_bottom,web_nodes[0][1]+bp_bottom_lip],
                                 [bp_bottom,web_nodes[0][1]+bp_bottom_lip-0.5*self.cb_straight]]
+            print(bottom_lip_nodes)
             for node in bottom_lip_nodes:
                 self.add(node,part='bottom_lip')
             
@@ -1426,8 +1447,10 @@ class CSection(ZSection):
             x_bottom_lip = (bp_bottom-rm,web_nodes[0][1]+rm)
         
             newPts = corner_points(x_bottom_lip,rm,phi=[0,-0.5*np.pi],n=n)
-        
-            for newPt in newPts[:-1]:            
+            
+            self.add(newPts[0],part='bottom_lip')
+            
+            for newPt in newPts[1:-1]:            
                 self.add(newPt)
             
             # The second and third nodes are for helping to cope
@@ -1788,7 +1811,7 @@ class CSection(ZSection):
             ax.add_patch(top_right_corner_in)
             ax.add_patch(top_right_corner_out)
             
-            ax.hlines(0.5*hweb-(ca-tnom-r),b_top-1.5*tnom,b_bot-0.5*tnom,colors='k',linewidth=lw)
+            ax.hlines(0.5*hweb-(ca-tnom-r),b_top-1.5*tnom,b_top-0.5*tnom,colors='k',linewidth=lw)
         
         # Bottom flange
         cbottom = self.c_bottom # Straight part of the top flange
@@ -1809,7 +1832,7 @@ class CSection(ZSection):
         ax.add_patch(bot_corner_out)
         ax.add_patch(bot_corner_mid)
         
-        # Left lip        
+        # Bottom lip        
         if self.cb > 0.0:
             y_bot_lip = [-(0.5*hweb-(cb-tnom-r)),-(0.5*hweb)]                            
             ax.vlines([b_bot-1.5*tnom,b_bot-0.5*tnom],y_bot_lip[0],y_bot_lip[1],colors='k',linewidth=lw)
@@ -1830,14 +1853,149 @@ class CSection(ZSection):
                 
         ax.set_aspect('equal')
     
+    def export_cufsm(self,n=4):
+        """ Exports the cross-section to be analyzed with CUFSM5 software
+            run in Matlab            
+        """
+        print("Material:")
+        print(f"100 {self.material.E:7.2f} {self.material.E:7.2f} {self.material.nu:3.1f} {self.material.nu:3.1f} {self.material.G:7.2f}")
+        
+        cufsm_nodes = []
+        
+        # Number of points; used as an index
+        npt = 0
+                
+        h = self.h
+        hweb = self.hw
+        
+        tnom = self.t_nom
+        rm = self.Rm
+        ro = self.Ro
+        r = self.r
+        
+        bp_web = self.hw_center
+        bp_bottom = self.bb_center
+        bp_top = self.bt_center
+        bp_bottom_lip = self.bb_lip_center
+        bp_top_lip = self.bt_lip_center
+        web_nodes = [[0.0,-0.5*bp_web],[0.0,0.5*bp_web]]
+        
+        if bp_bottom_lip > 0.0:
+            Y = np.linspace(web_nodes[0][1]+bp_bottom_lip,web_nodes[0][1]+bp_bottom_lip-self.cb_straight,n+1)
+            bottom_lip_nodes = [[bp_bottom,y] for y in Y]
+                        
+            #bottom_lip_nodes = [[bp_bottom,web_nodes[0][1]+bp_bottom_lip],
+            #                    [bp_bottom,web_nodes[0][1]+bp_bottom_lip-0.5*self.cb_straight]]
+            print(bottom_lip_nodes)
+            for node in bottom_lip_nodes:
+                cufsm_nodes.append(node)
+            
+            # Corner points
+            # Lip-to-flange corner, bottom
+            x_bottom_lip = (bp_bottom-rm,web_nodes[0][1]+rm)
+        
+            newPts = corner_points(x_bottom_lip,rm,phi=[0,-0.5*np.pi],n=n+1)
+        
+            for newPt in newPts[1:-1]:            
+                cufsm_nodes.append(newPt)
+            
+            # The second and third nodes are for helping to cope
+            # with the effective cross section.
+            X = np.linspace(bp_bottom-rm,bp_bottom-rm-self.c_bottom,n+1)            
+        else:
+            X = np.linspace(bp_bottom,bp_bottom-self.c_bottom,n+1)            
+        
+        bottom_nodes = [[x,web_nodes[0][1]] for x in X]       
+        
+        for node in bottom_nodes:
+            cufsm_nodes.append(node)
+                        
+        # Corner points
+        # flange-to-web corner, bottom
+        x_bottom_web = (rm,web_nodes[0][1]+rm)
+        
+        newPts = corner_points(x_bottom_web,rm,phi=[1.5*np.pi,np.pi],n=n+1)
+        
+        for newPt in newPts[1:-1]:            
+            cufsm_nodes.append(newPt)
+                
+                
+        # Web points
+        Y = np.linspace(-0.5*bp_web+rm,0.5*bp_web-rm,n+1)
+        web = [[0,y] for y in Y]
+        
+        for node in web:
+            cufsm_nodes.append(node)
+                
+        
+        # Corner points
+        # web-to-flange corner, top
+        x_top_web = (+rm,web_nodes[1][1]-rm)
+        
+        newPts = corner_points(x_top_web,rm,phi=[np.pi,0.5*np.pi],n=n+1)
+        
+        for newPt in newPts[1:-1]:            
+            cufsm_nodes.append(newPt)
+                        
+        
+        # Top flange        
+        #top_nodes = [[rm,web_nodes[1][1]]]
+        
+        if bp_top_lip > 0.0:
+            X = np.linspace(rm,bp_top-rm,n+1)
+            
+            top_nodes = [[x,web_nodes[1][1]] for x in X]            
+            
+            # Corner
+            # web-to-flange corner, top
+            x_top_lip = (bp_top-rm,web_nodes[1][1]-rm)
+        
+            for node in top_nodes:
+                cufsm_nodes.append(node)
+                            
+        
+            
+            newPts = corner_points(x_top_lip,rm,phi=[0.5*np.pi,0],n=n+1)
+        
+            for newPt in newPts[1:-1]:            
+                cufsm_nodes.append(newPt)
+            
+            # Top lip nodes
+            Y = np.linspace(web_nodes[1][1]-rm,web_nodes[1][1]-bp_top_lip,n+1)
+            top_lip_nodes = [[bp_top,y] for y in Y]
+            
+            for node in top_lip_nodes:
+                cufsm_nodes.append(node)
+            
+            
+        else:
+            X = np.linspace(rm,bp_top,n+1)
+            top_nodes = [[x,web_nodes[1][1]] for x in X]
+        
+            for node in top_nodes:
+                cufsm_nodes.append(node)
+        
+        for p in cufsm_nodes:
+            p[1] += 0.5*bp_web
+        
+        cuprof = OpenProf(cufsm_nodes,self.t)   
+        cuprof.export_cufsm()
+        cuprof.draw()
+        
+    
 def Cexample(t=2.0,ca=0,cb=0):
     
-    c = CSection(t_nom=t,h=150.0,a=47,b=41,ca=ca,cb=cb,r=3.0,t_coat=0.04)
+    c = CSection(t_nom=t,h=150.0,a=65,b=61,ca=ca,cb=cb,r=3.0,t_coat=0.04)
+    #c = CSection(t_nom=t,h=150.0,a=47,b=41,ca=ca,cb=cb,r=3.0,t_coat=0.04)
+    #c = CSection(t_nom=t,h=64.0,a=34,b=34,ca=8,cb=8,r=1.0,t_coat=0.04)
     
     #c.Med = 10.0
     c.Ned = -10.0
     #c.effective_width_flange(psi=1.0, flange='top',verb=True)
     c.effective_section('compression',True)
+    #c.effective_section('bending_y_pos',True)
+    
+    c.export_cufsm(n=4)
     #c.create_model()
     #c.prof.draw(node_labels=True)
     #c.create_effective_model()
@@ -1853,25 +2011,27 @@ def Cdesign(t=2.0,ca=0,cb=0):
     
     c = CSection(t_nom=t,h=150.0,a=47,b=47,ca=ca,cb=cb,r=3.0,t_coat=0.04)
     
+    c.draw()
+    
     #c.Med = 10.0
-    c.Ned = -10.0
+    #c.Ned = -10.0
     #c.effective_width_flange(psi=1.0, flange='top',verb=True)
     #c.effective_section('compression',True)
-
+    """
     print("Axial resistance: {0:4.2f} kN".format(c.NRd*1e-3))
     
     c.prof.draw(coord_axes=True)
     plt.grid(True)
     c.prof_eff.draw(coord_axes=True)
     plt.grid(True)
-    
+    """
     return c
 
 if __name__ == "__main__":
     
-    #c = Cexample(t=1.0,ca=16,cb=16)
+    #c = Cexample(t=0.7,ca=16,cb=16)
     #c = Cexample(t=1.5,ca=18,cb=18)
-    c = Cdesign(t=1.5,ca=18,cb=18)
+    #c = Cdesign(t=1.5,ca=18,cb=18)
     
     #z = ZSection(t_nom=1.5,h=200,a=74,b=66,ca=21.2,cb=21.2,r=3,
     #             material="S350GD",t_coat=0.04)
@@ -1884,6 +2044,18 @@ if __name__ == "__main__":
     
     #c = CSection(1.0,150,47.0,41.0,16,16,3)
     #c.prof.draw(node_labels=False)
+    
+    c = CSection(1.5,150,47,41,18,18,3)
+    c.Med = 30e6
+    #c.Ned = -30.11e3
+    g = c.centroid()
+    print(g)
+    c.prof.draw(node_labels=True)
+    
+    c.effective_section(load='bending_y_pos',verb=True)
+    geff = c.centroid_eff()
+    print(geff)
+    c.prof_eff.draw(node_labels=True)
     
     """
     z = ZSection(ca=0.0,cb=0.0)

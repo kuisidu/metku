@@ -190,6 +190,12 @@ class RHS(SteelSection):
         cf = self.B - 2 * self.R
         rf = cf / self.T
         cFlange = en1993_1_1.internal_part_in_compression(rf, self.eps)
+        
+        if verb:
+            print("Flange classification (internal element):")
+            print("cf = {0:4.2f}, tf = {1:4.2f}".format(cf,self.T))
+            print("cf/tf = {0:4.2f}".format(rf))
+            print("Flange class = {0}".format(cFlange))
 
         return cFlange
 
@@ -199,6 +205,12 @@ class RHS(SteelSection):
         rw = cw / self.T
         cWeb = en1993_1_1.internal_part_in_compression(rw, self.eps)
 
+        if verb:
+            print("Web classification (internal part in compression):")
+            print("cw = {0:4.2f}, tw = {1:4.2f}".format(cw,self.T))
+            print("hw/tw = {0:4.2f}".format(rw))
+            print("Web class = {0}".format(cWeb))
+
         return cWeb
 
     def web_class_bend(self, verb=False):
@@ -206,8 +218,14 @@ class RHS(SteelSection):
         cw = self.H - 2 * self.R
         rw = cw / self.T
         cWeb = en1993_1_1.internal_part_in_bending(rw, self.eps)
+        
+        if verb:
+            print("Web classification (internal part in bending):")
+            print(f"cw = {cw:4.2f}, tw = {self.T:4.2f}")
+            print("hw/tw = {0:4.2f}".format(rw))
+            print("Web class = {0}".format(cWeb))
 
-        return cWeb
+        return cWeb    
 
     def web_class_comp_bend(self, Ned, verb=False):
 
@@ -242,7 +260,7 @@ class RHS(SteelSection):
         else:
             ax = axes
         
-        if theta is not 0:
+        if theta != 0:
             phi = np.radians(theta)
             c, s = np.cos(phi), np.sin(phi)
             R = np.array(((c,-s), (s, c)))

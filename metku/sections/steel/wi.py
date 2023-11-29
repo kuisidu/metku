@@ -53,7 +53,11 @@ class WISection(SteelSection):
         self.weld_throat = weld_throat
 
         # self.fy = fy
-
+        if isinstance(fy,str):
+            if fy[0] == 'S':
+                Fy = float(fy[1:4])
+        else:
+            Fy = fy
         # Section class
         self.web_class = 1
         self.flanges_class = [1, 1]
@@ -66,7 +70,7 @@ class WISection(SteelSection):
         A = self.area()
         Au = self.paint_area()
         I = self.second_moment()
-        Ashear = self.shear_area(fy)
+        Ashear = self.shear_area(Fy)
         Wel = self.section_modulus()
         Wpl = self.plastic_section_modulus()
 
