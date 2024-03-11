@@ -128,6 +128,101 @@ class RectPlate:
             
             print("-----------------------")
             print("   {0:10s}: {1:5.2f} € [{2:5.2f} %]".format("Total",self._total_cost,p_tot))
+    
+    def draw(self,x0=(0,0),axes=None):
+        """ Draw the plate """
+        if axes is None:
+            fig, ax = plt.subplots(1)
+        else:
+            ax = axes
+
+        plate = patches.Rectangle(x0, self.b, self.h,edgecolor='black',facecolor='white')
+        
+        ax.add_patch(plate)
+        ax.axis('equal')
+        
+        plt.show()
+        
+        return ax
+
+class RectPlateWithHoles(RectPlate):
+    """ Class for rectangular steel plates with a regular pattern of circular holes """
+    
+    def __init__(self,width,depth,thickness,d0,x0,px=0,py=0,n1=3,n2=1,material="S355"):
+        """
+
+        Parameters
+        ----------
+        width : double
+            width of the plate.
+        depth : double
+            height of the plate.
+        thickness : double
+            plate thickness.
+        d0 : double
+            bolt hole diameter
+        x0 : numpy array or list
+            location of the first hole centroid.
+            x0[0] .. horizontal coordinate
+            x0[1] .. vertical coordinate
+        px : double
+            distance between hole centroids, horizontal direction
+        py:
+            distance between hole centroids, vertical direction 
+        n1 : integer, optional
+            Number of bolts in vertical direction. The default is 3.
+        n2 : integer, optional
+            number of vertical bolt rows. The default is 1.
+        material : string, optional
+            Steel grade of the plate. The default is "S355".
+
+        Returns
+        -------
+        None.
+
+        """
+        super().__init__(width,depth,thickness,material)
+        
+        self.x0 = x0
+        self.d0 = d0
+        self.n1 = n1
+        self.n2 = n2
+        self.px = px
+        self.py = py
+    
+    
+
+    @property
+    def n(self):
+        """ Number of bolts """
+        return self.n1*self.n2
+        
+    
+    def eLeft(self):
+        """ Edge distance to the left edge """
+        return self.x0[0]
+    
+    def eRight(self):
+        """ Edge distance to the right edge """
+        return self.b - self.x0[0] - (self.n2-1)*self.px
+    def eTop(self):
+        """ Edge distance to the top edge """
+        return self.h - self.x0[1] - (self.n1-1)*self.py
+    
+    
+    
+    def draw(self,x0=(0,0),axes=None):
+        
+        ax = super().draw(x0,axes)
+        
+        # Draw holes
+        for j in range(self.n1):
+            print(j)
+            for i in range(self.n2):
+                x = x0[0] + self.x0[0] + i*self.px
+                y = x0[1] + self.x0[1] + j*self.py
+                hole = patches.Circle((x,y), radius= 0.5*self.d0, edgecolor='black',facecolor='white')
+                ax.add_patch(hole)
                 
 
 if __name__ == '__main__':
@@ -137,6 +232,11 @@ if __name__ == '__main__':
     
     plate.holes = [26,26,26,26,26,26]
     
-    plate.cost(ws,verb=True)
+    #plate.draw()
+    
+    plate = RectPlateWithHoles(170,230,10,22, [60,45],55,70,3,2)
+    plate.draw()
+    
+    #plate.cost(ws,verb=True)
     #print("Plate cost: {0:4.2f} €".format(plate.cost(ws)))
     #plate.cost_distribution()
