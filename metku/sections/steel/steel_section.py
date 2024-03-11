@@ -461,9 +461,15 @@ class SteelSection(metaclass=ABCMeta):
         """ Determines cross-section class """
 
         C = 1
-        Med = self.Med[0]        
+        Med = self.Med[0]
+        
+        if self.Ned >= 0.0 and abs(Med) < 1e-4:
+            # No bending and zero axial force or tension
+            print("No axial force or tension and no bending")
+            C = 1
+        
         # Pure bending        
-        if abs(self.Ned) < 1e-4 and abs(Med) > 1e-4:
+        elif abs(self.Ned) < 1e-4 and abs(Med) > 1e-4:
             if verb:
                 print("Pure bending")
             Cflange = self.flange_class(verb)

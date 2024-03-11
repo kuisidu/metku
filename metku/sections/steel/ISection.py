@@ -437,7 +437,7 @@ class ISection(SteelSection):
         xweb_l = [-0.5*tw+origin[0],-0.5*tw+origin[0]]
         yweb = [-0.5*hw+origin[1],0.5*hw+origin[1]]
         
-        if theta is not 0:
+        if theta != 0:
             web_rot = [R.dot(np.array([x,y])) for x, y in zip(xweb_l,yweb)]
             xweb_l = [x[0] for x in web_rot]
             yweb_l = [x[1] for x in web_rot]

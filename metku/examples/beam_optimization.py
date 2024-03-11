@@ -82,6 +82,7 @@ class BeamOptimizationProblem(OptimizationProblem):
                      ub=700,
                      target={"property": "BF",
                              'objects': [section]})
+        
         # Flanges' thickness
         var_TF = Variable(name="TF",
                      lb=5,
@@ -117,6 +118,8 @@ class BeamOptimizationProblem(OptimizationProblem):
         """
         def bending_moment_confun(x):
             # Index 0 is the bending resistance about the major axis
+            # g(x) <= 0 
+            # MEd <= MRd(x) 
             g = beam.med / beam.MRd[0] - 1
 
             return g
