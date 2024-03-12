@@ -48,6 +48,13 @@ class RectPlate:
                      'welding':0.0,
                      'holes':0.0}
     
+    def __repr__(self):
+        return f'P {self.h:4.1f} X {self.b:4.1f} X {self.t:4.1f}' # + 'X' + self.b + 'X' + self.t
+    
+    @property
+    def E(self):
+        return self.material.E
+    
     @property
     def fy(self):
         return self.material.fy
@@ -217,7 +224,6 @@ class RectPlateWithHoles(RectPlate):
         
         # Draw holes
         for j in range(self.n1):
-            print(j)
             for i in range(self.n2):
                 x = x0[0] + self.x0[0] + i*self.px
                 y = x0[1] + self.x0[1] + j*self.py
