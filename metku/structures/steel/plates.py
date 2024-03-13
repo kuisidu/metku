@@ -229,7 +229,14 @@ class RectPlateWithHoles(RectPlate):
                 y = x0[1] + self.x0[1] + j*self.py
                 hole = patches.Circle((x,y), radius= 0.5*self.d0, edgecolor='black',facecolor='white')
                 ax.add_patch(hole)
-                
+    
+    def cost(self,workshop,material_cost=BASIC_STEEL_PRICE,verb=False):
+        """ Cost evaluation """
+        
+        """ Set up holes """
+        self.holes = [self.d0] * self.n
+        
+        return super().cost(workshop,material_cost,verb)
 
 if __name__ == '__main__':
     
@@ -242,6 +249,8 @@ if __name__ == '__main__':
     
     plate = RectPlateWithHoles(170,230,10,22, [60,45],55,70,3,2)
     plate.draw()
+    
+    C = plate.cost(ws,verb=True)
     
     #plate.cost(ws,verb=True)
     #print("Plate cost: {0:4.2f} €".format(plate.cost(ws)))

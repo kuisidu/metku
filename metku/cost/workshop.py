@@ -857,7 +857,106 @@ class SawingCost(CostCentre):
                     
         self.times["productive"] = TP
         self.consumables_cost = cCS
-        return super().cost()        
+        return super().cost()
+
+# Cost center for drilling
+class DrillingCost(CostCentre):
+
+    def __init__(self, length=35.0,width=15.0, workers=1.0,
+                 eq_invest=520000.0,eq_resale=0.0,eq_maint=1000.0):
+
+        CostCentre.__init__(self, length,width,workers,
+                            eq_invest,eq_resale,eq_maint)
+        
+        self.name = "Drilling"
+        
+        self.times["non-productive"] = 3.0          
+        
+        # Labour cost
+        self.costs["labour"] = self.nw*wage_per_minute["machine"] # Hourly cost [e/h]
+            
+    def non_productive_time(self,L=6000,nrows=1,nholes=2):
+        """ Calculate non-productive time 
+            input: turns .. number of manual turnings of the profile (0,1 or 2)
+                    L .. length of the member [mm]
+        """
+        np_times = {}
+        np_times['setup'] = 4 # operator sets up the equipment
+        np_times['drill_bit_picking'] = 0.25
+        np_times['drill_tip_to_material_surface'] = 0.2
+        np_times['move_head_from_hole_to_hole'] = 0.1
+        np_times['to_standby_position'] = 0.2
+        np_times['release_and_fix'] = 0.2
+        
+        npt = 0
+        for t in np_times.values():
+            npt += t
+        
+        self.times["non-productive"] = L/self.conveyor_speed
+        
+        return self.times["non-productive"]        
+
+
+    def ProductiveTime(self,t_p,cut_length):
+        """ Calculate the productive time
+            input: Lb .. length of steel piece (mm)
+            output: productive time (min)
+        """
+        # Cutting speed according to thickness [mm] of the plate
+        if t_p <= 30.0:   # Plasma cutting
+            v_cut = (8.9212*t_p**2.0 - 486.87*t_p + 8155.8)     # [mm/min]
+        else:   # Flame cutting
+            v_cut = -4.1939*t_p + 658.67                        # [mm/min]
+            
+        TP = cut_length/v_cut                                   # [min]
+        self.times["productive"] = TP
+        return TP
+    
+    def Consumables(self,t_p):
+        """ Calculate the cost of consumables
+            input: t_p .. plate thickness
+            
+        """
+        # Consumables: Gases, plasma electrodes and nozzles
+        if t_p <= 30.0:   # Plasma cutting
+            # Total consumables cost [e/min]
+            cutting_oxygen = 0.071                                       # [m^3/min]
+            oxygen_cost = 0.3                                            # [e/min]
+            nozzle_unit_cost = 40                                        # [e]
+            nozzle_life = 480                                            # [min]
+            nozzle_cost = nozzle_unit_cost/nozzle_life                   # [e/min]
+            self.productive_costs["consumables"] = cutting_oxygen*oxygen_cost + nozzle_cost
+            
+        else:   # Flame cutting
+            # Total consumables cost [e/min]
+            propane_consump = 0.0063                                        # [m^3/min]
+            propane_cost = 18.40                                            # [e/m^3]
+            preheat_oxygen_consump = 0.025                                  # [m^3/min]
+            cutting_oxygen_consump = 1.0e-5*t_p**2.0 + 0.001*t_p + 0.0224   # [m^3/min]
+            oxygen_cost = 4.18                                              # [e/m^3]
+            self.productive_costs["consumables"] = propane_consump*propane_cost + (preheat_oxygen_consump + cutting_oxygen_consump)*oxygen_cost        
+    
+    def Energy(self,t_p):
+        """ Cost of energy used by the machine """
+        
+        if t_p <= 30:
+            # Plasma cutting
+            P_total = 72.0
+        else:
+            # Flame cutting
+            P_total = 0.0
+            
+        # Cost of energy [e/min]
+        self.productive_costs["energy"] = P_total*cost_energy_min
+
+    def cost(self,t_p,cut_length):
+        """ Evaluate different costs and run the total cost
+            calculation
+        """
+        self.ProductiveTime(t_p, cut_length)
+        self.Consumables(t_p)
+        self.Energy(t_p)
+        return super().cost()
 
 class Workshop:
     """
@@ -881,7 +980,8 @@ class Workshop:
                                  'assembly_welding':AssemblingCostWeld(),
                                  'sawing':SawingCost(),
                                  'painting':PaintingCost(),
-                                 'beam_welding':BeamWeldingCost()}
+                                 'beam_welding':BeamWeldingCost(),
+                                 'drilling':DrillingCost()}
         else:
             self.cost_centres = {}
             for key, value in cost_centres.items():
