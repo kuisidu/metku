@@ -480,7 +480,8 @@ class SteelSection(metaclass=ABCMeta):
         elif self.Ned < 0.0 or Med == 0:
             # Pure compression
             if abs(Med) < 1e-4:
-                print("Pure compression")
+                if verb:
+                    print("Pure compression")
                 Cflange = self.flange_class(verb)
                 Cweb = self.web_class_comp(verb)
                 C = max(Cweb, Cflange)

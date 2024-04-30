@@ -267,7 +267,7 @@ class PlaneTruss(Raami):
             this.joint_id = len(self.joints)
             self.joints[this.joint_id] = this
             
-        else:
+        else:            
             super().add(this)
             
     

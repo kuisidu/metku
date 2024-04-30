@@ -210,14 +210,20 @@ class OptimizationProblem:
             g = con(x)             
             if con.type == '<':
                 if g > self.con_tol:
+                    #print('<= type inequality constraint infeasible')
+                    #print(con,g)
                     res = False
                     break
             elif con.type == '>':
                 if g < -self.con_tol:
+                    #print('>= type inequality constraint infeasible')
+                    #print(con,g)
                     res = False
                     break
             else:
                 if abs(g) > self.con_tol:
+                    #print('== type inequality constraint infeasible')
+                    #print(con,g)
                     res = False
                     break
         
