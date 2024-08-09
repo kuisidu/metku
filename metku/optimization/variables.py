@@ -11,18 +11,26 @@ import math
 
 from metku.optimization.constants import XLB, XUB, INT_TOL, DISC_TOL
 
+
 class Variable:
     """ Class for optimization variables
     """
 
-    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None, target_fun=None):
+    def __init__(self,
+                 name: str,
+                 lb: float = XLB,
+                 ub: float = XUB,
+                 id: int = None,
+                 target: dict = None,
+                 profiles: list = None,
+                 value: float = None,
+                 target_fun: callable = None):
         """
         Parameters:
             -----------
                 :param name: string stating the name of the variable
                 :param value: current value of the variable
                 :param lb: lower bound
-                :param ub: upper bound
                 :param ub: upper bound
                 :param target: dict that provides information about the part of
                 the structure that the variable is changing
@@ -41,7 +49,7 @@ class Variable:
                 :param target_fun: (optional) dict that provides functions for evaluating a functional relationship
                                     between the variable and its target. For cases, where the variable substitution
                                     is not a direct attribute insertion. For example, when the cross-sectional area
-                                    of a member is used as a variable and it also affects the second moment of area
+                                    of a member is used as a variable, and it also affects the second moment of area
                                     by some function I = I(A)
 
                 Allowed values for 'property':
@@ -58,17 +66,16 @@ class Variable:
                     'H' .. height of the profile
                     'TW' .. thickness of the web
         """
-        
+
         self.name = name
         self.value = value
         self.lb = lb
         self.ub = ub
-        
         self.target = target
         self.profiles = profiles
         self.locked = False
         self.branch_priority = 0
-        self.id = id            # MIKÄ TÄMÄ ON?
+        self.id = id  # MIKÄ TÄMÄ ON?
         self.scaling = 1.0
         self.target_fun = target_fun
 
@@ -79,7 +86,7 @@ class Variable:
 
     def __repr__(self):
 
-        #return self.name + ": [" + str(self.lb) + "," + str(self.ub) + "]"
+        # return self.name + ": [" + str(self.lb) + "," + str(self.ub) + "]"
         if self.locked:
             fixed = " (fixed to {0:g})".format(self.value)
         else:
@@ -89,7 +96,7 @@ class Variable:
 
     def lock(self, val=None):
         """
-        Locks the variable so it's value can't be changed
+        Locks the variable, so it's value can't be changed
 
         Parameters:
         -----------
@@ -105,17 +112,17 @@ class Variable:
         Unlocks the variable so it's value can be changed
         """
         self.locked = False
-        
-    def scale(self,scaling_factor):
+
+    def scale(self, scaling_factor):
         """ Scale variable by the factor 'scaling_factor' 
             This alters the variable bounds. In 'substitute' method, scaling
             is reflected such that the variable value is multiplied by
             'scaling_factor'
         """
-        
+
         self.scaling = scaling_factor
-        self.lb = self.lb/scaling_factor
-        self.ub = self.ub/scaling_factor
+        self.lb = self.lb / scaling_factor
+        self.ub = self.ub / scaling_factor
 
     def substitute(self, new_value):
         """
@@ -126,8 +133,8 @@ class Variable:
         if not self.locked:
             """ Substitute a new value for the variable """
             self.value = new_value
-            """ Modify target object(s) if any """            
-            if not self.target is None:
+            """ Modify target object(s) if any """
+            if self.target is not None:
                 for obj in self.target['objects']:
                     prop = self.target['property']
                     """ If the variable affects several properties at a time
@@ -143,10 +150,10 @@ class Variable:
                                     then do regular substitution
                                 """
                                 try:
-                                    new_val = self.target_fun[p](new_value*self.scaling)
+                                    new_val = self.target_fun[p](new_value * self.scaling)
                                 except KeyError:
-                                    new_val = new_value*self.scaling
-                                    
+                                    new_val = new_value * self.scaling
+
                                 obj.__setattr__(p, new_val)
                             else:
                                 obj.__setattr__(p, new_value)
@@ -160,7 +167,7 @@ class Variable:
                         """
                         if new_value == 1:
                             if prop == 'profile' or prop == 'cross_section':
-                                obj.__setattr__(prop,self.section)
+                                obj.__setattr__(prop, self.section)
                         else:
                             """ If the target of a binary variable is a member,
                                 the binary variable is a member existence variable
@@ -168,12 +175,11 @@ class Variable:
                                 mark the member as passive.
                             """
                             if prop == 'member':
-                                obj.__setattr__('active',False)
+                                obj.__setattr__('active', False)
                     else:
-                        obj.__setattr__(prop, new_value*self.scaling)
+                        obj.__setattr__(prop, new_value * self.scaling)
 
-
-    def discrete_violation(self,x):
+    def discrete_violation(self, x):
         """ Identify the violation of value 'x' from allowable (Discrete)
             value. Returns 0 for continous variables
         :return:
@@ -181,13 +187,18 @@ class Variable:
         """
         return 0
 
+
 class IntegerVariable(Variable):
     """ Class for integer variables
 
         Integer variables can take integer values from the interval lb, ub
     """
 
-    def __init__(self, name="", lb=0, ub=1e5, **kwargs):
+    def __init__(self,
+                 name="",
+                 lb=0,
+                 ub=1e5,
+                 **kwargs):
         """ Constructor
 
             Arguments:
@@ -198,27 +209,26 @@ class IntegerVariable(Variable):
 
         super().__init__(name, lb, ub, **kwargs)
 
-
-    def is_allowed_value(self,x):
+    def is_allowed_value(self, x):
         """ Check if 'x' is an integer within the range of the variable """
 
-        if x >= self.lb and x <= self.ub:
+        if self.lb <= x <= self.ub:
             """ If x is within INT_TOL of its rounded integer value,
                 it is deemed integer
             """
-            if math.isclose(x,round(x,0),abs_tol=INT_TOL):
+            if math.isclose(x, round(x, 0), abs_tol=INT_TOL):
                 return True
             else:
                 return False
         else:
             return False
 
-    def discrete_violation(self,x):
+    def discrete_violation(self, x):
         """ Identify the violation of value 'x' from allowable (Discrete)
             value. Returns 0 for continous variables
         """
 
-        violation = abs(x-round(x,0))
+        violation = abs(x - round(x, 0))
         if violation <= INT_TOL:
             violation = 0
 
@@ -239,11 +249,10 @@ class BinaryVariable(IntegerVariable):
                 name .. string stating the name of the variable
         """
         super(IntegerVariable, self).__init__(name, 0, 1, **kwargs)
-    
+
         self.section = section
         self.objects = objects
-        
-        
+
 
 class IndexVariable(IntegerVariable):
     """
@@ -253,6 +262,7 @@ class IndexVariable(IntegerVariable):
     a member.
     
     """
+
     def __init__(self, name="", values=None, target=None, **kwargs):
         """ Constructor:
             :param values: list of possible 
@@ -280,7 +290,7 @@ class IndexVariable(IntegerVariable):
                 f"Input {new_value} is erroneous "
                 "IndexVariable's value must be either"
                 " index or a value from the given list!\n"
-            f"Values: {self.values}")
+                f"Values: {self.values}")
 
         self.value = new_value
 
@@ -320,61 +330,59 @@ class DiscreteVariable(Variable):
 
         super().__init__(name, lb, ub, target=target, **kwargs)
 
-    def is_allowed_value(self,x):
+    def is_allowed_value(self, x):
         """ Check if 'x' is one of the values listed in
             self.values
         """
 
-        if x >= self.lb and x <= self.ub:
+        if self.lb <= x <= self.ub:
             """ If x is within INT_TOL of any of the allowed values,
                 it is deemed allowed
             """
-            if min([abs(val-x) for val in self.values]) < INT_TOL:
+            if min([abs(val - x) for val in self.values]) < INT_TOL:
                 return True
 
-                """
-                for val in self.values:
-                    if abs(x-val) < INT_TOL:            
-                        return True        
-                """
+            """
+            for val in self.values:
+                if abs(x-val) < INT_TOL:            
+                    return True        
+            """
             return False
         else:
             return False
 
-    def discrete_violation(self,x):
+    def discrete_violation(self, x):
         """ Identify the violation of value 'x' from allowable (Discrete)
             value.
         """
 
-        violation = min([abs(val-x) for val in self.values])
+        violation = min([abs(val - x) for val in self.values])
 
         if violation <= DISC_TOL:
             violation = 0
 
         return violation
 
-
-    def smaller_discrete_value(self,x):
+    def smaller_discrete_value(self, x):
         """ Returns discrete value smaller than 'x' and closest to it  """
 
-        return max(list(filter(lambda val: (val-x<0),self.values)))
+        return max(list(filter(lambda val: (val - x < 0), self.values)))
 
-            #diff = [val-x for val in self.values]
+        # diff = [val-x for val in self.values]
 
-    def larger_discrete_value(self,x):
+    def larger_discrete_value(self, x):
         """ Returns discrete value smaller than 'x' and closest to it  """
 
-        return min(list(filter(lambda val: (val-x>0),self.values)))
-
+        return min(list(filter(lambda val: (val - x > 0), self.values)))
 
 
 class CrossSectionVariable(Variable):
     """ Class for cross-sectional variables (continuous) """
-    
+
     def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None, target_fun=None):
-        
+
         super().__init__(name, lb, ub, id, target, profiles, value, target_fun)
-    
+
     def substitute(self, new_value):
         """
         Changes variable value and modifies target
@@ -384,7 +392,7 @@ class CrossSectionVariable(Variable):
         if not self.locked:
             """ Substitute a new value for the variable """
             self.value = new_value
-            
+
             for obj in self.target['objects']:
                 prop = self.target['property']
                 """ If the variable affects several properties at a time
@@ -392,7 +400,7 @@ class CrossSectionVariable(Variable):
                 """
                 if isinstance(prop, list):
                     for p in prop:
-                        """ If the varible has a 'target_fun',
+                        """ If the variable has a 'target_fun',
                             evaluate it for right properties
                         """
                         if self.target_fun is not None:
@@ -400,13 +408,12 @@ class CrossSectionVariable(Variable):
                                 then do regular substitution
                             """
                             try:
-                                new_val = self.target_fun[p](new_value*self.scaling)
+                                new_val = self.target_fun[p](new_value * self.scaling)
                             except KeyError:
-                                new_val = new_value*self.scaling
-                                    
+                                new_val = new_value * self.scaling
+
                             obj.__setattr__(p, new_val)
                         else:
                             obj.__setattr__(p, new_value)
                 else:
-                    obj.cross_section.__setattr__(prop, new_value*self.scaling)
-        
+                    obj.cross_section.__setattr__(prop, new_value * self.scaling)
