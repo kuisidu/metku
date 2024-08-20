@@ -1,11 +1,16 @@
 import setuptools
+import build_package
+
+def parse_requirements(filename):
+    with open(filename, 'r') as f:
+        return f.read().splitlines()
 
 with open("README.md", 'r') as fh:
     long_desc = fh.read()
 
 setuptools.setup(
     name="metku",
-    version="0.1.14",
+    version=build_package.BUILD_VERSION,
     url="https://github.com/kuisidu/metku",
     author="Kristo Mela, Jaakko Huusko, Viktor Haimi",
     description="Module for structural analysis and optimization",
@@ -23,11 +28,12 @@ setuptools.setup(
         "Intended Audience :: Science/Research"
     ],
     python_requires=">=3.9",
-    install_requires=['numpy',
-                      'matplotlib',
-                      'scipy',
-                      'deap',
-                      'ortools',
-                      'treelib',
-                      ],
+    # install_requires=['numpy',
+    #                   'matplotlib',
+    #                   'scipy',
+    #                   'deap',
+    #                   'ortools',
+    #                   'treelib',
+    #                   ],
+    install_requires=parse_requirements('requirements.txt'),
 )

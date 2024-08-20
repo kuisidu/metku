@@ -1,8 +1,8 @@
 setuptools>=65.5.1
 treelib>=1.6.1
 deap>=1.3.3
-ortools>=9.6.*
 numpy>=2.0.1
 matplotlib>=3.9.1
 pandas>=2.2.2
 scipy>=1.14.0
+ortools>=9.10.4067
