@@ -20,8 +20,7 @@ class Variable:
                  name: str,
                  lb: float = XLB,
                  ub: float = XUB,
-                 id: int = None,
-                 target: dict = None,
+                 target: dict[str, object | list] = None,
                  profiles: list = None,
                  value: float = None,
                  target_fun: callable = None):
@@ -75,7 +74,6 @@ class Variable:
         self.profiles = profiles
         self.locked = False
         self.branch_priority = 0
-        self.id = id  # MIKÄ TÄMÄ ON?
         self.scaling = 1.0
         self.target_fun = target_fun
 
@@ -142,7 +140,7 @@ class Variable:
                     """
                     if isinstance(prop, list):
                         for p in prop:
-                            """ If the varible has a 'target_fun',
+                            """ If the variable has a 'target_fun',
                                 evaluate it for right properties
                             """
                             if self.target_fun is not None:
@@ -181,7 +179,7 @@ class Variable:
 
     def discrete_violation(self, x):
         """ Identify the violation of value 'x' from allowable (Discrete)
-            value. Returns 0 for continous variables
+            value. Returns 0 for continuous variables
         :return:
 
         """
@@ -195,9 +193,9 @@ class IntegerVariable(Variable):
     """
 
     def __init__(self,
-                 name="",
-                 lb=0,
-                 ub=1e5,
+                 name: str = "",
+                 lb: int = 0,
+                 ub: int = 1e5,
                  **kwargs):
         """ Constructor
 
@@ -225,14 +223,31 @@ class IntegerVariable(Variable):
 
     def discrete_violation(self, x):
         """ Identify the violation of value 'x' from allowable (Discrete)
-            value. Returns 0 for continous variables
+            value. Returns 0 for continuous variables
         """
-
         violation = abs(x - round(x, 0))
         if violation <= INT_TOL:
             violation = 0
 
         return violation
+
+
+class BooleanVariable(IntegerVariable):
+    """ Class for boolean variables
+
+        Boolean variables can only have values 0 or 1
+
+    """
+
+    def __init__(self,
+                 name="",
+                 **kwargs):
+        """ Constructor
+
+            Arguments:
+                name .. string stating the name of the variable
+        """
+        super(IntegerVariable, self).__init__(name, 0, 1, **kwargs)
 
 
 class BinaryVariable(IntegerVariable):
@@ -379,9 +394,9 @@ class DiscreteVariable(Variable):
 class CrossSectionVariable(Variable):
     """ Class for cross-sectional variables (continuous) """
 
-    def __init__(self, name, lb=XLB, ub=XUB, id=None, target=None, profiles=None, value=None, target_fun=None):
+    def __init__(self, name, lb=XLB, ub=XUB, target=None, profiles=None, value=None, target_fun=None):
 
-        super().__init__(name, lb, ub, id, target, profiles, value, target_fun)
+        super().__init__(name, lb, ub, target, profiles, value, target_fun=target_fun)
 
     def substitute(self, new_value):
         """

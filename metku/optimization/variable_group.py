@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional
 
-from metku.optimization.variables import Variable, DiscreteVariable, IndexVariable, BinaryVariable
+from metku.optimization.variables import Variable, DiscreteVariable, IndexVariable, BinaryVariable, BooleanVariable
 
 
 class VariableTypeEnum(Enum):
@@ -21,6 +21,7 @@ def has_attribute(obj: object, attr: list | str) -> bool:
     else:
         return hasattr(obj, attr)
     return True
+
 
 @dataclass
 class VariableGroup:
@@ -44,8 +45,6 @@ class VariableGroup:
             self.attributes = [self.attribute]
         if self.value is None:
             self.value = [0] * len(self.attributes)
-
-
 
         # Attribute check
         for attr in self.attributes:
@@ -84,15 +83,16 @@ class VariableGroup:
                     variables.append(var)
             case VariableTypeEnum.INDEX:
                 var = IndexVariable(name=f"{self.name} {self.attribute}",
-                                       value=self.value,
-                                       values=self.values,
-                                       target={
-                                           'property': self.attribute,
-                                           'objects': self.objects
-                                       })
+                                    value=self.value,
+                                    values=self.values,
+                                    target={
+                                        'property': self.attribute,
+                                        'objects': self.objects
+                                    })
                 variables.append(var)
             case VariableTypeEnum.BINARY:
-                var = BinaryVariable()
+                raise NotImplementedError(f"{VariableTypeEnum.BINARY} Not Implemented")
+                # var = BinaryVariable()
             case VariableTypeEnum.BOOLEAN:
                 raise NotImplementedError(f"{VariableTypeEnum.BOOLEAN} Not Implemented")
             case _:
@@ -108,16 +108,17 @@ if __name__ == '__main__':
     sb = SteelBeam([[0, 0], [5000, 0]])
 
     vg = VariableGroup(name="ContinuousTest",
-                       objects=[sb.cross_section],
+                       object=sb.cross_section,
                        attributes=[['Iy', 'Iz'], 'A'],
                        var_type=VariableTypeEnum.CONTINUOUS,
-                       #value=[10, 100],
-                       lower_bounds=[0, 100],
-                       upper_bounds=[1e6, 1e3])
+                       # value=[10, 100],
+                       lower_bounds=[0, 123],
+                       upper_bounds=[1e6, 456])
 
     vg2 = VariableGroup(name="IndexTest",
-                       object=sb,
-                       attribute='profile',
-                       var_type=VariableTypeEnum.INDEX,
-                       values=shs_profiles.keys())
-    print(vg2.variables)
+                        object=sb,
+                        attribute='profile',
+                        var_type=VariableTypeEnum.INDEX,
+                        values=shs_profiles.keys())
+
+    print(vg.variables)
