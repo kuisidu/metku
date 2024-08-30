@@ -23,24 +23,22 @@ Classes:
 @author: kmela
 """
 
+import copy
 import time
+from itertools import product
 
 import numpy as np
 import scipy.optimize as sciop
-from itertools import product
 
-from functools import lru_cache
-import copy
-
-#from metku.eurocodes.en1991.loadIDs import LoadIDs
-from metku.frame2d import LoadIDs
-
-from metku.optimization.constants import XLB, XUB, CACHE_BOUND
-from metku.optimization.variables import Variable, DiscreteVariable, IntegerVariable
-from metku.optimization.variables import BinaryVariable, IndexVariable
+from metku.optimization.constants import XLB, XUB
 from metku.optimization.constraints import Constraint, LinearConstraint, NonLinearConstraint
 from metku.optimization.objective import ObjectiveFunction
 from metku.optimization.opt_functions import NumGrad, conlin_fun, mma_fun
+from metku.optimization.variables import BinaryVariable, IndexVariable
+from metku.optimization.variables import Variable, DiscreteVariable, IntegerVariable
+
+
+# from metku.eurocodes.en1991.loadIDs import LoadIDs
 
 class OptimizationProblem:
     """ Class for defining and operating with optimization problems """
