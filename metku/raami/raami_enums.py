@@ -1,13 +1,14 @@
-from enum import Enum, auto
+from enum import Enum, auto, StrEnum
 
-class MemberTypeEnum(Enum):
-    COLUMN = "COLUMN"
-    BEAM = "BEAM"
-class SupportMethodEnum(Enum):
-    REM = "REM"
-    ZERO = "ZERO"
+class MemberTypeEnum(StrEnum):
+    COLUMN = auto()
+    BEAM = auto()
+    BRACE = auto()
+class SupportMethodEnum(StrEnum):
+    REM = auto()
+    ZERO = auto()
 
-class LoadTypeEnum(Enum):
+class LoadCaseEnum(StrEnum):
 
     PERMANENT = auto()
     IMPOSED_A = auto()
@@ -17,11 +18,12 @@ class LoadTypeEnum(Enum):
     IMPOSED_E = auto()
     SNOW = auto()
     WIND = auto()
-class LoadCombinationTypeEnum(Enum):
+class LoadCombinationEnum(StrEnum):
     ULS = auto()
     SLS_CH = auto()
     SLS_FR = auto()
     SLS_QP = auto()
+    FIRE = auto()
     ACC = auto()
 
 
