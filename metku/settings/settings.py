@@ -67,7 +67,7 @@ class Unit:
 @dataclass
 class Length:
     mm: float = SIBaseUnit(name="millimeter", symbol="mm", m=1e-3)
-    m: float = SIBaseUnit(name="millimeter", symbol="mm", m=1)
+    m: float = SIBaseUnit(name="meter", symbol="m", m=1)
 
 
 @dataclass
