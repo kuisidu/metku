@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 
 import metku.frame2d as f2d
 import metku.truss2d as t2d
-from metku.optimization.objective_enum import ObjectiveEnum
+from metku.optimization.optimzation_enums import ObjectiveEnum
 from metku.optimization.structopt import *
 from metku.structures.steel.steel_member import SteelMember
 
