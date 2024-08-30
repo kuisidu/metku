@@ -8,10 +8,18 @@ Objective function class for optimization problems
 """
 
 import numpy as np
+from metku.optimization.structopt import OptimizationProblem
+from optimzation_enums import ObjectiveTypeEnum
+
 
 class ObjectiveFunction:
 
-    def __init__(self, name, obj_fun, obj_type="MIN", problem=None, fea_required=False):
+    def __init__(self,
+                 name: str,
+                 obj_fun: callable,
+                 obj_type: ObjectiveTypeEnum = ObjectiveTypeEnum.MIN,
+                 problem: OptimizationProblem = None,
+                 fea_required: bool = False):
 
         self.name = name
         if not callable(obj_fun):
@@ -33,9 +41,9 @@ class ObjectiveFunction:
         """
         if self.fea_required and not self.problem.fea_done:
             self.problem.fea()
-        
+
         X = [val for val in x]
-        X.reverse()        
+        X.reverse()
 
         """ Fixed values values is an array
             with the values
@@ -47,7 +55,7 @@ class ObjectiveFunction:
         for i, val in enumerate(fixed_vals):
             if val is None:
                 """ If variable vars[i] is free, take its value from X
-                    Because X was revesed, the pop method provides the correct
+                    Because X was reversed, the pop method provides the correct
                     value here.
                 """
                 fixed_vals[i] = X.pop()
@@ -56,10 +64,10 @@ class ObjectiveFunction:
                     value from 'fixed_vals'
                 """
                 break
-        
+
         self.problem.substitute_variables(fixed_vals)
-        
-        if self.obj_type == "MIN":
+
+        if self.obj_type == ObjectiveTypeEnum.MIN:
             return self.obj_fun(fixed_vals)
         else:
             return -self.obj_fun(fixed_vals)
@@ -72,9 +80,11 @@ class ObjectiveFunction:
         """
         return -self(x)
 
+
 class LinearObjective(ObjectiveFunction):
     """ Class for linear objective functions """
-    def __init__(self,name,c,obj_type="MIN",problem=None):
+
+    def __init__(self, name, c, obj_type="MIN", problem=None):
         """ Constructor:
             input:
                 c .. constant array for performing the evaluation
@@ -84,9 +94,8 @@ class LinearObjective(ObjectiveFunction):
 
         self.c = np.array(c)
 
-        super().__init__(name,obj_fun,obj_type,problem)
+        super().__init__(name, obj_fun, obj_type, problem)
 
-
-    def evaluate(self,x):
+    def evaluate(self, x):
         """ Evaluate function value """
         return self.c.dot(np.array(x))
