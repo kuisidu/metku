@@ -198,14 +198,14 @@ class EBBeam(Element):
 
         return ke
 
-    def local_geometric_stiffness_matrix(self,lcase=0,initial=True):
+    def local_geometric_stiffness_matrix(self,lcase=0,initial=True) -> np.ndarray:
         """ Geometric stiffness matrix in local coordinates
             source: Cook et. al 1989, Section 14.2
 
             Returns:
             ---------
             :return: element's geometric stiffness matrix in local coordinates
-            :rtype: np.array
+            :rtype: np.ndarray
 
         """
         #P = self.axial_force[1]
