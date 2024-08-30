@@ -678,9 +678,10 @@ class FrameMember:
                          verticalalignment=vertalign)
             """
 
-    def bmd(self, scale=1, load_id = LoadIDs['ULS']):
+    def bmd(self, scale=1, load_id = LoadIDs['ULS'], plot_self=True, show=True):
         """ Plots bending moment diagram """
-
+        if plot_self:
+            self.plot(  )
         # Scales Nmm to kNm
         unit_scaler = 1e-6
 
@@ -730,7 +731,10 @@ class FrameMember:
         plt.text(x, y, f'{bending_moment * unit_scaler:.2f} kNm',
                  horizontalalignment=horzalign)
         plt.plot(X, Y, color='gray')
-    
+
+        if show:
+            plt.show()
+
     def add_hinge(self, loc=0):
         """ Adds a hinge to the member
         input:
