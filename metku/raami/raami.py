@@ -221,12 +221,12 @@ class Raami:
             The idea is that the FEM model is generated once and subsequently
             the same model is modified.
         """
-                
-        
+
+
         if not self.fem_generated:
             self.fem_generated = True
-        
-        
+
+
         # Create nodes at the locations of the
         # FrameNodes
         for node in self.nodes:
@@ -234,17 +234,17 @@ class Raami:
                 newNode = self.fem.add_node(node.x,node.y)
             else:
                 newNode = self.fem.add_node(node.x,node.y,node.z)
-            
+
             node.fem_node = newNode
-        
+
         # Generate elements and internal nodes for members
-        for member in self.members.values():            
+        for member in self.members.values():
             member.generate_elements(self.fem)
-        
+
         # Generate supports
         for supp in self.supports.values():
             supp.add_support(self.fem)
-            
+
         # Generate loads
         for load in self.loads.values():
             load.add_load(self.fem)
@@ -252,7 +252,7 @@ class Raami:
             lcase_ids = [lc.load for lc in self.fem.loadcases.values()]
             if load.load_id not in lcase_ids:
                 self.fem.add_loadcase(supp_id=1,load_id=load.load_id)
-        
+
         # Set nodal degrees of freedom
         self.fem.nodal_dofs()
     
@@ -620,7 +620,7 @@ class Raami:
         """
         self.plot(print_text=False, loads=loads, show=False, color=False)
         for member in self.members.values():
-            member.bmd(scale, load_id=load_id)
+            member.bmd(scale, load_id=load_id, show=False, plot_self=False)
         
         if save:
             plt.savefig('bending moment diagram.svg', format='svg')
@@ -1206,11 +1206,14 @@ if __name__ == '__main__':
     f.add(LoadCombination(comb_id=2,comb_type='ULS',load_cases=list(f.load_cases.values())))
     
     f.load_combs[2].combine_loads()
-    #f.plot(loads=False)
+    #f.plot(loads=True)
     f.generate_fem()
     #f.to_robot()
     f.structural_analysis(load_id=2,support_method="REM")
-    f.bmd(scale=10,load_id=2)
+    #f.bmd(scale=10,load_id=2, loads=False)
+
+
+    f.members[0].bmd(load_id=2)
     #f.optimize_members("CURRENT")
     
             
