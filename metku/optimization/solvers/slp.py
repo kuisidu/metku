@@ -5,6 +5,7 @@
 
 
 import numpy as np
+from numpy.core.multiarray import ndarray
 
 from ortools.linear_solver import pywraplp
 
@@ -12,8 +13,10 @@ from metku.optimization.solvers.optsolver import OptSolver
 
 class SLP(OptSolver):
     """ Solver class for Sequential Linear Programming Method (SLP) """
-    
-    def __init__(self, move_limits=(0.05, 0.05),
+    move_limits: np.ndarray
+
+    def __init__(self,
+                 move_limits=(0.05, 0.05),
                  gamma=1e-2,
                  C=2e5,
                  beta=10,
@@ -116,7 +119,7 @@ class SLP(OptSolver):
         X = []
         for i in range(len(x)):
             X.append(x[i].solution_value())
-        X = np.asarray(X, dtype=np.float)
+        X = np.asarray(X, dtype=np.float64)
 
         return X - self.X
 
