@@ -9,6 +9,7 @@ Optimization variable classes
 
 import math
 
+from typing import Optional
 from metku.optimization.constants import XLB, XUB, INT_TOL, DISC_TOL
 
 
@@ -20,10 +21,14 @@ class Variable:
                  name: str,
                  lb: float = XLB,
                  ub: float = XUB,
-                 target: dict[str, object | list] = None,
-                 profiles: list = None,
-                 value: float = None,
-                 target_fun: callable = None):
+                 target: Optional[dict[str, object | list]] = None,
+                 target_property: Optional[str] = None,
+                 target_properties: Optional[list[str]] = None,
+                 target_object: Optional[object] = None,
+                 target_objects: Optional[list[object]] = None,
+                 profiles: Optional[list] = None,
+                 value: Optional[float] = None,
+                 target_fun: Optional[callable] = None):
         """
         Parameters:
             -----------
@@ -70,6 +75,20 @@ class Variable:
         self.value = value
         self.lb = lb
         self.ub = ub
+
+        self.target_property = target_property
+        self.target_properties = target_properties
+        self.target_object = target_object
+        self.target_objects = target_objects
+
+        if target is None:
+            if target_properties is None:
+                target_properties = [target_property]
+            if target_objects is None:
+                target_objects = [target_object]
+            target = {"property": target_properties,
+                      "objects": target_objects}
+
         self.target = target
         self.profiles = profiles
         self.locked = False
@@ -432,3 +451,19 @@ class CrossSectionVariable(Variable):
                             obj.__setattr__(p, new_value)
                 else:
                     obj.cross_section.__setattr__(prop, new_value * self.scaling)
+
+
+if __name__ == "__main__":
+
+    var0 = Variable(name="Target")
+    var = Variable(
+        name="Test",
+        lb=0,
+        ub=100,
+        target_property="lb",
+        target_object=var0)
+
+    print(var0.lb)
+    var.substitute(100)
+    print(var0.lb)
+
