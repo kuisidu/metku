@@ -124,8 +124,6 @@ class OptimizationProblem:
         """
         # VARIABLES
         if isinstance(this, Variable):
-            if this.id is None:
-                this.id = len(self.vars)
             if this not in self.__vars:
                 self.__vars.append(this)
 
