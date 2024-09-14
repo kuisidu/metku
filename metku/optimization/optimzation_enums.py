@@ -7,9 +7,9 @@
 
 from enum import Enum, auto, StrEnum
 
-class ObjectiveTypeEnum(StrEnum):
-    MIN = auto()
-    MAX = auto()
+class ObjectiveTypeEnum(Enum):
+    MIN = "MIN"
+    MAX = "MAX"
 
 class ObjectiveEnum(Enum):
     WEIGHT = 1
