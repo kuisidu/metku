@@ -7,7 +7,7 @@ import os
 import shutil
 
 # UPDATE THIS MANUALLY
-BUILD_VERSION = "0.1.17"
+BUILD_VERSION = "0.1.18"
 
 def build_package():
     # Run the command to build the package
