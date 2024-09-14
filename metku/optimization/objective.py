@@ -25,7 +25,7 @@ class ObjectiveFunction:
         if not callable(obj_fun):
             raise ValueError("obj_fun must be a function!")
         self.obj_fun = obj_fun
-        self.obj_type = obj_type[:3].upper()
+        self.obj_type = obj_type.upper()
         self.problem = problem
         self.fea_required = fea_required
 
@@ -69,8 +69,11 @@ class ObjectiveFunction:
 
         if self.obj_type == ObjectiveTypeEnum.MIN:
             return self.obj_fun(fixed_vals)
-        else:
+        elif self.obj_type == ObjectiveTypeEnum.MAX:
             return -self.obj_fun(fixed_vals)
+        else:
+            raise ValueError(f"Objective type {self.obj_type} is not recognized!"
+                             f"obj_type must be either MIN or MAX")
 
     def neg_call(self, x):
         """
