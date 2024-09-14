@@ -76,18 +76,23 @@ class Variable:
         self.lb = lb
         self.ub = ub
 
-        self.target_property = target_property
-        self.target_properties = target_properties
-        self.target_object = target_object
-        self.target_objects = target_objects
+        if any([target_property,target_properties, target_objects, target_object]):
 
-        if target is None:
-            if target_properties is None:
-                target_properties = [target_property]
-            if target_objects is None:
-                target_objects = [target_object]
-            target = {"property": target_properties,
-                      "objects": target_objects}
+                if not any([target_properties, target_property]):
+                    raise ValueError("target_property/properties cannot be None "
+                                     "if target_object/objects is defined!")
+
+                if not any([target_objects, target_object]):
+                    raise ValueError("target_object/objects cannot be None "
+                                     "if target_property/properties is defined!")
+
+                if target_properties is None and target_property is not None:
+                    target_properties = [target_property]
+                if target_objects is None:
+                    target_objects = [target_object]
+
+                target = {"property": target_properties,
+                          "objects": target_objects}
 
         self.target = target
         self.profiles = profiles
@@ -454,16 +459,14 @@ class CrossSectionVariable(Variable):
 
 
 if __name__ == "__main__":
-
-    var0 = Variable(name="Target")
-    var = Variable(
-        name="Test",
+    cont_var = Variable(
+        name="Jatkuva muuttuja",
         lb=0,
         ub=100,
-        target_property="lb",
-        target_object=var0)
-
-    print(var0.lb)
-    var.substitute(100)
-    print(var0.lb)
+        value=50
+    )
+    print(cont_var)
+    print(cont_var.value)
+    cont_var.substitute(75.123456)
+    print(cont_var.value)
 
