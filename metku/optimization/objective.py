@@ -8,8 +8,8 @@ Objective function class for optimization problems
 """
 
 import numpy as np
-from metku.optimization.structopt import OptimizationProblem
-from optimzation_enums import ObjectiveTypeEnum
+
+from metku.optimization.optimzation_enums import ObjectiveTypeEnum
 
 
 class ObjectiveFunction:
@@ -18,7 +18,7 @@ class ObjectiveFunction:
                  name: str,
                  obj_fun: callable,
                  obj_type: ObjectiveTypeEnum = ObjectiveTypeEnum.MIN,
-                 problem: OptimizationProblem = None,
+                 problem: 'OptimizationProblem' = None,
                  fea_required: bool = False):
 
         self.name = name
