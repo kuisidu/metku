@@ -55,8 +55,6 @@ class Raami:
     """
     
     def __init__(self,name="Raami"):
-        
-        
         self.__name__ = name
         self.dim = 2
         self.members = {}        
@@ -70,15 +68,13 @@ class Raami:
         self.load_combs = {}
     
         self.fem = fem.FrameFEM()
+
         self.fem_generated = False # Flag for checking if FEM model has been created
         self.is_analysed = False # Flag for checking if structure has been analysed
-        
         self.self_weight = False
         
     def __repr__(self):
-        
         s = "Frame " + self.__name__ + f" with {len(self.members)} members"
-        
         return s
     
     #@property
@@ -95,105 +91,150 @@ class Raami:
             W += mem.weight()
         
         return W
-    
+
+
+    def add_node(self, node:FrameNode) -> None:
+        """
+        Adds node to frame
+        Args:
+            node: node to be added to frame
+
+        Returns: None
+
+        """
+        node.node_id = int(len(self.nodes))
+        self.nodes.append(node)
+
+    def add_member(self, member: FrameMember) -> None:
+        """
+        Adds member to frame
+        Args:
+            member: member to be added to frame
+
+        Returns: None
+
+        """
+        # Give member a unique id
+        # id is used in creating elements with wanted cross-sectional properties
+        member.mem_id = int(len(self.members))
+        # Create a link between the FrameMember object and the frame
+        member.frame = self
+        self.members[member.mem_id] = member
+
+    def add_loadcase(self, loadcase:LoadCase) -> None:
+        """
+        Adds loadcase to frame
+        Args:
+            loadcase: loadcase to be added to frae
+
+        Returns: None
+
+        """
+        self.load_cases[loadcase.load_id] = loadcase
+        if not (loadcase.load_id in self.load_ids):
+            self.load_ids.append(loadcase.load_id)
+
+
+    def add_loadcombination(self, loadcombination: LoadCombination) -> None:
+        # Connect the current frame to load combination
+        loadcombination.frame = self
+        self.load_combs[loadcombination.comb_id] = loadcombination
+
+    def add_pointload(self, pointload:PointLoad) -> None:
+        """ If a point load with same 'name' is already included
+                        in the frame, add a number to the end of the name
+                        of the new load such that each point load has a unique
+                        name.
+
+                        NOTE: using 'len' to provide new id number might fail,
+                        if point loads are deleted such that the number of point loads
+                        changes along the way.
+                    """
+
+        if not (pointload.load_id in self.load_ids):
+            # There is no load case for the new load.
+            # Add a new load case for this load
+            NewLoadCase = LoadCase(load_id=pointload.load_id, loads=[pointload])
+            self.add(NewLoadCase)
+            self.load_ids.append(pointload.load_id)
+        else:
+            # If a load case with this.load_id exists, add the new
+            # load to that load case
+            self.load_cases[pointload.load_id].add(pointload)
+
+        if pointload.name in self.loads.keys():
+            pointload.name += str(len(self.loads))
+
+        self.loads[pointload.name] = pointload
+
+        """ If the location of the point load is in between
+            member end nodes, add a node to the corresponding member
+
+        for member in self.members.values():
+            if member.point_intersection(this.coordinate):
+                member.add_node_coord(this.coordinate)
+        """
+
+    def add_lineload(self, lineload: LineLoad | PWLineLoad) -> None:
+        if not (lineload.load_id in self.load_ids):
+
+            NewLoadCase = LoadCase(load_id=lineload.load_id, loads=[lineload])
+
+            self.add(NewLoadCase)
+            self.load_ids.append(lineload.load_id)
+        else:
+            # If a load case with this.load_id exists, add the new
+            # load to that load case
+            self.load_cases[lineload.load_id].add(lineload)
+
+        if lineload.name in self.loads.keys():
+            lineload.name += str(len(self.loads))
+        self.loads[lineload.name] = lineload
+
+    def add_support(self, support: Support) -> None:
+        # print("Adding support")
+        # this.supp_id = len(self.supports)
+        supp_label = len(self.supports)
+        self.supports[supp_label] = support
+        # self.supports[this.supp_id] = this
+        # self.support_nodes.append(this.coordinate)
+
+        """ If the support is located between end nodes of a member,
+            add a node to that member
+
+        for member in self.members.values():                
+            if member.point_intersection(this.coordinate):                    
+                member.add_node_coord(this.coordinate)
+        """
+
     def add(self,this):
-        """ Adding different things to the frame """
-        
+        """
+        Adding different things to the frame
+        """
+        # NODE
         if isinstance(this,FrameNode):
-            this.node_id = int(len(self.nodes))            
-            self.nodes.append(this)
-    
+            self.add_node(this)
+        # MEMBER
         elif isinstance(this, FrameMember):
-            # Give member a unique id
-            # id is used in creating elements with wanted cross-sectional properties
-            this.mem_id = int(len(self.members))
-
-            # Create a link between the FrameMember object and the frame
-            this.frame = self
-
-            # Generate member coordinates
-            #this.calc_nodal_coordinates()
-
-            self.members[this.mem_id] = this
-        elif isinstance(this,LoadCase):            
-            self.load_cases[this.load_id] = this
-            if not (this.load_id in self.load_ids):
-                self.load_ids.append(this.load_id)
+            self.add_member(this)
+        # LOADCASE
+        elif isinstance(this,LoadCase):
+            self.add_loadcase(this)
+        # LOADCOMBINATION
         elif isinstance(this,LoadCombination):
-            # Connect the current frame to load combination
-            this.frame = self
-            self.load_combs[this.comb_id] = this
-        # POINTLOADS
+            self.add_loadcombination(this)
+        # POINTLOAD
         elif isinstance(this, PointLoad):
-
-            """ If a point load with same 'name' is already included
-                in the frame, add a number to the end of the name
-                of the new load such that each point load has a unique
-                name.
-                
-                NOTE: using 'len' to provide new id number might fail,
-                if point loads are deleted such that the number of point loads
-                changes along the way.
-            """            
-            
-            if not (this.load_id in self.load_ids):
-                # There is no load case for the new load.
-                # Add a new load case for this load
-                NewLoadCase = LoadCase(load_id=this.load_id,loads = [this])
-                self.add(NewLoadCase)
-                self.load_ids.append(this.load_id)
-            else:
-                # If a load case with this.load_id exists, add the new
-                # load to that load case
-                self.load_cases[this.load_id].add(this)
-            
-            if this.name in self.loads.keys():
-                this.name += str(len(self.loads))
-            
-            self.loads[this.name] = this
-
-            """ If the location of the point load is in between
-                member end nodes, add a node to the corresponding member
-            
-            for member in self.members.values():
-                if member.point_intersection(this.coordinate):
-                    member.add_node_coord(this.coordinate)
-            """
-        # LINELOADS
+            self.add_pointload(this)
+        # LINELOAD
         elif isinstance(this, LineLoad) or isinstance(this, PWLineLoad):
-
-            if not (this.load_id in self.load_ids):
-                
-                NewLoadCase = LoadCase(load_id=this.load_id,loads = [this])
-                
-                self.add(NewLoadCase)
-                self.load_ids.append(this.load_id)
-            else:
-                # If a load case with this.load_id exists, add the new
-                # load to that load case
-                self.load_cases[this.load_id].add(this)
-                
-            if this.name in self.loads.keys():
-                this.name += str(len(self.loads))
-            self.loads[this.name] = this
-            
-        # SUPPORTS
+            self.add_lineload(this)
+        # SUPPORT
         elif isinstance(this, Support):
-            #print("Adding support")
-            # this.supp_id = len(self.supports)
-            supp_label = len(self.supports)
-            self.supports[supp_label] = this
-            # self.supports[this.supp_id] = this
-            #self.support_nodes.append(this.coordinate)
+            self.add_support(this)
+        else:
+            raise ValueError(f"Type : {type(this)} cannot be added to Raami -frame")
 
-            """ If the support is located between end nodes of a member,
-                add a node to that member
-            
-            for member in self.members.values():                
-                if member.point_intersection(this.coordinate):                    
-                    member.add_node_coord(this.coordinate)
-            """
-            
     def add_self_weight(self):
         """ Adds self weight to frame's members
         """
@@ -1181,7 +1222,9 @@ if __name__ == '__main__':
     import cProfile
     
     f = Raami()
-    
+
+
+
     L = 5000.0
     H = 2000.0
     nodes = [[0.0,0.0],[0.0,H],[L,H],[L,0.0]]
@@ -1214,6 +1257,7 @@ if __name__ == '__main__':
 
 
     f.members[0].bmd(load_id=2)
+
     #f.optimize_members("CURRENT")
     
             
