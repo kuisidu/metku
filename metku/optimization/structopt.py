@@ -98,7 +98,7 @@ class OptimizationProblem:
         self.hess = hess
         self.structure = structure
         self.profiles = profiles
-        self.fea_done = False
+        self.fea_done = {}
         self.X = None
         self.x0 = None
         self.num_iters = 0
@@ -557,7 +557,7 @@ class OptimizationProblem:
             load_id = self.structure.load_ids[0]
         
         self.structure.calculate(load_id)
-        self.fea_done = True
+        self.fea_done[load_id] = True
         self.num_fem_analyses += 1
 
     def __call__(self, x=None, prec=2, ncons=5):
@@ -734,7 +734,8 @@ class OptimizationProblem:
 
         # if np.any(self.X != xvals):
         self.X = xvals.copy()
-        self.fea_done = False
+        for load_id in self.fea_done.keys():
+            self.fea_done[load_id] = False
         for x, var in zip(xvals, self.vars):
             var.substitute(x)
         #else:

@@ -16,9 +16,14 @@ import metku.optimization.opt_functions as opt_funs
 class Constraint:
     """ General class for constraints """
 
-    def __init__(self, name="", con_type="<",
-                 problem=None, fea_required=False,
-                 vars=None,grad=None):
+    def __init__(self,
+                 name:str="",
+                 con_type="<",
+                 problem:'OptimizationProblem'=None,
+                 fea_required:bool=False,
+                 load_ids:list[int]=None,
+                 vars:list[Variable]=None,
+                 grad=None):
         """ Constructor
             Input:
                 name: Name of the constraint (string)
@@ -38,7 +43,13 @@ class Constraint:
         if not isinstance(vars, Iterable):
             vars = [vars]
         self.vars = vars
-        
+
+
+        if not isinstance(load_ids, Iterable):
+            load_ids = [load_ids]
+
+        self.load_ids = load_ids
+
         # Lagrange multiplier
         self.mult = 1.0
         
@@ -73,8 +84,12 @@ class Constraint:
             AND
             if FEM analysis has not been carried out for X, perform FEM
         """
-        if self.fea_required and not self.problem.fea_done:            
-            self.problem.fea()
+        if self.fea_required:
+            for load_id in self.load_ids:
+                if load_id not in self.problem.fea_done:
+                    self.problem.fea(load_id)
+                elif not self.problem.fea_done[load_id]:
+                    self.problem.fea(load_id)
 
     def __repr__(self):
         return f"{type(self).__name__}: {self.name}"
@@ -87,7 +102,13 @@ class Constraint:
 class LinearConstraint(Constraint):
     """ Class for linear constraints """
 
-    def __init__(self, a=None, b=None, con_type="<", name="", problem=None, **kwargs):
+    def __init__(self,
+                 a=None,
+                 b=None,
+                 con_type="<",
+                 name="",
+                 problem=None,
+                 **kwargs):
         """ Constructor 
             Constraint is of the form: a'*x con_type b
             
