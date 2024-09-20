@@ -207,7 +207,7 @@ class Raami:
                 member.add_node_coord(this.coordinate)
         """
 
-    def add(self,this):
+    def add(self,this) -> 'Raami':
         """
         Adding different things to the frame
         """
@@ -234,6 +234,8 @@ class Raami:
             self.add_support(this)
         else:
             raise ValueError(f"Type : {type(this)} cannot be added to Raami -frame")
+
+        return self
 
     def add_self_weight(self):
         """ Adds self weight to frame's members
@@ -262,11 +264,8 @@ class Raami:
             The idea is that the FEM model is generated once and subsequently
             the same model is modified.
         """
-
-
         if not self.fem_generated:
             self.fem_generated = True
-
 
         # Create nodes at the locations of the
         # FrameNodes
@@ -345,13 +344,13 @@ class Raami:
                 if design:
                     self.design_members(lid) 
         else:
-            #print('Calculate case:' + str(load_id))            
+            #print('Calculate case:' + str(load_id))
             self.fem.linear_statics(support_method=support_method,lcase=load_id)
             # Using the FEM results, calculate nodal forces and displacements
             self.calc_nodal_forces(load_id)
             #self.calc_nodal_displacements(load_id)
             # Assign forces to members
-            #self.assign_forces(load_id)            
+            #self.assign_forces(load_id)
             # Do member design
             if design:
                 self.design_members(load_id)            
