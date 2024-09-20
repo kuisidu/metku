@@ -14,6 +14,7 @@ import numpy as np
 from copy import copy
 
 import metku.framefem.framefem as fem
+from typing import Optional
 
 #from loadIDs import LoadIDs
 
@@ -31,7 +32,9 @@ class LoadCase:
         simultaneously.
     """
     
-    def __init__(self,load_id=0,loads=[]):
+    def __init__(self,
+                 load_id:int=0,
+                 loads:Optional[list]=None):
         """        
 
         Parameters
@@ -48,7 +51,12 @@ class LoadCase:
         """
         
         self.load_id = load_id
-        self.loads = loads
+        self.loads = []
+        if loads is not None:
+            for load in loads:
+                self.add(load)
+
+
     
     def __repr__(self):
         
@@ -64,9 +72,9 @@ class LoadCase:
     
     def add(self,load):
         """ Adds a Load class object 'load' to the load case """
-        load.load_id = self.load_id
-        
-        self.loads.append(load)
+        if load not in self.loads:
+            load.load_id = self.load_id
+            self.loads.append(load)
 
     def combine(self,comb_type='ULS',leading=True):
         """ Create factored loads for load combination of type comb_type """
@@ -108,7 +116,7 @@ class LoadCombination:
         self.comb_type = comb_type
         self.load_cases = load_cases
         self.lead_variable_load = None
-        
+
         # The first non-dead load is the leading variable load case.
         for lc in load_cases:
             if not lc.load_type == 'dead':
@@ -162,7 +170,7 @@ class Load:
         
         self.load_id = load_id
         self.name = name
-        self.ltype = ltype
+        self.ltype = ltype.upper()
         self.f = f
     
     def factored(self,comb_type='ULS',lead=True):
@@ -170,7 +178,7 @@ class Load:
         factor = 1.0
         
         # variable loads
-        if self.ltype == 'live' or self.ltype == 'wind' or self.ltype == 'snow':
+        if self.ltype == 'LIVE' or self.ltype == 'WIND' or self.ltype == 'SNOW':
             if comb_type == 'ULS':
                 factor = 1.5
             
@@ -178,14 +186,14 @@ class Load:
                 # load is not leading, so it must be multiplied by
                 # corresponding factor. These factors apply also in
                 # characteristic combation of the serviceability limit state
-                if self.ltype == 'live':
+                if self.ltype == 'LIVE':
                     factor *= 0.7
-                elif self.ltype == 'snow':
+                elif self.ltype == 'SNOW':
                     factor *= 0.7
-                elif self.ltype == 'wind':
+                elif self.ltype == 'WIND':
                     factor *= 0.6
         # permanent loads
-        elif self.ltype == 'dead':
+        elif self.ltype == 'DEAD':
             if comb_type == 'ULS':
                 factor = 1.15
         
