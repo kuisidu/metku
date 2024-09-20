@@ -472,7 +472,48 @@ class FrameMember:
         self.ved = max_ved
         self.ned = max_ned
         """
-    
+
+    def get_max_forces(self, load_ids=None):
+        """
+        Returns max and min forces for member.
+
+        :return: dict of max and min forces
+        example item:
+        'min N': {'N':0,
+                  'Vz': 100,
+                  'My': 200,
+                  'load_id': 300}
+
+        """
+        if load_ids is None:
+            load_ids = self.frame.load_ids
+
+        force_keys = list(next(iter(self.nodal_forces.values())).keys())
+        functions = [min, max]
+        combined = [f"{y.__name__} {x}" for x in force_keys for y in functions]
+        empty_result = {k: 0 for k in force_keys}
+        empty_result["load_id"] = None
+
+        result_dict = {k: empty_result for k in combined}
+
+        sliced_dict = {key: self.nodal_forces[key] for key in load_ids if key in self.nodal_forces}
+
+        for load_id, forces in sliced_dict.items():
+            for force in force_keys:
+                for func in functions:
+                    val = func(forces[force])
+                    idx = forces[force].index(val)
+                    key = f"{func.__name__} {force}"
+                    if result_dict[key]["load_id"] is None:
+                        result_dict[key] = {key: value[idx] for key, value in sliced_dict[load_id].items()}
+                        result_dict[key]["load_id"] = load_id
+                    elif abs(val) > abs(result_dict[key][force]):
+                        result_dict[key] = {key: value[idx] for key, value in sliced_dict[load_id].items()}
+                        result_dict[key]["load_id"] = load_id
+
+        return result_dict
+
+
     def design(self,load_id = LoadIDs['ULS']):
         """ Designs the member (check resistance) """
         
