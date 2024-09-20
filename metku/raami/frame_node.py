@@ -10,11 +10,12 @@ Created on Tue Dec 28 14:06:38 2021
 
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Union
 
 class FrameNode:
     """ Class for frame nodes. Used mainly for storing coordinate data """
     
-    def __init__(self,coordinates = [0.0,0.0,0.0]):
+    def __init__(self, *coordinates: Union[list[float, float, float], float]):
         """
         
 
@@ -28,6 +29,9 @@ class FrameNode:
         None.
 
         """
+
+        if len(coordinates) == 1 and isinstance(coordinates[0], (list, tuple)):
+            coordinates = coordinates[0]
         
         self.node_id = ""
         self.coords = np.asarray(coordinates)
@@ -37,8 +41,10 @@ class FrameNode:
         self.symmetry_node = None # Another frame node making a symmetry pair
     
     def __repr__(self):
-        
-        return f'FrameNode [{self.node_id}]: ({self.x:.3f},{self.y:.3f})'
+        if len(self.coords) == 2:
+            return f'FrameNode [{self.node_id}]: ({self.x:.3f},{self.y:.3f})'
+        else:
+            return f'FrameNode [{self.node_id}]: ({self.x:.3f},{self.y:.3f},{self.z:.3f})'
     
     @property
     def x(self):
@@ -104,3 +110,12 @@ class FrameNode:
         
         if print_text:
             ax.text(self.x,self.y,self.node_id)
+
+
+if __name__ == "__main__":
+    n1 = FrameNode(0, 0, 0)
+    n2 = FrameNode([0, 0, 0])
+    n3 = FrameNode(1, 2)
+    n4 = FrameNode([1, 2])
+
+    print(n1, n2, n3, n4)
