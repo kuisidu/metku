@@ -8,7 +8,7 @@ import shutil
 import sys
 
 # UPDATE THIS MANUALLY
-BUILD_VERSION = "0.1.20"
+BUILD_VERSION = "0.1.21"
 
 
 def run_command(command):
