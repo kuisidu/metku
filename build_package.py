@@ -75,10 +75,11 @@ def main():
     check_merge_conflicts()
 
     # Step 3: Stash uncommitted changes if they exist
-    if check_uncommitted_changes():
-        stash_changes()
-    else:
-        print("No uncommitted changes to stash.")
+    # TODO: Doesnt work properly
+    # if check_uncommitted_changes():
+    #     stash_changes()
+    # else:
+    #     print("No uncommitted changes to stash.")
 
     # Step 4: clean build artifacts
     clean_build_artifacts()
@@ -87,7 +88,8 @@ def main():
     build_package()
 
     # Step 6: Retrieve stashed changes
-    apply_stash()
+    # TODO: Doesnt work properly
+    # apply_stash()
 
     print("Pipeline completed successfully!")
 
