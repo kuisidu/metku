@@ -6,9 +6,9 @@ import subprocess
 import os
 import shutil
 import sys
+
 # UPDATE THIS MANUALLY
 BUILD_VERSION = "0.1.20"
-
 
 
 def run_command(command):
@@ -20,6 +20,7 @@ def run_command(command):
         print(f"Error running command: {command}\n{e.stderr}")
         sys.exit(1)
 
+
 def check_merge_conflicts():
     """Check if there are merge conflicts."""
     conflicts = run_command(['git', 'ls-files', '-u'])
@@ -27,15 +28,18 @@ def check_merge_conflicts():
         print("Merge conflicts detected. Please resolve them manually.")
         sys.exit(1)
 
+
 def check_uncommitted_changes():
     """Check if there are any uncommitted changes."""
     status = run_command(['git', 'status', '--porcelain'])
     return bool(status)
 
+
 def stash_changes():
     """Stash uncommitted changes."""
     print("Stashing uncommitted changes...")
     run_command(['git', 'stash'])
+
 
 def apply_stash():
     """Apply stashed changes if available."""
@@ -45,6 +49,7 @@ def apply_stash():
         run_command(['git', 'stash', 'pop'])
     else:
         print("No stashed changes to apply.")
+
 
 def build_package():
     # Run the command to build the package
@@ -56,9 +61,10 @@ def clean_build_artifacts():
     # Remove 'build' and 'dist' directories if they exist
     for folder in ['build', 'dist']:
         if os.path.exists(folder):
-            print(f"Removing {folder} directory...")
+            print(f"\rRemoving {folder} directory...")
             shutil.rmtree(folder)
-            print(f"{folder} directory removed.")
+            print(f"\r{folder} directory removed.")
+
 
 def main():
     # Step 1: Pull the newest changes
