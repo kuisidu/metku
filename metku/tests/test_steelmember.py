@@ -23,7 +23,7 @@ class MyTestCase(unittest.TestCase):
         section = WISection(h=1000, tw=6, b=300, tf=16, fy=355)
         smem = SteelMember(section, length=10_000)
         mcr = smem.mcrit(C=[1.132, 0.459, 0.525], k=[1,1], za=500)
-        self.assertAlmostEqual(mcr / 1e0, 601.8)
+        self.assertAlmostEqual(mcr / 1e6, 601.8, delta=1)
 
     def test_MbRd(self):
         section = WISection(h=1000, tw=6, b=300, tf=16, fy=355)

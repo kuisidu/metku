@@ -15,7 +15,7 @@ from metku.sections.steel.ISection import IPE, HEA
 
 class TestFrameFEM(unittest.TestCase):
     def test_adding_material(self):
-        fem = FrameFEM()
+        fem = ff.FrameFEM()
         fem.add_material(100, 200, 300)
         mat = fem.materials[0]
         self.assertEqual(100, mat.young)
@@ -23,13 +23,13 @@ class TestFrameFEM(unittest.TestCase):
         self.assertEqual(300, mat.density)
 
     def test_adding_node(self):
-        fem = FrameFEM()
+        fem = ff.FrameFEM()
         fem.add_node(0, 0)
         node = fem.nodes[0]
         self.assertEqual([0, 0], [node.x, node.y])
 
     def test_linear_statics(self):
-        fem = FrameFEM()
+        fem = ff.FrameFEM()
         # Nodes
         fem.add_node(0, 0)
         fem.add_node(0, 1)
@@ -41,7 +41,7 @@ class TestFrameFEM(unittest.TestCase):
         fem.add_support(1, 0, [0, 1, 2])
         fem.add_support(1, 3, [0, 1, 2])
         # Sections
-        sect = BeamSection(1e3, 2e6)
+        sect = ff.BeamSection(1e3, 2e6)
         fem.add_section(sect)
         # Elements
         for nid in range(fem.nnodes() - 1):
@@ -52,8 +52,8 @@ class TestFrameFEM(unittest.TestCase):
             ele = EBBeam(n1, n2, sect, mat)
             fem.add_element(ele)
         # Loads
-        pointload = PointLoad(1, fem.nodes[1], [10, 0, 0], f=1)
-        lineload = LineLoad(1, fem.elements[1], [0, 1], [-10, -10], 1)
+        pointload = ff.PointLoad(1, fem.nodes[1], [10, 0, 0], f=1)
+        lineload = ff.LineLoad(1, fem.elements[1], [0, 1], [-10, -10], 1)
         fem.add_load(pointload)
         fem.add_load(lineload)
         # Loadcase
@@ -490,6 +490,7 @@ if __name__ == '__main__':
     
     #f = test_beam_and_spring()
     
-    f = test3d_frame()
+    #f = test3d_frame()
     #f = test3d_frame2()
     #f = test3d_beam()
+    # unittest.main()
