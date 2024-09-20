@@ -124,13 +124,23 @@ class LoadCombination:
                 break
         
         self.frame = None
-    
+
+    def clear_loads(self):
+        """
+        Clear loads with comb_id from frame
+        """
+        keys_to_delete = [key for key, load in self.frame.loads.items() if load.load_id == self.comb_id]
+
+        for key in keys_to_delete:
+            del self.frame.loads[key]
+
     def combine_loads(self):
         """ Does the actual load combination:
             Each load in each load case is multiplied by its corresponding
             load combination factor that depends on the load type.
         """
-        
+        # Clear loads with same comb_id to prevent adding same load multiple times
+        self.clear_loads()
         for lc in self.load_cases:
             # Do the load factorization for given load case
             # combo_loads is a list of factored loads.
@@ -138,7 +148,6 @@ class LoadCombination:
                 combo_loads = lc.combine(self.comb_type,leading=True)
             else:
                 combo_loads = lc.combine(self.comb_type,leading=False)
-                
             for cl in combo_loads:
                 cl.load_id = self.comb_id
                 self.frame.add(cl)

@@ -143,6 +143,7 @@ class Raami:
         # Connect the current frame to load combination
         loadcombination.frame = self
         self.load_combs[loadcombination.comb_id] = loadcombination
+        loadcombination.combine_loads()
 
     def add_pointload(self, pointload:PointLoad) -> None:
         """ If a point load with same 'name' is already included
@@ -169,7 +170,8 @@ class Raami:
         if pointload.name in self.loads.keys():
             pointload.name += str(len(self.loads))
 
-        self.loads[pointload.name] = pointload
+        if pointload not in self.loads.values():
+            self.loads[pointload.name] = pointload
 
         """ If the location of the point load is in between
             member end nodes, add a node to the corresponding member
@@ -193,6 +195,7 @@ class Raami:
 
         if lineload.name in self.loads.keys():
             lineload.name += str(len(self.loads))
+
         self.loads[lineload.name] = lineload
 
     def add_support(self, support: Support) -> None:
@@ -672,7 +675,70 @@ class Raami:
             plt.savefig('bending moment diagram.svg', format='svg')
         if show:
             plt.show()
-    
+
+    def plot_deflection(self, scale=1, prec=4, show=True, load_id=LoadIDs["ULS"], **kwargs):
+        """ Draws deflected shape of the frame
+
+            Parameters
+            ----------
+            :param scale: Scaling factor
+            :param prec: Precision for displacement value
+            :param show: Shows the plotted diagram, allows to plot multiple
+                        diagrams to be plotted on same picture
+
+            :type scale : float
+            :type prec : int
+            :type show: bool
+
+        """
+
+        self.plot(print_text=False, show=False, **kwargs)
+        self.calc_nodal_displacements(lcase=load_id)
+
+        for member in self.members.values():
+            X = []
+            Y = []
+            Z = []
+            max_disp = 0
+            coord = member.nodes[0].coords
+            """ Calculate the deflected location of each node of the member """
+            for i, node in enumerate(member.fem_nodes):
+
+                disp = node.u[load_id][:len(node.coord)]
+                new_coord = node.coord + disp
+                scaled_coord = node.coord.copy() + disp * scale
+
+                #dist = np.sqrt((x0 - (x0+x1)) ** 2 + (y0 - (y0+y1)) ** 2)
+                dist = np.linalg.norm(np.array(new_coord) - np.array(node.coord))
+                if dist > max_disp:
+                    max_disp = dist
+                    coord = scaled_coord
+                """ Store deflected locations to X and Y """
+
+                if len(coord) == 2:
+                    x, y = scaled_coord
+                    X.append(x)
+                    Y.append(y)
+
+
+                elif len(coord) == 3:
+                    x, y, z = scaled_coord
+                    X.append(x)
+                    Y.append(y)
+                    Z.append(z)
+
+            if len(coord) == 2:
+                """ Plot deflected locations """
+                plt.plot(X, Y, color='gray')
+                plt.plot(*coord, 'ro')
+                plt.text(*coord, "{0:5.{1}g} mm".format(max_disp, prec))
+
+            elif len(coord) == 3:
+                # TODO: Implement 3D plotting
+                pass
+        if show:
+            plt.show()
+
     def xrange(self):
         """ Range of x coordinate values """
         xrange = [node.coords[0] for node in self.nodes]
@@ -1239,9 +1305,9 @@ if __name__ == '__main__':
     for node in nodes:
         f.add(FrameNode(node))
     
-    f.add(SteelFrameMember(nodes=f.nodes[:2],section=s,mem_type='column',nel=6))
-    f.add(SteelFrameMember(nodes=f.nodes[1:3],section=s,mem_type='beam',nel=6,hinges=[True,True]))
-    f.add(SteelFrameMember(nodes=f.nodes[2:4],section=s,mem_type='column',nel=6))
+    f.add(SteelFrameMember(nodes=f.nodes[:2],section=s,mem_type='column',nel=20))
+    f.add(SteelFrameMember(nodes=f.nodes[1:3],section=s,mem_type='beam',nel=20,hinges=[True,True]))
+    f.add(SteelFrameMember(nodes=f.nodes[2:4],section=s,mem_type='column',nel=20))
     
     f.add(FixedSupport(f.nodes[0]))
     f.add(FixedSupport(f.nodes[-1]))
@@ -1249,11 +1315,11 @@ if __name__ == '__main__':
     #f.add(PointLoad(f.nodes[1], [0, -2000, 0],load_id=LoadIDs.ULS))
     
     f.add(LineLoad(f.members[1],[-20,-20],'y',coord_sys='local',load_id=0,ltype='snow',name='Lumi'))
-    f.add(LineLoad(f.members[0],[3,3],'x',coord_sys='global',load_id=1,ltype='wind',name='Tuuli x+'))
+    f.add(LineLoad(f.members[0],[1000,1000],'x',coord_sys='global',load_id=1,ltype='wind',name='Tuuli x+'))
     
     f.add(LoadCombination(comb_id=2,comb_type='ULS',load_cases=list(f.load_cases.values())))
-    
-    f.load_combs[2].combine_loads()
+
+
     #f.plot(loads=True)
     f.generate_fem()
     #f.to_robot()
@@ -1262,7 +1328,8 @@ if __name__ == '__main__':
 
 
     #f.members[0].bmd(load_id=2)
-    print(f.members[1].nodal_displacements[2])
+    # print(f.members[1].nodal_displacements[2])
+    f.plot_deflection(load_id=2)
     #f.optimize_members("CURRENT")
     
             
