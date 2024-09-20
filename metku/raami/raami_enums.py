@@ -1,15 +1,25 @@
-from enum import Enum, auto, StrEnum
+from enum import auto, StrEnum
 
-class MemberTypeEnum(StrEnum):
+
+class UpperStrEnum(StrEnum):
+    """
+    Ensures every enum is in uppercase letters
+    """
+    def __new__(cls, value):
+        # Convert the string value to uppercase
+        obj = str.__new__(cls, value.upper())
+        obj._value_ = obj
+        return obj
+
+class MemberTypeEnum(UpperStrEnum):
     COLUMN = auto()
     BEAM = auto()
     BRACE = auto()
-class SupportMethodEnum(StrEnum):
+class SupportMethodEnum(UpperStrEnum):
     REM = auto()
     ZERO = auto()
 
-class LoadCaseEnum(StrEnum):
-
+class LoadCaseEnum(UpperStrEnum):
     PERMANENT = auto()
     IMPOSED_A = auto()
     IMPOSED_B = auto()
@@ -18,7 +28,7 @@ class LoadCaseEnum(StrEnum):
     IMPOSED_E = auto()
     SNOW = auto()
     WIND = auto()
-class LoadCombinationEnum(StrEnum):
+class LoadCombinationEnum(UpperStrEnum):
     ULS = auto()
     SLS_CH = auto()
     SLS_FR = auto()
@@ -27,3 +37,6 @@ class LoadCombinationEnum(StrEnum):
     ACC = auto()
 
 
+if __name__ == "__main__":
+    r = LoadCaseEnum.SNOW
+    print(r)
