@@ -1,15 +1,6 @@
 from enum import auto, StrEnum
+from metku.helpers.upper_str_enum import UpperStrEnum
 
-
-class UpperStrEnum(StrEnum):
-    """
-    Ensures every enum is in uppercase letters
-    """
-    def __new__(cls, value):
-        # Convert the string value to uppercase
-        obj = str.__new__(cls, value.upper())
-        obj._value_ = obj
-        return obj
 
 class MemberTypeEnum(UpperStrEnum):
     COLUMN = auto()
