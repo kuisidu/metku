@@ -119,7 +119,7 @@ class LoadCombination:
 
         # The first non-dead load is the leading variable load case.
         for lc in load_cases:
-            if not lc.load_type == 'dead':
+            if not lc.load_type == 'DEAD':
                 self.lead_variable_load = lc
                 break
         
