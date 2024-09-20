@@ -343,6 +343,7 @@ class Raami:
             
             for lid in load_ids:
                 self.calc_nodal_forces(lid)
+                self.calc_nodal_displacements(lid)
                 
                 # Do member design
                 if design:
@@ -352,6 +353,7 @@ class Raami:
             self.fem.linear_statics(support_method=support_method,lcase=load_id)
             # Using the FEM results, calculate nodal forces and displacements
             self.calc_nodal_forces(load_id)
+            self.calc_nodal_displacements(load_id)
             #self.calc_nodal_displacements(load_id)
             # Assign forces to members
             #self.assign_forces(load_id)
@@ -459,7 +461,7 @@ class Raami:
         # displacements for that node
         for member in self.members.values():
             # TODO! IMPLEMENT calc_nodal_displacements for FrameMember
-            member.calc_nodal_displacements(self.fem,lcase)
+            member.calc_nodal_displacements(lcase)
             
     
     def plot(self, print_text=True, show=True,
@@ -1259,8 +1261,8 @@ if __name__ == '__main__':
     #f.bmd(scale=10,load_id=2, loads=False)
 
 
-    f.members[0].bmd(load_id=2)
-
+    #f.members[0].bmd(load_id=2)
+    print(f.members[1].nodal_displacements[2])
     #f.optimize_members("CURRENT")
     
             

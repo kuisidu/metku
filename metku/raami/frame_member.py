@@ -156,6 +156,7 @@ class FrameMember:
         self.loads = [] # List of loads acting on the member
         
         self.nodal_forces = {} # Nodal forces in different load cases
+        self.nodal_displacements  = {} # Nodal displacements in different load cases
         self.NEd = {} # Design value of the axial force (maximum) for each load case
         self.VzEd = {} # Design value of the shear force (maximum) for each load case
         self.MyEd = {} # Design value of the bending moment (maximum) for each load case
@@ -270,6 +271,19 @@ class FrameMember:
         Lx = self.length() * loc
         return self.nodes[0].coords + Lx * self.dir_vector
 
+    def global_to_local(self, glob) -> float:
+        """
+        Converts a global 3D coordinate to a local coordinate.
+        :param glob: global 3D coordinate
+        :return: local coordinate
+        """
+
+        displacement = glob - self.nodes[0].coords
+        Lx = np.dot(displacement, self.dir_vector)
+        loc = Lx / self.length()
+
+        return loc
+
     @property
     def perpendicular(self):
         """
@@ -334,7 +348,24 @@ class FrameMember:
         for loc in self.local_node_coords:
             coord = self.local_to_global(loc)
             self.global_node_coords.append(coord)
-    
+
+
+
+    def calc_nodal_displacements(self, load_id=LoadIDs['ULS']):
+        """
+        Collects the displacements at the nodes into
+        nodal_displacements' attribute which is a dict.
+        """
+        local_coords = []
+        displacements = []
+        for node in self.fem_nodes:
+            displacements.append(node.u[load_id])
+            local_coords.append(self.global_to_local(node.coord))
+        # Sort displacements starting from member start coordinate
+        displacements = [x for _, x in sorted(zip(local_coords, displacements))]
+        self.nodal_displacements[load_id] = displacements
+
+
     def calc_nodal_forces(self,load_id=LoadIDs['ULS']):
         """ Collects the internal forces at the nodes into
             'nodal_forces' attribute which is a dict.
