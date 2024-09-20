@@ -6,10 +6,13 @@
 #  All rights reserved.
 
 from enum import Enum, auto, StrEnum
+from metku.helpers.upper_str_enum import UpperStrEnum
 
-class ObjectiveTypeEnum(Enum):
-    MIN = "MIN"
-    MAX = "MAX"
+
+
+class ObjectiveTypeEnum(UpperStrEnum):
+    MIN = auto()
+    MAX = auto()
 
 class ObjectiveEnum(Enum):
     WEIGHT = 1
