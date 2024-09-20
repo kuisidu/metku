@@ -63,7 +63,7 @@ def clean_build_artifacts():
 def main():
     # Step 1: Pull the newest changes
     print("Pulling the latest changes...")
-    run_command(['git', 'pull', 'origin', 'main'])
+    run_command(['git', 'pull', 'origin', 'master'])
 
     # Step 2: Check for merge conflicts
     check_merge_conflicts()
