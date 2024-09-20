@@ -125,15 +125,19 @@ class Raami:
         """
         Adds loadcase to frame
         Args:
-            loadcase: loadcase to be added to frae
+            loadcase: loadcase to be added to frame
 
         Returns: None
 
         """
+
         self.load_cases[loadcase.load_id] = loadcase
         if not (loadcase.load_id in self.load_ids):
             self.load_ids.append(loadcase.load_id)
 
+        for load in loadcase.loads:
+            if load not in self.loads:
+                self.add(load)
 
     def add_loadcombination(self, loadcombination: LoadCombination) -> None:
         # Connect the current frame to load combination
@@ -356,7 +360,7 @@ class Raami:
                 self.design_members(load_id)            
             # self.alpha_cr, _ = self.f.linear_buckling(k=4)
     
-    def calculate(self, load_id=None, support_method='ZERO', design=True):
+    def calculate(self, load_id='ALL', support_method='REM', design=True):
         """ This method is essentially the same as structural_analysis.
             It is for the purposes of structural optimization, see
             structopt.py -> OptimizationProblem.fea.
