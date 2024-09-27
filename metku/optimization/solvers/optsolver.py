@@ -276,7 +276,7 @@ class OptSolver:
             #print(self.X)
             #self.calc_constraints(self.X)
             state_feasible = self.is_feasible(self.X)
-            print('Check state feasibility',state_feasible)
+            # print('Check state feasibility',state_feasible)
             #print(state)
             # Save best values
 
