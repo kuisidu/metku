@@ -465,7 +465,8 @@ class SteelSection(metaclass=ABCMeta):
         
         if self.Ned >= 0.0 and abs(Med) < 1e-4:
             # No bending and zero axial force or tension
-            print("No axial force or tension and no bending")
+            if verb:
+                print("No axial force or tension and no bending")
             C = 1
         
         # Pure bending        
