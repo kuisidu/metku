@@ -701,6 +701,7 @@ class Raami:
             Z = []
             max_disp = 0
             coord = member.nodes[0].coords
+            moved_node = member.nodes[0]
             """ Calculate the deflected location of each node of the member """
             for i, node in enumerate(member.fem_nodes):
 
@@ -713,6 +714,7 @@ class Raami:
                 if dist > max_disp:
                     max_disp = dist
                     coord = scaled_coord
+                    moved_node = node
                 """ Store deflected locations to X and Y """
 
                 if len(coord) == 2:
@@ -729,6 +731,7 @@ class Raami:
 
             if len(coord) == 2:
                 """ Plot deflected locations """
+                plt.plot([moved_node.coord[0], coord[0]], [moved_node.coord[1], coord[1]], color="grey", linestyle="--")
                 plt.plot(X, Y, color='gray')
                 plt.plot(*coord, 'ro')
                 plt.text(*coord, "{0:5.{1}g} mm".format(max_disp, prec))
