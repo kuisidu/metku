@@ -26,6 +26,11 @@ from metku.eurocodes.en1993 import constants
 from metku.eurocodes.en1993 import en1993_1_1
 from metku.materials.steel_data import Steel
 
+
+import warnings
+warnings.simplefilter("once", UserWarning)
+
+
 INFEASIBLE = 999
 
 
@@ -531,8 +536,10 @@ class SteelSection(metaclass=ABCMeta):
         elif C == 3:
             WRd = self.Wel[n]
         else:
-            raise NotImplementedError(f"Cross-section class 4 not implemented in: {self}")
-            # WRd = self.Wel[n]
+            #raise NotImplementedError(f"Cross-section class 4 not implemented in: {self}")
+            warnings.warn(f"!Cross-section class 4 not implemented for RHS profiles! "
+                          f"\nUsing elastic bending resistance, check results accordingly!", UserWarning, stacklevel=2)
+            WRd = self.Wel[n]
 
         MRd = self.code.bending_resistance(WRd, self.fy)
 

@@ -12,9 +12,12 @@ Circular hollow sections
 
 import math
 
+
 from metku.eurocodes.en1993 import en1993_1_1
 from metku.sections.steel.steel_section import SteelSection
 
+import warnings
+warnings.simplefilter("once", UserWarning)
 class CHS(SteelSection):
     """ Circular hollow sections """
 
@@ -104,8 +107,11 @@ class CHS(SteelSection):
         elif C == 3:
             WRd = self.Wel
         else:
-            raise NotImplementedError(f"Cross-section class 4 not implemented in: {self}")
-            # WRd = self.Wel[n]
+            #raise NotImplementedError(f"Cross-section class 4 not implemented in: {self}")
+            warnings.warn(f"!Cross-section class 4 not implemented for CHS profiles! "
+                  f"\nUsing elastic bending resistance, check results accordingly!", UserWarning, stacklevel=2)
+
+            WRd = self.Wel
 
         MRd = self.code.bending_resistance(WRd, self.fy)
 
