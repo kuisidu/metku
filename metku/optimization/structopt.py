@@ -598,7 +598,10 @@ class OptimizationProblem:
             print("----------")
 
             idx = np.argpartition(g, -ncons)[-ncons:]
-            for i in idx:
+            G = [g[i] for i in idx]
+            idx_sorted = [x for _, x in sorted(zip(G, idx))]
+            idx_sorted.reverse()
+            for i in idx_sorted:
                 gi = g[i]
                 con = self.cons[i]
                 print(f"{con.name}: {gi:.{prec}f} {con.type} 0")
