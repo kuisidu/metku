@@ -107,7 +107,7 @@ class SLP(OptSolver):
 
         # If solution if infeasible
         if sol == 2:
-            print("Solution found was infeasible!")
+            #print("\r !Solution found was infeasible! ",end="")
             # Return something != 0, otherwise iteration will
             # stop because two consecutive iterations produce
             # too similar results

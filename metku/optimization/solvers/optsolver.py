@@ -164,7 +164,7 @@ class OptSolver:
         """
         ax.clear()
         for mem in self.problem.structure.members.values():
-            (x0, y0), (x1, y1) = mem.coordinates
+            (x0, y0), (x1, y1) = mem.coords()
             lw = mem.cross_section.A / 10000
             ax.plot((x0, x1), (y0, y1), 'k', linewidth=lw)
         #self.problem.structure.plot_loads()
@@ -283,19 +283,17 @@ class OptSolver:
             fval = problem.obj(state)
             t_1 = time.process_time()
             t_total += t_1-t_0
-            if verb:
-                print(
-                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {state_feasible} '\
-                    f'max g: {max(self.constr_vals):.4f}')
+
             if fval < self.best_f and state_feasible:
                 self.best_f = fval
                 self.best_x = state.copy()
-                if verb:
-                    #print(self.best_x)
-                    if len(state) <= 10:
-                        print(f"New best!: {fval:.3f} {[round(s, 3) for s in state]}")
-                    else:
-                        print(f"New best!: {fval:.3f}")
+                # if verb:
+                #     #print(self.best_x)
+                #     if len(state) <= 10:
+                #         print(f"New best!: {fval:.3f} {[round(s, 3) for s in state]}")
+                #     else:
+                #         print(f"New best!: {fval:.3f}")
+
             # Log objective vals per iteration
             if log:
                 #if verb:
@@ -309,7 +307,10 @@ class OptSolver:
             end = time.time()
 
             if verb:
-                print(f"Iteration took: {end - start :.2f} s")
+                print(
+                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {state_feasible} '\
+                    f'max g: {max(self.constr_vals):.4f} best value: {self.best_f:.2f} '\
+                    f'Iteration took: {end - start :.2f} s {" "*100}',end="")
 
             # CHECK STOPPING CRITERIA
             # If new state is almost same as previous AND the design is feasible,
