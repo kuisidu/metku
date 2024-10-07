@@ -8,7 +8,7 @@ import shutil
 import sys
 
 # UPDATE THIS MANUALLY
-BUILD_VERSION = "0.1.24"
+BUILD_VERSION = "0.1.25"
 
 
 def run_command(command):
@@ -82,7 +82,7 @@ def main():
     #     print("No uncommitted changes to stash.")
 
     # Step 4: clean build artifacts
-    # clean_build_artifacts()
+    clean_build_artifacts()
 
     # Step 5: Build the repository
     build_package()
