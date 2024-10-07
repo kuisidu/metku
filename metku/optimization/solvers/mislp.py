@@ -36,9 +36,9 @@ class MISLP(OptSolver):
         # Linearize problem
         #print("X= ",self.X)
         #A, B, df, fx = self.problem.linearize(*self.X.copy())
-        print("Linearize...")
+        #print("Linearize...")
         A, B, df, fx = self.problem.linearize(self.X,self.only_potential)
-        print("Done")
+        #print("Done")
         # Create CBC solver
         CBC_solver = pywraplp.Solver('MISLP',
                            pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
@@ -70,9 +70,7 @@ class MISLP(OptSolver):
                 delta = var.value
             
             lb, ub = self.move_limits * delta
-            
-            
-            
+
             if isinstance(var, DiscreteVariable):
                 discrete_ids.append(i)
                 # Find discrete value closest to current variable value
@@ -99,8 +97,8 @@ class MISLP(OptSolver):
             else:                
                 lb = max(var.value - lb, var.lb)
                 ub = min(var.value + ub, var.ub)
-                                
-                name = str(var.target['property']) + str(i)
+
+                name = str(var.name) + str(i)
                 x[i] = CBC_solver.NumVar(float(lb),float(ub),name)
                     
         
@@ -123,19 +121,19 @@ class MISLP(OptSolver):
             y = {}
             for i, var in enumerate(discrete_vars):
                 for j in range(len(var.values)):
-                    if (var.id, j) not in y.keys():
-                        y[var.id, j] = CBC_solver.BoolVar(f'y{var.id},{j}')
+                    if (id(var), j) not in y.keys():
+                        y[id(var), j] = CBC_solver.BoolVar(f'y{id(var)},{j}')
             #print(y)
             # Create binary constraints
             for i, var in enumerate(discrete_vars):
                 # Binary constraint
                 # sum(bin_vars) == 1            
-                CBC_solver.Add(CBC_solver.Sum([y[var.id, j]
+                CBC_solver.Add(CBC_solver.Sum([y[id(var), j]
                                                for j in range(len(var.values))]) == 1)            
                 # Binary property constraint
                 # Ai == sum(A[i][bin_idx])
                 idx = discrete_ids[i]            
-                CBC_solver.Add(CBC_solver.Sum([y[var.id, j] * var.values[j]
+                CBC_solver.Add(CBC_solver.Sum([y[id(var), j] * var.values[j]
                                                for j in range(len(var.values))]) == x[idx])
 
         # Objective
