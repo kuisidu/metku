@@ -29,8 +29,8 @@ class FrameNode:
         None.
 
         """
-
-        if len(coordinates) == 1 and isinstance(coordinates[0], (list, tuple)):
+        print("COORDINATES: ", coordinates)
+        if len(coordinates) == 1 and isinstance(coordinates[0], (list, tuple, np.ndarray)):
             coordinates = coordinates[0]
         
         self.node_id = ""
@@ -117,5 +117,9 @@ if __name__ == "__main__":
     n2 = FrameNode([0, 0, 0])
     n3 = FrameNode(1, 2)
     n4 = FrameNode([1, 2])
+    n5 = FrameNode(np.asarray([1, 2]) + np.asarray([3, 5]))
 
+    nodes = (n1, n2, n3, n4, n5)
+    for n in nodes:
+        print(n.x, n.y)
     print(n1, n2, n3, n4)
