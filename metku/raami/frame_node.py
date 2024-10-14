@@ -29,7 +29,6 @@ class FrameNode:
         None.
 
         """
-        print("COORDINATES: ", coordinates)
         if len(coordinates) == 1 and isinstance(coordinates[0], (list, tuple, np.ndarray)):
             coordinates = coordinates[0]
         
