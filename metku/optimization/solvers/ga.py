@@ -265,7 +265,7 @@ class GA(OptSolver):
         while it < maxiter:
             it += 1
             problem.num_iters += 1
-            print(f"Iteration {it}/{maxiter}")
+            
             # Select the next generation individuals
             offspring = self.toolbox.select(pop)
             new_pop = self.new_population(offspring)
@@ -304,12 +304,15 @@ class GA(OptSolver):
             sum2 = sum(x * x for x in fits)
             std = abs(sum2 / length - mean ** 2) ** 0.5
 
+            print_text = f"Iteration {it}/{maxiter}"
+
             if verb:
-                print("VERB: ", self.best_x)
-                print(f"Min fitness: {min(fits)} \n"
-                      f"Obj: {problem.obj(self.best_x)} \n"
-                      f"Max con: {max(problem.eval_cons(self.best_x)):.3f}  "
-                      f"{problem.cons[np.argmax(problem.eval_cons(self.best_x))].name}")
+                print_text += f": Best X: {self.best_x} "
+                print_text += f"Min fitness: {min(fits):.3f} "
+                print_text += f"Obj: {problem.obj(self.best_x)} "
+                print_text += f"Max con: {max(problem.eval_cons(self.best_x)):.3f} "
+                print_text += f"{problem.cons[np.argmax(problem.eval_cons(self.best_x))].name}  {' '*100 }"
+            print(f"\r{print_text}", end="")
 
             # Set new best values to problem
             problem.substitute_variables(self.best_x)
