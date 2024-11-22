@@ -92,6 +92,8 @@ class GA(OptSolver):
         self.penalty = penalty
         self.counter = 0
 
+        self.unique_childs = []
+
     def take_action(self):
         pass
 
@@ -204,6 +206,7 @@ class GA(OptSolver):
         self.toolbox.register("population", tools.initRepeat,
                               list, self.toolbox.individual)
 
+
     def new_population(self, offspring):
         """
         Creates a new population from offsprings by shuffling them
@@ -221,6 +224,7 @@ class GA(OptSolver):
 
         if self.best_ind is not None:
             new_population.append(self.best_ind)
+
 
         return new_population
 
@@ -269,7 +273,6 @@ class GA(OptSolver):
             # Select the next generation individuals
             offspring = self.toolbox.select(pop)
             new_pop = self.new_population(offspring)
-
             # Clone the selected individuals
             offspring = list(map(self.toolbox.clone, new_pop))
 
@@ -287,7 +290,15 @@ class GA(OptSolver):
                     if random.random() < MUTPB:
                         self.toolbox.mutate(mutant)
                         del mutant.fitness.values
-
+                # Remove previously analyzed individuals
+                if tuple(child1) not in self.unique_childs:
+                    self.unique_childs.append(tuple(child1))
+                else:
+                    offspring.remove(child1)
+                if tuple(child2) not in self.unique_childs:
+                    self.unique_childs.append(tuple(child2))
+                else:
+                    offspring.remove(child2)
             # Evaluate the individuals with an invalid fitness
             invalid_ind = [ind for ind in offspring if
                            not ind.fitness.valid]
