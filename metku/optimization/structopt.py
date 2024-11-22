@@ -554,7 +554,7 @@ class OptimizationProblem:
         Runs finite element analysis on structure
         """
         if load_id is None:
-            load_id = self.structure.load_ids[0]
+            load_id = "ALL"
         
         self.structure.calculate(load_id)
         self.fea_done[load_id] = True
