@@ -2,18 +2,12 @@
 # Copyright 2022 Kristo Mela
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
 # Author(s): Kristo Mela
-try:
-    from metku.frame2d.frame2d import SteelBeam
-    from metku.sections.steel import SteelSection
-    from metku.optimization.structopt import *
-    from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
-    from metku.sections.steel import ISection, WISection, RHS
-except:
-    from frame2d.frame2d import SteelBeam
-    from sections.steel import SteelSection
-    from optimization.structopt import *
-    from sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
-    from sections.steel import ISection, WISection, RHS
+
+from metku.frame2d.frame2d import SteelBeam
+from metku.sections.steel import SteelSection
+from metku.optimization.structopt import *
+from metku.sections.steel.catalogue import ipe_profiles, shs_profiles, hea_profiles
+from metku.sections.steel import ISection, WISection, RHS
 
 
 class StructuralProblem(OptimizationProblem):
@@ -68,13 +62,13 @@ class StructuralProblem(OptimizationProblem):
         if profiles is None:
             profiles = list(ipe_profiles.keys())
         self.profiles = profiles
-        
+
         """ Generate variables.
             By default, index variables are generated. This can be overridden
             by var_groups, which gives the variable data.
         """
         self.create_variables()
-        
+
         """ Generate constraints 
             By default, cross-section resistance constraints are generated.
             This can be overridden by 'constraints' dict.
@@ -265,7 +259,6 @@ class StructuralProblem(OptimizationProblem):
 
             def e_pos(x):
                 return joint.e / ((0.25 * joint.chord.cross_section.H)) - 1
-
 
             def e_neg(x):
                 return -1 - joint.e / (0.55 * joint.chord.cross_section.H)
@@ -503,8 +496,8 @@ class StructuralProblem(OptimizationProblem):
         :param mem: FrameMember -object
         :return:
         """
-        K_web = [0,33,38,42, np.inf]
-        K_flange = [0,9,10,14, np.inf]
+        K_web = [0, 33, 38, 42, np.inf]
+        K_flange = [0, 9, 10, 14, np.inf]
 
         def web_class(x):
             if isinstance(mem.cross_section, (ISection, WISection)):
@@ -668,7 +661,6 @@ class StructuralProblem(OptimizationProblem):
                             fea_required=True)
                         self.add(con)
 
-
     def create_variables(self):
         """
         Creates design variables
@@ -828,6 +820,7 @@ class StructuralProblem(OptimizationProblem):
         """ By default, weight of the structure is taken as the
             objective function.
         """
+
         def obj_fun(x):
             """ Variable substitution is not shown """
             return self.structure.weight
@@ -836,8 +829,6 @@ class StructuralProblem(OptimizationProblem):
                                 obj_fun=obj_fun,
                                 obj_type='MIN')
         self.add(obj)
-
-
 
 
 def test1():
@@ -909,8 +900,8 @@ def test1():
                                 )
     problem([50, 50, 30])
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     test1()
 
     # from metku.frame2d.frame2d import *
