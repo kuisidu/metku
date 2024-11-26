@@ -60,6 +60,7 @@ class FrameNode:
         
         # Update member lengths
         for mem in self.members:
+            mem.recalculate_coordinates()
             mem.member.length = mem.length()
         
     @property
@@ -77,6 +78,7 @@ class FrameNode:
         
         # Update connected member lengths
         for mem in self.members:
+            mem.recalculate_coordinates()
             mem.member.length = mem.length()
     
     @property
@@ -95,6 +97,7 @@ class FrameNode:
         
         # Update member lengths
         for mem in self.members:
+            mem.recalculate_coordinates()
             mem.member.length = mem.length()
     
     def plot(self, print_text=True, marker='ok', axes=None):
