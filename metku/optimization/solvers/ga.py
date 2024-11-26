@@ -91,8 +91,8 @@ class GA(OptSolver):
         self.best_ind = None
         self.penalty = penalty
         self.counter = 0
-
-        self.unique_childs = []
+        # Dictionary of evaluated offsprings
+        self.unique_childs = {}
 
     def take_action(self):
         pass
@@ -295,14 +295,18 @@ class GA(OptSolver):
                         self.toolbox.mutate(mutant)
                         del mutant.fitness.values
                 # Remove previously analyzed individuals
+
                 if tuple(child1) not in self.unique_childs:
-                    self.unique_childs.append(tuple(child1))
+                    fit = list(map(self.toolbox.evaluate, [child1]))
+                    self.unique_childs[tuple(child1)] = fit[0]
                 else:
-                    offspring.remove(child1)
+                    child1.fitness.values = self.unique_childs[tuple(child1)]
+
                 if tuple(child2) not in self.unique_childs:
-                    self.unique_childs.append(tuple(child2))
+                    fit = list(map(self.toolbox.evaluate, [child2]))
+                    self.unique_childs[tuple(child2)] = fit[0]
                 else:
-                    offspring.remove(child2)
+                    child2.fitness.values = self.unique_childs[tuple(child2)]
             # Evaluate the individuals with an invalid fitness
             invalid_ind = [ind for ind in offspring if
                            not ind.fitness.valid]
@@ -312,7 +316,7 @@ class GA(OptSolver):
             # The population is entirely replaced by the offspring
             pop[:] = offspring
 
-            # Gather all the fitnesses in one list and print the stats
+            # # Gather all the fitnesses in one list and print the stats
             fits = [ind.fitness.values[0] for ind in pop]
             length = len(pop)
             mean = sum(fits) / length
