@@ -332,7 +332,11 @@ class FrameMember:
         if self.self_weight:
             self.self_weight = False
         
-    
+    def recalculate_coordinates(self):
+        """ Clear global node coordinates and recalculate those """
+        self.global_node_coords.clear()
+        self.calc_nodal_coordinates()
+
     def calc_nodal_coordinates(self, num_elements=0):
         """ Calculates nodal coordinates along the member 
             
