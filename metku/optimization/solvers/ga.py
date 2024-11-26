@@ -213,7 +213,11 @@ class GA(OptSolver):
         :param offspring: list of offsprings
         :return: new population
         """
-        idx = np.random.randint(len(offspring) - 1)
+        if len(offspring) > 1:
+            idx = np.random.randint(len(offspring) - 1)
+        else:
+            idx = 0
+
         self.problem.substitute_variables(self.best_x)
         values = [var.value for var in self.problem.vars]
         for i, val in enumerate(offspring[idx]):
