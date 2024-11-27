@@ -136,7 +136,7 @@ class Raami:
             self.load_ids.append(loadcase.load_id)
 
         for load in loadcase.loads:
-            if load not in self.loads:
+            if load.name not in self.loads:
                 self.add(load)
 
     def add_loadcombination(self, loadcombination: LoadCombination) -> None:
@@ -156,6 +156,13 @@ class Raami:
                         changes along the way.
                     """
 
+
+        if pointload.name in self.loads.keys():
+            pointload.name += str(len(self.loads))
+
+        if pointload not in self.loads.values():
+            self.loads[pointload.name] = pointload
+
         if not (pointload.load_id in self.load_ids):
             # There is no load case for the new load.
             # Add a new load case for this load
@@ -167,11 +174,7 @@ class Raami:
             # load to that load case
             self.load_cases[pointload.load_id].add(pointload)
 
-        if pointload.name in self.loads.keys():
-            pointload.name += str(len(self.loads))
 
-        if pointload not in self.loads.values():
-            self.loads[pointload.name] = pointload
 
         """ If the location of the point load is in between
             member end nodes, add a node to the corresponding member
@@ -182,6 +185,13 @@ class Raami:
         """
 
     def add_lineload(self, lineload: LineLoad | PWLineLoad) -> None:
+
+        if lineload.name in self.loads.keys():
+            lineload.name += str(len(self.loads))
+
+        self.loads[lineload.name] = lineload
+
+
         if not (lineload.load_id in self.load_ids):
 
             NewLoadCase = LoadCase(load_id=lineload.load_id, loads=[lineload])
@@ -193,10 +203,7 @@ class Raami:
             # load to that load case
             self.load_cases[lineload.load_id].add(lineload)
 
-        if lineload.name in self.loads.keys():
-            lineload.name += str(len(self.loads))
 
-        self.loads[lineload.name] = lineload
 
     def add_support(self, support: Support) -> None:
         # print("Adding support")
