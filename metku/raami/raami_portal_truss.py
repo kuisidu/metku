@@ -972,7 +972,7 @@ if __name__ == "__main__":
     
     p = PortalTruss()
     
-    p.create_truss(topology='K',ndiv=3,h2=2000,h1=1500,dx=000,first_diagonal_up=True)
+    p.create_truss(topology='K',ndiv=3,h2=2000,h1=1500,dx=000,nel_chord=6, nel_brace=4, first_diagonal_up=True)
     #p.truss.top_chord[0].add_hinge(0)
     #p.truss.top_chord[-1].add_hinge(1)
     #if p.bottom_chord_to_column:
@@ -982,7 +982,7 @@ if __name__ == "__main__":
     p.generate_uniform_load('truss',q=-25,ltype='snow')
     
     #p.truss.generate_supports()
-    p.create_columns(profile=SHS(250,8),hinges=[False,False])
+    p.create_columns(profile=SHS(250,8),hinges=[False,False],nel=[8,4])
     p.create_truss_to_column_joints(y_joint_node=True)
     p.generate_supports()
     p.symmetry()
@@ -1008,9 +1008,9 @@ if __name__ == "__main__":
     p.generate_fem(truss_eccentricity=True,column_eccentricity=True)
         
     #print(p.weight())
-    #p.structural_analysis(load_id=p.load_ids[0],support_method="REM")
+    p.structural_analysis(load_id=p.load_ids[0],support_method="REM")
     
-    p.structural_analysis(load_id='all',support_method="REM")
+    #p.structural_analysis(load_id='all',support_method="REM")
     
     
     #p.optimize_members(verb=True)
@@ -1018,6 +1018,6 @@ if __name__ == "__main__":
     #p.fem.draw()
     #p.plot()
     
-    opts = AbaqusOptions(x_monitor = 0.5*p.L, n_monitored = 2)
-    p.to_abaqus(target_dir='C:/Users/kmela/Data/',filename='K-portaali',partname="K-portaali",options=opts)
+    #opts = AbaqusOptions(x_monitor = 0.5*p.L, n_monitored = 2)
+    #p.to_abaqus(target_dir='C:/Users/kmela/Data/',filename='K-portaali',partname="K-portaali",options=opts)
         

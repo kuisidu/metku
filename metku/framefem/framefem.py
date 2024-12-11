@@ -926,7 +926,7 @@ class FrameFEM:
         
 
     #def draw(self, deformed=False, buckling_mode=None, scale=1.0, axes=None):
-    def draw(self, axes=None,**kwargs):
+    def draw(self, axes=None, nodes=True, **kwargs):
         #deformed=False, buckling_mode=None, scale=1.0, axes=None):
         """  Plots elements and nodes using matplotlib pyplot
         """
@@ -943,9 +943,9 @@ class FrameFEM:
                 ax = axes
 
         """ draw nodes """
-        
-        for i, node in enumerate(self.nodes):
-            node.plot(print_text=str(i),axes=ax)
+        if nodes:
+            for i, node in enumerate(self.nodes):
+                node.plot(print_text=str(i),axes=ax)
         
         """ draw elements """
         if 'deformed' in kwargs:
@@ -995,7 +995,7 @@ class FrameFEM:
             for el in self.elements:
                 X = np.zeros((2,2))
                 for i, n in enumerate(el.nodes):
-                    X[i,:] = (n.coord + scale * np.array(n.u[:2]))
+                    X[i,:] = (n.coord + scale * np.array(n.u[lcase][:2]))
                     
                 if self.dim == 2:
                     ax.plot(X[:, 0], X[:, 1], lstyle)                  
@@ -1806,11 +1806,12 @@ class Element(metaclass=ABCMeta):
                 Xd += scale*u
                 
                 ax.plot(Xd[:, 0], Xd[:, 1], dstyle, color='k')
-                
+            else:
+                ax.text(Xmid[0], Xmid[1], print_text)
             # Plot initial element
             ax.plot(X[:, 0], X[:, 1], lstyle, color=c)
-                
-            ax.text(Xmid[0], Xmid[1], print_text)
+            
+            
         else:
             ax.plot3D(X[:, 0], X[:, 1], X[:,2], lstyle)
             ax.text(Xmid[0], Xmid[1], Xmid[2], print_text)

@@ -471,7 +471,6 @@ class Raami:
         # Iterate through every frame's member's node and calculate 
         # displacements for that node
         for member in self.members.values():
-            # TODO! IMPLEMENT calc_nodal_displacements for FrameMember
             member.calc_nodal_displacements(lcase)
             
     
@@ -719,6 +718,7 @@ class Raami:
 
                 #dist = np.sqrt((x0 - (x0+x1)) ** 2 + (y0 - (y0+y1)) ** 2)
                 dist = np.linalg.norm(np.array(new_coord) - np.array(node.coord))
+                print(dist,max_disp)
                 if dist > max_disp:
                     max_disp = dist
                     coord = scaled_coord
@@ -739,7 +739,10 @@ class Raami:
 
             if len(coord) == 2:
                 """ Plot deflected locations """
-                plt.plot([moved_node.coord[0], coord[0]], [moved_node.coord[1], coord[1]], color="grey", linestyle="--")
+                if isinstance(moved_node,FrameNode):
+                    plt.plot([moved_node.coords[0], coord[0]], [moved_node.coords[1], coord[1]], color="grey", linestyle="--")
+                else:
+                    plt.plot([moved_node.coord[0], coord[0]], [moved_node.coord[1], coord[1]], color="grey", linestyle="--")
                 plt.plot(X, Y, color='gray')
                 plt.plot(*coord, 'ro')
                 plt.text(*coord, "{0:5.{1}g} mm".format(max_disp, prec))
@@ -749,6 +752,27 @@ class Raami:
                 pass
         if show:
             plt.show()
+    
+    def plot_deformed(self, scale=1, prec=4, show=True, load_id=LoadIDs["ULS"], **kwargs):
+        """ Draws deflected shape of the frame
+
+            Parameters
+            ----------
+            :param scale: Scaling factor
+            :param prec: Precision for displacement value
+            :param show: Shows the plotted diagram, allows to plot multiple
+                        diagrams to be plotted on same picture
+
+            :type scale : float
+            :type prec : int
+            :type show: bool
+
+        """
+
+        #self.plot(print_text=False, show=False, **kwargs)
+        self.calc_nodal_displacements(lcase=load_id)
+        self.fem.draw(axes=None, nodes=False, lstyle='-', deformed=load_id,scale=scale)
+        
 
     def xrange(self):
         """ Range of x coordinate values """

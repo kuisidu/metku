@@ -897,6 +897,31 @@ class WISection(SteelSection):
 
         return VbRd
 
+    def transverse_load_resistance(self, bearing_length=0.0, load_type='a', stiffener_spacing = 0.0, end_distance=0.0, verb=False):
+        """ Shear buckling resistance according to EN 1993-1-5, Clause 5 
+            input:
+                stiffener_spacing .. spacing between adjacent stiffeners
+                end_post .. "non-rigid" or "rigid"
+            
+        """
+
+        hw = self.hw
+        tw = self.tw
+        bf = self.bt
+        tt = self.tt
+        ss = bearing_length        
+        rw = hw / tw
+        fyw = self.fy
+        fyf = self.fy
+        
+        if verb:
+            print("Transverse force resistance:")
+        
+        FRd = en1993_1_5.transverse_force_resistance(fyw, hw, tw, fyf, bf, tt, ss, a=stiffener_spacing, ltype=load_type,
+                                        c=end_distance, verb = verb)
+    
+        return FRd
+
     def draw(self, name=""):
         """ Draw the profile """
         fig, ax = plt.subplots(1)

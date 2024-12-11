@@ -33,8 +33,10 @@ def minimize_eccentricity(truss,min_gap=20):
                 gap >= t1 + t2
                 gap >= min_gap
         """
-        beta = joint.joint.beta()
-        b0 = joint.joint.b0
+        #beta = joint.joint.beta()
+        #b0 = joint.joint.b0
+        beta = joint.beta()
+        b0 = joint.b0
         gub = 1.5*b0*(1-beta)
         
         glb = max([0.5*b0*(1-beta),min_gap,sum(joint.t)])

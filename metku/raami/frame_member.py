@@ -1051,20 +1051,20 @@ class MultiSpanMember:
         
         self.local_node_coords = self.global_to_local(self.global_node_coords)
     
+    def calc_nodal_displacements(self,load_id=LoadIDs['ULS']):
+        """ Calculates the nodal displacements of each 'submember'.
+        """
+        for mem in self.members:
+            mem.calc_nodal_displacements(load_id)
+    
     def calc_nodal_forces(self,load_id=LoadIDs['ULS']):
         """ Collects the internal forces at the nodes into
             'nodal_forces' attribute which is a dict.
         """
         for mem in self.members:
             mem.calc_nodal_forces(load_id)
-
-
-    def calc_nodal_displacements(self, load_id=LoadIDs['ULS']):
-
-        for member in self.members:
-            member.calc_nodal_displacements(load_id)
-
-
+        
+        
     def generate_elements(self,fem):
         """ Creates internal nodes and elements between nodes """
     

@@ -19,6 +19,8 @@ import numpy as np
 
 from metku.eurocodes.en1993.constants import gammaM5, E
 from metku.structures.steel.steel_member import SteelMember
+from metku.raami.frame_member import SteelFrameMember
+
 
 def eccentricity(h0,h1,h2,t1,t2,g):
     """ Eccentricity of a K gap joint """
@@ -228,7 +230,6 @@ class RHSJoint:
         
         return s0Ed
 
-        
     def new_evalN(self):
         """ Evaluate stress ratio as proposed """
         # s0Ed > 0 for compression
@@ -761,14 +762,21 @@ class RHSYJoint(RHSJoint):
             
             self.brace = brace_member
         else:
-                        
             self.brace = brace
         self.angle = angle
+        
+        self._N1 = self.brace.NEd
         
     @property
     def N1(self):
         """ Force in the brace """
-        return self.brace.NEd
+        #return self.brace.NEd
+        return self._N1
+    
+    @N1.setter
+    def N1(self,val):
+        """ Set brace force """
+        self._N1 = val
     
     @property
     def h(self):
@@ -813,7 +821,7 @@ class RHSYJoint(RHSJoint):
         
         return fb
             
-    def chord_face_failure(self):
+    def chord_face_failure(self,verb=False):
                         
         b = self.beta()
         if b >= 1:
@@ -917,13 +925,13 @@ class RHSYJoint(RHSJoint):
         super().info()
         
         print("  Brace: {0:s}".format(self.brace.profile.__repr__()))
-        if self.brace.NEd < 0:
+        if self.N1 < 0:
             Nsense = "compression"
-        elif self.brace.Ned > 0:
+        elif self.N1 > 0:
             Nsense = "tension"
         else:
             Nsense = "no axial force"
-        print("  NEd: {0:4.2f} kN ({1:s})".format(self.brace.NEd*1e-3,Nsense))
+        print("  NEd: {0:4.2f} kN ({1:s})".format(self.N1*1e-3,Nsense))
         print("    Angle to chord: {0:4.2f} deg".format(self.angle))
         
         beta = self.beta()
@@ -954,7 +962,7 @@ class RHSYJoint(RHSJoint):
         print("    Punching shear:")        
         print("      N_1_Rd = {0:4.2f} kN".format(NiRd*1e-3))
     
-    def design(self):
+    def design(self,verb=False):
         """
         Designs the joint
 
@@ -967,10 +975,13 @@ class RHSYJoint(RHSJoint):
         b = self.beta()
         g = self.gamma()
         
+        if verb:
+            print("Designing Y-joint\n")
+            print("Chord: " + self.chord.profile.__repr__())
         
         if b < 0.85:
             NjRd = self.chord_face_failure()
-        
+            
         else:
             N_cff_Rd = self.chord_face_failure()
             N_csw_Rd = self.chord_web_buckling()
