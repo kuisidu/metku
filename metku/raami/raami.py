@@ -329,7 +329,7 @@ class Raami:
             
             :type load_id: int / str
         """
-        self.generate_fem()
+
         # if no load_id is given, use the first load_id available.
         if load_id is None:
             load_id = self.load_ids[0]
