@@ -29,6 +29,7 @@ from metku.sections.steel.RHS import RHS, SHS
 from metku.sections.steel.ISection import IPE
 from metku.eurocodes.en1993.en1993_1_8.rhs_joints import Line, RHSKGapJoint, RHSYJoint, RHSKTGapJoint
 from metku.eurocodes.en1993.en1993_1_8.en1993_1_8 import full_strength_weld_tube
+from metku.eurocodes.en1993.constants import gammaM5, E
 
 from metku.cost.workshop import Workshop
 
@@ -1219,7 +1220,7 @@ class SlopedTruss(PlaneTruss):
         for joint in self.joints.values():                      
             if isinstance(joint,TubularYJoint):
                 angle = joint.brace_angle(joint.braces[0],geometry="actual")
-                joint.joint.angle = angle
+                #joint.joint.angle = angle
             elif isinstance(joint,TubularKGapJoint):
                 # The gap calculation routine updates the
                 # brace angles and gap
@@ -1597,7 +1598,7 @@ class SlopedTruss(PlaneTruss):
     
             # Plot members
             plt.rcParams['text.color'] = "red"
-            plt.rcParams['font.size'] = 2.5
+            plt.rcParams['font.size'] = 10
             for mem in self.top_chord:
                 mem.plot(print_text, color, ax, mem_dim=True)
             
@@ -2545,6 +2546,16 @@ class TubularJoint:
         else:
             self.chord = None
         
+        # Reduction factor for strength
+        self.r = 0
+        
+        self.N0 = 0.0
+        self.M0 = 0.0
+        
+        # Reinforcement plate
+        self.chord_face_plate = {'lp': 0, 'bp': 0,'tp': 0}
+        self.chord_web_plate = {'lp': 0, 'bp': 0,'tp': 0}
+        
     @property
     def h0(self):
         """ Height of the chord """
@@ -2556,14 +2567,119 @@ class TubularJoint:
         return self.chords[0].cross_section.B
     
     @property
+    def t0(self):
+        """ Wall thickness of the chord """
+        return self.chords[0].cross_section.T
+    
+    @property
+    def r0(self):
+        """ Corner rounding of the chord """
+        return self.chords[0].cross_section.R
+    
+    @property
+    def fy0(self):
+        """ Yield strength of the chord """
+        return self.chords[0].cross_section.fy
+    
+    @property
     def h(self):
         """ Height of the braces """
         return np.array([brace.cross_section.H for brace in self.braces])
     
     @property
+    def b(self):
+        """ Width of the braces """
+        return np.array([brace.cross_section.B for brace in self.braces])
+    
+    @property
     def t(self):
         """ Wall thickness of the braces """
         return np.array([brace.cross_section.T for brace in self.braces])
+    
+    @property
+    def fy(self):
+        """ Yield strength of the braces """
+        return np.array([brace.cross_section.fy for brace in self.braces])
+    
+    def gamma(self):
+        return 0.5*self.b0/self.t0
+    
+    def b_straight(self):
+        """ Length of the straight part of the chord profile """
+        return self.b0-2*self.r0
+        
+    def beta(self):
+        """ Abstract method for beta that depends on the joint type """
+        return None
+    
+    def eval_KN(self):
+        """ Evaluate stress function """
+        # by default, assume the chord face is in tension: kn = 1.0
+        kn = 1.0
+        n = self.eval_N()
+        b = self.beta()
+        if n > 0.0: # compression
+            kn = min(1.3-0.4*n/b, 1.0)
+        
+        return kn
+        
+    def strength_reduction(self):
+        """ Reduce the strength of joint for steel greater than S355
+        
+            NOTE! Strength reduction factor can be separately specified
+            in attribute 'r'.
+        """
+        
+        if self.r == 0:
+            r = 1.0
+            if self.fy0 <= 355:
+                r = 1.0
+            elif self.fy0 <= 460:            
+                r = 0.9
+            else:
+                r = 0.8
+        else:
+            r = self.r
+        return r
+        
+    def eval_N(self):
+        """ Evaluate chord stress function """
+        # s0Ed > 0 for compression
+        s0Ed = self.chord_stress()
+        n = s0Ed/self.fy0/gammaM5
+        return n
+    
+    
+    def chord_stress(self):
+        """ Chord stress ratio """
+        A0 = self.chords[0].cross_section.A
+        Wel0 = self.chords[0].cross_section.Wel[0]                 
+        # s0Ed is positive, if the stress in the chord
+        # is compressive.
+        # CAREFUL WITH UNITS HERE!
+        s0Ed = -self.N0/A0+self.M0/Wel0
+        
+        return s0Ed
+
+    def new_evalN(self):
+        """ Evaluate stress ratio as proposed """
+        # s0Ed > 0 for compression
+        s0Ed = self.new_chord_axial_stress()
+        # n < 0 for compression
+        n = -s0Ed/self.fy0/gammaM5
+        
+        return n
+        
+    def new_chord_axial_stress(self):
+        """ Axial stress in the chord face at the joint
+            Based on the new proposal, where plastic bending resistance is 
+            used instead of elastic
+        """
+        A0 = self.chords[0].cross_section.A
+        Wpl0 = self.chords[0].cross_section[0].Wpl[1]
+        # s0Ed < 0 for compression
+        s0Ed = -self.N0/A0+self.M0/Wpl0
+        return s0Ed
     
     def weld_size(self,brace):
         """ Size of full strength fillet weld """
@@ -2663,13 +2779,16 @@ class TubularYJoint(TubularJoint):
         super().__init__(node,chords,braces)
         
         # Initial angle is set according to the initial geometry
-        angle = self.brace_angle(braces[0])
+        #angle = self.brace_angle(braces[0])
         
         # Could the chord and braces be members instead of cross-sections?
-        self.joint = RHSYJoint(chords[0].cross_section,braces[0].cross_section,
-                                  angle)
+        #self.joint = RHSYJoint(chords[0].cross_section,braces[0].cross_section,
+        #                          angle)
         
         self.fem_nodes['xc'] = None
+    
+        #print(self.joint.chord.profile.material)
+        #print(self.joint.brace.profile.material)
     
     def __repr__(self):
         
@@ -2677,25 +2796,167 @@ class TubularYJoint(TubularJoint):
         
         return s
     
-    def design(self,load_id):
+    @property
+    def angle(self):
+        return self.brace_angle(self.braces[0],geometry="actual")
+    
+    @property
+    def h(self):
+        """ Brace heights """
+        return self.braces[0].cross_section.H
+    
+    @property
+    def b(self):
+        """ Brace widths """
+        return self.braces[0].cross_section.B
+    
+    @property
+    def t(self):
+        """ Brace thickness """
+        return self.braces[0].cross_section.T
+    
+    @property
+    def fy(self):
+        """ Brace yield strength """
+        return self.braces[0].cross_section.fy
+    
+    def beta(self):
+        return self.b / self.b0
+    
+    @property
+    def eta(self):
+        return self.h/self.b0
+    
+    def fb(self,load_id):
+        """ Yield strength to be used in chord side wall buckling. """
+        
+        if self.braces[0].NEd[load_id] < 0.0:
+            alpha = self.chords[0].cross_section.imp_factor[0]
+            slend = self.slend()
+            phi = 0.5*(1 + alpha*(slend - 0.2) + slend **2)
+            chi = 1 / (phi + np.sqrt(phi**2 - slend**2))
+            
+            fb = chi * self.fy0
+            #print(chi,fb)
+        else:
+            fb = self.fy0
+        
+        return fb
+    
+    def slend(self):
+
+        sl = 3.46*(self.h0/self.t0 -2)*np.sqrt(1/np.sin(np.radians(self.angle)))
+        sl = sl / (np.pi * np.sqrt(E / self.fy0))
+        return sl
+    
+    def chord_face_failure(self,verb=False):
+                        
+        b = self.beta()
+        if b >= 1:
+            # If beta is grater than 1, artificially reduce it to "nearly 1".
+            b = 0.99
+            
+        kn = self.eval_KN()
+        r = self.strength_reduction()
+        fy0 = self.fy0
+        t0 = self.t0
+        NRd = r**kn*fy0*t0**2 / ((1-b)*np.sin(np.radians(self.angle)))
+        NRd = NRd * (2*self.eta / np.sin(np.radians(self.angle)) + 4*np.sqrt(1-b))
+        NRd = NRd/ gammaM5
+
+        return NRd
+    
+    def chord_web_buckling(self):
+        
+        fb = self.fb()
+        kn = self.eval_KN()
+        r = self.strength_reduction()
+        t0 = self.t0
+        h = self.h
+        NRd = r**kn*fb*t0 / (np.sin(np.radians(self.angle)))
+        NRd = NRd * (2*h / np.sin(np.radians(self.angle)) + 10*t0)
+        NRd = NRd / gammaM5
+        return NRd
+    
+    def brace_failure(self):
+        r = self.strength_reduction()
+        b = self.b
+        h = self.h
+        t = self.t
+        fy = self.fy
+        fy0 = self.fy0
+        t0 = self.t0
+        beff = min(10/(self.b0/t0)*fy0*t0/(fy*t),1)*b
+            
+        NiRd = r*self.fy*t*(2*h-4*t+2*beff)/gammaM5
+        return NiRd
+    
+    def punching_shear(self):
+        b = self.b
+        fy0 = self.fy0
+        t0 = self.t0
+        bep = min(10/(self.b0/t0),1.0)*b 
+        r = self.strength_reduction()
+        
+        s = np.sin(np.radians(self.angle))
+            
+        NRd = r*fy0*t0/np.sqrt(3)/s*(2*self.h/s+2*bep)/gammaM5
+        return NRd
+    
+    def design(self,load_id,verb=False):
         """ Design the joint in load case 'load_id' """
         
         """ The the load in the brace """
-        self.joint.brace.Ned = self.braces[0].NEd[load_id]
+        #self.joint.brace.N = self.braces[0].NEd[load_id]
+        #self.joint.N1 = self.braces[0].NEd[load_id]
         
         """ Load in the chord """
-        N0 = 0.0
-        for chord in self.chords:
+        #N0 = 0.0
+        #for chord in self.chords:
             # Here, the FEM node can be something else besides 'xc',
             # depending on the FE model.
-            n = chord.fem_nodes.index(self.fem_nodes['xc'])
-            N = chord.nodal_forces[load_id]['N'][n]
-            if abs(N) > abs(N0):
-                N0 = N
+        #    n = chord.fem_nodes.index(self.fem_nodes['xc'])
+        #    N = chord.nodal_forces[load_id]['N'][n]
+        #    if abs(N) > abs(N0):
+        #        N0 = N
         
-        self.joint.N0 = N0
+        N1 = self.braces[0].NEd[load_id]
+        self.N0 = self.chords[0].NEd[load_id]
 
-        r = self.joint.design()
+        #r = self.joint.design()
+        b = self.beta()
+        g = self.gamma()
+        
+        if verb:
+            print("Designing Y-joint\n")
+            print("Chord: " + self.chords[0].cross_section.__repr__())
+            print("Brace: " + self.braces[0].cross_section.__repr__())
+            print("Beta: {0:4.2f}".format(b))
+            print("Angle: {0:4.2f}".format(self.angle))
+            print("N1_Ed: {0:4.2f} kN".format(self.braces[0].NEd[load_id]*1e-3))
+            print("N0_Ed: {0:4.2f} kN".format(self.chords[0].NEd[load_id]*1e-3))
+        
+        if b < 0.85:
+            NjRd = self.chord_face_failure()
+            if verb:
+                print('Chord face failure: NjRd = {0:4.2f} kN'.format(NjRd*1e-3))
+        else:
+            N_cff_Rd = self.chord_face_failure()
+            N_csw_Rd = self.chord_web_buckling()
+            N_bf_Rd = self.brace_failure()
+            
+            # Linear interpolation between chord face failure at b = 0.85
+            # and chord side wall failure at b = 1.0.
+            # The denominator is 1-0.85 = 0.15.            
+            N_interp_Rd = N_cff_Rd + (b-0.85)/0.15*(N_csw_Rd-N_cff_Rd)
+            
+            NjRd = min(N_interp_Rd,N_bf_Rd)
+            
+            if b <= 1-1/g:
+                N_ps_Rd = self.punching_shear()                
+                NjRd = min(NjRd,N_ps_Rd)
+
+        r = abs(N1)/NjRd        
         
         self.utilization[load_id] = r
         
@@ -2771,14 +3032,14 @@ class TubularKGapJoint(TubularJoint):
         #self.joint = RHSKGapJoint(chords[0].cross_section,
         #                          [braces[0].cross_section,braces[1].cross_section],
         #                          angles,gap)
-        self.joint = RHSKGapJoint(chords[0].member,
-                                  [braces[0].member,braces[1].member],
-                                  angles,gap)
+        #self.joint = RHSKGapJoint(chords[0].member,
+        #                          [braces[0].member,braces[1].member],
+        #                          angles,gap)
         
-        min_gap = max(sum(self.joint.t),0.5*(1-self.joint.beta())*self.joint.b0)
+        min_gap = max(sum(self.t),0.5*(1-self.beta())*self.b0)
         
-        if self.joint.gap < min_gap:            
-            self.joint.gap = min_gap
+        #if self.joint.gap < min_gap:            
+        #    self.joint.gap = min_gap
         
         # Determine which brace and chord member are on the left (right) side
         # of the joint node.
@@ -2868,10 +3129,14 @@ class TubularKGapJoint(TubularJoint):
         #return self.joint.gap
         return self.calc_gap()
     
+    def V0gap(self,load_id):
+        """ Shear force in the gap """
+        return max(self.fem_elements['gap'].fint[load_id]['fz'])
+    
     @property
     def angles(self):
         """ Returns brace angles """
-        return self.joint.angles
+        return [self.brace_angle(brace,geometry="actual") for brace in self.braces]
     
     @property
     def yloc(self):
@@ -3056,7 +3321,7 @@ class TubularKGapJoint(TubularJoint):
         theta = np.array([self.brace_angle(brace,geometry="actual") for brace in self.braces])
         
         # Set angles to the RHS joint object as well
-        self.joint.angles = theta
+        #self.joint.angles = theta
         h0 = self.h0
         h = self.h
         
@@ -3065,24 +3330,115 @@ class TubularKGapJoint(TubularJoint):
         gap = (e + 0.5*h0)*np.sin(np.radians(sum(theta)))/sint.prod()-0.5*sum(h/sint)
                         
         # Set gap for the RHS joint object
-        self.joint.gap = gap
+        #self.joint.gap = gap
         #self.gap = gap
         
         return gap
 
-    def design(self,load_id):
+    def beta(self):
+        return (sum(self.b)+ sum(self.h)) / (4*self.b0)
+
+    def chord_face_failure(self):
+                        
+        b = self.beta()
+        g = self.gamma()                           
+        kn = self.eval_KN()
+        r = self.strength_reduction()
+        fy0 = self.fy0
+        if self.chord_face_plate['tp'] == 0:
+            t0 = self.t0
+        else:
+            t0 = self.chord_face_plate['tp']
+            
+        NRd = []
+        NRd0 = r*8.9*kn*fy0*t0**2*np.sqrt(g)*b/gammaM5
+        for angle in self.angles:
+            s = np.sin(np.radians(angle))            
+            NRd.append(NRd0/s)
+            
+        return np.asarray(NRd)
+    
+    def chord_shear(self,V0gap):
+        Aeta = self.a_eta()
+        # sin of brace angles
+        s = np.sin(np.radians(np.array(self.angles)))
+        fy0 = self.fy0
+        # braces
+        NiRd = fy0*Aeta/np.sqrt(3)/s/gammaM5
+        # chord
+        # Check first, if the chord can sustain the shear force
+        
+        if V0gap/self.chords[0].cross_section.shear_force_resistance() > 1:
+            # Chord profile is not sufficient, so set resistance to 0.0.
+            #print("Chord is not strong enough for shear forces")
+            N0Rd = 0.0
+
+        else:
+            N0Rd = fy0*((self.chords[0].cross_section.A-Aeta)+Aeta*np.sqrt(1-(V0gap/self.chords[0].cross_section.VRd)**2))/gammaM5
+            
+        r = self.strength_reduction()
+        NiRd = r*NiRd
+        N0Rd = r*N0Rd
+        return NiRd, N0Rd
+    
+    def a_eta(self):
+        a = np.sqrt(1/(1+4*self.gap**2/3/self.t0**2))
+        return (2*self.h0+a*self.b0)*self.t0
+    
+    def brace_failure(self):
+        r = self.strength_reduction()
+        b = self.b
+        h = self.h
+        t = self.t
+        fy = self.fy
+        fy0 = self.fy0
+        if self.chord_face_plate['tp'] == 0:
+            t0 = self.t0
+        else:
+            t0 = self.chord_face_plate['tp']
+        
+        beff = np.minimum(10/(self.b0/t0)*fy0*t0/(fy*t),1)*b
+        #beff_arr = np.array([min(x,beff[i]) for i, x in enumerate(b)])
+            
+        NiRd = r*self.fy*t*(2*h-4*t+b+beff)/gammaM5
+        return NiRd
+    
+    def punching_shear(self):
+        b = self.b
+        fy0 = self.fy0
+        if self.chord_face_plate['tp'] == 0:
+            t0 = self.t0
+        else:
+            t0 = self.chord_face_plate['tp']
+        bep = np.minimum(10/(self.b0/t0),1)*b 
+        r = self.strength_reduction()
+        
+        s = np.sin(np.radians(np.array(self.angles)))
+            
+        NRd = r*fy0*t0/np.sqrt(3)/s*(2*self.h/s+b+bep)/gammaM5
+        return NRd
+    
+    def design(self,load_id,verb=True):
         """ Design the joint in load case 'load_id' """
         
         """ The load in the brace """
-        self.joint.braces[0].Ned = self.braces[0].NEd[load_id]
-        self.joint.braces[1].Ned = self.braces[1].NEd[load_id]
+        #self.joint.braces[0].Ned = self.braces[0].NEd[load_id]
+        #self.joint.braces[1].Ned = self.braces[1].NEd[load_id]
+        N1 = self.braces[0].NEd[load_id]
+        N2 = self.braces[1].NEd[load_id]
+        NEd = np.array([N1,N2])
         #for joint_brace, brace in zip(self.joint.braces,self.braces):
             
         #    joint_brace.Ned = brace.NEd[load_id]
         
         """ Load in the chord """
-        N0 = 0.0
+        if abs(self.chords[0].NEd[load_id]) < abs(self.chords[1].NEd[load_id]):
+            N0 = self.chords[0].NEd[load_id]
+        else:
+            N0 = self.chords[1].NEd[load_id]
+        
         M0 = 0.0
+        """
         for chord in self.chords:
             # Here, the FEM node can be something else besides 'xc',
             # depending on the FE model.
@@ -3094,8 +3450,8 @@ class TubularKGapJoint(TubularJoint):
             
             if abs(M) > abs(M0):
                 M0 = M
-        
-        self.joint.N0 = N0
+        """
+        self.N0 = N0
 
         # The chord stress function in rhs_joints.py is constructed such
         # that positive bending moment causes compression stress in the
@@ -3104,12 +3460,73 @@ class TubularKGapJoint(TubularJoint):
         # stress in the joint.        
         if isinstance(self.chords[0],TopChord):
             M0 = -M0
-        self.joint.M0 = M0
+        self.M0 = M0
 
-        r = self.joint.design()
+        #r = self.joint.design()
         
-        self.utilization[load_id] = r
+        b = self.beta()
+        g = self.gamma()
         
+        #NiEd = self.NEd
+        
+        N_cff_Rd = self.chord_face_failure()
+        N0Rd = 1e9
+        V0gap = self.V0gap(load_id)
+        N_cs_Rd, N0Rd = self.chord_shear(V0gap)
+        N_bf_Rd = self.brace_failure()
+        
+        NjRd = np.minimum(N_cff_Rd,N_cs_Rd)
+        NjRd = np.minimum(NjRd,N_bf_Rd)
+        if b <= 1-1/g:
+            N_ps_Rd = self.punching_shear()        
+            NjRd = np.minimum(NjRd,N_ps_Rd)
+        
+        #NjRd = N_cff_Rd
+        r = np.array(abs(NEd)/NjRd,abs(self.N0/N0Rd))
+        
+        self.utilization[load_id] = max(r)
+        
+        if verb:
+            ang = self.angles
+            print("Designing K-joint\n")
+            print("Chord: " + self.chords[0].cross_section.__repr__())
+            print("N0_Ed: {0:4.2f} kN".format(self.N0*1e-3))
+            print("Brace 1: " + self.braces[0].cross_section.__repr__())
+            print("Angle 1: {0:4.2f} deg".format(ang[0]))
+            print("N1_Ed: {0:4.2f} kN".format(self.braces[0].NEd[load_id]*1e-3))
+            print("Brace 2: " + self.braces[1].cross_section.__repr__())
+            print("Angle 2: {0:4.2f} deg".format(ang[1]))
+            print("N2_Ed: {0:4.2f} kN".format(self.braces[1].NEd[load_id]*1e-3))
+            print("Beta: {0:4.2f}".format(b))
+            print("Gap: {0:4.2f} mm".format(self.gap))
+            print("Eccentricity: {0:4.2f} mm".format(self.eccentricity()))
+            print("V0_gap_Ed: {0:4.2f} kN".format(V0gap*1e-3))
+            
+            
+            print('*** Resistances ***')
+            print('Chord face failure:')
+            print('N1Rd_cff = {0:4.2f} kN'.format(N_cff_Rd[0]*1e-3))
+            print('N2Rd_cff = {0:4.2f} kN'.format(N_cff_Rd[1]*1e-3))
+            
+            print('Chord shear failure:')
+            print('N0Rd_csf = {0:4.2f} kN'.format(N0Rd*1e-3))
+            print('N1Rd_csf = {0:4.2f} kN'.format(N_cs_Rd[0]*1e-3))
+            print('N2Rd_csf = {0:4.2f} kN'.format(N_cs_Rd[1]*1e-3))
+            
+            print('Brace failure:')
+            print('N1Rd_bf = {0:4.2f} kN'.format(N_bf_Rd[0]*1e-3))
+            print('N2Rd_bf = {0:4.2f} kN'.format(N_bf_Rd[1]*1e-3))
+            
+            if b <= 1-1/g:
+                print('Punching shear failure:')
+                print('N1Rd_psf = {0:4.2f} kN'.format(N_ps_Rd[0]*1e-3))
+                print('N2Rd_psf = {0:4.2f} kN'.format(N_ps_Rd[1]*1e-3))
+            else:
+                print('Punching shear failure need not be checked:')
+                print(f'Beta = {b:3.2f} > 1-1/gamma = {1-1/g:4.2f}')
+            
+            
+            
         return r
 
     def clear_fem(self):

@@ -274,11 +274,14 @@ class FinPlateJoint:
         
         VpRd = self.fyp*self.tp*self.hp**2/6/self.z
         
-        if self.z > self.tp/0.15:      
+        if self.z < self.tp/0.15:      
             if verb:
-                print('Fin plate LTB need not be checked.')
+                print('Fin plate LTB need not be checked:')
+                print(f'zp = {self.z:4.2f} mm < tp/0.15 = {self.tp/0.15:4.2f} mm')
             C = 1.0
+            ltb_check = False
         else:
+            ltb_check = True
             if verb:
                 print('Fin plate LTB needs to be checked.')
             l1 = np.pi*np.sqrt(self.plate.E/self.fyp)
@@ -290,11 +293,12 @@ class FinPlateJoint:
             
         VbRd = C*VpRd
         
-        if verb:
+        if verb:            
             print(f'Fin plate LTB resistance: VRd7 = {VbRd*1e-3:4.2f} kN')
-            print(f'                          VpRd = {VpRd*1e-3:4.2f} kN')
-            print(f'                            l1 = {l1:4.2f}')
-            print(f'                           lLT = {lLT:4.2f}')
+            if ltb_check:
+                print(f'                          VpRd = {VpRd*1e-3:4.2f} kN')
+                print(f'                            l1 = {l1:4.2f}')
+                print(f'                           lLT = {lLT:4.2f}')
             print(f'                             C = {C:4.2f}')
         
         return VbRd
