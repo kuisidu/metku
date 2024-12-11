@@ -1057,7 +1057,14 @@ class MultiSpanMember:
         """
         for mem in self.members:
             mem.calc_nodal_forces(load_id)
-        
+
+
+    def calc_nodal_displacements(self, load_id=LoadIDs['ULS']):
+
+        for member in self.members:
+            member.calc_nodal_displacements(load_id)
+
+
     def generate_elements(self,fem):
         """ Creates internal nodes and elements between nodes """
     
