@@ -274,6 +274,7 @@ class Raami:
         if not self.fem_generated:
             self.fem_generated = True
 
+        self.clear_fem()
         # Create nodes at the locations of the
         # FrameNodes
         for node in self.nodes:
@@ -321,7 +322,7 @@ class Raami:
             
             :type load_id: int / str
         """
-        
+        self.generate_fem()
         # if no load_id is given, use the first load_id available.
         if load_id is None:
             load_id = self.load_ids[0]

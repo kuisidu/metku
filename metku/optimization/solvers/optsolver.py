@@ -307,10 +307,11 @@ class OptSolver:
             end = time.time()
 
             if verb:
-                print(
-                    f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {state_feasible} '\
-                    f'max g: {max(self.constr_vals):.4f} best value: {self.best_f:.2f} '\
-                    f'Iteration took: {end - start :.2f} s {" "*100}',end="")
+                text = f'\r Iteration {i + 1} / {maxiter}: Obj: {fval:.4f} Feasible: {state_feasible} '
+                if len(problem.cons):
+                    text += f'max g: {max(self.constr_vals):.4f} best value: {self.best_f:.2f} '
+                text += f'Iteration took: {end - start :.2f} s {" "*100}'
+                print(text,end="")
 
             # CHECK STOPPING CRITERIA
             # If new state is almost same as previous AND the design is feasible,

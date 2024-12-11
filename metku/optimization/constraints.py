@@ -44,6 +44,8 @@ class Constraint:
             vars = [vars]
         self.vars = vars
 
+        if load_ids is None:
+            load_ids = ["ALL"]
 
         if not isinstance(load_ids, Iterable):
             load_ids = [load_ids]
@@ -77,7 +79,7 @@ class Constraint:
                 NOTE: X_TOL should be small
             """
             if np.linalg.norm(X - x) > X_TOL:
-                #print('variablet asetettiin')
+                # print('variablet asetettiin')
                 self.problem.substitute_variables(x)
 
         """ If structural analysis is part of the consraint evaluation

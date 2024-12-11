@@ -91,6 +91,8 @@ class GA(OptSolver):
         self.best_ind = None
         self.penalty = penalty
         self.counter = 0
+        # Dictionary of evaluated offsprings
+        self.unique_childs = {}
 
     def take_action(self):
         pass
@@ -204,13 +206,18 @@ class GA(OptSolver):
         self.toolbox.register("population", tools.initRepeat,
                               list, self.toolbox.individual)
 
+
     def new_population(self, offspring):
         """
         Creates a new population from offsprings by shuffling them
         :param offspring: list of offsprings
         :return: new population
         """
-        idx = np.random.randint(len(offspring) - 1)
+        if len(offspring) > 1:
+            idx = np.random.randint(len(offspring) - 1)
+        else:
+            idx = 0
+
         self.problem.substitute_variables(self.best_x)
         values = [var.value for var in self.problem.vars]
         for i, val in enumerate(offspring[idx]):
@@ -221,6 +228,7 @@ class GA(OptSolver):
 
         if self.best_ind is not None:
             new_population.append(self.best_ind)
+
 
         return new_population
 
@@ -265,11 +273,10 @@ class GA(OptSolver):
         while it < maxiter:
             it += 1
             problem.num_iters += 1
-            print(f"Iteration {it}/{maxiter}")
+            
             # Select the next generation individuals
             offspring = self.toolbox.select(pop)
             new_pop = self.new_population(offspring)
-
             # Clone the selected individuals
             offspring = list(map(self.toolbox.clone, new_pop))
 
@@ -287,7 +294,19 @@ class GA(OptSolver):
                     if random.random() < MUTPB:
                         self.toolbox.mutate(mutant)
                         del mutant.fitness.values
+                # Remove previously analyzed individuals
 
+                if tuple(child1) not in self.unique_childs:
+                    fit = list(map(self.toolbox.evaluate, [child1]))
+                    self.unique_childs[tuple(child1)] = fit[0]
+                else:
+                    child1.fitness.values = self.unique_childs[tuple(child1)]
+
+                if tuple(child2) not in self.unique_childs:
+                    fit = list(map(self.toolbox.evaluate, [child2]))
+                    self.unique_childs[tuple(child2)] = fit[0]
+                else:
+                    child2.fitness.values = self.unique_childs[tuple(child2)]
             # Evaluate the individuals with an invalid fitness
             invalid_ind = [ind for ind in offspring if
                            not ind.fitness.valid]
@@ -297,19 +316,22 @@ class GA(OptSolver):
             # The population is entirely replaced by the offspring
             pop[:] = offspring
 
-            # Gather all the fitnesses in one list and print the stats
+            # # Gather all the fitnesses in one list and print the stats
             fits = [ind.fitness.values[0] for ind in pop]
             length = len(pop)
             mean = sum(fits) / length
             sum2 = sum(x * x for x in fits)
             std = abs(sum2 / length - mean ** 2) ** 0.5
 
+            print_text = f"Iteration {it}/{maxiter}"
+
             if verb:
-                print("VERB: ", self.best_x)
-                print(f"Min fitness: {min(fits)} \n"
-                      f"Obj: {problem.obj(self.best_x)} \n"
-                      f"Max con: {max(problem.eval_cons(self.best_x)):.3f}  "
-                      f"{problem.cons[np.argmax(problem.eval_cons(self.best_x))].name}")
+                print_text += f": Best X: {self.best_x} "
+                print_text += f"Min fitness: {min(fits):.3f} "
+                print_text += f"Obj: {problem.obj(self.best_x)} "
+                print_text += f"Max con: {max(problem.eval_cons(self.best_x)):.3f} "
+                print_text += f"{problem.cons[np.argmax(problem.eval_cons(self.best_x))].name}  {' '*100 }"
+            print(f"\r{print_text}", end="")
 
             # Set new best values to problem
             problem.substitute_variables(self.best_x)

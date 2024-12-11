@@ -372,21 +372,20 @@ class OptimizationProblem:
             df = self.grad(x)
                 
         for i, var in enumerate(self.vars):
+            prev_val = var.value
             if isinstance(var, BinaryVariable):
                 h = 1
             elif isinstance(var, IndexVariable):
                 h = 1
-                prev_val = var.value
                 if var.idx + h > var.ub:
                     h = -1
                 var.substitute(var.idx + h)
             else:
                 x[i] = var.value
-                """ Get current value of variable """
-                prev_val = var.value
                 """ Step length """
-                    
                 h = max(1e-6 * abs(prev_val), 1e-8)
+                if prev_val + h > var.ub:
+                    h *= -1
                 var.substitute(prev_val + h)
                 
             """ Get variable values """
@@ -435,7 +434,6 @@ class OptimizationProblem:
         """
         #end = time.time()
         # print("Linearization took: ", end - start, " s")
-
         return A, B, df, fx
     
     def conlin(self,x):
@@ -554,9 +552,9 @@ class OptimizationProblem:
         Runs finite element analysis on structure
         """
         if load_id is None:
-            load_id = self.structure.load_ids[0]
+            load_id = "ALL"
         
-        self.structure.calculate(load_id)
+        self.structure.calculate(load_id, support_method="REM", design=False)
         self.fea_done[load_id] = True
         self.num_fem_analyses += 1
 

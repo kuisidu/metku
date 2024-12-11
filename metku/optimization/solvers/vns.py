@@ -84,7 +84,7 @@ class VNS(OptSolver):
 
         fopt, xopt = self.solver.solve(self.problem, maxiter=self.maxiter, x0=self.x0, plot=self.plot)
 
-        if fopt < self.fopt and xopt != self.prev_x:
+        if fopt < self.fopt and np.all(xopt != self.prev_x):
             self.fopt = fopt
             self.x0 = xopt
             self.solver.best_f, self.solver.prev_best = fopt, fopt
@@ -155,9 +155,7 @@ class VNS(OptSolver):
                     return individual
                 self.solver_params = dict(
                     pop_size=self.pop_size,
-                    mut_fun=mutate,
-                    mut_rate=1,
-                    cx_rate=0.9,
+                    mutation_fun=mutate,
                     mutation_kwargs={'prob': 0.05,
                                      "stepsize": 100,
                                      "multiplier": self.step_length}
