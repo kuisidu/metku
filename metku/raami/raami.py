@@ -718,7 +718,6 @@ class Raami:
 
                 #dist = np.sqrt((x0 - (x0+x1)) ** 2 + (y0 - (y0+y1)) ** 2)
                 dist = np.linalg.norm(np.array(new_coord) - np.array(node.coord))
-                print(dist,max_disp)
                 if dist > max_disp:
                     max_disp = dist
                     coord = scaled_coord
