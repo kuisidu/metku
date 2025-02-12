@@ -336,6 +336,15 @@ class FrameMember:
         """ Clear global node coordinates and recalculate those """
         self.global_node_coords.clear()
         self.calc_nodal_coordinates()
+        self.update_fem_nodes()
+
+    def update_fem_nodes(self):
+        if len(self.fem_nodes):
+            sorted_nodes = sorted(self.fem_nodes, key=lambda n: self.global_to_local(n.coords))
+            for fem_node, coord in zip(sorted_nodes, self.global_node_coords):
+                fem_node.coord = coord
+
+
 
     def calc_nodal_coordinates(self, num_elements=0):
         """ Calculates nodal coordinates along the member 
